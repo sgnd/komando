@@ -9878,197 +9878,3029 @@ exit 2
 Error: missing arguments; usage: komando user unlock TARGET USER
 Hint: for example: komando user unlock web1 alice
 (code USAGE, exit 2)
-### komando -o json vpn add (agent json)
+### komando -o json vpn anyconnect add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.add","error":{"code":"USAGE","message":"komando vpn add needs a name and what to add","hint":"for example: komando vpn add office wireguard --config ~/Downloads/office.conf. A person can type `komando vpn add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.add","error":{"code":"USAGE","message":"vpn anyconnect add takes NAME","hint":"for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn add (agent text)
+### komando -o text vpn anyconnect add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando vpn add needs a name and what to add
-Hint: for example: komando vpn add office wireguard --config ~/Downloads/office.conf. A person can type `komando vpn add` alone at a terminal to be asked step by step
+Error: vpn anyconnect add takes NAME
+Hint: for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)
 (code USAGE, exit 2)
-### komando -o json vpn add (script json)
+### komando -o json vpn anyconnect add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.add","error":{"code":"USAGE","message":"komando vpn add needs a name and what to add","hint":"for example: komando vpn add office wireguard --config ~/Downloads/office.conf. A person can type `komando vpn add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.add","error":{"code":"USAGE","message":"vpn anyconnect add takes NAME","hint":"for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn add (script text)
+### komando -o text vpn anyconnect add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando vpn add needs a name and what to add
-Hint: for example: komando vpn add office wireguard --config ~/Downloads/office.conf. A person can type `komando vpn add` alone at a terminal to be asked step by step
+Error: vpn anyconnect add takes NAME
+Hint: for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)
 (code USAGE, exit 2)
-### komando -o json vpn edit (agent json)
+### komando -o json vpn anyconnect edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.edit","error":{"code":"USAGE","message":"vpn anyconnect edit takes TARGET...","hint":"for example: komando vpn anyconnect edit office --check 10.0.0.5:22 (more in `komando vpn anyconnect edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit (agent text)
+### komando -o text vpn anyconnect edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn edit TARGET...
-Hint: for example: komando vpn edit office --check 10.0.0.5:22
+Error: vpn anyconnect edit takes TARGET...
+Hint: for example: komando vpn anyconnect edit office --check 10.0.0.5:22 (more in `komando vpn anyconnect edit --help`)
 (code USAGE, exit 2)
-### komando -o json vpn edit (script json)
+### komando -o json vpn anyconnect edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn edit TARGET...","hint":"for example: komando vpn edit office --check 10.0.0.5:22"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.edit","error":{"code":"USAGE","message":"vpn anyconnect edit takes TARGET...","hint":"for example: komando vpn anyconnect edit office --check 10.0.0.5:22 (more in `komando vpn anyconnect edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit (script text)
+### komando -o text vpn anyconnect edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn edit TARGET...
-Hint: for example: komando vpn edit office --check 10.0.0.5:22
+Error: vpn anyconnect edit takes TARGET...
+Hint: for example: komando vpn anyconnect edit office --check 10.0.0.5:22 (more in `komando vpn anyconnect edit --help`)
 (code USAGE, exit 2)
-### komando -o json vpn rename (agent json)
+### komando -o json vpn anyconnect remove (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.remove","error":{"code":"USAGE","message":"vpn anyconnect remove takes TARGET...","hint":"for example: komando vpn anyconnect remove office --dry-run (more in `komando vpn anyconnect remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rename (agent text)
+### komando -o text vpn anyconnect remove (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rename OLD NEW
-Hint: for example: komando vpn rename office office-jkt
+Error: vpn anyconnect remove takes TARGET...
+Hint: for example: komando vpn anyconnect remove office --dry-run (more in `komando vpn anyconnect remove --help`)
 (code USAGE, exit 2)
-### komando -o json vpn rename (script json)
+### komando -o json vpn anyconnect remove (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.remove","error":{"code":"USAGE","message":"vpn anyconnect remove takes TARGET...","hint":"for example: komando vpn anyconnect remove office --dry-run (more in `komando vpn anyconnect remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rename (script text)
+### komando -o text vpn anyconnect remove (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rename OLD NEW
-Hint: for example: komando vpn rename office office-jkt
+Error: vpn anyconnect remove takes TARGET...
+Hint: for example: komando vpn anyconnect remove office --dry-run (more in `komando vpn anyconnect remove --help`)
 (code USAGE, exit 2)
-### komando -o json vpn rename x1 (agent json)
+### komando -o json vpn anyconnect rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.rename","error":{"code":"USAGE","message":"vpn anyconnect rename takes NAME NEW","hint":"for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rename x1 (agent text)
+### komando -o text vpn anyconnect rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rename OLD NEW
-Hint: for example: komando vpn rename office office-jkt
+Error: vpn anyconnect rename takes NAME NEW
+Hint: for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)
 (code USAGE, exit 2)
-### komando -o json vpn rename x1 (script json)
+### komando -o json vpn anyconnect rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.rename","error":{"code":"USAGE","message":"vpn anyconnect rename takes NAME NEW","hint":"for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rename x1 (script text)
+### komando -o text vpn anyconnect rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rename OLD NEW
-Hint: for example: komando vpn rename office office-jkt
+Error: vpn anyconnect rename takes NAME NEW
+Hint: for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)
 (code USAGE, exit 2)
-### komando -o json vpn rm (agent json)
+### komando -o json vpn anyconnect rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.rename","error":{"code":"USAGE","message":"vpn anyconnect rename takes NAME NEW","hint":"for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rm (agent text)
+### komando -o text vpn anyconnect rename x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rm TARGET...
-Hint: for example: komando vpn rm old-office
+Error: vpn anyconnect rename takes NAME NEW
+Hint: for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)
 (code USAGE, exit 2)
-### komando -o json vpn rm (script json)
+### komando -o json vpn anyconnect rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rm TARGET...","hint":"for example: komando vpn rm old-office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.rename","error":{"code":"USAGE","message":"vpn anyconnect rename takes NAME NEW","hint":"for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rm (script text)
+### komando -o text vpn anyconnect rename x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn rm TARGET...
-Hint: for example: komando vpn rm old-office
+Error: vpn anyconnect rename takes NAME NEW
+Hint: for example: komando vpn anyconnect rename office office-2 --dry-run (more in `komando vpn anyconnect rename --help`)
 (code USAGE, exit 2)
-### komando -o json vpn show (agent json)
+### komando -o json vpn anyconnect show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.show","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn show NAME","hint":"for example: komando vpn show office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.show","error":{"code":"USAGE","message":"vpn anyconnect show takes NAME","hint":"for example: komando vpn anyconnect show office (more in `komando vpn anyconnect show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn show (agent text)
+### komando -o text vpn anyconnect show (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn show NAME
-Hint: for example: komando vpn show office
+Error: vpn anyconnect show takes NAME
+Hint: for example: komando vpn anyconnect show office (more in `komando vpn anyconnect show --help`)
 (code USAGE, exit 2)
-### komando -o json vpn show (script json)
+### komando -o json vpn anyconnect show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.show","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn show NAME","hint":"for example: komando vpn show office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.show","error":{"code":"USAGE","message":"vpn anyconnect show takes NAME","hint":"for example: komando vpn anyconnect show office (more in `komando vpn anyconnect show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn show (script text)
+### komando -o text vpn anyconnect show (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn show NAME
-Hint: for example: komando vpn show office
+Error: vpn anyconnect show takes NAME
+Hint: for example: komando vpn anyconnect show office (more in `komando vpn anyconnect show --help`)
 (code USAGE, exit 2)
-### komando -o json vpn test (agent json)
+### komando -o json vpn anyconnect start (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"test","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn test TARGET","hint":"for example: komando vpn test office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.start","error":{"code":"USAGE","message":"vpn anyconnect start takes NAME","hint":"for example: komando vpn anyconnect start office --dry-run (more in `komando vpn anyconnect start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn test (agent text)
+### komando -o text vpn anyconnect start (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn test TARGET
-Hint: for example: komando vpn test office
+Error: vpn anyconnect start takes NAME
+Hint: for example: komando vpn anyconnect start office --dry-run (more in `komando vpn anyconnect start --help`)
 (code USAGE, exit 2)
-### komando -o json vpn test (script json)
+### komando -o json vpn anyconnect start (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"test","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn test TARGET","hint":"for example: komando vpn test office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.start","error":{"code":"USAGE","message":"vpn anyconnect start takes NAME","hint":"for example: komando vpn anyconnect start office --dry-run (more in `komando vpn anyconnect start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn test (script text)
+### komando -o text vpn anyconnect start (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn test TARGET
-Hint: for example: komando vpn test office
+Error: vpn anyconnect start takes NAME
+Hint: for example: komando vpn anyconnect start office --dry-run (more in `komando vpn anyconnect start --help`)
 (code USAGE, exit 2)
-### komando -o json vpn up (agent json)
+### komando -o json vpn anyconnect stop (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.up","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn up NAME","hint":"for example: komando vpn up office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.stop","error":{"code":"USAGE","message":"vpn anyconnect stop takes NAME","hint":"for example: komando vpn anyconnect stop office --dry-run (more in `komando vpn anyconnect stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn up (agent text)
+### komando -o text vpn anyconnect stop (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn up NAME
-Hint: for example: komando vpn up office
+Error: vpn anyconnect stop takes NAME
+Hint: for example: komando vpn anyconnect stop office --dry-run (more in `komando vpn anyconnect stop --help`)
 (code USAGE, exit 2)
-### komando -o json vpn up (script json)
+### komando -o json vpn anyconnect stop (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.up","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn up NAME","hint":"for example: komando vpn up office"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.anyconnect.stop","error":{"code":"USAGE","message":"vpn anyconnect stop takes NAME","hint":"for example: komando vpn anyconnect stop office --dry-run (more in `komando vpn anyconnect stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn up (script text)
+### komando -o text vpn anyconnect stop (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando vpn up NAME
-Hint: for example: komando vpn up office
+Error: vpn anyconnect stop takes NAME
+Hint: for example: komando vpn anyconnect stop office --dry-run (more in `komando vpn anyconnect stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn anyconnect test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.anyconnect.test","error":{"code":"USAGE","message":"vpn anyconnect test takes TARGET","hint":"for example: komando vpn anyconnect test office (more in `komando vpn anyconnect test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn anyconnect test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn anyconnect test takes TARGET
+Hint: for example: komando vpn anyconnect test office (more in `komando vpn anyconnect test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn anyconnect test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.anyconnect.test","error":{"code":"USAGE","message":"vpn anyconnect test takes TARGET","hint":"for example: komando vpn anyconnect test office (more in `komando vpn anyconnect test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn anyconnect test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn anyconnect test takes TARGET
+Hint: for example: komando vpn anyconnect test office (more in `komando vpn anyconnect test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.add","error":{"code":"USAGE","message":"vpn f5 add takes NAME","hint":"for example: komando vpn f5 add office --portal vpn.client.com --user alice (more in `komando vpn f5 add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 add takes NAME
+Hint: for example: komando vpn f5 add office --portal vpn.client.com --user alice (more in `komando vpn f5 add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.add","error":{"code":"USAGE","message":"vpn f5 add takes NAME","hint":"for example: komando vpn f5 add office --portal vpn.client.com --user alice (more in `komando vpn f5 add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 add takes NAME
+Hint: for example: komando vpn f5 add office --portal vpn.client.com --user alice (more in `komando vpn f5 add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.edit","error":{"code":"USAGE","message":"vpn f5 edit takes TARGET...","hint":"for example: komando vpn f5 edit office --check 10.0.0.5:22 (more in `komando vpn f5 edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 edit takes TARGET...
+Hint: for example: komando vpn f5 edit office --check 10.0.0.5:22 (more in `komando vpn f5 edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.edit","error":{"code":"USAGE","message":"vpn f5 edit takes TARGET...","hint":"for example: komando vpn f5 edit office --check 10.0.0.5:22 (more in `komando vpn f5 edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 edit takes TARGET...
+Hint: for example: komando vpn f5 edit office --check 10.0.0.5:22 (more in `komando vpn f5 edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.remove","error":{"code":"USAGE","message":"vpn f5 remove takes TARGET...","hint":"for example: komando vpn f5 remove office --dry-run (more in `komando vpn f5 remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 remove takes TARGET...
+Hint: for example: komando vpn f5 remove office --dry-run (more in `komando vpn f5 remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.remove","error":{"code":"USAGE","message":"vpn f5 remove takes TARGET...","hint":"for example: komando vpn f5 remove office --dry-run (more in `komando vpn f5 remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 remove takes TARGET...
+Hint: for example: komando vpn f5 remove office --dry-run (more in `komando vpn f5 remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.rename","error":{"code":"USAGE","message":"vpn f5 rename takes NAME NEW","hint":"for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 rename takes NAME NEW
+Hint: for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.rename","error":{"code":"USAGE","message":"vpn f5 rename takes NAME NEW","hint":"for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 rename takes NAME NEW
+Hint: for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.rename","error":{"code":"USAGE","message":"vpn f5 rename takes NAME NEW","hint":"for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 rename takes NAME NEW
+Hint: for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.rename","error":{"code":"USAGE","message":"vpn f5 rename takes NAME NEW","hint":"for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 rename takes NAME NEW
+Hint: for example: komando vpn f5 rename office office-2 --dry-run (more in `komando vpn f5 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.show","error":{"code":"USAGE","message":"vpn f5 show takes NAME","hint":"for example: komando vpn f5 show office (more in `komando vpn f5 show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 show takes NAME
+Hint: for example: komando vpn f5 show office (more in `komando vpn f5 show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.show","error":{"code":"USAGE","message":"vpn f5 show takes NAME","hint":"for example: komando vpn f5 show office (more in `komando vpn f5 show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 show takes NAME
+Hint: for example: komando vpn f5 show office (more in `komando vpn f5 show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.start","error":{"code":"USAGE","message":"vpn f5 start takes NAME","hint":"for example: komando vpn f5 start office --dry-run (more in `komando vpn f5 start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 start takes NAME
+Hint: for example: komando vpn f5 start office --dry-run (more in `komando vpn f5 start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.start","error":{"code":"USAGE","message":"vpn f5 start takes NAME","hint":"for example: komando vpn f5 start office --dry-run (more in `komando vpn f5 start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 start takes NAME
+Hint: for example: komando vpn f5 start office --dry-run (more in `komando vpn f5 start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.stop","error":{"code":"USAGE","message":"vpn f5 stop takes NAME","hint":"for example: komando vpn f5 stop office --dry-run (more in `komando vpn f5 stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 stop takes NAME
+Hint: for example: komando vpn f5 stop office --dry-run (more in `komando vpn f5 stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.stop","error":{"code":"USAGE","message":"vpn f5 stop takes NAME","hint":"for example: komando vpn f5 stop office --dry-run (more in `komando vpn f5 stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 stop takes NAME
+Hint: for example: komando vpn f5 stop office --dry-run (more in `komando vpn f5 stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.test","error":{"code":"USAGE","message":"vpn f5 test takes TARGET","hint":"for example: komando vpn f5 test office (more in `komando vpn f5 test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 test takes TARGET
+Hint: for example: komando vpn f5 test office (more in `komando vpn f5 test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn f5 test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.f5.test","error":{"code":"USAGE","message":"vpn f5 test takes TARGET","hint":"for example: komando vpn f5 test office (more in `komando vpn f5 test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn f5 test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn f5 test takes TARGET
+Hint: for example: komando vpn f5 test office (more in `komando vpn f5 test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.add","error":{"code":"USAGE","message":"vpn fortinet add takes NAME","hint":"for example: komando vpn fortinet add office --portal vpn.client.com --user alice (more in `komando vpn fortinet add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet add takes NAME
+Hint: for example: komando vpn fortinet add office --portal vpn.client.com --user alice (more in `komando vpn fortinet add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.add","error":{"code":"USAGE","message":"vpn fortinet add takes NAME","hint":"for example: komando vpn fortinet add office --portal vpn.client.com --user alice (more in `komando vpn fortinet add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet add takes NAME
+Hint: for example: komando vpn fortinet add office --portal vpn.client.com --user alice (more in `komando vpn fortinet add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.edit","error":{"code":"USAGE","message":"vpn fortinet edit takes TARGET...","hint":"for example: komando vpn fortinet edit office --check 10.0.0.5:22 (more in `komando vpn fortinet edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet edit takes TARGET...
+Hint: for example: komando vpn fortinet edit office --check 10.0.0.5:22 (more in `komando vpn fortinet edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.edit","error":{"code":"USAGE","message":"vpn fortinet edit takes TARGET...","hint":"for example: komando vpn fortinet edit office --check 10.0.0.5:22 (more in `komando vpn fortinet edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet edit takes TARGET...
+Hint: for example: komando vpn fortinet edit office --check 10.0.0.5:22 (more in `komando vpn fortinet edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.remove","error":{"code":"USAGE","message":"vpn fortinet remove takes TARGET...","hint":"for example: komando vpn fortinet remove office --dry-run (more in `komando vpn fortinet remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet remove takes TARGET...
+Hint: for example: komando vpn fortinet remove office --dry-run (more in `komando vpn fortinet remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.remove","error":{"code":"USAGE","message":"vpn fortinet remove takes TARGET...","hint":"for example: komando vpn fortinet remove office --dry-run (more in `komando vpn fortinet remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet remove takes TARGET...
+Hint: for example: komando vpn fortinet remove office --dry-run (more in `komando vpn fortinet remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.rename","error":{"code":"USAGE","message":"vpn fortinet rename takes NAME NEW","hint":"for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet rename takes NAME NEW
+Hint: for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.rename","error":{"code":"USAGE","message":"vpn fortinet rename takes NAME NEW","hint":"for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet rename takes NAME NEW
+Hint: for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.rename","error":{"code":"USAGE","message":"vpn fortinet rename takes NAME NEW","hint":"for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet rename takes NAME NEW
+Hint: for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.rename","error":{"code":"USAGE","message":"vpn fortinet rename takes NAME NEW","hint":"for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet rename takes NAME NEW
+Hint: for example: komando vpn fortinet rename office office-2 --dry-run (more in `komando vpn fortinet rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.show","error":{"code":"USAGE","message":"vpn fortinet show takes NAME","hint":"for example: komando vpn fortinet show office (more in `komando vpn fortinet show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet show takes NAME
+Hint: for example: komando vpn fortinet show office (more in `komando vpn fortinet show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.show","error":{"code":"USAGE","message":"vpn fortinet show takes NAME","hint":"for example: komando vpn fortinet show office (more in `komando vpn fortinet show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet show takes NAME
+Hint: for example: komando vpn fortinet show office (more in `komando vpn fortinet show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.start","error":{"code":"USAGE","message":"vpn fortinet start takes NAME","hint":"for example: komando vpn fortinet start office --dry-run (more in `komando vpn fortinet start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet start takes NAME
+Hint: for example: komando vpn fortinet start office --dry-run (more in `komando vpn fortinet start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.start","error":{"code":"USAGE","message":"vpn fortinet start takes NAME","hint":"for example: komando vpn fortinet start office --dry-run (more in `komando vpn fortinet start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet start takes NAME
+Hint: for example: komando vpn fortinet start office --dry-run (more in `komando vpn fortinet start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.stop","error":{"code":"USAGE","message":"vpn fortinet stop takes NAME","hint":"for example: komando vpn fortinet stop office --dry-run (more in `komando vpn fortinet stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet stop takes NAME
+Hint: for example: komando vpn fortinet stop office --dry-run (more in `komando vpn fortinet stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.stop","error":{"code":"USAGE","message":"vpn fortinet stop takes NAME","hint":"for example: komando vpn fortinet stop office --dry-run (more in `komando vpn fortinet stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet stop takes NAME
+Hint: for example: komando vpn fortinet stop office --dry-run (more in `komando vpn fortinet stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.test","error":{"code":"USAGE","message":"vpn fortinet test takes TARGET","hint":"for example: komando vpn fortinet test office (more in `komando vpn fortinet test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet test takes TARGET
+Hint: for example: komando vpn fortinet test office (more in `komando vpn fortinet test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn fortinet test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.fortinet.test","error":{"code":"USAGE","message":"vpn fortinet test takes TARGET","hint":"for example: komando vpn fortinet test office (more in `komando vpn fortinet test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn fortinet test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn fortinet test takes TARGET
+Hint: for example: komando vpn fortinet test office (more in `komando vpn fortinet test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.add","error":{"code":"USAGE","message":"vpn globalprotect add takes NAME","hint":"for example: komando vpn globalprotect add office --portal vpn.client.com --user alice (more in `komando vpn globalprotect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect add takes NAME
+Hint: for example: komando vpn globalprotect add office --portal vpn.client.com --user alice (more in `komando vpn globalprotect add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.add","error":{"code":"USAGE","message":"vpn globalprotect add takes NAME","hint":"for example: komando vpn globalprotect add office --portal vpn.client.com --user alice (more in `komando vpn globalprotect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect add takes NAME
+Hint: for example: komando vpn globalprotect add office --portal vpn.client.com --user alice (more in `komando vpn globalprotect add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.edit","error":{"code":"USAGE","message":"vpn globalprotect edit takes TARGET...","hint":"for example: komando vpn globalprotect edit office --check 10.0.0.5:22 (more in `komando vpn globalprotect edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect edit takes TARGET...
+Hint: for example: komando vpn globalprotect edit office --check 10.0.0.5:22 (more in `komando vpn globalprotect edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.edit","error":{"code":"USAGE","message":"vpn globalprotect edit takes TARGET...","hint":"for example: komando vpn globalprotect edit office --check 10.0.0.5:22 (more in `komando vpn globalprotect edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect edit takes TARGET...
+Hint: for example: komando vpn globalprotect edit office --check 10.0.0.5:22 (more in `komando vpn globalprotect edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.remove","error":{"code":"USAGE","message":"vpn globalprotect remove takes TARGET...","hint":"for example: komando vpn globalprotect remove office --dry-run (more in `komando vpn globalprotect remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect remove takes TARGET...
+Hint: for example: komando vpn globalprotect remove office --dry-run (more in `komando vpn globalprotect remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.remove","error":{"code":"USAGE","message":"vpn globalprotect remove takes TARGET...","hint":"for example: komando vpn globalprotect remove office --dry-run (more in `komando vpn globalprotect remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect remove takes TARGET...
+Hint: for example: komando vpn globalprotect remove office --dry-run (more in `komando vpn globalprotect remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.rename","error":{"code":"USAGE","message":"vpn globalprotect rename takes NAME NEW","hint":"for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect rename takes NAME NEW
+Hint: for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.rename","error":{"code":"USAGE","message":"vpn globalprotect rename takes NAME NEW","hint":"for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect rename takes NAME NEW
+Hint: for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.rename","error":{"code":"USAGE","message":"vpn globalprotect rename takes NAME NEW","hint":"for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect rename takes NAME NEW
+Hint: for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.rename","error":{"code":"USAGE","message":"vpn globalprotect rename takes NAME NEW","hint":"for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect rename takes NAME NEW
+Hint: for example: komando vpn globalprotect rename office office-2 --dry-run (more in `komando vpn globalprotect rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.show","error":{"code":"USAGE","message":"vpn globalprotect show takes NAME","hint":"for example: komando vpn globalprotect show office (more in `komando vpn globalprotect show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect show takes NAME
+Hint: for example: komando vpn globalprotect show office (more in `komando vpn globalprotect show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.show","error":{"code":"USAGE","message":"vpn globalprotect show takes NAME","hint":"for example: komando vpn globalprotect show office (more in `komando vpn globalprotect show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect show takes NAME
+Hint: for example: komando vpn globalprotect show office (more in `komando vpn globalprotect show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.start","error":{"code":"USAGE","message":"vpn globalprotect start takes NAME","hint":"for example: komando vpn globalprotect start office --dry-run (more in `komando vpn globalprotect start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect start takes NAME
+Hint: for example: komando vpn globalprotect start office --dry-run (more in `komando vpn globalprotect start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.start","error":{"code":"USAGE","message":"vpn globalprotect start takes NAME","hint":"for example: komando vpn globalprotect start office --dry-run (more in `komando vpn globalprotect start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect start takes NAME
+Hint: for example: komando vpn globalprotect start office --dry-run (more in `komando vpn globalprotect start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.stop","error":{"code":"USAGE","message":"vpn globalprotect stop takes NAME","hint":"for example: komando vpn globalprotect stop office --dry-run (more in `komando vpn globalprotect stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect stop takes NAME
+Hint: for example: komando vpn globalprotect stop office --dry-run (more in `komando vpn globalprotect stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.stop","error":{"code":"USAGE","message":"vpn globalprotect stop takes NAME","hint":"for example: komando vpn globalprotect stop office --dry-run (more in `komando vpn globalprotect stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect stop takes NAME
+Hint: for example: komando vpn globalprotect stop office --dry-run (more in `komando vpn globalprotect stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.test","error":{"code":"USAGE","message":"vpn globalprotect test takes TARGET","hint":"for example: komando vpn globalprotect test office (more in `komando vpn globalprotect test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect test takes TARGET
+Hint: for example: komando vpn globalprotect test office (more in `komando vpn globalprotect test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn globalprotect test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.globalprotect.test","error":{"code":"USAGE","message":"vpn globalprotect test takes TARGET","hint":"for example: komando vpn globalprotect test office (more in `komando vpn globalprotect test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn globalprotect test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn globalprotect test takes TARGET
+Hint: for example: komando vpn globalprotect test office (more in `komando vpn globalprotect test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.add","error":{"code":"USAGE","message":"vpn ikev2 add takes NAME","hint":"for example: komando vpn ikev2 add office --server vpn.example.com --user alice --credential office-pass (more in `komando vpn ikev2 add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 add takes NAME
+Hint: for example: komando vpn ikev2 add office --server vpn.example.com --user alice --credential office-pass (more in `komando vpn ikev2 add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.add","error":{"code":"USAGE","message":"vpn ikev2 add takes NAME","hint":"for example: komando vpn ikev2 add office --server vpn.example.com --user alice --credential office-pass (more in `komando vpn ikev2 add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 add takes NAME
+Hint: for example: komando vpn ikev2 add office --server vpn.example.com --user alice --credential office-pass (more in `komando vpn ikev2 add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.edit","error":{"code":"USAGE","message":"vpn ikev2 edit takes TARGET...","hint":"for example: komando vpn ikev2 edit office --check 10.0.0.5:22 (more in `komando vpn ikev2 edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 edit takes TARGET...
+Hint: for example: komando vpn ikev2 edit office --check 10.0.0.5:22 (more in `komando vpn ikev2 edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.edit","error":{"code":"USAGE","message":"vpn ikev2 edit takes TARGET...","hint":"for example: komando vpn ikev2 edit office --check 10.0.0.5:22 (more in `komando vpn ikev2 edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 edit takes TARGET...
+Hint: for example: komando vpn ikev2 edit office --check 10.0.0.5:22 (more in `komando vpn ikev2 edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.remove","error":{"code":"USAGE","message":"vpn ikev2 remove takes TARGET...","hint":"for example: komando vpn ikev2 remove office --dry-run (more in `komando vpn ikev2 remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 remove takes TARGET...
+Hint: for example: komando vpn ikev2 remove office --dry-run (more in `komando vpn ikev2 remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.remove","error":{"code":"USAGE","message":"vpn ikev2 remove takes TARGET...","hint":"for example: komando vpn ikev2 remove office --dry-run (more in `komando vpn ikev2 remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 remove takes TARGET...
+Hint: for example: komando vpn ikev2 remove office --dry-run (more in `komando vpn ikev2 remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.rename","error":{"code":"USAGE","message":"vpn ikev2 rename takes NAME NEW","hint":"for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 rename takes NAME NEW
+Hint: for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.rename","error":{"code":"USAGE","message":"vpn ikev2 rename takes NAME NEW","hint":"for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 rename takes NAME NEW
+Hint: for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.rename","error":{"code":"USAGE","message":"vpn ikev2 rename takes NAME NEW","hint":"for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 rename takes NAME NEW
+Hint: for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.rename","error":{"code":"USAGE","message":"vpn ikev2 rename takes NAME NEW","hint":"for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 rename takes NAME NEW
+Hint: for example: komando vpn ikev2 rename office office-2 --dry-run (more in `komando vpn ikev2 rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.show","error":{"code":"USAGE","message":"vpn ikev2 show takes NAME","hint":"for example: komando vpn ikev2 show office (more in `komando vpn ikev2 show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 show takes NAME
+Hint: for example: komando vpn ikev2 show office (more in `komando vpn ikev2 show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.show","error":{"code":"USAGE","message":"vpn ikev2 show takes NAME","hint":"for example: komando vpn ikev2 show office (more in `komando vpn ikev2 show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 show takes NAME
+Hint: for example: komando vpn ikev2 show office (more in `komando vpn ikev2 show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.start","error":{"code":"USAGE","message":"vpn ikev2 start takes NAME","hint":"for example: komando vpn ikev2 start office --dry-run (more in `komando vpn ikev2 start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 start takes NAME
+Hint: for example: komando vpn ikev2 start office --dry-run (more in `komando vpn ikev2 start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.start","error":{"code":"USAGE","message":"vpn ikev2 start takes NAME","hint":"for example: komando vpn ikev2 start office --dry-run (more in `komando vpn ikev2 start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 start takes NAME
+Hint: for example: komando vpn ikev2 start office --dry-run (more in `komando vpn ikev2 start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.stop","error":{"code":"USAGE","message":"vpn ikev2 stop takes NAME","hint":"for example: komando vpn ikev2 stop office --dry-run (more in `komando vpn ikev2 stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 stop takes NAME
+Hint: for example: komando vpn ikev2 stop office --dry-run (more in `komando vpn ikev2 stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.stop","error":{"code":"USAGE","message":"vpn ikev2 stop takes NAME","hint":"for example: komando vpn ikev2 stop office --dry-run (more in `komando vpn ikev2 stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 stop takes NAME
+Hint: for example: komando vpn ikev2 stop office --dry-run (more in `komando vpn ikev2 stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.test","error":{"code":"USAGE","message":"vpn ikev2 test takes TARGET","hint":"for example: komando vpn ikev2 test office (more in `komando vpn ikev2 test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 test takes TARGET
+Hint: for example: komando vpn ikev2 test office (more in `komando vpn ikev2 test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ikev2 test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ikev2.test","error":{"code":"USAGE","message":"vpn ikev2 test takes TARGET","hint":"for example: komando vpn ikev2 test office (more in `komando vpn ikev2 test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ikev2 test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ikev2 test takes TARGET
+Hint: for example: komando vpn ikev2 test office (more in `komando vpn ikev2 test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.add","error":{"code":"USAGE","message":"vpn ipsec add takes NAME","hint":"for example: komando vpn ipsec add office --server asa.client.com --id staff --psk-credential office-psk --user alice (more in `komando vpn ipsec add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec add takes NAME
+Hint: for example: komando vpn ipsec add office --server asa.client.com --id staff --psk-credential office-psk --user alice (more in `komando vpn ipsec add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.add","error":{"code":"USAGE","message":"vpn ipsec add takes NAME","hint":"for example: komando vpn ipsec add office --server asa.client.com --id staff --psk-credential office-psk --user alice (more in `komando vpn ipsec add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec add takes NAME
+Hint: for example: komando vpn ipsec add office --server asa.client.com --id staff --psk-credential office-psk --user alice (more in `komando vpn ipsec add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.edit","error":{"code":"USAGE","message":"vpn ipsec edit takes TARGET...","hint":"for example: komando vpn ipsec edit office --check 10.0.0.5:22 (more in `komando vpn ipsec edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec edit takes TARGET...
+Hint: for example: komando vpn ipsec edit office --check 10.0.0.5:22 (more in `komando vpn ipsec edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.edit","error":{"code":"USAGE","message":"vpn ipsec edit takes TARGET...","hint":"for example: komando vpn ipsec edit office --check 10.0.0.5:22 (more in `komando vpn ipsec edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec edit takes TARGET...
+Hint: for example: komando vpn ipsec edit office --check 10.0.0.5:22 (more in `komando vpn ipsec edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.remove","error":{"code":"USAGE","message":"vpn ipsec remove takes TARGET...","hint":"for example: komando vpn ipsec remove office --dry-run (more in `komando vpn ipsec remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec remove takes TARGET...
+Hint: for example: komando vpn ipsec remove office --dry-run (more in `komando vpn ipsec remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.remove","error":{"code":"USAGE","message":"vpn ipsec remove takes TARGET...","hint":"for example: komando vpn ipsec remove office --dry-run (more in `komando vpn ipsec remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec remove takes TARGET...
+Hint: for example: komando vpn ipsec remove office --dry-run (more in `komando vpn ipsec remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.rename","error":{"code":"USAGE","message":"vpn ipsec rename takes NAME NEW","hint":"for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec rename takes NAME NEW
+Hint: for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.rename","error":{"code":"USAGE","message":"vpn ipsec rename takes NAME NEW","hint":"for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec rename takes NAME NEW
+Hint: for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.rename","error":{"code":"USAGE","message":"vpn ipsec rename takes NAME NEW","hint":"for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec rename takes NAME NEW
+Hint: for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.rename","error":{"code":"USAGE","message":"vpn ipsec rename takes NAME NEW","hint":"for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec rename takes NAME NEW
+Hint: for example: komando vpn ipsec rename office office-2 --dry-run (more in `komando vpn ipsec rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.show","error":{"code":"USAGE","message":"vpn ipsec show takes NAME","hint":"for example: komando vpn ipsec show office (more in `komando vpn ipsec show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec show takes NAME
+Hint: for example: komando vpn ipsec show office (more in `komando vpn ipsec show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.show","error":{"code":"USAGE","message":"vpn ipsec show takes NAME","hint":"for example: komando vpn ipsec show office (more in `komando vpn ipsec show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec show takes NAME
+Hint: for example: komando vpn ipsec show office (more in `komando vpn ipsec show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.start","error":{"code":"USAGE","message":"vpn ipsec start takes NAME","hint":"for example: komando vpn ipsec start office --dry-run (more in `komando vpn ipsec start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec start takes NAME
+Hint: for example: komando vpn ipsec start office --dry-run (more in `komando vpn ipsec start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.start","error":{"code":"USAGE","message":"vpn ipsec start takes NAME","hint":"for example: komando vpn ipsec start office --dry-run (more in `komando vpn ipsec start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec start takes NAME
+Hint: for example: komando vpn ipsec start office --dry-run (more in `komando vpn ipsec start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.stop","error":{"code":"USAGE","message":"vpn ipsec stop takes NAME","hint":"for example: komando vpn ipsec stop office --dry-run (more in `komando vpn ipsec stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec stop takes NAME
+Hint: for example: komando vpn ipsec stop office --dry-run (more in `komando vpn ipsec stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.stop","error":{"code":"USAGE","message":"vpn ipsec stop takes NAME","hint":"for example: komando vpn ipsec stop office --dry-run (more in `komando vpn ipsec stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec stop takes NAME
+Hint: for example: komando vpn ipsec stop office --dry-run (more in `komando vpn ipsec stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.test","error":{"code":"USAGE","message":"vpn ipsec test takes TARGET","hint":"for example: komando vpn ipsec test office (more in `komando vpn ipsec test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec test takes TARGET
+Hint: for example: komando vpn ipsec test office (more in `komando vpn ipsec test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn ipsec test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.ipsec.test","error":{"code":"USAGE","message":"vpn ipsec test takes TARGET","hint":"for example: komando vpn ipsec test office (more in `komando vpn ipsec test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn ipsec test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn ipsec test takes TARGET
+Hint: for example: komando vpn ipsec test office (more in `komando vpn ipsec test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.add","error":{"code":"USAGE","message":"vpn l2tp add takes NAME","hint":"for example: komando vpn l2tp add office --server vpn.example.com --psk-credential office-psk --user alice (more in `komando vpn l2tp add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp add takes NAME
+Hint: for example: komando vpn l2tp add office --server vpn.example.com --psk-credential office-psk --user alice (more in `komando vpn l2tp add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.add","error":{"code":"USAGE","message":"vpn l2tp add takes NAME","hint":"for example: komando vpn l2tp add office --server vpn.example.com --psk-credential office-psk --user alice (more in `komando vpn l2tp add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp add takes NAME
+Hint: for example: komando vpn l2tp add office --server vpn.example.com --psk-credential office-psk --user alice (more in `komando vpn l2tp add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.edit","error":{"code":"USAGE","message":"vpn l2tp edit takes TARGET...","hint":"for example: komando vpn l2tp edit office --check 10.0.0.5:22 (more in `komando vpn l2tp edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp edit takes TARGET...
+Hint: for example: komando vpn l2tp edit office --check 10.0.0.5:22 (more in `komando vpn l2tp edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.edit","error":{"code":"USAGE","message":"vpn l2tp edit takes TARGET...","hint":"for example: komando vpn l2tp edit office --check 10.0.0.5:22 (more in `komando vpn l2tp edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp edit takes TARGET...
+Hint: for example: komando vpn l2tp edit office --check 10.0.0.5:22 (more in `komando vpn l2tp edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.remove","error":{"code":"USAGE","message":"vpn l2tp remove takes TARGET...","hint":"for example: komando vpn l2tp remove office --dry-run (more in `komando vpn l2tp remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp remove takes TARGET...
+Hint: for example: komando vpn l2tp remove office --dry-run (more in `komando vpn l2tp remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.remove","error":{"code":"USAGE","message":"vpn l2tp remove takes TARGET...","hint":"for example: komando vpn l2tp remove office --dry-run (more in `komando vpn l2tp remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp remove takes TARGET...
+Hint: for example: komando vpn l2tp remove office --dry-run (more in `komando vpn l2tp remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.rename","error":{"code":"USAGE","message":"vpn l2tp rename takes NAME NEW","hint":"for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp rename takes NAME NEW
+Hint: for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.rename","error":{"code":"USAGE","message":"vpn l2tp rename takes NAME NEW","hint":"for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp rename takes NAME NEW
+Hint: for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.rename","error":{"code":"USAGE","message":"vpn l2tp rename takes NAME NEW","hint":"for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp rename takes NAME NEW
+Hint: for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.rename","error":{"code":"USAGE","message":"vpn l2tp rename takes NAME NEW","hint":"for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp rename takes NAME NEW
+Hint: for example: komando vpn l2tp rename office office-2 --dry-run (more in `komando vpn l2tp rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.show","error":{"code":"USAGE","message":"vpn l2tp show takes NAME","hint":"for example: komando vpn l2tp show office (more in `komando vpn l2tp show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp show takes NAME
+Hint: for example: komando vpn l2tp show office (more in `komando vpn l2tp show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.show","error":{"code":"USAGE","message":"vpn l2tp show takes NAME","hint":"for example: komando vpn l2tp show office (more in `komando vpn l2tp show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp show takes NAME
+Hint: for example: komando vpn l2tp show office (more in `komando vpn l2tp show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.start","error":{"code":"USAGE","message":"vpn l2tp start takes NAME","hint":"for example: komando vpn l2tp start office --dry-run (more in `komando vpn l2tp start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp start takes NAME
+Hint: for example: komando vpn l2tp start office --dry-run (more in `komando vpn l2tp start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.start","error":{"code":"USAGE","message":"vpn l2tp start takes NAME","hint":"for example: komando vpn l2tp start office --dry-run (more in `komando vpn l2tp start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp start takes NAME
+Hint: for example: komando vpn l2tp start office --dry-run (more in `komando vpn l2tp start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.stop","error":{"code":"USAGE","message":"vpn l2tp stop takes NAME","hint":"for example: komando vpn l2tp stop office --dry-run (more in `komando vpn l2tp stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp stop takes NAME
+Hint: for example: komando vpn l2tp stop office --dry-run (more in `komando vpn l2tp stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.stop","error":{"code":"USAGE","message":"vpn l2tp stop takes NAME","hint":"for example: komando vpn l2tp stop office --dry-run (more in `komando vpn l2tp stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp stop takes NAME
+Hint: for example: komando vpn l2tp stop office --dry-run (more in `komando vpn l2tp stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.test","error":{"code":"USAGE","message":"vpn l2tp test takes TARGET","hint":"for example: komando vpn l2tp test office (more in `komando vpn l2tp test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp test takes TARGET
+Hint: for example: komando vpn l2tp test office (more in `komando vpn l2tp test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn l2tp test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.l2tp.test","error":{"code":"USAGE","message":"vpn l2tp test takes TARGET","hint":"for example: komando vpn l2tp test office (more in `komando vpn l2tp test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn l2tp test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn l2tp test takes TARGET
+Hint: for example: komando vpn l2tp test office (more in `komando vpn l2tp test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.add","error":{"code":"USAGE","message":"vpn openvpn add takes NAME","hint":"for example: komando vpn openvpn add office --config office.ovpn --check 10.8.0.1:22 --user alice --credential office-pass (more in `komando vpn openvpn add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn add takes NAME
+Hint: for example: komando vpn openvpn add office --config office.ovpn --check 10.8.0.1:22 --user alice --credential office-pass (more in `komando vpn openvpn add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.add","error":{"code":"USAGE","message":"vpn openvpn add takes NAME","hint":"for example: komando vpn openvpn add office --config office.ovpn --check 10.8.0.1:22 --user alice --credential office-pass (more in `komando vpn openvpn add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn add takes NAME
+Hint: for example: komando vpn openvpn add office --config office.ovpn --check 10.8.0.1:22 --user alice --credential office-pass (more in `komando vpn openvpn add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.edit","error":{"code":"USAGE","message":"vpn openvpn edit takes TARGET...","hint":"for example: komando vpn openvpn edit office --check 10.0.0.5:22 (more in `komando vpn openvpn edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn edit takes TARGET...
+Hint: for example: komando vpn openvpn edit office --check 10.0.0.5:22 (more in `komando vpn openvpn edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.edit","error":{"code":"USAGE","message":"vpn openvpn edit takes TARGET...","hint":"for example: komando vpn openvpn edit office --check 10.0.0.5:22 (more in `komando vpn openvpn edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn edit takes TARGET...
+Hint: for example: komando vpn openvpn edit office --check 10.0.0.5:22 (more in `komando vpn openvpn edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.remove","error":{"code":"USAGE","message":"vpn openvpn remove takes TARGET...","hint":"for example: komando vpn openvpn remove office --dry-run (more in `komando vpn openvpn remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn remove takes TARGET...
+Hint: for example: komando vpn openvpn remove office --dry-run (more in `komando vpn openvpn remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.remove","error":{"code":"USAGE","message":"vpn openvpn remove takes TARGET...","hint":"for example: komando vpn openvpn remove office --dry-run (more in `komando vpn openvpn remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn remove takes TARGET...
+Hint: for example: komando vpn openvpn remove office --dry-run (more in `komando vpn openvpn remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.rename","error":{"code":"USAGE","message":"vpn openvpn rename takes NAME NEW","hint":"for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn rename takes NAME NEW
+Hint: for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.rename","error":{"code":"USAGE","message":"vpn openvpn rename takes NAME NEW","hint":"for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn rename takes NAME NEW
+Hint: for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.rename","error":{"code":"USAGE","message":"vpn openvpn rename takes NAME NEW","hint":"for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn rename takes NAME NEW
+Hint: for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.rename","error":{"code":"USAGE","message":"vpn openvpn rename takes NAME NEW","hint":"for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn rename takes NAME NEW
+Hint: for example: komando vpn openvpn rename office office-2 --dry-run (more in `komando vpn openvpn rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.show","error":{"code":"USAGE","message":"vpn openvpn show takes NAME","hint":"for example: komando vpn openvpn show office (more in `komando vpn openvpn show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn show takes NAME
+Hint: for example: komando vpn openvpn show office (more in `komando vpn openvpn show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.show","error":{"code":"USAGE","message":"vpn openvpn show takes NAME","hint":"for example: komando vpn openvpn show office (more in `komando vpn openvpn show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn show takes NAME
+Hint: for example: komando vpn openvpn show office (more in `komando vpn openvpn show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.start","error":{"code":"USAGE","message":"vpn openvpn start takes NAME","hint":"for example: komando vpn openvpn start office --dry-run (more in `komando vpn openvpn start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn start takes NAME
+Hint: for example: komando vpn openvpn start office --dry-run (more in `komando vpn openvpn start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.start","error":{"code":"USAGE","message":"vpn openvpn start takes NAME","hint":"for example: komando vpn openvpn start office --dry-run (more in `komando vpn openvpn start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn start takes NAME
+Hint: for example: komando vpn openvpn start office --dry-run (more in `komando vpn openvpn start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.stop","error":{"code":"USAGE","message":"vpn openvpn stop takes NAME","hint":"for example: komando vpn openvpn stop office --dry-run (more in `komando vpn openvpn stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn stop takes NAME
+Hint: for example: komando vpn openvpn stop office --dry-run (more in `komando vpn openvpn stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.stop","error":{"code":"USAGE","message":"vpn openvpn stop takes NAME","hint":"for example: komando vpn openvpn stop office --dry-run (more in `komando vpn openvpn stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn stop takes NAME
+Hint: for example: komando vpn openvpn stop office --dry-run (more in `komando vpn openvpn stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.test","error":{"code":"USAGE","message":"vpn openvpn test takes TARGET","hint":"for example: komando vpn openvpn test office (more in `komando vpn openvpn test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn test takes TARGET
+Hint: for example: komando vpn openvpn test office (more in `komando vpn openvpn test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn openvpn test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.openvpn.test","error":{"code":"USAGE","message":"vpn openvpn test takes TARGET","hint":"for example: komando vpn openvpn test office (more in `komando vpn openvpn test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn openvpn test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn openvpn test takes TARGET
+Hint: for example: komando vpn openvpn test office (more in `komando vpn openvpn test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.add","error":{"code":"USAGE","message":"vpn proxy add takes NAME","hint":"for example: komando vpn proxy add office --proxy-address proxy.corp.example:3128 (more in `komando vpn proxy add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy add takes NAME
+Hint: for example: komando vpn proxy add office --proxy-address proxy.corp.example:3128 (more in `komando vpn proxy add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.add","error":{"code":"USAGE","message":"vpn proxy add takes NAME","hint":"for example: komando vpn proxy add office --proxy-address proxy.corp.example:3128 (more in `komando vpn proxy add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy add takes NAME
+Hint: for example: komando vpn proxy add office --proxy-address proxy.corp.example:3128 (more in `komando vpn proxy add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.edit","error":{"code":"USAGE","message":"vpn proxy edit takes TARGET...","hint":"for example: komando vpn proxy edit office --check 10.0.0.5:22 (more in `komando vpn proxy edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy edit takes TARGET...
+Hint: for example: komando vpn proxy edit office --check 10.0.0.5:22 (more in `komando vpn proxy edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.edit","error":{"code":"USAGE","message":"vpn proxy edit takes TARGET...","hint":"for example: komando vpn proxy edit office --check 10.0.0.5:22 (more in `komando vpn proxy edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy edit takes TARGET...
+Hint: for example: komando vpn proxy edit office --check 10.0.0.5:22 (more in `komando vpn proxy edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.remove","error":{"code":"USAGE","message":"vpn proxy remove takes TARGET...","hint":"for example: komando vpn proxy remove office --dry-run (more in `komando vpn proxy remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy remove takes TARGET...
+Hint: for example: komando vpn proxy remove office --dry-run (more in `komando vpn proxy remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.remove","error":{"code":"USAGE","message":"vpn proxy remove takes TARGET...","hint":"for example: komando vpn proxy remove office --dry-run (more in `komando vpn proxy remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy remove takes TARGET...
+Hint: for example: komando vpn proxy remove office --dry-run (more in `komando vpn proxy remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.rename","error":{"code":"USAGE","message":"vpn proxy rename takes NAME NEW","hint":"for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy rename takes NAME NEW
+Hint: for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.rename","error":{"code":"USAGE","message":"vpn proxy rename takes NAME NEW","hint":"for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy rename takes NAME NEW
+Hint: for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.rename","error":{"code":"USAGE","message":"vpn proxy rename takes NAME NEW","hint":"for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy rename takes NAME NEW
+Hint: for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.rename","error":{"code":"USAGE","message":"vpn proxy rename takes NAME NEW","hint":"for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy rename takes NAME NEW
+Hint: for example: komando vpn proxy rename office office-2 --dry-run (more in `komando vpn proxy rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.show","error":{"code":"USAGE","message":"vpn proxy show takes NAME","hint":"for example: komando vpn proxy show office (more in `komando vpn proxy show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy show takes NAME
+Hint: for example: komando vpn proxy show office (more in `komando vpn proxy show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.show","error":{"code":"USAGE","message":"vpn proxy show takes NAME","hint":"for example: komando vpn proxy show office (more in `komando vpn proxy show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy show takes NAME
+Hint: for example: komando vpn proxy show office (more in `komando vpn proxy show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.start","error":{"code":"USAGE","message":"vpn proxy start takes NAME","hint":"for example: komando vpn proxy start office --dry-run (more in `komando vpn proxy start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy start takes NAME
+Hint: for example: komando vpn proxy start office --dry-run (more in `komando vpn proxy start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.start","error":{"code":"USAGE","message":"vpn proxy start takes NAME","hint":"for example: komando vpn proxy start office --dry-run (more in `komando vpn proxy start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy start takes NAME
+Hint: for example: komando vpn proxy start office --dry-run (more in `komando vpn proxy start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.stop","error":{"code":"USAGE","message":"vpn proxy stop takes NAME","hint":"for example: komando vpn proxy stop office --dry-run (more in `komando vpn proxy stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy stop takes NAME
+Hint: for example: komando vpn proxy stop office --dry-run (more in `komando vpn proxy stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.stop","error":{"code":"USAGE","message":"vpn proxy stop takes NAME","hint":"for example: komando vpn proxy stop office --dry-run (more in `komando vpn proxy stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy stop takes NAME
+Hint: for example: komando vpn proxy stop office --dry-run (more in `komando vpn proxy stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.test","error":{"code":"USAGE","message":"vpn proxy test takes TARGET","hint":"for example: komando vpn proxy test office (more in `komando vpn proxy test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy test takes TARGET
+Hint: for example: komando vpn proxy test office (more in `komando vpn proxy test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn proxy test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.proxy.test","error":{"code":"USAGE","message":"vpn proxy test takes TARGET","hint":"for example: komando vpn proxy test office (more in `komando vpn proxy test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn proxy test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn proxy test takes TARGET
+Hint: for example: komando vpn proxy test office (more in `komando vpn proxy test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.add","error":{"code":"USAGE","message":"vpn pulse add takes NAME","hint":"for example: komando vpn pulse add office --portal vpn.client.com --user alice (more in `komando vpn pulse add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse add takes NAME
+Hint: for example: komando vpn pulse add office --portal vpn.client.com --user alice (more in `komando vpn pulse add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.add","error":{"code":"USAGE","message":"vpn pulse add takes NAME","hint":"for example: komando vpn pulse add office --portal vpn.client.com --user alice (more in `komando vpn pulse add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse add takes NAME
+Hint: for example: komando vpn pulse add office --portal vpn.client.com --user alice (more in `komando vpn pulse add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.edit","error":{"code":"USAGE","message":"vpn pulse edit takes TARGET...","hint":"for example: komando vpn pulse edit office --check 10.0.0.5:22 (more in `komando vpn pulse edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse edit takes TARGET...
+Hint: for example: komando vpn pulse edit office --check 10.0.0.5:22 (more in `komando vpn pulse edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.edit","error":{"code":"USAGE","message":"vpn pulse edit takes TARGET...","hint":"for example: komando vpn pulse edit office --check 10.0.0.5:22 (more in `komando vpn pulse edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse edit takes TARGET...
+Hint: for example: komando vpn pulse edit office --check 10.0.0.5:22 (more in `komando vpn pulse edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.remove","error":{"code":"USAGE","message":"vpn pulse remove takes TARGET...","hint":"for example: komando vpn pulse remove office --dry-run (more in `komando vpn pulse remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse remove takes TARGET...
+Hint: for example: komando vpn pulse remove office --dry-run (more in `komando vpn pulse remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.remove","error":{"code":"USAGE","message":"vpn pulse remove takes TARGET...","hint":"for example: komando vpn pulse remove office --dry-run (more in `komando vpn pulse remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse remove takes TARGET...
+Hint: for example: komando vpn pulse remove office --dry-run (more in `komando vpn pulse remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.rename","error":{"code":"USAGE","message":"vpn pulse rename takes NAME NEW","hint":"for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse rename takes NAME NEW
+Hint: for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.rename","error":{"code":"USAGE","message":"vpn pulse rename takes NAME NEW","hint":"for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse rename takes NAME NEW
+Hint: for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.rename","error":{"code":"USAGE","message":"vpn pulse rename takes NAME NEW","hint":"for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse rename takes NAME NEW
+Hint: for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.rename","error":{"code":"USAGE","message":"vpn pulse rename takes NAME NEW","hint":"for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse rename takes NAME NEW
+Hint: for example: komando vpn pulse rename office office-2 --dry-run (more in `komando vpn pulse rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.show","error":{"code":"USAGE","message":"vpn pulse show takes NAME","hint":"for example: komando vpn pulse show office (more in `komando vpn pulse show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse show takes NAME
+Hint: for example: komando vpn pulse show office (more in `komando vpn pulse show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.show","error":{"code":"USAGE","message":"vpn pulse show takes NAME","hint":"for example: komando vpn pulse show office (more in `komando vpn pulse show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse show takes NAME
+Hint: for example: komando vpn pulse show office (more in `komando vpn pulse show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.start","error":{"code":"USAGE","message":"vpn pulse start takes NAME","hint":"for example: komando vpn pulse start office --dry-run (more in `komando vpn pulse start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse start takes NAME
+Hint: for example: komando vpn pulse start office --dry-run (more in `komando vpn pulse start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.start","error":{"code":"USAGE","message":"vpn pulse start takes NAME","hint":"for example: komando vpn pulse start office --dry-run (more in `komando vpn pulse start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse start takes NAME
+Hint: for example: komando vpn pulse start office --dry-run (more in `komando vpn pulse start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.stop","error":{"code":"USAGE","message":"vpn pulse stop takes NAME","hint":"for example: komando vpn pulse stop office --dry-run (more in `komando vpn pulse stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse stop takes NAME
+Hint: for example: komando vpn pulse stop office --dry-run (more in `komando vpn pulse stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.stop","error":{"code":"USAGE","message":"vpn pulse stop takes NAME","hint":"for example: komando vpn pulse stop office --dry-run (more in `komando vpn pulse stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse stop takes NAME
+Hint: for example: komando vpn pulse stop office --dry-run (more in `komando vpn pulse stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.test","error":{"code":"USAGE","message":"vpn pulse test takes TARGET","hint":"for example: komando vpn pulse test office (more in `komando vpn pulse test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse test takes TARGET
+Hint: for example: komando vpn pulse test office (more in `komando vpn pulse test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn pulse test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.pulse.test","error":{"code":"USAGE","message":"vpn pulse test takes TARGET","hint":"for example: komando vpn pulse test office (more in `komando vpn pulse test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn pulse test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn pulse test takes TARGET
+Hint: for example: komando vpn pulse test office (more in `komando vpn pulse test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.add","error":{"code":"USAGE","message":"vpn socks add takes NAME","hint":"for example: komando vpn socks add office --proxy-address 127.0.0.1:1080 (more in `komando vpn socks add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks add takes NAME
+Hint: for example: komando vpn socks add office --proxy-address 127.0.0.1:1080 (more in `komando vpn socks add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.add","error":{"code":"USAGE","message":"vpn socks add takes NAME","hint":"for example: komando vpn socks add office --proxy-address 127.0.0.1:1080 (more in `komando vpn socks add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks add takes NAME
+Hint: for example: komando vpn socks add office --proxy-address 127.0.0.1:1080 (more in `komando vpn socks add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"USAGE","message":"vpn socks edit takes TARGET...","hint":"for example: komando vpn socks edit office --check 10.0.0.5:22 (more in `komando vpn socks edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks edit takes TARGET...
+Hint: for example: komando vpn socks edit office --check 10.0.0.5:22 (more in `komando vpn socks edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"USAGE","message":"vpn socks edit takes TARGET...","hint":"for example: komando vpn socks edit office --check 10.0.0.5:22 (more in `komando vpn socks edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks edit takes TARGET...
+Hint: for example: komando vpn socks edit office --check 10.0.0.5:22 (more in `komando vpn socks edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.remove","error":{"code":"USAGE","message":"vpn socks remove takes TARGET...","hint":"for example: komando vpn socks remove office --dry-run (more in `komando vpn socks remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks remove takes TARGET...
+Hint: for example: komando vpn socks remove office --dry-run (more in `komando vpn socks remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.remove","error":{"code":"USAGE","message":"vpn socks remove takes TARGET...","hint":"for example: komando vpn socks remove office --dry-run (more in `komando vpn socks remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks remove takes TARGET...
+Hint: for example: komando vpn socks remove office --dry-run (more in `komando vpn socks remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.rename","error":{"code":"USAGE","message":"vpn socks rename takes NAME NEW","hint":"for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks rename takes NAME NEW
+Hint: for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.rename","error":{"code":"USAGE","message":"vpn socks rename takes NAME NEW","hint":"for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks rename takes NAME NEW
+Hint: for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.rename","error":{"code":"USAGE","message":"vpn socks rename takes NAME NEW","hint":"for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks rename takes NAME NEW
+Hint: for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.rename","error":{"code":"USAGE","message":"vpn socks rename takes NAME NEW","hint":"for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks rename takes NAME NEW
+Hint: for example: komando vpn socks rename office office-2 --dry-run (more in `komando vpn socks rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.show","error":{"code":"USAGE","message":"vpn socks show takes NAME","hint":"for example: komando vpn socks show office (more in `komando vpn socks show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks show takes NAME
+Hint: for example: komando vpn socks show office (more in `komando vpn socks show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.show","error":{"code":"USAGE","message":"vpn socks show takes NAME","hint":"for example: komando vpn socks show office (more in `komando vpn socks show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks show takes NAME
+Hint: for example: komando vpn socks show office (more in `komando vpn socks show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.start","error":{"code":"USAGE","message":"vpn socks start takes NAME","hint":"for example: komando vpn socks start office --dry-run (more in `komando vpn socks start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks start takes NAME
+Hint: for example: komando vpn socks start office --dry-run (more in `komando vpn socks start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.start","error":{"code":"USAGE","message":"vpn socks start takes NAME","hint":"for example: komando vpn socks start office --dry-run (more in `komando vpn socks start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks start takes NAME
+Hint: for example: komando vpn socks start office --dry-run (more in `komando vpn socks start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.stop","error":{"code":"USAGE","message":"vpn socks stop takes NAME","hint":"for example: komando vpn socks stop office --dry-run (more in `komando vpn socks stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks stop takes NAME
+Hint: for example: komando vpn socks stop office --dry-run (more in `komando vpn socks stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.stop","error":{"code":"USAGE","message":"vpn socks stop takes NAME","hint":"for example: komando vpn socks stop office --dry-run (more in `komando vpn socks stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks stop takes NAME
+Hint: for example: komando vpn socks stop office --dry-run (more in `komando vpn socks stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.test","error":{"code":"USAGE","message":"vpn socks test takes TARGET","hint":"for example: komando vpn socks test office (more in `komando vpn socks test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks test takes TARGET
+Hint: for example: komando vpn socks test office (more in `komando vpn socks test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn socks test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.socks.test","error":{"code":"USAGE","message":"vpn socks test takes TARGET","hint":"for example: komando vpn socks test office (more in `komando vpn socks test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn socks test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn socks test takes TARGET
+Hint: for example: komando vpn socks test office (more in `komando vpn socks test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.add","error":{"code":"USAGE","message":"vpn system add takes NAME","hint":"for example: komando vpn system add office --service \"Corp VPN\" --check 10.20.0.1:443 (more in `komando vpn system add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system add takes NAME
+Hint: for example: komando vpn system add office --service "Corp VPN" --check 10.20.0.1:443 (more in `komando vpn system add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.add","error":{"code":"USAGE","message":"vpn system add takes NAME","hint":"for example: komando vpn system add office --service \"Corp VPN\" --check 10.20.0.1:443 (more in `komando vpn system add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system add takes NAME
+Hint: for example: komando vpn system add office --service "Corp VPN" --check 10.20.0.1:443 (more in `komando vpn system add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.edit","error":{"code":"USAGE","message":"vpn system edit takes TARGET...","hint":"for example: komando vpn system edit office --check 10.0.0.5:22 (more in `komando vpn system edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system edit takes TARGET...
+Hint: for example: komando vpn system edit office --check 10.0.0.5:22 (more in `komando vpn system edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.edit","error":{"code":"USAGE","message":"vpn system edit takes TARGET...","hint":"for example: komando vpn system edit office --check 10.0.0.5:22 (more in `komando vpn system edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system edit takes TARGET...
+Hint: for example: komando vpn system edit office --check 10.0.0.5:22 (more in `komando vpn system edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.remove","error":{"code":"USAGE","message":"vpn system remove takes TARGET...","hint":"for example: komando vpn system remove office --dry-run (more in `komando vpn system remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system remove takes TARGET...
+Hint: for example: komando vpn system remove office --dry-run (more in `komando vpn system remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.remove","error":{"code":"USAGE","message":"vpn system remove takes TARGET...","hint":"for example: komando vpn system remove office --dry-run (more in `komando vpn system remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system remove takes TARGET...
+Hint: for example: komando vpn system remove office --dry-run (more in `komando vpn system remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.rename","error":{"code":"USAGE","message":"vpn system rename takes NAME NEW","hint":"for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system rename takes NAME NEW
+Hint: for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.rename","error":{"code":"USAGE","message":"vpn system rename takes NAME NEW","hint":"for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system rename takes NAME NEW
+Hint: for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.rename","error":{"code":"USAGE","message":"vpn system rename takes NAME NEW","hint":"for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system rename takes NAME NEW
+Hint: for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.rename","error":{"code":"USAGE","message":"vpn system rename takes NAME NEW","hint":"for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system rename takes NAME NEW
+Hint: for example: komando vpn system rename office office-2 --dry-run (more in `komando vpn system rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.show","error":{"code":"USAGE","message":"vpn system show takes NAME","hint":"for example: komando vpn system show office (more in `komando vpn system show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system show takes NAME
+Hint: for example: komando vpn system show office (more in `komando vpn system show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.show","error":{"code":"USAGE","message":"vpn system show takes NAME","hint":"for example: komando vpn system show office (more in `komando vpn system show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system show takes NAME
+Hint: for example: komando vpn system show office (more in `komando vpn system show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.start","error":{"code":"USAGE","message":"vpn system start takes NAME","hint":"for example: komando vpn system start office --dry-run (more in `komando vpn system start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system start takes NAME
+Hint: for example: komando vpn system start office --dry-run (more in `komando vpn system start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.start","error":{"code":"USAGE","message":"vpn system start takes NAME","hint":"for example: komando vpn system start office --dry-run (more in `komando vpn system start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system start takes NAME
+Hint: for example: komando vpn system start office --dry-run (more in `komando vpn system start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.stop","error":{"code":"USAGE","message":"vpn system stop takes NAME","hint":"for example: komando vpn system stop office --dry-run (more in `komando vpn system stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system stop takes NAME
+Hint: for example: komando vpn system stop office --dry-run (more in `komando vpn system stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.stop","error":{"code":"USAGE","message":"vpn system stop takes NAME","hint":"for example: komando vpn system stop office --dry-run (more in `komando vpn system stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system stop takes NAME
+Hint: for example: komando vpn system stop office --dry-run (more in `komando vpn system stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.test","error":{"code":"USAGE","message":"vpn system test takes TARGET","hint":"for example: komando vpn system test office (more in `komando vpn system test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system test takes TARGET
+Hint: for example: komando vpn system test office (more in `komando vpn system test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn system test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.system.test","error":{"code":"USAGE","message":"vpn system test takes TARGET","hint":"for example: komando vpn system test office (more in `komando vpn system test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn system test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn system test takes TARGET
+Hint: for example: komando vpn system test office (more in `komando vpn system test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.add","error":{"code":"USAGE","message":"vpn tailscale add takes NAME","hint":"for example: komando vpn tailscale add office --credential office-authkey (more in `komando vpn tailscale add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale add takes NAME
+Hint: for example: komando vpn tailscale add office --credential office-authkey (more in `komando vpn tailscale add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.add","error":{"code":"USAGE","message":"vpn tailscale add takes NAME","hint":"for example: komando vpn tailscale add office --credential office-authkey (more in `komando vpn tailscale add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale add takes NAME
+Hint: for example: komando vpn tailscale add office --credential office-authkey (more in `komando vpn tailscale add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.edit","error":{"code":"USAGE","message":"vpn tailscale edit takes TARGET...","hint":"for example: komando vpn tailscale edit office --check 10.0.0.5:22 (more in `komando vpn tailscale edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale edit takes TARGET...
+Hint: for example: komando vpn tailscale edit office --check 10.0.0.5:22 (more in `komando vpn tailscale edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.edit","error":{"code":"USAGE","message":"vpn tailscale edit takes TARGET...","hint":"for example: komando vpn tailscale edit office --check 10.0.0.5:22 (more in `komando vpn tailscale edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale edit takes TARGET...
+Hint: for example: komando vpn tailscale edit office --check 10.0.0.5:22 (more in `komando vpn tailscale edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.remove","error":{"code":"USAGE","message":"vpn tailscale remove takes TARGET...","hint":"for example: komando vpn tailscale remove office --dry-run (more in `komando vpn tailscale remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale remove takes TARGET...
+Hint: for example: komando vpn tailscale remove office --dry-run (more in `komando vpn tailscale remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.remove","error":{"code":"USAGE","message":"vpn tailscale remove takes TARGET...","hint":"for example: komando vpn tailscale remove office --dry-run (more in `komando vpn tailscale remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale remove takes TARGET...
+Hint: for example: komando vpn tailscale remove office --dry-run (more in `komando vpn tailscale remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.rename","error":{"code":"USAGE","message":"vpn tailscale rename takes NAME NEW","hint":"for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale rename takes NAME NEW
+Hint: for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.rename","error":{"code":"USAGE","message":"vpn tailscale rename takes NAME NEW","hint":"for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale rename takes NAME NEW
+Hint: for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.rename","error":{"code":"USAGE","message":"vpn tailscale rename takes NAME NEW","hint":"for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale rename takes NAME NEW
+Hint: for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.rename","error":{"code":"USAGE","message":"vpn tailscale rename takes NAME NEW","hint":"for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale rename takes NAME NEW
+Hint: for example: komando vpn tailscale rename office office-2 --dry-run (more in `komando vpn tailscale rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.show","error":{"code":"USAGE","message":"vpn tailscale show takes NAME","hint":"for example: komando vpn tailscale show office (more in `komando vpn tailscale show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale show takes NAME
+Hint: for example: komando vpn tailscale show office (more in `komando vpn tailscale show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.show","error":{"code":"USAGE","message":"vpn tailscale show takes NAME","hint":"for example: komando vpn tailscale show office (more in `komando vpn tailscale show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale show takes NAME
+Hint: for example: komando vpn tailscale show office (more in `komando vpn tailscale show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.start","error":{"code":"USAGE","message":"vpn tailscale start takes NAME","hint":"for example: komando vpn tailscale start office --dry-run (more in `komando vpn tailscale start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale start takes NAME
+Hint: for example: komando vpn tailscale start office --dry-run (more in `komando vpn tailscale start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.start","error":{"code":"USAGE","message":"vpn tailscale start takes NAME","hint":"for example: komando vpn tailscale start office --dry-run (more in `komando vpn tailscale start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale start takes NAME
+Hint: for example: komando vpn tailscale start office --dry-run (more in `komando vpn tailscale start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.stop","error":{"code":"USAGE","message":"vpn tailscale stop takes NAME","hint":"for example: komando vpn tailscale stop office --dry-run (more in `komando vpn tailscale stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale stop takes NAME
+Hint: for example: komando vpn tailscale stop office --dry-run (more in `komando vpn tailscale stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.stop","error":{"code":"USAGE","message":"vpn tailscale stop takes NAME","hint":"for example: komando vpn tailscale stop office --dry-run (more in `komando vpn tailscale stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale stop takes NAME
+Hint: for example: komando vpn tailscale stop office --dry-run (more in `komando vpn tailscale stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.test","error":{"code":"USAGE","message":"vpn tailscale test takes TARGET","hint":"for example: komando vpn tailscale test office (more in `komando vpn tailscale test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale test takes TARGET
+Hint: for example: komando vpn tailscale test office (more in `komando vpn tailscale test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn tailscale test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.tailscale.test","error":{"code":"USAGE","message":"vpn tailscale test takes TARGET","hint":"for example: komando vpn tailscale test office (more in `komando vpn tailscale test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn tailscale test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn tailscale test takes TARGET
+Hint: for example: komando vpn tailscale test office (more in `komando vpn tailscale test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.add","error":{"code":"USAGE","message":"vpn wireguard add takes NAME","hint":"for example: komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22 (more in `komando vpn wireguard add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard add takes NAME
+Hint: for example: komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22 (more in `komando vpn wireguard add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.add","error":{"code":"USAGE","message":"vpn wireguard add takes NAME","hint":"for example: komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22 (more in `komando vpn wireguard add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard add takes NAME
+Hint: for example: komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22 (more in `komando vpn wireguard add --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.edit","error":{"code":"USAGE","message":"vpn wireguard edit takes TARGET...","hint":"for example: komando vpn wireguard edit office --check 10.0.0.5:22 (more in `komando vpn wireguard edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard edit takes TARGET...
+Hint: for example: komando vpn wireguard edit office --check 10.0.0.5:22 (more in `komando vpn wireguard edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.edit","error":{"code":"USAGE","message":"vpn wireguard edit takes TARGET...","hint":"for example: komando vpn wireguard edit office --check 10.0.0.5:22 (more in `komando vpn wireguard edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard edit takes TARGET...
+Hint: for example: komando vpn wireguard edit office --check 10.0.0.5:22 (more in `komando vpn wireguard edit --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.remove","error":{"code":"USAGE","message":"vpn wireguard remove takes TARGET...","hint":"for example: komando vpn wireguard remove office --dry-run (more in `komando vpn wireguard remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard remove takes TARGET...
+Hint: for example: komando vpn wireguard remove office --dry-run (more in `komando vpn wireguard remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.remove","error":{"code":"USAGE","message":"vpn wireguard remove takes TARGET...","hint":"for example: komando vpn wireguard remove office --dry-run (more in `komando vpn wireguard remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard remove takes TARGET...
+Hint: for example: komando vpn wireguard remove office --dry-run (more in `komando vpn wireguard remove --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.rename","error":{"code":"USAGE","message":"vpn wireguard rename takes NAME NEW","hint":"for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard rename takes NAME NEW
+Hint: for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.rename","error":{"code":"USAGE","message":"vpn wireguard rename takes NAME NEW","hint":"for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard rename takes NAME NEW
+Hint: for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.rename","error":{"code":"USAGE","message":"vpn wireguard rename takes NAME NEW","hint":"for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard rename takes NAME NEW
+Hint: for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.rename","error":{"code":"USAGE","message":"vpn wireguard rename takes NAME NEW","hint":"for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard rename takes NAME NEW
+Hint: for example: komando vpn wireguard rename office office-2 --dry-run (more in `komando vpn wireguard rename --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.show","error":{"code":"USAGE","message":"vpn wireguard show takes NAME","hint":"for example: komando vpn wireguard show office (more in `komando vpn wireguard show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard show takes NAME
+Hint: for example: komando vpn wireguard show office (more in `komando vpn wireguard show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.show","error":{"code":"USAGE","message":"vpn wireguard show takes NAME","hint":"for example: komando vpn wireguard show office (more in `komando vpn wireguard show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard show takes NAME
+Hint: for example: komando vpn wireguard show office (more in `komando vpn wireguard show --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.start","error":{"code":"USAGE","message":"vpn wireguard start takes NAME","hint":"for example: komando vpn wireguard start office --dry-run (more in `komando vpn wireguard start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard start takes NAME
+Hint: for example: komando vpn wireguard start office --dry-run (more in `komando vpn wireguard start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.start","error":{"code":"USAGE","message":"vpn wireguard start takes NAME","hint":"for example: komando vpn wireguard start office --dry-run (more in `komando vpn wireguard start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard start takes NAME
+Hint: for example: komando vpn wireguard start office --dry-run (more in `komando vpn wireguard start --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard stop (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.stop","error":{"code":"USAGE","message":"vpn wireguard stop takes NAME","hint":"for example: komando vpn wireguard stop office --dry-run (more in `komando vpn wireguard stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard stop (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard stop takes NAME
+Hint: for example: komando vpn wireguard stop office --dry-run (more in `komando vpn wireguard stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard stop (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.stop","error":{"code":"USAGE","message":"vpn wireguard stop takes NAME","hint":"for example: komando vpn wireguard stop office --dry-run (more in `komando vpn wireguard stop --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard stop (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard stop takes NAME
+Hint: for example: komando vpn wireguard stop office --dry-run (more in `komando vpn wireguard stop --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.test","error":{"code":"USAGE","message":"vpn wireguard test takes TARGET","hint":"for example: komando vpn wireguard test office (more in `komando vpn wireguard test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard test takes TARGET
+Hint: for example: komando vpn wireguard test office (more in `komando vpn wireguard test --help`)
+(code USAGE, exit 2)
+### komando -o json vpn wireguard test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"vpn.wireguard.test","error":{"code":"USAGE","message":"vpn wireguard test takes TARGET","hint":"for example: komando vpn wireguard test office (more in `komando vpn wireguard test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text vpn wireguard test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: vpn wireguard test takes TARGET
+Hint: for example: komando vpn wireguard test office (more in `komando vpn wireguard test --help`)
 (code USAGE, exit 2)
 ### komando -o json exec x1 apt-get install -y nginx (agent json)
 exit 2
@@ -11534,53 +14366,53 @@ exit 6
 Stopped: turning off protection of protected conn: pcache; nothing was changed
 Hint: check with --dry-run, then run it again with --yes: `komando -o text conn edit pcache --protected=false --yes`
 (code PROTECTED_TARGET, exit 6)
-### komando -o json vpn rm pvpn (agent json, gate inventory)
+### komando -o json vpn socks remove pvpn (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.remove","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rm pvpn (agent text, gate inventory)
+### komando -o text vpn socks remove pvpn (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: removing protected VPN: pvpn; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json vpn rm pvpn (script json, gate inventory)
+### komando -o json vpn socks remove pvpn (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn rm pvpn --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.remove","error":{"code":"PROTECTED_TARGET","message":"removing protected VPN: pvpn","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn socks remove pvpn --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn rm pvpn (script text, gate inventory)
+### komando -o text vpn socks remove pvpn (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: removing protected VPN: pvpn; nothing was changed
-Hint: check with --dry-run, then run it again with --yes: `komando -o text vpn rm pvpn --yes`
+Hint: check with --dry-run, then run it again with --yes: `komando -o text vpn socks remove pvpn --yes`
 (code PROTECTED_TARGET, exit 6)
-### komando -o json vpn edit pvpn --notes x (agent json, gate inventory)
+### komando -o json vpn socks edit pvpn --notes x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit pvpn --notes x (agent text, gate inventory)
+### komando -o text vpn socks edit pvpn --notes x (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: changing protected VPN: pvpn; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json vpn edit pvpn --notes x (script json, gate inventory)
+### komando -o json vpn socks edit pvpn --notes x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn edit pvpn --notes x --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"PROTECTED_TARGET","message":"changing protected VPN: pvpn","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn socks edit pvpn --notes x --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit pvpn --notes x (script text, gate inventory)
+### komando -o text vpn socks edit pvpn --notes x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: changing protected VPN: pvpn; nothing was changed
-Hint: check with --dry-run, then run it again with --yes: `komando -o text vpn edit pvpn --notes x --yes`
+Hint: check with --dry-run, then run it again with --yes: `komando -o text vpn socks edit pvpn --notes x --yes`
 (code PROTECTED_TARGET, exit 6)
 ### komando -o json policy rm foo.*bar (agent json, gate inventory)
 exit 6
@@ -11630,48 +14462,48 @@ exit 6
 Stopped: turning off the audit log turns off one of komando's safety checks, so komando asks first; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure.
 (code SAFETY_SETTING, exit 6)
-### komando -o json vpn edit pvpn --protected=false (agent json, gate inventory)
+### komando -o json vpn socks edit pvpn --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit pvpn --protected=false (agent text, gate inventory)
+### komando -o text vpn socks edit pvpn --protected=false (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code SAFETY_SETTING, exit 6)
-### komando -o json vpn edit pvpn --protected=false (script json, gate inventory)
+### komando -o json vpn socks edit pvpn --protected=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn edit pvpn --protected=false --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"SAFETY_SETTING","message":"turning off the protection of VPN pvpn weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn socks edit pvpn --protected=false --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit pvpn --protected=false (script text, gate inventory)
+### komando -o text vpn socks edit pvpn --protected=false (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure.
 (code SAFETY_SETTING, exit 6)
-### komando -o json vpn edit pvpn --mfa=false (agent json, gate inventory)
+### komando -o json vpn socks edit pvpn --mfa=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit pvpn --mfa=false (agent text, gate inventory)
+### komando -o text vpn socks edit pvpn --mfa=false (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code SAFETY_SETTING, exit 6)
-### komando -o json vpn edit pvpn --mfa=false (script json, gate inventory)
+### komando -o json vpn socks edit pvpn --mfa=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"vpn.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn edit pvpn --mfa=false --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.edit","error":{"code":"SAFETY_SETTING","message":"turning off --mfa of VPN pvpn (komando could then connect it without a person) weakens komando's safety checks","hint":"check with --dry-run, then run it again with --yes: `komando -o json vpn socks edit pvpn --mfa=false --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn edit pvpn --mfa=false (script text, gate inventory)
+### komando -o text vpn socks edit pvpn --mfa=false (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -11846,24 +14678,24 @@ exit 2
 Error: "aws" cannot be a conn name: `komando login aws` is the cloud login
 Hint: pick another name, for example aws-1
 (code USAGE, exit 2)
-### komando -o json vpn add gcp socks --proxy-address 127.0.0.1:1080 (agent json, release note)
+### komando -o json vpn socks add gcp --proxy-address 127.0.0.1:1080 (agent json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.add","error":{"code":"USAGE","message":"\"gcp\" cannot be a VPN name: `komando login gcp` is the cloud login","hint":"pick another name, for example gcp-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.add","error":{"code":"USAGE","message":"\"gcp\" cannot be a VPN name: `komando login gcp` is the cloud login","hint":"pick another name, for example gcp-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn add gcp socks --proxy-address 127.0.0.1:1080 (agent text, release note)
+### komando -o text vpn socks add gcp --proxy-address 127.0.0.1:1080 (agent text, release note)
 exit 2
 --- stdout
 --- stderr
 Error: "gcp" cannot be a VPN name: `komando login gcp` is the cloud login
 Hint: pick another name, for example gcp-1
 (code USAGE, exit 2)
-### komando -o json vpn add gcp socks --proxy-address 127.0.0.1:1080 (script json, release note)
+### komando -o json vpn socks add gcp --proxy-address 127.0.0.1:1080 (script json, release note)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.add","error":{"code":"USAGE","message":"\"gcp\" cannot be a VPN name: `komando login gcp` is the cloud login","hint":"pick another name, for example gcp-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.socks.add","error":{"code":"USAGE","message":"\"gcp\" cannot be a VPN name: `komando login gcp` is the cloud login","hint":"pick another name, for example gcp-1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text vpn add gcp socks --proxy-address 127.0.0.1:1080 (script text, release note)
+### komando -o text vpn socks add gcp --proxy-address 127.0.0.1:1080 (script text, release note)
 exit 2
 --- stdout
 --- stderr

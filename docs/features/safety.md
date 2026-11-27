@@ -184,7 +184,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `import` | when an imported proxy command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy rm` | always | safety | `--yes` |
 | `config set` | when the setting turns a check off | safety | `--yes` |
-| `vpn KIND edit` | with --mfa=false | safety | `--yes` |
+| `vpn wireguard edit` | with --mfa=false | safety | `--yes` |
 | `update` | when it installs an older version | safety | `--yes` |
 | `tunnel start` | when it listens on an open address | safety | `--yes` |
 | `secret keychain` | when it turns the keychain off | safety | `--yes` |
@@ -208,7 +208,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `export` | with --sealed | person |  |
 | `export` | with --for-phone | person |  |
 | `host edit` | with --protected=false | safety | `--yes` |
-| `vpn KIND edit` | with --protected=false | safety | `--yes` |
+| `vpn wireguard edit` | with --protected=false | safety | `--yes` |
 
 <!-- end of tiers -->
 

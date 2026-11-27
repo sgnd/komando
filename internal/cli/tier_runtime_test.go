@@ -258,9 +258,35 @@ func TestTierMatchesRuntime(t *testing.T) {
 			t.Errorf("%s (%s): no run and no reason in tierUnreached", need, why)
 		}
 	}
+	// every provider of a moved type has a run of each leaf shape the
+	// table pins: a kind or a leaf that was left out fails here
+	shapes := map[string][]string{
+		"vpn":   {"add", "edit", "rename", "remove", "start", "stop"},
+		"queue": {"add", "edit", "rename", "remove", "topic.create", "topic.delete", "message.create", "message.delete"},
+	}
+	hasRun := map[string]bool{}
+	for _, r := range tierRuns {
+		hasRun[r.id] = true
+	}
+	for typ, verbs := range shapes {
+		for _, p := range capability.Children(typ) {
+			for _, verb := range verbs {
+				if id := typ + "." + p + "." + verb; !hasRun[id] {
+					t.Errorf("no tier run of %s", id)
+				}
+			}
+		}
+	}
+	ran := 0
+	defer func() {
+		if ran != len(tierRuns) && !t.Failed() {
+			t.Errorf("ran %d of the %d runs of the table", ran, len(tierRuns))
+		}
+	}()
 	for _, r := range tierRuns {
 		name := r.id + " " + strings.Join(r.args, " ")
 		t.Run(name, func(t *testing.T) {
+			ran++
 			want := tierStop(r)
 			args := append([]string{"--dry-run", "-o", "json"}, strings.Split(r.id, ".")...)
 			stdout, _, _ := goldenRunWith(t, true, append(args, r.args...), tierSeed)
@@ -589,9 +615,17 @@ func tierSeed(t *testing.T) {
 		st.Conns["k8s"] = &store.Conn{Name: "k8s", Kind: "k8s", URL: "k8s://127.0.0.1:1"}
 		for i, p := range capability.Children("vpn") { // one VPN of each kind, with its two twins
 			addr := "127.0.0.1:" + strconv.Itoa(2000+i)
-			st.Vpns["vp-"+p] = &store.Vpn{Name: "vp-" + p, Kind: p, Address: addr}
-			st.Vpns["vp-"+p+"-mfa"] = &store.Vpn{Name: "vp-" + p + "-mfa", Kind: p, Address: addr, MFA: true}
-			st.Vpns["vp-"+p+"-prot"] = &store.Vpn{Name: "vp-" + p + "-prot", Kind: p, Address: addr, Protected: true}
+			// an edit of a system or openvpn VPN needs its --check, of an l2tp or ipsec VPN its pre-shared key
+			var check, psk string
+			if oneOf(p, "system", "openvpn") {
+				check = addr
+			}
+			if oneOf(p, "l2tp", "ipsec") {
+				psk = "secret:vpn-psk" // not pw: a stored secret that a VPN uses changes what the credential rows stop at
+			}
+			st.Vpns["vp-"+p] = &store.Vpn{Name: "vp-" + p, Kind: p, Address: addr, Check: check, PSKRef: psk}
+			st.Vpns["vp-"+p+"-mfa"] = &store.Vpn{Name: "vp-" + p + "-mfa", Kind: p, Address: addr, Check: check, PSKRef: psk, MFA: true}
+			st.Vpns["vp-"+p+"-prot"] = &store.Vpn{Name: "vp-" + p + "-prot", Kind: p, Address: addr, Check: check, PSKRef: psk, Protected: true}
 		}
 		return nil
 	}); err != nil {

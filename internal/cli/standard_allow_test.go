@@ -103,9 +103,8 @@ var (
 		"web3",
 	}
 	// S-6.10: group rename's Long shows a merge with the old and the new name;
-	// the vpn help and the error catalog write KIND for the kind a VPN was saved with
+	// the vpn help writes KIND for the kind a VPN was saved with
 	allowReferences = []string{
-		"TARGET_NOT_FOUND: komando vpn KIND list",
 		"group rename: komando group add NEW @OLD",
 		"group rename: komando group rm OLD",
 		"vpn: komando vpn KIND start NAME",

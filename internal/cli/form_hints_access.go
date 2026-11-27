@@ -13,7 +13,7 @@ import (
 // Answers several hints share.
 var (
 	accVpn = formArg{ask: "Which VPN?", pick: "vpn",
-		help: "One from your list. `komando vpn list` shows them."}
+		help: "One from your list. `komando list` shows them."}
 	accVpns = formArg{ask: "Which VPNs?", pick: "vpn",
 		help: "Pick one, or type several names separated by spaces."}
 	accNewName = formArg{ask: "What should the new name be?", example: "office-jkt",

@@ -554,28 +554,16 @@ func vpnUpCmd() *cobra.Command {
 }
 
 func vpnDownCmd() *cobra.Command {
-	var all bool
 	c := &cobra.Command{
-		Use:   "down [NAME...]",
-		Short: "Disconnect VPN sessions (--all for every one)",
+		Use:   "down NAME",
+		Short: "Disconnect a VPN session",
+		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			if all && len(args) > 0 {
-				return out.Errf(out.ExitUsage, "USAGE", "use `komando vpn KIND stop --all` or `komando vpn KIND stop "+strings.Join(args, " ")+"`", "--all disconnects every VPN session; give names or --all, not both")
-			}
 			names := args
-			if all {
-				names = nil
-				for n := range st.Sessions {
-					names = append(names, n)
-				}
-			}
-			if len(names) == 0 && !all {
-				return out.Usage("give VPN names or --all")
-			}
 			for _, n := range names {
 				if _, ok := st.Vpns[n]; !ok && st.Sessions[n] == nil {
 					return out.NotFound("vpn", n)
@@ -629,9 +617,6 @@ func vpnDownCmd() *cobra.Command {
 					}
 				}
 			}
-			if len(names) == 0 {
-				notes = append(notes, "nothing to disconnect: no VPN session is running")
-			}
 			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range down {
 					delete(s.Sessions, n)
@@ -647,7 +632,6 @@ func vpnDownCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	c.Flags().BoolVar(&all, "all", false, "disconnect every VPN session")
 	return c
 }
 

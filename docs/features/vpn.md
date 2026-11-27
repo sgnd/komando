@@ -456,7 +456,7 @@ komando test office
 | `VPN_CLIENT_MISSING` (exit 3) | `openconnect` or `ocproxy` is not installed | install the program the message names |
 | `VPN_IN_USE` (exit 8) | `vpn KIND remove` on a VPN still on a `--via` path | change those `--via` paths first |
 | `VPN_KEY_IN_USE` (exit 8) | another komando session runs the same WireGuard key (another home, or one that does not answer) | stop it with the `vpn KIND stop` command the hint names, or give this VPN its own key |
-| `VPN_CONFIG` (exit 2) | the stored settings or config file are wrong | fix them with `komando vpn KIND add NAME ... --overwrite` |
+| `VPN_CONFIG` (exit 2) | the stored settings or config file are wrong | fix them with `komando vpn wireguard add NAME ... --overwrite` |
 | `OVPN_UNSUPPORTED` (exit 2) | the OpenVPN profile has an option komando's client does not support | change the profile; the message names the option |
 | `SECRET_EXISTS` (exit 8) | a vault secret with the VPN's name exists already | pick another VPN name, or move the secret away first |
 

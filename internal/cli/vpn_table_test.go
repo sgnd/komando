@@ -285,3 +285,25 @@ func TestVpnHintsAreMadeWhenAsked(t *testing.T) {
 		t.Error("a hint for a kind that does not exist")
 	}
 }
+
+// vpn KIND stop disconnects one VPN by name: there is no --all (the stop of
+// every session is `komando status` and one stop for each), and no name is
+// a usage error.
+func TestVpnStopTakesOneName(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
+	e := wantCode(t, "USAGE", "vpn", "socks", "stop", "--all")
+	if !strings.Contains(e.Message, "unknown flag: --all") {
+		t.Errorf("stop --all: %q", e.Message)
+	}
+	wantCode(t, "USAGE", "vpn", "socks", "stop")
+	wantCode(t, "USAGE", "vpn", "socks", "stop", "lab", "lab2")
+	for _, l := range vpnTableLeaves(t) {
+		if l.Verb != "stop" {
+			continue
+		}
+		if _, has := l.Option("all"); has {
+			t.Errorf("%s has --all", strings.Join(l.Key.Path(), " "))
+		}
+	}
+}

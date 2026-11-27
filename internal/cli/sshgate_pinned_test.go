@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+
+	"github.com/sgnd/komando/internal/capability"
 )
 
 // TestGateAnswersPinned pins the ssh gate's answer to every command of
@@ -19,7 +24,12 @@ import (
 func TestGateAnswersPinned(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	var lines []string
+	type probe struct {
+		words []string
+		name  string
+		key   gateKey
+	}
+	var probes []probe
 	seen := map[string]bool{}
 	for _, c := range allCommands(newRoot(tcl)) {
 		id := cmdID(c)
@@ -34,14 +44,44 @@ func TestGateAnswersPinned(t *testing.T) {
 				name string
 				key  gateKey
 			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}} {
-				name, _, e := gateCheck(slices.Clone(words), k.key)
+				probes = append(probes, probe{words, k.name, k.key})
+			}
+		}
+	}
+	// no leaf of the vpn type is left out of the probes
+	for _, l := range capability.All() {
+		if l.Type == "vpn" && l.State == capability.Built && !seen[strings.Join(l.Key.Path(), ".")] {
+			t.Errorf("%s: the tree has no command with this ID, so nothing probed it", strings.Join(l.Key.Path(), " "))
+		}
+	}
+	// Every probe builds a command tree of its own (gateCheck) and reads
+	// the stored inventory only, so the probes run on all cores; the answers
+	// land at the probe's index and the lines are sorted below.
+	lines := make([]string, len(probes))
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	for range min(runtime.NumCPU(), 8) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				i := int(next.Add(1)) - 1
+				if i >= len(probes) {
+					return
+				}
+				p := probes[i]
+				name, _, e := gateCheck(slices.Clone(p.words), p.key)
 				answer := "runs"
 				if e != nil {
 					answer = e.Code + "|" + e.Message
 				}
-				lines = append(lines, fmt.Sprintf("%q\t%s\t%s\t%s", strings.Join(words, " "), k.name, name, answer))
+				lines[i] = fmt.Sprintf("%q\t%s\t%s\t%s", strings.Join(p.words, " "), p.name, name, answer)
 			}
-		}
+		}()
+	}
+	wg.Wait()
+	if n := len(slices.DeleteFunc(slices.Clone(lines), func(l string) bool { return l == "" })); n != len(probes) {
+		t.Fatalf("%d answers for %d probes: a probe was skipped", n, len(probes))
 	}
 	slices.Sort(lines)
 	got := strings.Join(lines, "\n") + "\n"
@@ -57,13 +97,20 @@ func TestGateAnswersPinned(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
+	inWant, inGot := make(map[string]bool, len(want)), make(map[string]bool, len(lines))
+	for _, l := range want {
+		inWant[l] = true
+	}
 	for _, l := range lines {
-		if !slices.Contains(want, l) {
+		inGot[l] = true
+	}
+	for _, l := range lines {
+		if !inWant[l] {
 			t.Errorf("changed or new: %s", l)
 		}
 	}
 	for _, l := range want {
-		if !slices.Contains(lines, l) {
+		if !inGot[l] {
 			t.Errorf("gone: %s", l)
 		}
 	}
