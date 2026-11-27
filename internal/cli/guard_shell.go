@@ -161,14 +161,8 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 		prog, args := program(words)
 		base := filepath.Base(prog)
-		if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
+		if d := checkWrites(cl, line, seg, prog, args, home, cwd); d.Deny {
 			return d
-		}
-		// the file of >&FILE is checked as every named file, readers' too
-		for _, w := range bothOutputsFiles(seg) {
-			if why := secretWord(cl, w, home, cwd, wordHasGlob(w)); why != "" {
-				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
-			}
 		}
 		switch {
 		case prog == "":
@@ -736,24 +730,6 @@ var wrapperValue = map[string]map[string]bool{
 // wrapperPositional are the wrappers that take words before the program:
 // timeout DURATION, chrt PRIORITY, taskset MASK.
 var wrapperPositional = map[string]int{"timeout": 1, "chrt": 1, "taskset": 1}
-
-// looksLikePath: a word that names a file, not a flag or a plain word
-// (e.g. `grep password` is fine, `cat .env` is not).
-func looksLikePath(w string) bool {
-	w = strings.Trim(w, `"'`)
-	if strings.ContainsAny(w, " \t") {
-		return false // a sentence, e.g. a commit message
-	}
-	if i := strings.Index(w, "="); i >= 0 && strings.HasPrefix(w, "-") {
-		w = w[i+1:]
-	}
-	for _, v := range []string{"$HOME", "${HOME}", "$KOMANDO_HOME", "${KOMANDO_HOME}"} {
-		if strings.HasPrefix(w, v) {
-			return true
-		}
-	}
-	return strings.ContainsAny(w, "/~.") || w == "credentials" || strings.HasPrefix(w, "id_")
-}
 
 // shellWords splits a simple command into words, removing quotes and
 // redirections' operators.

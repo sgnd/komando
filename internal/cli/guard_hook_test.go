@@ -314,10 +314,10 @@ func TestGuardOutputCopyIsNoRedirect(t *testing.T) {
 	}, true)
 }
 
-// C520: a line that runs komando, or reads its program, next to another
-// command names komando only for that command: python3 and sleep beside it
-// get nothing from it. A reader whose output goes on (a pipe, a file, a
-// command substitution), cd, a variable and a heredoc still count.
+// C520: on a plain line, a command that runs komando or reads its program
+// names komando only for itself: python3 and sleep beside it get nothing
+// from it. A reader whose output goes on (a pipe, a file, a command
+// substitution), cd, a variable and a heredoc still count.
 func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
 	home, _ := guardLineHome(t)
 	checkLines(t, home, home, []string{
@@ -326,8 +326,10 @@ func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
 		"sleep 5; ~/bin/komando version",
 		"stat ~/bin/komando; sleep 1",
 		"python3 -c 'print(1)' && ls -la ~/bin/komando",
-		"command -v komando; python3 -c 'print(1)'",
+		"ls -la /usr/local/bin/komando; python3 --version",
+		"which komando; sleep 1",
 		"cat ~/.claude/settings.json; python3 -c 'print(1)'",
+		"komando version 2>&1; python3 -c 'print(1)'",
 	}, false)
 	checkLines(t, home, home, []string{
 		"echo ~/bin/komando | xargs rm",
@@ -348,6 +350,101 @@ func TestGuardKomandoRunNextToAnotherCommand(t *testing.T) {
 		"{ ls ~/bin/komando; } | xargs rm",
 		"exec > /tmp/t; ls ~/bin/komando; xargs rm < /tmp/t",
 	}, true)
+}
+
+// C520: the guard reads a line as each command sees it only when every
+// command on it is plain literal text. Each case is a kind of line it
+// reads whole instead, so a command that changes the program still sees
+// the name another command gives. The first line of each case is refused
+// by that check alone; the rest are the review's lines of that kind.
+func TestGuardNarrowsOnlyPlainLines(t *testing.T) {
+	home, _ := guardLineHome(t)
+	bin := filepath.Join(home, "bin", "komando")
+	cases := []struct {
+		name  string
+		lines []string
+	}{
+		{"a dollar sign", []string{
+			`ls ~/bin/komando; cp /bin/true "$_"`,
+			`ls ~/bin/komando; read -r p < /tmp/f; cp /bin/true "$p"`,
+			`x=_; ls ~/bin/komando; cp /bin/true "${!x}"`,
+			`x=_; ls ~/bin/komando; python3 -c 'import sys;open(sys.argv[1],"w")' "${!x}"`,
+			`x=_; cat ~/.claude/settings.json; python3 -c 'import sys;open(sys.argv[1],"w")' "${!x}"`,
+			"ls ~/bin/komando\ncp /bin/true \"${!x}\"",
+			`declare -n r=_; ls ~/bin/komando; cp /bin/true "$r"`,
+		}},
+		{"a backtick", []string{
+			"python3 -c 'import sys;open(sys.argv[1],\"w\")' `which komando`",
+		}},
+		{"a parenthesis outside quotes", []string{
+			"xargs rm < <(ls ~/bin/komando)",
+			"(ls ~/bin/komando; echo) | xargs rm",
+		}},
+		{"a heredoc", []string{
+			"xargs rm <<EOF\n" + bin + "\nEOF",
+		}},
+		{"a redirect to a file", []string{
+			"ls ~/bin/komando > /tmp/t; xargs rm < /tmp/t",
+		}},
+		{"a group or compound command", []string{
+			"{ ls ~/bin/komando; } | xargs rm",
+			"for f in a; do ls ~/bin/komando; done | xargs rm",
+		}},
+		{"a background job", []string{
+			"ls " + bin + " & jobs | xargs rm",
+			"ls ~/bin/komando & python3 -",
+		}},
+		{"an exclamation mark", []string{
+			"ls ~/bin/komando\ncp /bin/true !!:1",
+			"set -o history; ls ~/bin/komando; cp /bin/true !$",
+			"ls ~/bin/komando; history -p '!!' | xargs rm",
+		}},
+		{"BASH_COMMAND", []string{
+			"ls ~/bin/komando; BASH_COMMAND=1 python3 -",
+			`ls ~/bin/komando; cp /bin/true "$BASH_COMMAND"`,
+			`trap 'eval cp /bin/true ${BASH_COMMAND#ls }' DEBUG; ls ~/bin/komando`,
+			`trap 'eval cp /bin/true ${BASH_COMMAND#* }' DEBUG; komando version ~/bin/komando`,
+		}},
+		{"code run at run time", []string{
+			`ls ~/bin/komando; eval 'cp /bin/true "$'_'"'`,
+			`ls ~/bin/komando; eval cp /bin/true '"$'_'"'`,
+		}},
+		{"a change of folder", []string{
+			"cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"builtin cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"command cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"time cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"env cd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"builtin cd ~/bin && python3 -c \"open('komando','w')\"",
+			"builtin pushd ~/.claude; python3 -c \"open('settings.json','w')\"",
+			"builtin cd ~/.komando; python3 -c \"print(open('vault.key').read())\"",
+			"command cd ~/.komando; python3 -c \"print(open('vault.key').read())\"",
+		}},
+		{"a program word redefined", []string{
+			"hash -p /bin/rm ls; ls ~/bin/komando",
+		}},
+		{"a variable a reader sets", []string{
+			"printf -v p %s ~/bin/komando; cp /bin/true ~p",
+		}},
+		{"output that goes on through a pipe", []string{
+			"echo ~/bin/komando | xargs rm",
+			"ls ~/bin/komando |& xargs rm",
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) { checkLines(t, home, home, c.lines, true) })
+	}
+	// every word that runs code, reads the line back or changes the shell
+	// keeps the line whole, wherever it stands
+	for _, w := range []string{"eval", "trap", "source", ".", "bash", "sh", "zsh", "exec", "command", "builtin",
+		"declare", "local", "typeset", "export", "readonly", "alias", "unalias", "hash", "enable", "disable",
+		"autoload", "functions", "zmodload", "set", "setopt", "shopt", "emulate", "history", "fc", "r",
+		"cd", "pushd", "popd", "chdir"} {
+		t.Run("the word "+w, func(t *testing.T) {
+			checkLines(t, home, home, []string{"ls ~/bin/komando; " + w + " x; python3 y.py"}, true)
+		})
+	}
+	checkLines(t, home, home, []string{"command -v komando; python3 -c 'print(1)'"}, true)
 }
 
 // Programs that only read may name a guard file or the komando program:

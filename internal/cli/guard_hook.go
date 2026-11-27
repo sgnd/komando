@@ -661,59 +661,20 @@ func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd 
 	return checkGuardFileNamed(cl, line, base, args, home, cwd)
 }
 
-// lineForOthers is line as its command seg sees it: without the commands
-// that hand seg no word, which are runs of komando and readers (not cd or
-// pushd) that print to the screen. Such a command has no pipe after it
-// and sets no variable. Only a flat line is narrowed: one with no command
-// substitution, group, compound command, heredoc, file redirect or $_.
-// Any of those can carry a word from one command to another.
-func lineForOthers(line, seg string) string {
-	segs, ends := shellCuts(line)
-	if ends == nil || strings.Contains(line, "<<") || strings.Contains(line, "$_") || strings.Contains(line, "${_") ||
-		len(redirectFiles(line)) > 0 {
-		return line
+// checkWrites refuses a segment that changes a guard file
+// (checkGuardFiles), or that writes a secret file with >&FILE (its output
+// and its errors in one): that file is checked as every named file is,
+// readers' too.
+func checkWrites(cl *call, line, seg, prog string, args []string, home, cwd string) guardDecision {
+	if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
+		return d
 	}
-	for _, e := range ends {
-		if e == '(' || e == ')' || e == '`' || e == '$' {
-			return line
+	for _, w := range bothOutputsFiles(seg) {
+		if why := secretWord(cl, w, home, cwd, wordHasGlob(w)); why != "" {
+			return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
 		}
 	}
-	var kept []string
-	for i, s := range segs {
-		words := shellWords(s)
-		for _, w := range words {
-			if compoundWord[w] {
-				return line
-			}
-		}
-		piped := ends[i] == '|' && !(i+1 < len(segs) && segs[i+1] == "" && ends[i+1] == '|')
-		if s == seg || piped || !printsOnly(words) {
-			kept = append(kept, s)
-		}
-	}
-	return strings.Join(kept, " ; ")
-}
-
-// compoundWord are the words of the shell's groups and compound commands,
-// whose output goes on as a whole (`for ...; do ls X; done | xargs rm`).
-var compoundWord = map[string]bool{"{": true, "}": true, "!": true, "if": true, "then": true, "else": true, "elif": true, "fi": true,
-	"for": true, "select": true, "while": true, "until": true, "do": true, "done": true, "case": true, "esac": true,
-	"function": true, "coproc": true}
-
-// printsOnly says whether the command words runs komando or a reader, and
-// sets no variable: what it does with the words it names stays its own.
-func printsOnly(words []string) bool {
-	for _, w := range words {
-		if envAssign.MatchString(w) {
-			return false
-		}
-	}
-	prog, args := program(words)
-	base := filepath.Base(prog)
-	if len(setNames(base, args)) > 0 {
-		return false // printf -v NAME: a later command reads the variable
-	}
-	return base == "komando" || base != "cd" && base != "pushd" && prog != "" && readsOnly(base, args)
+	return allow()
 }
 
 // checkGuardFileNamed refuses a command that is not only a reader when its
