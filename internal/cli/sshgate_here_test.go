@@ -74,11 +74,10 @@ func serverAnswer(t *testing.T, line string, key gateKey) (code, msg string) {
 func TestGateServerRules(t *testing.T) {
 	serverHome(t)
 	for _, line := range []string{
-		"komando svc status localhost nginx", "komando svc restart localhost nginx", "komando svc list localhost",
-		"komando pkg installed localhost", "komando pkg upgradable localhost", "komando facts localhost",
+		"komando pkg installed localhost", "komando pkg upgradable localhost", "komando pkg upgrade localhost", "komando logs localhost",
 		"komando fs cat localhost /etc/os-release", "komando fs list localhost ~/work", "komando fs stat localhost work/notes.txt",
 		"komando fs cat localhost ~/.profile", // a read of a start file changes nothing
-		"komando ssh-gate status -o json", "komando version", "komando svc status localhost nginx --help",
+		"komando ssh-gate status -o json", "komando version", "komando pkg installed localhost --help",
 	} {
 		if code, msg := serverAnswer(t, line, hereKey); code != "" {
 			t.Errorf("%q: refused %s (%s), want it allowed in server mode", line, code, msg)
@@ -113,8 +112,7 @@ func TestGateServerRules(t *testing.T) {
 		"komando key list":                             "only",
 		"komando fs write localhost ~/work/x --from -": "only",
 		"komando db query pg 'select 1'":               "only",
-		"komando svc status web1 nginx":                "not this server",
-		"komando svc stop localhost sshd":              "dangerous",
+		"komando pkg installed web1":                   "not this server",
 		"komando pkg rm localhost openssh-server":      "dangerous",
 		"komando fs cat localhost /etc/shadow --sudo":  "sudo",
 		// the read limit: no read of another home, ~/.ssh or komando's own folder
@@ -127,8 +125,8 @@ func TestGateServerRules(t *testing.T) {
 			t.Errorf("%q: %s %q, want SSH_GATE_REFUSED naming %q", line, code, msg, word)
 		}
 	}
-	if code, _ := serverAnswer(t, "komando svc restart localhost nginx", hereReadKey); code != "SSH_GATE_READ_ONLY" {
-		t.Errorf("a read-only key restarts a service: %s", code)
+	if code, _ := serverAnswer(t, "komando pkg upgrade localhost", hereReadKey); code != "SSH_GATE_READ_ONLY" {
+		t.Errorf("a read-only key upgrades packages: %s", code)
 	}
 }
 
@@ -163,7 +161,7 @@ func TestGateServerProtectsTheRealSSHFolder(t *testing.T) {
 // for a command its rules allow; every answer is audited with here.
 func TestGateServerRunsNothingYet(t *testing.T) {
 	serverHome(t)
-	ran, _, e := gateRun(t, "komando svc status localhost nginx", "--name", "komando-phone-anna", "--here")
+	ran, _, e := gateRun(t, "komando pkg installed localhost", "--name", "komando-phone-anna", "--here")
 	if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "own server yet") {
 		t.Errorf("ran %q, %+v", ran, e)
 	}
