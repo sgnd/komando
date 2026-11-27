@@ -141,7 +141,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `docker prune` | always | dangerous | `--allow-dangerous` |
 | `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
 | `user rm` | always | dangerous | `--allow-dangerous` |
-| `credential password remove` | always | dangerous | `--allow-dangerous` |
 | `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
 | `pkg rm` | a person types the name of what goes | change |  |
 | `cron rm` | a person types the name of what goes | change |  |
@@ -173,6 +172,8 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `registry oci image delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |
 | `db restore` | always | dangerous | `--allow-dangerous` |
+| `credential password remove` | always | dangerous | `--allow-dangerous` |
+| `credential token remove` | always | dangerous | `--allow-dangerous` |
 | `credential key remove` | with --delete-file | dangerous | `--allow-dangerous` |
 | `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `recipe run` | when a step matches a destructive rule | dangerous | `--allow-dangerous` |

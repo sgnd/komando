@@ -60,6 +60,9 @@ config.approval-code	plain=person	highest=person
 config.get	plain=read	highest=read
 config.set	plain=safety	highest=safety
 config.show	plain=read	highest=read
+config.vault	plain=read	highest=read
+config.vault.keychain	plain=person	highest=person
+config.vault.passphrase	plain=person	highest=person
 conn	plain=read	highest=read
 conn.add	plain=change	highest=read
 conn.edit	plain=change	highest=safety
@@ -70,6 +73,33 @@ conn.rm	plain=change	highest=read
 conn.show	plain=read	highest=read
 conn.test	plain=read	highest=read
 cp	plain=change	highest=read
+credential	plain=read	highest=read
+credential.certificate	plain=read	highest=read
+credential.certificate.add	plain=person	highest=person
+credential.certificate.list	plain=read	highest=read
+credential.certificate.remove	plain=change	highest=read
+credential.key	plain=read	highest=read
+credential.key.add	plain=change	highest=read
+credential.key.create	plain=change	highest=read
+credential.key.edit	plain=change	highest=read
+credential.key.install	plain=change	highest=read
+credential.key.list	plain=read	highest=read
+credential.key.remove	plain=change	highest=dangerous
+credential.key.rename	plain=change	highest=read
+credential.key.show	plain=read	highest=read
+credential.key.uninstall	plain=dangerous	highest=dangerous
+credential.list	plain=read	highest=read
+credential.password	plain=read	highest=read
+credential.password.add	plain=change	highest=read
+credential.password.remove	plain=dangerous	highest=dangerous
+credential.password.rename	plain=change	highest=read
+credential.password.show	plain=read	highest=read
+credential.run	plain=safety	highest=safety
+credential.token	plain=read	highest=read
+credential.token.add	plain=change	highest=read
+credential.token.remove	plain=dangerous	highest=dangerous
+credential.token.rename	plain=change	highest=read
+credential.token.show	plain=read	highest=read
 cron	plain=read	highest=read
 cron.list	plain=read	highest=read
 cron.rm	plain=change	highest=change
@@ -141,10 +171,7 @@ help	plain=change	highest=read
 host	plain=read	highest=read
 host.add	plain=dangerous	highest=safety
 host.ca	plain=read	highest=read
-host.ca.add	plain=person	highest=person
-host.ca.list	plain=read	highest=read
 host.ca.revoke	plain=change	highest=read
-host.ca.rm	plain=change	highest=read
 host.edit	plain=dangerous	highest=safety
 host.list	plain=read	highest=read
 host.rename	plain=change	highest=read
@@ -162,16 +189,6 @@ job.rm	plain=change	highest=read
 job.start	plain=dangerous	highest=dangerous
 job.status	plain=read	highest=read
 job.wait	plain=read	highest=read
-key	plain=read	highest=read
-key.add	plain=change	highest=read
-key.deploy	plain=change	highest=read
-key.edit	plain=change	highest=read
-key.gen	plain=change	highest=read
-key.list	plain=read	highest=read
-key.rename	plain=change	highest=read
-key.revoke	plain=dangerous	highest=dangerous
-key.rm	plain=change	highest=dangerous
-key.show	plain=read	highest=read
 komando	plain=change	highest=read
 list	plain=read	highest=read
 login	plain=person	highest=person
@@ -204,7 +221,9 @@ policy.list	plain=read	highest=read
 policy.rm	plain=safety	highest=safety
 policy.show	plain=read	highest=read
 probe cluster scale c1 web 0	dangerous
+probe config vault keychain	person
 probe conn edit app-db --protected=false	safety
+probe credential key remove k1 --delete-file	dangerous
 probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
@@ -214,12 +233,10 @@ probe host edit web1 --proxy-command nc	safety
 probe host trust web1 --reset	person
 probe import komando backup.json	person
 probe import kubeconfig	safety
-probe key rm k1 --delete-file	dangerous
 probe pkg rm web1 openssh-server	dangerous
 probe pkg upgrade web1 --security	dangerous
 probe policy edit rm-root --off	safety
 probe recipe add r1 --overwrite --read-only	safety
-probe secret keychain	person
 probe svc disable web1 ssh.service	dangerous
 probe svc stop web1 sshd	dangerous
 probe sync ./site web1:/srv --delete	dangerous
@@ -265,14 +282,6 @@ schema	plain=read	highest=read
 secret	plain=read	highest=read
 secret.check	plain=person	highest=person
 secret.cp	plain=change	highest=read
-secret.keychain	plain=person	highest=person
-secret.list	plain=read	highest=read
-secret.passphrase	plain=person	highest=person
-secret.rename	plain=change	highest=read
-secret.rm	plain=dangerous	highest=dangerous
-secret.run	plain=safety	highest=safety
-secret.set	plain=change	highest=read
-secret.show	plain=read	highest=read
 shell	plain=person	highest=person
 ssh-gate	plain=person	highest=person
 ssh-gate.line	plain=read	highest=read

@@ -208,7 +208,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST` |
 | `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando cp SRC DST` |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
-| `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando credential password show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
+| `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run … in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history TARGET TYPE/NAME` |
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
@@ -222,7 +222,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando credential password add …` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, for example `…`, or rename it with `komando credential password rename` |
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando credential password add …` |
-| `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando credential list` |
+| `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando secret list` |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando credential token add NAME < ca.crt` |
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
@@ -260,7 +260,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
-| `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando credential key list` |
+| `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
 | `STATE_CORRUPT` | 1 | nothing was changed: … | the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy` |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando credential token add NAME` and pass --password-ref secret:NAME |
