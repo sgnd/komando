@@ -296,7 +296,7 @@ var errorCodes = []errorCode{
 	{"TOPIC_EXISTS", 8, "topic … already exists", "pick another name, or see it with `komando queue describe CONN …`"},
 	{"TOPIC_NOT_FOUND", 3, "no topic named …", "list topics with `komando queue list CONN`"},
 	{"TUNNEL_FAILED", 4, "the server refused the port forwarding (AllowTcpForwarding, address)", "check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right"},
-	{"TUNNEL_NOT_FOUND", 3, "no tunnel named …", "see them with `komando host ssh tunnel list`"},
+	{"TUNNEL_NOT_FOUND", 3, "no tunnel named …", "see them with `komando tunnel list`"},
 	{"TUNNEL_TIMEOUT", 7, "tunnel did not become ready…", "check that … answers: `komando test …`; a person reads the whole log in …"},
 	{"UNEXPECTED_CHANGE", 8, "… changed after patching: …", "check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"},
 	{"UNEXPECTED_STATUS", 5, "HTTP …, expected …", "check the URL and the service behind it"},
@@ -337,6 +337,6 @@ var errorCodes = []errorCode{
 	{"WINRM_TLS", 4, "…: the WinRM server's certificate cannot be trusted: …", "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host winrm edit … --address winrm://...`)"},
 	{"WRITE_FAILED", 1, "…; nothing was changed", "check that you may write to …"},
 	{"WRITE_REQUIRES_FLAG", 6, "… needs --write", "this command may change data (or is not known to be a read); run it again with --write"},
-	{"WRONG_KIND", 2, "… is a … URL, not one for `komando … add`", "add it with `… add` (or `komando conn add`)"},
+	{"WRONG_KIND", 2, "… is a WinRM address, not an SSH one", "use `komando host winrm add`"},
 	{"WRONG_PASSPHRASE", 2, "that passphrase does not open the vault; nothing was changed", "run it again and type the passphrase the vault has now"},
 }

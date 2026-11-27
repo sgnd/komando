@@ -266,7 +266,10 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Short:   l.Short,
 		Example: l.Example,
 		Aliases: slices.Clone(l.Synonyms),
-		Args: func(_ *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && formAddCmd(cmd) {
+				return formOrUsage(cmd, strings.Join(l.Key.Path()[:len(l.Key.Path())-1], " "), "komando "+strings.Join(l.Key.Path(), " ")+" web1 deploy@10.0.0.5")
+			}
 			if len(args) < least || most >= 0 && len(args) > most {
 				return out.Usage("%s takes %s", strings.Join(l.Key.Path(), " "), strings.Join(use[1:], " "))
 			}

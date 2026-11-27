@@ -27,7 +27,6 @@ func TestStandardRenamedIDs(t *testing.T) {
 		now, old []string
 		id       string
 	}{
-		{[]string{"host", "rename"}, []string{"host", "ssh", "rename"}, "host.rename"},
 		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
 		{[]string{"vpn", "rename"}, []string{"vpn", "mv"}, "vpn.rename"},
 		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.rename"},
@@ -60,12 +59,12 @@ func TestRenameMvSynonym(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	mustRun(t, "host", "ssh", "rename", "web1", "web-01")
-	if d := mustRun(t, "host", "rename", "web-01", "web-02"); d["to"] != "web-02" {
-		t.Errorf("host rename: %v", d)
+	if d := mustRun(t, "host", "ssh", "rename", "web-01", "web-02"); d["to"] != "web-02" {
+		t.Errorf("host ssh rename: %v", d)
 	}
-	code, outText := runMain(t, "host", "rename", "web-02", "web-03")
-	if code != 0 || !strings.Contains(outText, `"command":"host.rename"`) {
-		t.Errorf("host rename: exit %d, %s", code, outText)
+	code, outText := runMain(t, "host", "ssh", "rename", "web-02", "web-03")
+	if code != 0 || !strings.Contains(outText, `"command":"host.ssh.rename"`) {
+		t.Errorf("host ssh rename: exit %d, %s", code, outText)
 	}
 }
 

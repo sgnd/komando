@@ -43,7 +43,7 @@ func TestWinRMWeakSettingsNeedAPerson(t *testing.T) {
 			noAgent(t)
 			mustRun(t, "host", "winrm", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?"+q)
 			asAgent(t, false, true)
-			mustRun(t, "host", "ssh", "edit", "win1", "--notes", "same settings")
+			mustRun(t, "host", "winrm", "edit", "win1", "--notes", "same settings")
 		})
 	}
 }

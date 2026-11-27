@@ -103,15 +103,17 @@ func addFormHints(m map[string]formHint) {
 // winrmVerbs are the verbs of `host ssh VERB` that `host winrm VERB` has too.
 var winrmVerbs = []string{"add", "edit", "list", "remove", "rename", "show", "test", "exec", "shell"}
 
+// winrmLacks are the flags of `host ssh VERB` that a WinRM server has no use for:
+// no sudo, no ssh key.
+var winrmLacks = []string{"sudo", "key"}
+
 // withWinRM is m and, for each hint of a verb that both host providers have,
 // the same hint for `host winrm VERB`.
 func withWinRM(m map[string]formHint) map[string]formHint {
 	all := maps.Clone(m)
 	for _, v := range winrmVerbs {
 		if h, ok := m["host ssh "+v]; ok {
-			if v == "exec" { // a WinRM server has no sudo
-				h.flags = slices.DeleteFunc(slices.Clone(h.flags), func(f formFlag) bool { return f.name == "sudo" })
-			}
+			h.flags = slices.DeleteFunc(slices.Clone(h.flags), func(f formFlag) bool { return slices.Contains(winrmLacks, f.name) })
 			all["host winrm "+v] = h
 		}
 	}

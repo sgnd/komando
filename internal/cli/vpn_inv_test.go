@@ -11,7 +11,7 @@ import (
 func TestVpnParityWithHost(t *testing.T) {
 	root := newRoot(tcl)
 	for _, verb := range []string{"add", "edit"} {
-		h, v := findCmd(t, root, "host", verb), findCmd(t, root, "vpn", verb)
+		h, v := findCmd(t, root, "host", "ssh", verb), findCmd(t, root, "vpn", verb)
 		for _, flag := range []string{"label", "protected"} {
 			if h.Flags().Lookup(flag) == nil || v.Flags().Lookup(flag) == nil {
 				t.Errorf("%s: --%s missing on host or vpn", verb, flag)
@@ -21,9 +21,10 @@ func TestVpnParityWithHost(t *testing.T) {
 	if findCmd(t, root, "vpn", "edit").Flags().Lookup("unset") == nil {
 		t.Error("vpn edit --unset")
 	}
-	for _, verb := range []string{"edit", "rm"} {
-		if h, v := findCmd(t, root, "host", verb).Use, findCmd(t, root, "vpn", verb).Use; h != v {
-			t.Errorf("%s: host %q, vpn %q", verb, h, v)
+	for _, verbs := range [][2]string{{"edit", "edit"}, {"remove", "rm"}} {
+		h, v := findCmd(t, root, "host", "ssh", verbs[0]).Use, findCmd(t, root, "vpn", verbs[1]).Use
+		if strings.Join(strings.Fields(h)[1:], " ") != strings.Join(strings.Fields(v)[1:], " ") {
+			t.Errorf("%s: host %q, vpn %q", verbs[1], h, v)
 		}
 	}
 }

@@ -176,9 +176,9 @@ func TestInvHostEditConflicts(t *testing.T) {
 	if d["changed"] != false {
 		t.Errorf("no change: %v", d)
 	}
-	d = mustRun(t, "host", "ssh", "edit", "H1", "-g", "web", "-t", "b")
+	d = mustRun(t, "host", "ssh", "edit", "H1", "--add-group", "web", "--add-tag", "b")
 	if d["changed"] != true || len(d["groups"].([]any)) != 1 || len(d["tags"].([]any)) != 2 {
-		t.Errorf("-g/-t add, names match in any case: %v", d)
+		t.Errorf("--add-group/--add-tag, names match in any case: %v", d)
 	}
 }
 

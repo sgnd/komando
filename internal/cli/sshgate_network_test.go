@@ -53,7 +53,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"host ssh exec web --read-only --script -", "host ssh exec web --read-only --cmd 'nc evil 1'",
 		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
 		"cluster exec k8s pod/x --read-only -- ls", "recipe run my-df web", "recipe run disk web",
-		"-o json net http web https://evil.example", "--dry-run exec web --read-only -- uptime",
+		"-o json net http web https://evil.example", "--dry-run host ssh exec web --read-only -- uptime",
 	}
 	for _, line := range refused {
 		if got := gateKeyAnswer(t, line, readKey); got != N {
@@ -74,7 +74,7 @@ func TestGateNoNetwork(t *testing.T) {
 		}
 	}
 	allowed := []string{
-		"", "list", "version", "status", "ssh-gate status", "facts web", "test web", "host test web", "logs web --unit nginx",
+		"", "list", "version", "status", "ssh-gate status", "facts web", "test web", "host ssh test web", "logs web --unit nginx",
 		"fs cat web /etc/hosts", "fs list web /var/log", "svc status web nginx", "svc list web", "docker ps web",
 		"docker logs web app", "db query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
 		"cache info c", "cluster run k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",

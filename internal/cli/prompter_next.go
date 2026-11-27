@@ -200,7 +200,7 @@ var itemCommands = map[string][]string{
 		"download {} /var/log/syslog --to ./", "job start {} -- make", "host ssh tunnel start {} -L 8080:localhost:80",
 		"key deploy KEY {}", "audit --target {}", "host ssh edit {}", "host ssh rename {} NEW", "host ssh remove {}", "test {}"},
 	"server:windows": {"facts {}", "svc list {} --state running", "svc status {} NAME", "svc restart {} NAME --wait 10s",
-		"host ssh exec {} -- Get-Date", "audit --target {}", "host ssh edit {}", "host ssh rename {} NEW", "host ssh remove {}", "test {}"},
+		"host winrm exec {} -- Get-Date", "audit --target {}", "host winrm edit {}", "host winrm rename {} NEW", "host winrm remove {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster status {}", "cluster list {} services", "cluster logs {} service/NAME",
 		"cluster deploy {} service/NAME --image IMAGE --wait", "cluster apply {} --file compose.yml --stack STACK"},

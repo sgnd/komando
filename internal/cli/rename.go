@@ -378,6 +378,7 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	if err != nil || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
 	}
+	sub.SetContext(cmd.Context()) // a command found by path has none of its own
 	return sub.RunE(sub, []string{old, new})
 }
 
