@@ -161,7 +161,7 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 		socks = v.Address
 	default:
 		if s := st.Sessions[v.Name]; s != nil && s.Socks != "" && s.SocksUser == "" {
-			socks = s.Socks // a VPN kept up with `komando vpn up`
+			socks = s.Socks // a VPN kept up with `komando vpn KIND start`
 		}
 	}
 	if socks == "" {

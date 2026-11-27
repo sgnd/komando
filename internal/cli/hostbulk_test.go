@@ -109,10 +109,10 @@ func TestConnMv(t *testing.T) {
 
 func TestVpnMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "h1", "u@10.0.0.1", "--via", "lab")
 	mustRun(t, "host", "add", "h2", "u@10.0.0.2", "--via", "lab,h1")
-	d := mustRun(t, "vpn", "mv", "lab", "office")
+	d := mustRun(t, "vpn", "socks", "rename", "lab", "office")
 	if d["action"] != "renamed" || len(d["updated"].([]any)) != 2 {
 		t.Errorf("vpn mv: %v", d)
 	}
@@ -120,15 +120,15 @@ func TestVpnMv(t *testing.T) {
 	if st.Vpns["office"] == nil || st.Vpns["lab"] != nil || st.Hosts["h1"].Via != "office" || st.Hosts["h2"].Via != "office,h1" {
 		t.Errorf("vpn references: %+v %+v", st.Hosts["h1"], st.Hosts["h2"])
 	}
-	wantCode(t, "TARGET_NOT_FOUND", "vpn", "mv", "lab", "x")
-	wantCode(t, "NAME_TAKEN", "vpn", "mv", "office", "h1")
+	wantCode(t, "TARGET_NOT_FOUND", "vpn", "socks", "rename", "lab", "x")
+	wantCode(t, "NAME_TAKEN", "vpn", "socks", "rename", "office", "h1")
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), StartedAt: time.Now(), LastUsed: time.Now()}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	wantCode(t, "VPN_IN_USE", "vpn", "mv", "office", "lab")
+	wantCode(t, "VPN_IN_USE", "vpn", "socks", "rename", "office", "lab")
 }
 
 func TestHostEditMany(t *testing.T) {

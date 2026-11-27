@@ -422,7 +422,7 @@ func secretInUse(name string, users []string) error {
 		"host": "komando host edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
 		"conn": "komando conn edit " + who + " --password-ref ...",
 		"key":  "komando key edit " + who + " --passphrase-ref ...",
-		"vpn":  "komando vpn edit " + who + " ...",
+		"vpn":  "komando vpn KIND edit " + who + " ...",
 	}[kind]
 	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando secret rename`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))

@@ -43,8 +43,12 @@ func KindWord(kind string) string {
 // NotFound is the error for a name komando does not know, worded the one
 // way S-8.4 asks: no <kind> named "<name>".
 func NotFound(kind, name string) *Error {
+	list := kind + " list"
+	if kind == "vpn" {
+		list = "list" // a VPN is listed under its kind, so `komando list` is the one command for all of them
+	}
 	e := Errf(ExitNotFound, NotFoundCode(kind),
-		fmt.Sprintf("see them with `komando %s list`", kind),
+		fmt.Sprintf("see them with `komando %s`", list),
 		"no %s named %q", KindWord(kind), name)
 	if e.Code == "TARGET_NOT_FOUND" {
 		e.wanted = kind

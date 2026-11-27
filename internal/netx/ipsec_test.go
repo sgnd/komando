@@ -21,8 +21,8 @@ func TestIPsecOptIns(t *testing.T) {
 		t.Fatalf("legacy crypto did not reach the client: %+v %v", o, err)
 	}
 	for err, flag := range map[error]string{
-		&ipsec.LegacyCryptoError{Msg: "the server accepted none of komando's proposals"}: "komando vpn edit kantor --legacy-crypto",
-		fmt.Errorf("l2tp: %w", ppp.ErrWeakLogin):                                         "komando vpn edit kantor --allow-pap",
+		&ipsec.LegacyCryptoError{Msg: "the server accepted none of komando's proposals"}: "komando vpn l2tp edit kantor --legacy-crypto",
+		fmt.Errorf("l2tp: %w", ppp.ErrWeakLogin):                                         "komando vpn l2tp edit kantor --allow-pap",
 	} {
 		var oe *out.Error
 		if e := ipsecErr(v, err); !errors.As(e, &oe) || oe.Code != "VPN_DOWN" || !strings.Contains(oe.Hint, flag) {

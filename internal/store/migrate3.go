@@ -186,7 +186,7 @@ func noLiveProcesses(alive func(int, string) bool) error {
 	var running []string
 	for _, n := range slices.Sorted(maps.Keys(rt.Sessions)) {
 		if s := rt.Sessions[n]; alive(s.PID, s.ProcStart) {
-			running = append(running, fmt.Sprintf("VPN %s (stop it: komando vpn down %s)", n, n))
+			running = append(running, fmt.Sprintf("VPN %s (stop it: komando vpn KIND stop %s)", n, n))
 		}
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Logins)) {

@@ -18,8 +18,6 @@ var flagSynonyms = []struct {
 	{[]string{"host", "edit"}, "add-tag", "tag"},
 	{[]string{"conn", "edit"}, "add-group", "group"},
 	{[]string{"conn", "edit"}, "add-tag", "tag"},
-	{[]string{"vpn", "edit"}, "add-group", "group"},
-	{[]string{"vpn", "edit"}, "add-tag", "tag"},
 }
 
 func TestFlagSynonyms(t *testing.T) {

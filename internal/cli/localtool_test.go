@@ -31,7 +31,7 @@ func TestToolSafe(t *testing.T) {
 func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	defer func() { setGate(tcl, false, gateYes, gateDryRun) }()
-	mustRun(t, "vpn", "add", "office", "fortinet", "--portal", "vpn.example.com", "--user", "u", "--password-ref", "secret:db-pass")
+	mustRun(t, "vpn", "fortinet", "add", "office", "--portal", "vpn.example.com", "--user", "u", "--credential", "db-pass")
 	bin := t.TempDir()
 	leak := filepath.Join(t.TempDir(), "leak")
 	for _, name := range []string{"openconnect", "ocproxy"} {
@@ -47,7 +47,7 @@ func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	if p, err := localTool(tcl, "sh", []string{"secret:db-pass"}); err != nil || !filepath.IsAbs(p) {
 		t.Fatalf("a system program: %q %v", p, err)
 	}
-	wantCode(t, "SECRET_DESTINATION", "vpn", "up", "office")
+	wantCode(t, "SECRET_DESTINATION", "vpn", "fortinet", "start", "office")
 	if _, err := os.Stat(leak); err == nil {
 		t.Fatal("the stand-in openconnect got the password")
 	}

@@ -284,7 +284,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SYMLINK_LOOP` | 8 | …: too many levels of symbolic links | a link points back to itself; look at it with `komando fs stat SERVER PATH` |
 | `TABLE_NOT_FOUND` | 3 | no table named … | run `komando db schema CONN` to list tables |
 | `TARGET_EMPTY` | 3 | target … matched nothing | run `komando list` to see servers, conns, groups and tags |
-| `TARGET_NOT_FOUND` | 3 | no VPN named … | see them with `komando vpn list` |
+| `TARGET_NOT_FOUND` | 3 | no VPN named … | see them with `komando list` |
 | `TIMEOUT` | 7 | redis did not answer in time | raise --timeout |
 | `TLS_HANDSHAKE_FAILED` | 4 | TLS handshake with … failed: … | the server ended the TLS handshake; run it again, and check that … is the TLS port (not plain HTTP) |
 | `TOOL_FAILED` | 5 | kubectl exited … | read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
@@ -318,13 +318,13 @@ This page is made from the code (`komando schema` lists the same under
 | `VIA_ORDER` | 2 | …: the --via path reaches VPN … after another step | a path can use one VPN, as its first step |
 | `VPN_CLIENT_MISSING` | 3 | … VPNs need the … program, which is not installed | install the program the message names (macOS: `brew install NAME`; Linux: its package) |
 | `VPN_CONFIG` | 2 | …: … | check the file is a WireGuard (wg-quick) config |
-| `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn test …` tries again, and a person reads the whole log in … |
+| `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn … test …` tries again, and a person reads the whole log in … |
 | `VPN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first: `komando host edit TARGET --via OTHER` |
-| `VPN_KEY_IN_USE` | 8 | VPN …: its WireGuard key is in use by komando process … (VPN …, komando home …) | one WireGuard key runs in one session at a time: stop the other with `…`, or give this VPN a key of its own with `komando vpn add … wireguard --config FILE` |
-| `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn up …` (it needs their login); then run it again |
+| `VPN_KEY_IN_USE` | 8 | VPN …: its WireGuard key is in use by komando process … (VPN …, komando home …) | one WireGuard key runs in one session at a time: stop the other with `…`, or give this VPN a key of its own with `komando vpn wireguard add … --config FILE` |
+| `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn … start …` (it needs their login); then run it again |
 | `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
-| `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` again; if it still fails, end process … yourself |
+| `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn … stop …` again; if it still fails, end process … yourself |
 | `WAIT_TIMEOUT` | 7 | job … still running after … | it is still running: `komando job wait …` waits again, `komando job logs … --limit 50` shows its output so far |
 | `WEAK_PASSPHRASE` | 2 | …; nothing was changed | run it again with another passphrase |
 | `WINRM_ERROR` | 5 | …: … | read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group) |

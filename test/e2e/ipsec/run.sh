@@ -50,11 +50,15 @@ for s in "l2tp-psk l2tp-psk" "l2tp-pass l2tp-pass" "group group-secret" "xauth x
 done
 
 LIFETIME=40s
-add() { in_client komando vpn add "$@" >/dev/null || fail "vpn add $1"; }
-add l2tp l2tp --server ipsecsrv --psk-ref secret:l2tp-psk --user l2tp-user --password-ref secret:l2tp-pass --check 10.30.0.1:8080
-add cisco ipsec --server ipsecsrv --id staff --psk-ref secret:group --user xauth-user --password-ref secret:xauth --check 10.40.0.1:8080
-add v2psk ikev2 --server ipsecsrv --id psk-client --psk-ref secret:v2psk --check 10.50.0.1:8080
-add v2eap ikev2 --server ipsecsrv --user eap-user --password-ref secret:eap --ca /pki/ca.pem --check 10.50.0.1:8080
+add() { local name=$1 kind=$2; shift 2; in_client komando vpn "$kind" add "$name" "$@" >/dev/null || fail "vpn $kind add $name"; }
+# stop every session: each one by its name and kind
+stop_all() {
+  for n in "l2tp l2tp" "ipsec cisco" "ikev2 v2psk" "ikev2 v2eap"; do in_client komando vpn "${n%% *}" stop "${n##* }" >/dev/null || true; done
+}
+add l2tp l2tp --server ipsecsrv --psk-credential l2tp-psk --user l2tp-user --credential l2tp-pass --check 10.30.0.1:8080
+add cisco ipsec --server ipsecsrv --id staff --psk-credential group --user xauth-user --credential xauth --check 10.40.0.1:8080
+add v2psk ikev2 --server ipsecsrv --id psk-client --psk-credential v2psk --check 10.50.0.1:8080
+add v2eap ikev2 --server ipsecsrv --user eap-user --credential eap --ca /pki/ca.pem --check 10.50.0.1:8080
 for spec in "l2tp L2TP/IPsec (IKEv1 main mode, PPP MS-CHAPv2)" "cisco Cisco-style IPsec (aggressive mode, XAUTH, mode config)" \
   "v2psk IKEv2 with a pre-shared key" "v2eap IKEv2 with EAP-MSCHAPv2 and the server's certificate"; do
   name=${spec%% *}
@@ -66,8 +70,8 @@ done
 
 [ "$(in_client komando status | python3 -c 'import json,sys; print(sorted(v["name"] for v in json.load(sys.stdin)["data"]["vpns"]))')" = "['cisco', 'l2tp', 'v2eap', 'v2psk']" ] || fail "status lists the sessions"
 echo "ok   komando status lists the four sessions"
-[ "$(in_client komando vpn up l2tp | jget 'd["data"]["session"].get("socks_pass", "") + d["data"]["session"].get("socks_user", "")')" = "" ] || fail "vpn up shows the session's SOCKS login"
-echo "ok   vpn up hides the session's SOCKS password"
+[ "$(in_client komando vpn l2tp start l2tp | jget 'd["data"]["session"].get("socks_pass", "") + d["data"]["session"].get("socks_user", "")')" = "" ] || fail "vpn start shows the session's SOCKS login"
+echo "ok   vpn start hides the session's SOCKS password"
 
 # 200 seconds of use (longer than five missed dead peer checks): komando
 # rekeys cisco's ESP every ~32s and its IKE SA at ~96s; the server rekeys
@@ -108,47 +112,47 @@ for name in l2tp cisco v2psk v2eap; do
   in_client grep -Eq "l2tp-psk|l2tp-pass|group-secret|xauth-pass|ikev2-psk|eap-pass" "/tmp/k/vpn/$name.log" && fail "a secret in $name's log"
 done
 echo "ok   no secret in the session logs"
-in_client komando vpn down --all >/dev/null
-[ "$(in_client komando status | jget 'len(d["data"]["vpns"])')" = 0 ] || fail "vpn down ends the sessions"
+stop_all
+[ "$(in_client komando status | jget 'len(d["data"]["vpns"])')" = 0 ] || fail "vpn stop ends the sessions"
 sleep 2
-docker exec "$SERVER" sh -c 'ipsec status' | grep -q ESTABLISHED && fail "the server still has SAs after vpn down (no delete sent)"
-echo "ok   vpn down ends the sessions and tells the server"
+docker exec "$SERVER" sh -c 'ipsec status' | grep -q ESTABLISHED && fail "the server still has SAs after vpn stop (no delete sent)"
+echo "ok   vpn stop ends the sessions and tells the server"
 LIFETIME=
 
 # refusals say what is wrong
 refused() { # name want-in-message add-args...
   local name=$1 want=$2; shift 2
-  in_client komando vpn add "$name" "$@" --overwrite >/dev/null || fail "vpn add $name"
+  in_client komando vpn "$1" add "$name" "${@:2}" --overwrite >/dev/null || fail "vpn $1 add $name"
   out=$(in_client komando test "$name" || true)
   grep -qi -- "$want" <<<"$out" || { echo "$out" | head -c 600; echo; show_log "$name"; fail "$name: want '$want'"; }
   echo "ok   $name is refused: $want"
 }
-refused bad-psk "pre-shared key" l2tp --server ipsecsrv --psk-ref secret:wrong --user l2tp-user --password-ref secret:l2tp-pass --check 10.30.0.1:8080
-refused bad-ppp "wrong user name or password" l2tp --server ipsecsrv --psk-ref secret:l2tp-psk --user l2tp-user --password-ref secret:wrong --check 10.30.0.1:8080
-refused bad-xauth "XAUTH" ipsec --server ipsecsrv --id staff --psk-ref secret:group --user xauth-user --password-ref secret:wrong --check 10.40.0.1:8080
-refused bad-group "pre-shared key" ipsec --server ipsecsrv --id staff --psk-ref secret:wrong --user xauth-user --password-ref secret:xauth --check 10.40.0.1:8080
-refused bad-v2psk "AUTHENTICATION_FAILED" ikev2 --server ipsecsrv --id psk-client --psk-ref secret:wrong --check 10.50.0.1:8080
-refused bad-eap "wrong user name or password" ikev2 --server ipsecsrv --user eap-user --password-ref secret:wrong --ca /pki/ca.pem --check 10.50.0.1:8080
-refused bad-ca "not trusted" ikev2 --server ipsecsrv --user eap-user --password-ref secret:eap --ca /pki/other-ca.pem --check 10.50.0.1:8080
+refused bad-psk "pre-shared key" l2tp --server ipsecsrv --psk-credential wrong --user l2tp-user --credential l2tp-pass --check 10.30.0.1:8080
+refused bad-ppp "wrong user name or password" l2tp --server ipsecsrv --psk-credential l2tp-psk --user l2tp-user --credential wrong --check 10.30.0.1:8080
+refused bad-xauth "XAUTH" ipsec --server ipsecsrv --id staff --psk-credential group --user xauth-user --credential wrong --check 10.40.0.1:8080
+refused bad-group "pre-shared key" ipsec --server ipsecsrv --id staff --psk-credential wrong --user xauth-user --credential xauth --check 10.40.0.1:8080
+refused bad-v2psk "AUTHENTICATION_FAILED" ikev2 --server ipsecsrv --id psk-client --psk-credential wrong --check 10.50.0.1:8080
+refused bad-eap "wrong user name or password" ikev2 --server ipsecsrv --user eap-user --credential wrong --ca /pki/ca.pem --check 10.50.0.1:8080
+refused bad-ca "not trusted" ikev2 --server ipsecsrv --user eap-user --credential eap --ca /pki/other-ca.pem --check 10.50.0.1:8080
 # the certificate is made out to ipsecsrv, not to the server's address
 SRV_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$SERVER")
-refused bad-name "is not for" ikev2 --server "$SRV_IP" --user eap-user --password-ref secret:eap --ca /pki/ca.pem --check 10.50.0.1:8080
-refused no-server "does not answer" l2tp --server 10.255.255.1 --psk-ref secret:l2tp-psk --user l2tp-user --password-ref secret:l2tp-pass --check 10.30.0.1:8080
+refused bad-name "is not for" ikev2 --server "$SRV_IP" --user eap-user --credential eap --ca /pki/ca.pem --check 10.50.0.1:8080
+refused no-server "does not answer" l2tp --server 10.255.255.1 --psk-credential l2tp-psk --user l2tp-user --credential l2tp-pass --check 10.30.0.1:8080
 
 # mistakes are caught when the VPN is added
 usage() { # want-in-message add-args...
   local want=$1; shift
-  out=$(in_client komando vpn add bad "$@" 2>&1 || true)
+  out=$(in_client komando vpn "$1" add bad "${@:2}" 2>&1 || true)
   grep -q -- "$want" <<<"$out" || { echo "$out"; fail "vpn add $*: want '$want'"; }
 }
-usage "needs --server" l2tp --psk-ref secret:l2tp-psk --user u
-usage "l2tp needs --psk-ref" l2tp --server ipsecsrv --user u
-usage "ikev2 needs --psk-ref" ikev2 --server ipsecsrv
-usage "--config is not used" ipsec --server ipsecsrv --psk-ref secret:group --config /etc/hosts
+usage "needs --server" l2tp --psk-credential l2tp-psk --user u
+usage "l2tp needs --psk-credential" l2tp --server ipsecsrv --user u
+usage "ikev2 needs --psk-credential" ikev2 --server ipsecsrv
+usage "unknown flag: --config" ipsec --server ipsecsrv --psk-credential group --config /etc/hosts
 usage "--ca takes a PEM" ikev2 --server ipsecsrv --user u --ca /etc/hosts
-out=$(in_client komando vpn edit v2psk --remote-id x --id y --dry-run 2>&1); grep -q would_change <<<"$out" || fail "vpn edit --remote-id on ikev2"
-out=$(in_client komando vpn edit l2tp --remote-id x 2>&1 || true); grep -q "not used by l2tp" <<<"$out" || fail "vpn edit --remote-id on l2tp is refused"
-echo "ok   vpn add and vpn edit refuse settings that cannot work"
+out=$(in_client komando vpn ikev2 edit v2psk --remote-id x --id y --dry-run 2>&1); grep -q would_change <<<"$out" || fail "vpn edit --remote-id on ikev2"
+out=$(in_client komando vpn l2tp edit l2tp --remote-id x 2>&1 || true); grep -q "unknown flag: --remote-id" <<<"$out" || fail "vpn edit --remote-id on l2tp is refused"
+echo "ok   vpn KIND add and vpn KIND edit refuse settings that cannot work"
 
 # a session whose server goes away ends instead of looking up
 ok_test v2psk || fail "v2psk again"
@@ -156,6 +160,6 @@ docker exec "$SERVER" sh -c 'ipsec stop' >/dev/null 2>&1
 for _ in $(seq 1 90); do [ "$(in_client komando status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "[]" ] && break; sleep 2; done
 [ "$(in_client komando status | jget '[v["name"] for v in d["data"]["vpns"]]')" = "[]" ] || fail "a dead IPsec VPN still shows as up"
 echo "ok   a session whose server went away ends (status no longer lists it)"
-why=$(in_client komando vpn status | python3 -c 'import json,sys; r=[v for v in json.load(sys.stdin)["data"]["vpns"] if v["name"]=="v2psk"][0]; print(r.get("last_end",""), len(r.get("last_log",[])))')
-case $why in *"stopped answering"*|*"ended"*) ;; *) fail "vpn status does not say why v2psk ended: $why";; esac
-echo "ok   vpn status says why the session ended ($why lines of log)"
+why=$(in_client komando vpn ikev2 status | python3 -c 'import json,sys; r=[v for v in json.load(sys.stdin)["data"]["vpns"] if v["name"]=="v2psk"][0]; print(r.get("last_end",""), len(r.get("last_log",[])))')
+case $why in *"stopped answering"*|*"ended"*) ;; *) fail "vpn ikev2 status does not say why v2psk ended: $why";; esac
+echo "ok   vpn ikev2 status says why the session ended ($why lines of log)"

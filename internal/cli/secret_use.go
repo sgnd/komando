@@ -541,7 +541,7 @@ func vpnPlace(v *store.Vpn, servers string) secretPlace {
 }
 
 // guardTypedLoginMove: a VPN without a stored login gets the one a person
-// types (or gives in the browser) at `vpn up`, and that login goes where
+// types (or gives in the browser) at `vpn KIND start`, and that login goes where
 // the VPN points. An AI agent that moves it elsewhere (--portal,
 // --server, a new OpenVPN profile) would get the person's next login, so
 // that is for a person only, as for a server's typed login.
@@ -554,8 +554,8 @@ func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
 	if !moved {
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run this `komando vpn edit` in their own terminal",
-		"vpn %s gets the login a person types at `vpn up`; an AI agent may not change where it goes", now.Name).NoFlag()
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run this `"+vpnPath(old.Kind, "edit")+"` in their own terminal",
+		"vpn %s gets the login a person types at `%s`; an AI agent may not change where it goes", now.Name, vpnPath(old.Kind, "start")).NoFlag()
 }
 
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
@@ -652,11 +652,11 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 		if v.Kind != "openvpn" || v.ConfigRef != ref {
 			continue
 		}
-		// a login a person types at `vpn up` goes wherever the profile
-		// points: moving it is for a person only, as vpn edit has it
+		// a login a person types at `vpn openvpn start` goes wherever the
+		// profile points: moving it is for a person only, as vpn edit has it
 		if v.KeyRef == "" || v.MFA {
 			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to replace secret "+name+" in their own terminal",
-				"secret %s is the profile of vpn %s, which gets the login a person types at `vpn up`; an AI agent may not change where it goes", name, v.Name).NoFlag()
+				"secret %s is the profile of vpn %s, which gets the login a person types at `%s`; an AI agent may not change where it goes", name, v.Name, vpnPath(v.Kind, "start")).NoFlag()
 		}
 		servers, err := ovpnRemotes(now)
 		if err != nil || servers == "" {

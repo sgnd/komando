@@ -62,7 +62,7 @@ type vpnStatusData struct {
 
 func (d vpnStatusData) Text() string {
 	if len(d.Vpns) == 0 {
-		return term.NoneYet("VPNs", "vpn add NAME KIND", "kinds in `komando vpn --help`")
+		return term.NoneYet("VPNs", "vpn KIND add NAME", "kinds in `komando vpn --help`")
 	}
 	rows := [][]string{}
 	for _, r := range d.Vpns {
@@ -71,10 +71,9 @@ func (d vpnStatusData) Text() string {
 	return textTable([]string{"name", "kind", "up", "since", "used by", "detail"}, rows)
 }
 
-// vpnStatusRows builds the status of every VPN; the address checks run
+// vpnStatusRows builds the status of the VPNs; the address checks run
 // at the same time, so the command stays quick.
-func vpnStatusRows(st *store.State) []vpnStatusRow {
-	vpns := st.SortedVpns()
+func vpnStatusRows(st *store.State, vpns []*store.Vpn) []vpnStatusRow {
 	rows := make([]vpnStatusRow, len(vpns))
 	var wg sync.WaitGroup
 	for i, v := range vpns {

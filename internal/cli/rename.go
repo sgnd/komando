@@ -374,9 +374,14 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 		return out.Errf(out.ExitUsage, "USAGE", "say which: "+strings.Join(cmds, " or "),
 			"%q is a %s; rename one of them", old, strings.Join(what, " and a "))
 	}
-	sub, _, err := cmd.Root().Find([]string{found[0], "rename"})
+	path := []string{found[0], "rename"}
+	if found[0] == "vpn" { // a VPN is renamed under its kind: komando vpn KIND rename
+		path = []string{"vpn", st.Vpns[old].Kind, "rename"}
+	}
+	sub, _, err := cmd.Root().Find(path)
 	if err != nil || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
 	}
+	sub.SetContext(cmd.Context()) // a leaf takes its call from its context; only the command cobra ran has one
 	return sub.RunE(sub, []string{old, new})
 }

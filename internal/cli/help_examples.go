@@ -92,10 +92,10 @@ var examples = map[string]string{
 		"  komando secret list\n" +
 		"  komando conn edit prod-db --password-ref secret:prod-db-pass\n" +
 		"  komando secret rm old-pass --dry-run",
-	"komando vpn": "  komando vpn add office wireguard --config ~/Downloads/office.conf\n" +
-		"  komando vpn test office\n" +
+	"komando vpn": "  komando vpn wireguard add office --config ~/Downloads/office.conf\n" +
+		"  komando vpn wireguard test office\n" +
 		"  komando host edit db1 --via office --dry-run\n" +
-		"  komando vpn up office",
+		"  komando vpn wireguard start office",
 	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
 		"  komando cert check @web --warn 30d\n" +
 		"  komando cert check https://shop.example.com --warn 14d",
@@ -163,13 +163,6 @@ var examples = map[string]string{
 	"komando tunnel stop": "  komando tunnel stop t1102-101500-ab12cd34\n  komando tunnel stop --all",
 
 	"komando version": "  komando version",
-
-	"komando vpn down":   "  komando vpn down office\n  komando vpn down --all",
-	"komando vpn list":   "  komando vpn list",
-	"komando vpn show":   "  komando vpn show office",
-	"komando vpn status": "  komando vpn status",
-	"komando vpn test":   "  komando vpn test office",
-	"komando vpn up":     "  komando vpn up office",
 }
 
 // details is the help text of commands whose one-line Short had to be
@@ -194,6 +187,4 @@ var details = map[string]string{
 	"komando policy check":     "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
 	"komando recipe":           "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
 	"komando schema":           "Machine-readable reference of every command, flag, exit code and selector.",
-	"komando vpn rm":           "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`).",
-	"komando vpn up":           "Connect a VPN now and keep it up for later commands (a person logs in here, MFA included).",
 }

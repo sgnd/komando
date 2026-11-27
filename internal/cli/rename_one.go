@@ -187,7 +187,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 		return res, err
 	}
 	if _, up := s.Sessions[from]; up {
-		return res, out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn down "+from+"`, then rename it",
+		return res, out.Errf(out.ExitConflict, "VPN_IN_USE", "disconnect it first with `komando vpn "+v.Kind+" stop "+from+"`, then rename it",
 			"VPN %s is connected", from)
 	}
 	secrets, kept := vpnOwnSecrets(s, v, to)
@@ -278,7 +278,7 @@ follow the new name. Renaming a protected conn needs --yes.`,
 starts with it follows the new name. The vault secrets ` + "`vpn add`" + ` made under
 its name (NAME-key, NAME-config, ...) move to the new name when only this VPN
 uses them, so the old name is free again. Disconnect it first
-(` + "`komando vpn down NAME`" + `) if it is up.`,
+(` + "`komando vpn KIND stop NAME`" + `) if it is up.`,
 	}[kind]
 	return &cobra.Command{
 		Use:     "rename OLD NEW",

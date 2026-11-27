@@ -123,7 +123,7 @@ func goldenCases(t *testing.T) [][]string {
 				continue
 			}
 			path := strings.Fields(commandKey(s))
-			if slices.Contains([]string{"host add", "conn add", "vpn add"}, commandKey(s)) || formFamilyAdd[commandKey(s)] != "" {
+			if slices.Contains([]string{"host add", "conn add"}, commandKey(s)) || isVpnAdd(commandKey(s)) || formFamilyAdd[commandKey(s)] != "" {
 				cases = append(cases, path)
 				continue
 			}

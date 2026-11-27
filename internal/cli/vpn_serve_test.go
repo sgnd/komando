@@ -78,7 +78,7 @@ func TestSessionUseOpenConnIsNotIdle(t *testing.T) {
 // come up after the person cancelled.
 func TestSpawnServeCtrlC(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "127.0.0.1:1") // the store the ticket's key comes from
+	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "127.0.0.1:1") // the store the ticket's key comes from
 	saved := serveCommand
 	serveCommand = func(string, string, string, *store.VpnSession) *exec.Cmd { return sleeperCmd() }
 	t.Cleanup(func() { serveCommand = saved })

@@ -40,11 +40,15 @@ for _ in $(seq 1 180); do [ "$(docker exec "$SERVER" sh -c 'grep -l "Initializat
 
 routes_before=$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)
 in_client sh -c 'printf e2e-pass | komando secret set ovpn-pass' >/dev/null
-# name profile check-address [extra vpn add flags]
-for spec in "office tcp 10.8.0.1:1194" "crypt crypt 10.9.0.1:1194" "oldstyle auth 10.10.0.1:1194" "login login 10.11.0.1:1194 --user e2e-user --password-ref secret:ovpn-pass"; do
+# every session of this script is an OpenVPN one: stop them by name
+stop_all() {
+  for n in office crypt oldstyle login; do in_client komando vpn openvpn stop "$n" >/dev/null || true; done
+}
+# name profile check-address [extra vpn openvpn add flags]
+for spec in "office tcp 10.8.0.1:1194" "crypt crypt 10.9.0.1:1194" "oldstyle auth 10.10.0.1:1194" "login login 10.11.0.1:1194 --user e2e-user --credential ovpn-pass"; do
   set -- $spec
   name=$1 profile=$2 check=$3; shift 3
-  in_client komando vpn add "$name" openvpn --config "/pki/$profile.ovpn" --check "$check" "$@" >/dev/null || fail "vpn add $name"
+  in_client komando vpn openvpn add "$name" --config "/pki/$profile.ovpn" --check "$check" "$@" >/dev/null || fail "vpn openvpn add $name"
   [ "$(in_client komando test "$name" | jget 'd["data"]["summary"]["ok"]')" = 1 ] || {
     in_client komando test "$name" || true; in_client tail -20 "/tmp/k/vpn/$name.log" || true; fail "$name ($profile) connects"; }
   echo "ok   $name: $profile profile connects and reaches the VPN side"
@@ -64,7 +68,7 @@ in_client sh -c 'command -v openvpn || cat /proc/[0-9]*/comm 2>/dev/null | grep 
 echo "ok   no openvpn program on the client"
 [ "$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)" = "$routes_before" ] || fail "the client's routes or addresses changed"
 echo "ok   the client's routes and addresses are unchanged"
-S=$(in_client komando vpn status | python3 -c 'import json,sys; print([v for v in json.load(sys.stdin)["data"]["vpns"] if v["name"] == "office"][0]["socks"])')
+S=$(in_client komando vpn openvpn status | python3 -c 'import json,sys; print([v for v in json.load(sys.stdin)["data"]["vpns"] if v["name"] == "office"][0]["socks"])')
 # a SOCKS5 greeting offering only "no login" must be refused (0xFF)
 reply=$(docker exec "$CLIENT" python3 -c "
 import socket; h, p = '$S'.split(':'); s = socket.create_connection((h, int(p)), 3); s.sendall(b'\x05\x01\x00'); print(s.recv(2).hex())")
@@ -73,20 +77,20 @@ echo "ok   the session's SOCKS port refuses anyone without its login"
 left=$(in_client sh -c 'ls /tmp/k/vpn/ | grep -Ev "[.](log|lock)$"' || true)
 [ -z "$left" ] || fail "config or password left on disk: $left"
 echo "ok   no config or password left on disk"
-in_client komando vpn down --all >/dev/null
-[ "$(in_client komando status | jget 'len(d["data"]["vpns"])')" = 0 ] || fail "vpn down ends the sessions"
-echo "ok   vpn down ends the sessions"
+stop_all
+[ "$(in_client komando status | jget 'len(d["data"]["vpns"])')" = 0 ] || fail "vpn stop ends the sessions"
+echo "ok   vpn stop ends the sessions"
 
 # the PRF of servers without TLS key export (OpenVPN before 2.6)
 docker exec "$SERVER" sh -c ': > /tmp/auth.log.mark; wc -l < /tmp/auth.log > /tmp/auth.lines'
 [ "$(docker exec -i -e KOMANDO_HOME=/tmp/k -e KOMANDO_VAULT_PASS=e2e -e KOMANDO_OUTPUT=json -e KOMANDO_OVPN_NO_EKM=1 "$CLIENT" komando test oldstyle | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "keys from the OpenVPN PRF"
 docker exec "$SERVER" sh -c 'tail -n +$(( $(cat /tmp/auth.lines) + 1 )) /tmp/auth.log | grep -q "protocol-flags.*tls-ekm"' && fail "the PRF run still used TLS key export"
 echo "ok   keys from the OpenVPN PRF (no TLS key export)"
-in_client komando vpn down --all >/dev/null
+stop_all
 
 # a wrong password is named
 in_client sh -c 'printf nope | komando secret set ovpn-wrong' >/dev/null
-in_client komando vpn add badlogin openvpn --config /pki/login.ovpn --check 10.11.0.1:1194 --user e2e-user --password-ref secret:ovpn-wrong >/dev/null
+in_client komando vpn openvpn add badlogin --config /pki/login.ovpn --check 10.11.0.1:1194 --user e2e-user --credential ovpn-wrong >/dev/null
 out=$(in_client komando test badlogin || true)
 grep -q 'refused the login' <<<"$out" || { echo "$out"; in_client tail -5 /tmp/k/vpn/badlogin.log || true; fail "a wrong password says so"; }
 echo "ok   a refused login says so"
@@ -94,7 +98,7 @@ echo "ok   a refused login says so"
 # a VPN that started by itself says so, for a person
 ptyrun '' komando test office | tr -d '\r' | grep -q '^komando: vpn office connected; it stays up until unused for 30m' || fail "no notice when a command starts the VPN"
 echo "ok   a person is told the VPN stays up"
-in_client komando vpn down --all >/dev/null
+stop_all
 
 # when the server goes away, the session ends instead of looking up
 [ "$(in_client komando test office | jget 'd["data"]["summary"]["ok"]')" = 1 ] || fail "office again"
@@ -105,5 +109,5 @@ echo "ok   a session whose server went away ends (status no longer lists it)"
 
 # profiles komando cannot run faithfully are refused when added
 in_client sh -c 'printf "comp-lzo yes\n" | cat /pki/tcp.ovpn - > /tmp/lzo.ovpn'
-[ "$(in_client komando vpn add lzo openvpn --config /tmp/lzo.ovpn --check 10.8.0.1:1194 | jget 'd["error"]["code"]' || true)" = OVPN_UNSUPPORTED ] || fail "compression is refused"
-echo "ok   a compressing profile is refused at vpn add (VORACLE)"
+[ "$(in_client komando vpn openvpn add lzo --config /tmp/lzo.ovpn --check 10.8.0.1:1194 | jget 'd["error"]["code"]' || true)" = OVPN_UNSUPPORTED ] || fail "compression is refused"
+echo "ok   a compressing profile is refused at vpn openvpn add (VORACLE)"

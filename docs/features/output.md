@@ -121,18 +121,17 @@ Tiers are `read`, `change`, `dangerous` (`--allow-dangerous`), `safety`
 on a protected server or conn also needs a yes; the target decides that,
 so it is not listed. See [What needs a yes](safety.md#what-needs-a-yes).
 
-The add commands also list the kinds they take, under `add_kinds`, so a
-program can build its add forms from them. `komando schema vpn add` gives
-each VPN kind its `id`, `display_name`, `family` (`portal`, `config_file`,
-`server_psk`, `auth_key`, `system` or `proxy`), `aliases`, the flags it
-needs (`required`, and `one_of`: groups where one flag is enough), the
-flags it may take (`optional`), `flag_notes`, and `opens_browser`: whether
-`vpn up` opens a browser to sign in (`browser_note` says when).
-`komando schema conn add` (and `db add`, `cache redis add`, `queue kafka add`,
-`storage s3 add`, `cluster kubernetes add`, `registry oci add` for their own kinds) gives
-each conn kind its `id`, `display_name`, `family`, `url_schemes`,
-`url_example`, `default_port` and the same flag lists. They come from the
-same table as `komando vpn add --help` and `komando conn kinds`.
+The conn add commands also list the kinds they take, under `add_kinds`, so a
+program can build its add forms from them. `komando schema conn add` (and
+`db add`, `cache redis add`, `queue kafka add`, `storage s3 add`,
+`cluster kubernetes add`, `registry oci add` for their own kinds) gives each conn kind
+its `id`, `display_name`, `family`, `url_schemes`, `url_example`,
+`default_port`, the flags it needs (`required`, and `one_of`: groups where
+one flag is enough) and the flags it may take (`optional`), from the same
+table as `komando conn kinds`. A VPN has no such list: its kind is a word of
+the path, and `komando schema vpn KIND add` (for example
+`komando schema vpn wireguard add`) gives the flags of that kind, the same
+as `komando vpn KIND add --help`.
 
 ## Troubleshooting
 
@@ -160,13 +159,13 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `HOSTKEY_REVOKED` | the server shows a host key on komando's list of revoked keys | treat the server as compromised and tell its owner; nothing was sent |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret rename OLD NEW` |
-| `SECRET_EXISTS` | `secret rename` or `secret cp` to a name that is taken; `vpn add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`secret rename`, `secret cp`); for `vpn add`, pick another VPN name or move the secret away with `komando secret rename` |
+| `SECRET_EXISTS` | `secret rename` or `secret cp` to a name that is taken; `vpn KIND add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`secret rename`, `secret cp`); for `vpn KIND add`, pick another VPN name or move the secret away with `komando secret rename` |
 | `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
 | `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
 | `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
 | `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
-| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn up NAME` once |
+| `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` | the Google login has run out (for Google Artifact Registry) | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` to a key file |

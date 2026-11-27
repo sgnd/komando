@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"maps"
 	"net"
 	"slices"
 	"strings"
@@ -89,13 +88,13 @@ names or a selector (@group, tag:office) to change many VPNs at once.
 
 --protected marks a VPN komando asks a person about before it is changed
 or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
-		Example: `  komando vpn edit office --check 10.0.0.5:22
-  komando vpn edit lab --proxy-address 127.0.0.1:1081
-  komando vpn edit client-x --password-ref secret:client-x-new
-  komando vpn edit office --server vpn2.example.com --psk-ref secret:office-psk-2
-  komando vpn edit client-x --portal gw2.client.com
-  komando vpn edit office -g jakarta --rm-group old --label site=jkt
-  komando vpn edit @office --protected --dry-run`,
+		Example: `  komando vpn wireguard edit office --check 10.0.0.5:22
+  komando vpn socks edit lab --proxy-address 127.0.0.1:1081
+  komando vpn globalprotect edit client-x --credential client-x-new
+  komando vpn ipsec edit office --server vpn2.example.com --psk-credential office-psk-2
+  komando vpn globalprotect edit client-x --portal gw2.client.com
+  komando vpn wireguard edit office --add-group jakarta --rm-group old --label site=jkt
+  komando vpn wireguard edit @office --protected --dry-run`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := vpnEditChecks(cmd, &e); err != nil {
@@ -196,7 +195,7 @@ func (t vpnManyText) Text() string {
 func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 	f := cmd.Flags()
 	if len(changedFlags(cmd)) == 0 {
-		return out.Usage("nothing to change: give at least one of --check, --proxy-address, --service, --server, --portal, --user, --password-ref, --psk-ref, --id, --remote-id, --ca, --mfa, --legacy-crypto, --allow-pap, --notes, --label, --protected, --unset, --add-group, --rm-group, --add-tag, --rm-tag")
+		return out.Usage("nothing to change: give at least one of --check, --proxy-address, --service, --server, --portal, --user, --credential, --psk-credential, --id, --remote-id, --ca, --mfa, --legacy-crypto, --allow-pap, --notes, --label, --protected, --unset, --add-group, --rm-group, --add-tag, --rm-tag")
 	}
 	for _, u := range e.unset {
 		switch {
@@ -204,7 +203,7 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 			return out.Errf(out.ExitUsage, "USAGE", "use --"+u+"=false: turning it off needs a person's yes",
 				"--unset does not take %s", u)
 		case !slices.Contains(vpnUnsetWords, u):
-			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: "+strings.Join(vpnUnsetWords, ", "), "cannot unset %q", u)
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: "+vpnFlagWords(vpnUnsetWords), "cannot unset %q", u)
 		}
 	}
 	fields := map[string]string{}
@@ -224,24 +223,23 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 	}
 	for flag, ref := range map[string]string{"password-ref": e.passwordRef, "psk-ref": e.pskRef} {
 		if ref != "" && !vault.ValidRef(ref) {
-			return out.Usage("--%s %q is not a reference: %s", flag, ref, vault.RefHelp())
+			return out.Usage("--%s %q is not a reference: %s", vpnFlagWord(flag), ref, vault.RefHelp())
 		}
 	}
 	_, err := parseKV(e.labels)
 	return err
 }
 
-// vpnKindFlags are the flags only some kinds of VPN use.
-var vpnKindFlags = map[string][]string{"proxy-address": {"socks", "proxy"}, "service": {"system"},
-	"server": {"l2tp", "ipsec", "ikev2"}, "psk-ref": {"l2tp", "ipsec", "ikev2"}, "id": {"ipsec", "ikev2"}, "remote-id": {"ikev2"},
-	"portal": {"globalprotect", "fortinet", "anyconnect", "pulse", "f5"}, "ca": {"ikev2"}}
+// vpnKindFlags are the flags only some kinds of VPN use; which kinds is
+// what the table's edit leaf of each says (vpnEditTakes).
+var vpnKindFlags = []string{"proxy-address", "service", "server", "psk-ref", "id", "remote-id", "portal", "ca"}
 
 // applyVpnEdit changes v (a copy) as the flags say.
 func applyVpnEdit(cmd *cobra.Command, e *vpnEditFlags, v *store.Vpn) error {
 	f := cmd.Flags()
-	for flag, kinds := range vpnKindFlags {
-		if (flagChanged(cmd, flag) || flag != "proxy-address" && slices.Contains(e.unset, flag)) && !oneOf(v.Kind, kinds...) {
-			return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
+	for _, flag := range vpnKindFlags {
+		if (flagChanged(cmd, flag) || flag != "proxy-address" && slices.Contains(e.unset, flag)) && !vpnEditTakes(v.Kind, flag) {
+			return out.Usage("--%s is not used by %s VPNs", vpnFlagWord(flag), v.Kind)
 		}
 	}
 	if v.Kind == "wireguard" && (f.Changed("password-ref") || f.Changed("user") || slices.Contains(e.unset, "password-ref") || slices.Contains(e.unset, "user")) {
@@ -265,7 +263,7 @@ func applyVpnEdit(cmd *cobra.Command, e *vpnEditFlags, v *store.Vpn) error {
 	case v.Check == "" && oneOf(v.Kind, "system", "openvpn"):
 		return out.Usage("%s VPNs need --check", v.Kind)
 	case v.PSKRef == "" && oneOf(v.Kind, "l2tp", "ipsec"):
-		return out.Usage("%s VPNs need --psk-ref", v.Kind)
+		return out.Usage("%s VPNs need --psk-credential", v.Kind)
 	}
 	v.Groups = dedupe(append(removeFold(v.Groups, e.rmGroups), e.addGroups...))
 	v.Tags = dedupe(append(removeFold(v.Tags, e.rmTags), e.addTags...))
@@ -337,8 +335,8 @@ func vpnRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm TARGET...",
 		Short: "Remove VPNs (from komando only)",
-		Example: `  komando vpn rm old-office
-  komando vpn rm @lab --dry-run       # what a selector would remove`,
+		Example: `  komando vpn wireguard remove old-office
+  komando vpn wireguard remove @lab --dry-run       # what a selector would remove`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			// all or nothing, like host rm: a VPN in use stops the whole call
@@ -408,7 +406,7 @@ func vpnRemove(cl *call, check func(*store.State) error, names *[]string) (unuse
 			gone = append(gone, v)
 			if sess := s.Sessions[name]; sess != nil {
 				if err := netx.StopSession(sess); err != nil {
-					return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+name+"`", "%v", err)
+					return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn "+v.Kind+" stop "+name+"`", "%v", err)
 				}
 				delete(s.Sessions, name)
 			}
@@ -430,17 +428,6 @@ func vpnRemove(cl *call, check func(*store.State) error, names *[]string) (unuse
 		}
 	}
 	return unused, warnings, nil
-}
-
-// vpnUnusedFlags refuses a vpn add flag the kind does not use
-// (vpnKindSpecs), the first by name.
-func vpnUnusedFlags(kind string, given map[string]string) error {
-	for _, flag := range slices.Sorted(maps.Keys(given)) {
-		if given[flag] != "" && !vpnTakes(kind, flag) {
-			return out.Usage("--%s is not used by %s VPNs", flag, kind)
-		}
-	}
-	return nil
 }
 
 // vpnAddFlagChecks checks vpn add's --check and references, and sets its
