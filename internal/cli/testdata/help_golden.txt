@@ -5673,6 +5673,7 @@ Usage:
 
 Examples:
   komando host winrm shell web1
+  komando host winrm shell db1
 
 Flags:
   -h, --help[=true|false]   help for shell

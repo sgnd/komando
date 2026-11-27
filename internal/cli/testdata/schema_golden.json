@@ -6316,7 +6316,7 @@
         "usage": "komando host winrm shell SERVER [-- COMMAND...] [flags]",
         "short": "Say that a Windows server has no interactive shell here (person only)",
         "long": "Say that a Windows server has no interactive shell here.\n\nSafety: only a person at a terminal can run it.",
-        "example": "  komando host winrm shell web1",
+        "example": "  komando host winrm shell web1\n  komando host winrm shell db1",
         "runnable": true,
         "kind": "depends",
         "kind_note": "an shellNote shell for a person: whatever they type",

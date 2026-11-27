@@ -40,11 +40,23 @@ func KindWord(kind string) string {
 	return kind
 }
 
+// listCommand is the command that lists the entries of kind: a server is
+// listed by the provider groups, so the plain `komando list` shows all.
+func listCommand(kind string) string {
+	switch kind {
+	case "host":
+		return "list"
+	case "tunnel":
+		return "host ssh tunnel list"
+	}
+	return kind + " list"
+}
+
 // NotFound is the error for a name komando does not know, worded the one
 // way S-8.4 asks: no <kind> named "<name>".
 func NotFound(kind, name string) *Error {
 	e := Errf(ExitNotFound, NotFoundCode(kind),
-		fmt.Sprintf("see them with `komando %s list`", kind),
+		"see them with `komando "+listCommand(kind)+"`",
 		"no %s named %q", KindWord(kind), name)
 	if e.Code == "TARGET_NOT_FOUND" {
 		e.wanted = kind
