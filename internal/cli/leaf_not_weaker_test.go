@@ -15,13 +15,7 @@ import (
 
 // notWeakerExceptions are "leaf key | today ID" pairs with the reason the
 // leaf may stay below today's highest row.
-var notWeakerExceptions = map[string]string{
-	"host winrm add | host.add": proxyOnlySSH,
-}
-
-// proxyOnlySSH: host.add's rows are about --proxy-command, an OpenSSH
-// ProxyCommand (host.go); only host ssh add takes it, and keeps the rows.
-const proxyOnlySSH = "the rows are about --proxy-command, which carries only an SSH connection; this provider has no such option"
+var notWeakerExceptions = map[string]string{}
 
 func TestTierScalesMatch(t *testing.T) {
 	pairs := []struct {
