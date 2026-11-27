@@ -115,37 +115,6 @@ func TestLoginAskDefaultUserNeedsPerson(t *testing.T) {
 	wantCode(t, "NEEDS_PERSON", "config", "set", "default_user", "root")
 }
 
-// A --via path given at run time (cert check) is a way to
-// the servers on it. An agent's path that reaches a login-ask server
-// another way than its own stops with NEEDS_PERSON before anything
-// connects; its own way, or a way that ends at a server with a stored
-// login, goes on.
-func TestLoginAskViaAtRunTime(t *testing.T) {
-	invHome(t)
-	mustRun(t, "host", "add", "hop", "u@10.0.0.2")
-	mustRun(t, "host", "add", "evil", "u@203.0.113.66")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "hop")
-	mustRun(t, "host", "add", "plain", "u@10.0.0.6")
-	t.Setenv("K", "x")
-	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
-	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "tskey")
-	setCallerEnv(t, "CLAUDECODE", "1")
-	for _, args := range [][]string{
-		{"cert", "check", "https://intranet.local", "--via", "ts,web1"},
-		{"cert", "check", "https://intranet.local", "--via", "evil,web1"},
-		{"cert", "check", "https://intranet.local", "--via", "web1,plain"}, // a jump at run time: only its own way
-	} {
-		if e := wantCode(t, "NEEDS_PERSON", args...); !strings.Contains(e.Message, "web1") {
-			t.Errorf("%v: %+v", args, e)
-		}
-	}
-	for _, via := range []string{"hop,web1", "web1", "evil,plain"} {
-		if _, e := invRun(t, "--dry-run", "cert", "check", "https://intranet.local", "--via", via); e != nil && e.Code == "NEEDS_PERSON" {
-			t.Errorf("--via %s: %+v", via, e)
-		}
-	}
-}
-
 // A VPN on the way to a login-ask server that an agent adds again with
 // --overwrite stops even with the same flags: the profile or key in its
 // secret may be new. An edit that changes only its groups goes on.

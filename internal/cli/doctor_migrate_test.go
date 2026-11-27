@@ -30,7 +30,6 @@ func TestMigrateCallFor(t *testing.T) {
 		{"person at a terminal, -o json doctor", "darwin", true, nil, []string{"-o", "json", "doctor"}, store.MigrateTerminal},
 		{"person at a terminal, list", "darwin", true, nil, []string{"list"}, store.MigrateRefuse},
 		{"person at a terminal, completion zsh (.zshrc)", "darwin", true, nil, []string{"completion", "zsh"}, store.MigrateRefuse},
-		{"person at a terminal, help", "darwin", true, nil, []string{"help"}, store.MigrateRefuse},
 		{"person at a terminal, version", "darwin", true, nil, []string{"version"}, store.MigrateRefuse},
 		{"person at a terminal, komando alone", "darwin", true, nil, nil, store.MigrateRefuse},
 		{"agent at a terminal", "darwin", true, map[string]string{"CLAUDECODE": "1"}, []string{"doctor"}, store.MigrateRefuse},

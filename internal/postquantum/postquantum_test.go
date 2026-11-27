@@ -20,9 +20,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var classicalOnly = map[string]string{
-	"internal/cli/cert_tls.go": "cert check reads a certificate from servers and middleboxes that drop the large hybrid hello; it leaves the CLI with cert",
-}
+var classicalOnly = map[string]string{}
 
 func TestDefaultKeyExchangeIsHybrid(t *testing.T) {
 	var c ssh.Config

@@ -29,8 +29,6 @@ func targetKinds(c *cobra.Command) string {
 		return "VPNs"
 	case k.typ == "host", k.typ == "snippet", k.typ == "credential" && k.area != "":
 		return "servers"
-	case k == safetyKey{"cert", "", ""}:
-		return "servers" // cert check itself takes any host name or URL
 	}
 	return ""
 }
