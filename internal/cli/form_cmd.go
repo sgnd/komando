@@ -502,7 +502,7 @@ func formValueProblem(typ, v string) string {
 
 // formJoined are the commands that join the words after -- into one
 // shell line themselves: their command is passed as one word, as typed.
-var formJoined = []string{"host ssh exec", "job start"}
+var formJoined = []string{"host ssh exec", "host winrm exec", "job start"}
 
 // formCmdArgs is the command line for the answers: the command, its
 // arguments in order, then each flag that differs from its default.

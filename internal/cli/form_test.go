@@ -568,3 +568,14 @@ func TestFormPickKinds(t *testing.T) {
 		}
 	}
 }
+
+// host winrm exec joins the words after -- itself, as host ssh exec does:
+// the menu passes the command as one word.
+func TestFormJoinsTheCommandOfHostWinRMExec(t *testing.T) {
+	u := formUseArg{name: "COMMAND", many: true, dashes: true}
+	for _, key := range []string{"host ssh exec", "host winrm exec"} {
+		if got := formArgWords(key, u, formArg{}, `Get-Service "Win RM"`); !slices.Equal(got, []string{`Get-Service "Win RM"`}) {
+			t.Errorf("%s: %q", key, got)
+		}
+	}
+}
