@@ -77,3 +77,22 @@ func TestGuardGlobFormsTheGuardDoesNotReadAreRefused(t *testing.T) {
 		`git commit -m "Guard reads [!x] and [[:alpha:]] in globs"`,
 	}, false)
 }
+
+// A command output in a heredoc whose word is not quoted runs, so its glob
+// forms are checked as on the line; the rest of the body is text.
+func TestGuardGlobFormsInAHeredocCommandAreRefused(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"cat <<EOF\n$(cat ~/.ss[!x]/*)\nEOF",
+		"cat <<EOF\n$(mv ~/.ss[!x] /tmp/k)\nEOF",
+		"cat <<EOF\n'$(cat ~/.ss[!x]/*)'\nEOF",
+		"cat <<EOF\n`cat ~/.ss[!x]/*`\nEOF",
+		"cat <<EOF\n$(echo x > ~/.koman(d|x)o/state.json)\nEOF",
+	}, true)
+	checkLines(t, home, repo, []string{
+		"cat >f <<EOF\n[!NOTE]\nEOF",
+		"cat >f <<EOF\n$(date)\n[!NOTE] see *(D)\nEOF",
+		"cat >f <<'EOF'\n$(cat x[!y])\nEOF",
+		"cat >f <<EOF\n\\$(cat x[!y])\nEOF",
+	}, false)
+}

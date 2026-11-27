@@ -134,7 +134,8 @@ type heredoc struct {
 
 // dropHeredocs is line without the bodies of its here-documents that are
 // data: the quoted ones, or every one when all is set (the shell globs no
-// body). A body a shell reads as its script stays.
+// body). A body a shell reads as its script stays, and so do the command
+// outputs of a body whose word is not quoted, which run.
 func dropHeredocs(line string, all bool) string {
 	var b strings.Builder
 	at := 0
@@ -143,10 +144,33 @@ func dropHeredocs(line string, all bool) string {
 			continue
 		}
 		b.WriteString(line[at:h.body])
+		if !h.quoted {
+			for _, s := range bodyOutputs(line[h.body:h.end]) {
+				b.WriteString(s + "\n")
+			}
+		}
 		at = h.end
 	}
 	b.WriteString(line[at:])
 	return b.String()
+}
+
+// bodyOutputs are the command outputs ($(...) and `...`) of a here-document
+// body whose word is not quoted: there \ makes the next character text, and
+// quotes are text.
+func bodyOutputs(body string) []string {
+	var out []string
+	for i := 0; i < len(body); i++ {
+		switch c := body[i]; {
+		case c == '\\':
+			i++
+		case c == '`' || c == '$' && i+1 < len(body) && body[i+1] == '(':
+			end, _ := outputEnd(body, i)
+			out = append(out, body[i:end])
+			i = end - 1
+		}
+	}
+	return out
 }
 
 // heredocs are the here-documents of line as the shell reads them: an <<
