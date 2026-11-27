@@ -379,8 +379,16 @@ func noLiveProcesses(rt *Runtime, alive func(int, string) bool) error {
 			running = append(running, fmt.Sprintf("tunnel %s (stop it: komando host ssh tunnel stop %s)", n, n))
 		}
 	}
-	// jobs and exec sessions run on servers: their records are carried
-	// into the new store (carriedRuntime), never a reason to stop
+	// rule R3 (C606): v0.18 has no job commands and no exec session takes a
+	// v0.17 job ID, so a job record not seen ending stops the move; doctor
+	// marks it ended first (EndOldJobs)
+	for _, n := range slices.Sorted(maps.Keys(rt.Jobs)) {
+		if j := rt.Jobs[n]; j.Ended == "" {
+			running = append(running, fmt.Sprintf("job %s on %s (`komando doctor` offers to mark it ended)", n, j.Host))
+		}
+	}
+	// exec sessions run on servers: their records are carried into the
+	// new store (carriedRuntime), never a reason to stop
 	if len(running) > 0 {
 		return out.Errf(out.ExitConflict, "STORE_IN_USE", "end each one as listed, then run `komando doctor` again",
 			"%s is to move to a new format, and komando still runs: %s", Path(StoreFile), strings.Join(running, "; "))

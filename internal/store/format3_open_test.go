@@ -319,13 +319,13 @@ func TestFormatUnknownRefused(t *testing.T) {
 }
 
 // T12 (C395, C377): an exec session record, even one whose server is
-// gone, and a job not marked ended are carried as data: they do not block
-// the migration and read back after it.
+// gone, and a job marked ended (rule R3, C606) are carried as data: they
+// do not block the migration and read back after it.
 func TestMigrate3CarriesRemoteWork(t *testing.T) {
 	format2Store(t)
 	format2Runtime(t, func(s *State) {
 		s.ExecSessions["e1"] = &ExecSession{ID: "e1", Host: "gone-host", Command: "sleep 1", PID: 42}
-		s.Jobs["j1"] = &Job{ID: "j1", Host: "web1", PID: 77}
+		s.Jobs["j1"] = &Job{ID: "j1", Host: "web1", PID: 77, Ended: "marked"}
 	})
 	if _, err := migrateFormat3(context.Background(), personOpts()); err != nil {
 		t.Fatalf("remote work blocked the migration: %v", err)
