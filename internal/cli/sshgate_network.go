@@ -228,7 +228,7 @@ func gateServerRule(c *cobra.Command, name string, key gateKey) *out.Error {
 		if why := paths.WriteRefusal(w); why != "" && writes {
 			// rule a, before the list, with its own code: the phone's probe
 			// 5 tells it from any other refusal
-			return out.Errf(out.ExitRemote, "SSH_GATE_PATH_DENIED", "a person changes it on this server itself; no key through the gate does",
+			return out.Errf(out.ExitRemote, "SSH_GATE_PATH_DENIED", "a person changes it on this server itself; `komando ssh-gate status` shows what this key may do",
 				"komando %s is refused for this server's key: %s; no key changes it", strings.ReplaceAll(name, ".", " "), why)
 		}
 		if why := paths.ReadRefusal(w); why != "" {

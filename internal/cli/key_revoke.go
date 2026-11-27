@@ -370,7 +370,7 @@ func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target stri
 	switch {
 	case err != nil, res.Status == "added", res.Status == "present":
 	case res.Status == "other":
-		err = out.Errf(out.ExitConflict, "KEY_LINE_CONFLICT", "remove the older line for this key from "+o.user+"'s ~/.ssh/authorized_keys on the server, then run this again",
+		err = out.Errf(out.ExitConflict, "KEY_LINE_CONFLICT", "remove the older line for this key from "+o.user+"'s ~/.ssh/authorized_keys on the server, then run `komando key deploy` again",
 			"%s: the key is there already in another line, which sshd would use first; nothing was written", res.Host)
 	default:
 		err = out.Errf(out.ExitRemote, "DEPLOY_FAILED", "make ~/.ssh and its key files plain files and folders on the server, then run this again",
@@ -436,7 +436,7 @@ func deviceKeyRun(cl *call, ctx context.Context, st *store.State, hosts []*store
 // b), or a komando without the server mode.
 func deviceKeyRefusal(f phonekey.Facts, user, host string) error {
 	code, why := f.Refusal(user)
-	hint := "fix it on the server as the message says, then run this again"
+	hint := "fix it on the server as the message says, then run `komando key deploy` again"
 	switch code {
 	case "":
 		return nil
