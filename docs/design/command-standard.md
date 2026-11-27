@@ -51,7 +51,7 @@ One more line for every review:
 [schema: every leaf path has 2 or 3 words, except the top-level set in S-1.4]
 
 **S-1.2** The noun's own item comes first, then TARGET:
-`key deploy NAME TARGET`, `recipe run NAME TARGET`, `group add GROUP TARGET...`.
+`credential key install NAME TARGET`, `recipe run NAME TARGET`, `group add GROUP TARGET...`.
 Commands without an item start with TARGET: `svc restart TARGET UNIT...`.
 [review]
 
@@ -217,8 +217,8 @@ own tool, is allowed when this list names it:
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
-`key gen/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
-`audit verify`, `config approval-code`, `secret keychain/passphrase`.
+`credential key create/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
+`audit verify`, `config approval-code`, `config vault keychain/passphrase`.
 [schema: allow-list]
 
 **S-3.4** In a family noun (`db`, `cache`, `queue`, `storage`, `cluster`,
@@ -326,7 +326,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--sudo-user` | | string | run it as this user with `sudo -u` | |
 | `--no-sudo` | | bool | do not use sudo (system commands that default to sudo) | off |
 | `--overwrite` | | bool | replace what is there | false |
-| `--new` | | bool | *exception*: `secret set --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
+| `--new` | | bool | *exception*: `credential password add --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
 | `--backup` | | bool | keep the previous version as PATH.bak | false |
 | `--recursive` | `-r` | bool | include everything under a folder | false |
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
@@ -565,7 +565,7 @@ release note. [schema + rule table]
 classifier hit, never for a command's own built-in tier. [code]
 
 **S-7.10** A command for a person at a terminal (`shell`, `db shell`,
-`cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
+`cluster shell`, `config vault passphrase` ...) never runs for an AI agent or an
 ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no
 environment variable or terminal lets another komando process do the same.

@@ -169,8 +169,8 @@ komando registry oci add harbor 'registry://alice@harbor.lan?tls=skip-verify' --
 ```
 
 The URL options are in [Reference](#reference). The CA secret counts as
-used by the conn: `secret list` shows it, `secret rm` refuses it,
-`secret rename` changes the URL too, and `export` lists it under
+used by the conn: `credential list` shows it, `credential password remove` refuses it,
+`credential password rename` changes the URL too, and `export` lists it under
 `secrets_needed`.
 
 If the CA is somewhere else (mkcert on another computer)

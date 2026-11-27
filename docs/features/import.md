@@ -196,7 +196,7 @@ fix those entries and import again (what is in already is skipped).
 Private keys are never in an export file either. When a server logs in with
 a key from `komando credential key`, `export` names the key (`keys_needed`) and its file
 (`key_files`): copy that file to the other computer yourself. A key
-komando made (`key gen`) is sealed in komando and has no file
+komando made (`credential key create`) is sealed in komando and has no file
 (`keys_sealed`): make a new one on the other computer with `komando credential key create
 NAME` and put it on the servers with `komando credential key install`. The import
 still adds the server, says which key it needs, and leaves the key out until
@@ -260,7 +260,7 @@ The import keeps the limits of any export file (below). A password from the
 file goes into the vault when that name is not here yet. When the vault
 has that name with another value, it keeps its own, and the file's servers
 do not get it, unless you add `--overwrite` and say yes. A key from the
-file is kept in komando's store, as one `key gen` made; a key with a name
+file is kept in komando's store, as one `credential key create` made; a key with a name
 that is here already is left out.
 
 A wrong passphrase, or a file changed after it was sealed, stops with

@@ -19,7 +19,7 @@ import (
 // The secret subcommands that read or store one value: set, get, check,
 // list and rm (secret.go has the group, mv and cp).
 
-// secretSetCmd is `secret set`.
+// secretSetCmd is `credential password add`.
 const secretAddLong = `Saves or replaces a password or a token. Replacing one that a production server or
 database uses asks first: it changes how komando logs in there. With --new
 it only saves a new one: when NAME is in the vault already it stops with
@@ -120,14 +120,14 @@ func secretSetCmd() *cobra.Command {
 	return set
 }
 
-// secretSetExists is `secret set NAME --new` when NAME is stored already.
+// secretSetExists is `credential password add NAME --new` when NAME is stored already.
 func secretSetExists(name string) error {
 	return out.Errf(out.ExitConflict, "SECRET_EXISTS",
 		"to replace it, run `komando credential password add "+name+"` without --new; or pick another name",
 		"secret %q already exists", name)
 }
 
-// secretGetCmd is `secret show` (`secret get` is a plain synonym); the
+// secretGetCmd is `credential password show` (`credential password show` is a plain synonym); the
 // agent mask line keys on its ID, secret.show.
 const secretShowLong = `Says whether the secret exists and what uses it, without its value. A person
 at a terminal can add --reveal to print it; from a program without a terminal
@@ -230,7 +230,7 @@ picks would be a way to guess the secret one try at a time.`,
 	return check
 }
 
-// secretListCmd is `secret list`.
+// secretListCmd is `credential list`.
 func secretListCmd() *cobra.Command {
 	var limit int
 	list := &cobra.Command{
@@ -259,7 +259,7 @@ func secretListCmd() *cobra.Command {
 	return list
 }
 
-// secretRmCmd is `secret rm`.
+// secretRmCmd is `credential password remove`.
 func secretRmCmd() *cobra.Command {
 	rm := &cobra.Command{
 		Use:   "rm NAME...",

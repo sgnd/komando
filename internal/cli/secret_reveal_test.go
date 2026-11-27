@@ -60,7 +60,7 @@ func TestRevealFromAnAppAsksInTheWindow(t *testing.T) {
 		t.Errorf("the window shows the value: %q", *text)
 	}
 	a := lastAudit(t)
-	if a["command"] != "secret.reveal" || a["secret"] != "db-pass" || a["via"] != "window" || a["started_from"] != "Komando ← launchd" {
+	if a["command"] != "credential.password.reveal" || a["secret"] != "db-pass" || a["via"] != "window" || a["started_from"] != "Komando ← launchd" {
 		t.Errorf("audit: %v", a)
 	}
 	if strings.Contains(auditText(t), "s3cret") {
@@ -152,7 +152,7 @@ func TestKeyShowReveal(t *testing.T) {
 	if pk, _ := d["private_key"].(string); !strings.Contains(pk, "PRIVATE KEY") || *n != 1 {
 		t.Fatalf("private key %.40q after %d windows", pk, *n)
 	}
-	if a := lastAudit(t); a["command"] != "key.reveal" || a["key"] != "deploy" || a["via"] != "window" {
+	if a := lastAudit(t); a["command"] != "credential.key.reveal" || a["key"] != "deploy" || a["via"] != "window" {
 		t.Errorf("audit: %v", a)
 	}
 }

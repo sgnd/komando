@@ -18,7 +18,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// passphraseResult is what `secret passphrase` did, or would do.
+// passphraseResult is what `config vault passphrase` did, or would do.
 type passphraseResult struct {
 	From      string   `json:"from"` // keyfile | passphrase | keychain; "none" when there was no vault
 	To        string   `json:"to"`   // passphrase | keyfile
@@ -216,7 +216,7 @@ func runSecretPassphrase(cl *call, off bool) error {
 	return nil
 }
 
-// passphrasePlan says what `secret passphrase` will do to the vault, or why
+// passphrasePlan says what `config vault passphrase` will do to the vault, or why
 // --off has nothing to do.
 func passphrasePlan(off bool) (passphraseResult, error) {
 	res := passphraseResult{To: "passphrase", Restart: []string{}, NextSteps: []string{}}

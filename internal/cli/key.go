@@ -524,7 +524,7 @@ func keyListCmd() *cobra.Command {
 	return c
 }
 
-// keyShown is `key show`: the key, and with --reveal the private key of
+// keyShown is `credential key show`: the key, and with --reveal the private key of
 // one komando keeps in its sealed store.
 type keyShown struct {
 	*store.Key
@@ -659,7 +659,7 @@ func keyRmCmd() *cobra.Command {
 	return c
 }
 
-// deployKey is what `key deploy` installs: a keychain key, or a .pub file.
+// deployKey is what `credential key install` installs: a keychain key, or a .pub file.
 func deployKey(cl *call, st *store.State, arg string) (name, line string, err error) {
 	if k, ok := st.Keys[arg]; ok {
 		if k.PublicKey == "" {

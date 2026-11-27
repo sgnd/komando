@@ -215,7 +215,7 @@ With --starts-with: renames every server, conn, VPN, secret, key and group whose
 name starts with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD without
 it is renamed too (--starts-with shop- acme-shop- turns group shop into acme-shop).
 
-Every reference follows, as with ` + "`host rename`" + ` and ` + "`secret rename`" + `: --via paths,
+Every reference follows, as with ` + "`host rename`" + ` and ` + "`credential password rename`" + `: --via paths,
 password, sudo, key, preshared key and passphrase references, secret:NAME
 options in conn URLs, the key a server uses, group membership, jobs and
 tunnels. A key komando made (key gen) lives in the sealed store, so no file

@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// Showing a secret value again (`secret show --reveal`, `key show
+// Showing a secret value again (`credential password show --reveal`, `credential key show
 // --reveal`) is for a person only (docs/design/principles.md):
 //   - an AI agent, or a key through ssh-gate, never gets the value, not
 //     even with the person's yes: it references secret:NAME instead;
@@ -185,6 +185,10 @@ var startedFrom = func(cl *call) string {
 // revealAudit records a value shown to a person: what, how they allowed
 // it, and who started komando. Never the value.
 func revealAudit(cl *call, cmdName, field, name, via string) {
+	if as := cl.out.As; as != "" { // a leaf runs the body: credential.password.show records credential.password.reveal
+		cl.out.As = strings.TrimSuffix(as, ".show") + ".reveal"
+		defer func() { cl.out.As = as }()
+	}
 	rec := map[string]any{field: name, "via": via}
 	if from := startedFrom(cl); from != "" {
 		rec["started_from"] = from

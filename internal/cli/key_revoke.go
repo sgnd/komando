@@ -16,7 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// revokeTarget reads what `key revoke` should remove: a key in the
+// revokeTarget reads what `credential key uninstall` should remove: a key in the
 // keychain, a .pub file, or a public key line ("ssh-ed25519 AAAA... who").
 // It returns the key's base64 part, which is what authorized_keys lines
 // are matched on, and a label.

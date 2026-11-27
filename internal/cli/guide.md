@@ -156,7 +156,7 @@ Your list itself changes in bulk too, each with `--dry-run` first:
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
 - `komando host rename OLD NEW` renames a server and every reference to it
-  (`conn rename`, `vpn rename`, `key rename`, `group rename` likewise).
+  (`conn rename`, `vpn rename`, `credential key rename`, `group rename` likewise).
 - `komando rename --starts-with OLD NEW` renames every server, conn, VPN,
   secret, key and group that starts with OLD in one step (one `--yes` and
   one window for all the protected ones).

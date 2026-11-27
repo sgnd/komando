@@ -426,7 +426,7 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 // change it cannot record.
 // startMask: AI agents see passwords, keys and tokens as [hidden]; people
 // and scripts see what the server sent (vault values are hidden for all).
-// `secret show --reveal` and `key show --reveal` are for people only
+// `credential password show --reveal` and `credential key show --reveal` are for people only
 // (secret_reveal.go): an agent is never asked and always sees [hidden]. A
 // dry run never approves --reveal.
 func startMask(cl *call, cmd *cobra.Command) {

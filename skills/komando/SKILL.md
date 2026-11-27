@@ -85,7 +85,7 @@ not know? Set `KOMANDO_AGENT=1`.
      lists what would be removed and how much space that frees.
    - Your list in bulk: `komando host edit TARGET --sudo-ref secret:NAME`
      (one approval for every server), `komando host rename OLD NEW` (updates
-     every reference; `key rename` and `group rename` likewise),
+     every reference; `credential key rename` and `group rename` likewise),
      `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
      secret, key and group of a project, one approval for all of them),
      `komando import csv FILE` (many servers at once).
@@ -143,7 +143,7 @@ not know? Set `KOMANDO_AGENT=1`.
      IBANs, columns the human named) shows as `[hidden: KIND]`. Work with
      ids and counts, never write it back, and ask the human if a task needs
      a real value.
-   - `secret show --reveal` and `key show --reveal` are for people only
+   - `credential password show --reveal` and `credential key show --reveal` are for people only
      (`REVEAL_NEEDS_TERMINAL`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
      knows, ask them to run `komando credential password add NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.

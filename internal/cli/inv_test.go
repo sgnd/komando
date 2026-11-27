@@ -281,7 +281,7 @@ func TestInvKeys(t *testing.T) {
 	if _, err := os.Stat(ext); err != nil {
 		t.Error("the file was deleted")
 	}
-	audit := mustRun(t, "audit", "-n", "0", "--command", "key.")
+	audit := mustRun(t, "audit", "-n", "0", "--command", "credential.key.")
 	if audit["count"].(float64) < 4 {
 		t.Errorf("key changes are audited: %v", audit["count"])
 	}

@@ -323,7 +323,7 @@ func readLocalFile(cl *call, p string) ([]byte, error) {
 // readImportFile reads a file an import takes secrets from (kubeconfig,
 // .pgpass, ~/.docker/config.json, .env): they go into komando's vault, which
 // an AI agent never sees, so the agent may point komando at them, as with
-// `key add --file` and `vpn add --config`. komando's own data and process
+// `credential key add --file` and `vpn add --config`. komando's own data and process
 // environments still never go.
 func readImportFile(cl *call, p string) ([]byte, error) {
 	if p == "-" {

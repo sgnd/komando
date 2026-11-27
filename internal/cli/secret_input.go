@@ -8,7 +8,7 @@ import (
 )
 
 // An AI agent sees every vault value as [secret:NAME]. That masking would
-// tell it which of its guesses is a secret: `secret get GUESS` or `exec
+// tell it which of its guesses is a secret: `credential password show GUESS` or `exec
 // web1 -- echo GUESS` print [secret:NAME] on a hit; and refusing such
 // input would tell it the same. So an agent's arguments, script or input
 // that hold a vault value get the answer any other value gets: the value

@@ -53,7 +53,7 @@ func secretNames() []string {
 
 // reservedSecret refuses the secrets komando keeps for itself: the approval
 // code's key is set up by a person (`config approval-code`), never through
-// `secret set`, `mv`, `cp` or `rm`.
+// `credential password add`, `mv`, `cp` or `rm`.
 func reservedSecret(name string) error {
 	if name == approvalSecret {
 		return out.Errf(out.ExitUsage, "RESERVED_SECRET", "a person manages it with `komando config approval-code`",
@@ -62,7 +62,7 @@ func reservedSecret(name string) error {
 	return nil
 }
 
-// secretInput reads a value the way `secret set` and `secret check` take it:
+// secretInput reads a value the way `credential password add` and `secret check` take it:
 // from --from-env VAR, from a pipe, or typed hidden at the terminal. name is
 // the secret's name, for the hint when there is no value.
 func secretInput(cmd *cobra.Command, name, label string) (string, error) {
@@ -100,8 +100,12 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 			// A password only the user knows is typed by the user. Sending
 			// the agent back to --from-env or stdin would make it ask for
 			// the password in the chat, where it stays in the transcript.
+			path := cmd.CommandPath()
+			if cl.out.As != "" { // a leaf runs this body: name the leaf's path
+				path = "komando " + strings.ReplaceAll(cl.out.As, ".", " ")
+			}
 			return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can be piped in (stdin) or given with --from-env VAR", cmd.CommandPath(), name),
+				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can be piped in (stdin) or given with --from-env VAR", path, name),
 				"no value for %s: a password is typed by the user, so it never passes through an AI agent", name)
 		}
 		return "", out.Usage("no value: use --from-env VAR or pipe the value in (stdin)")
@@ -181,14 +185,14 @@ const secretLong = `Save a password once, then point to it as secret:NAME instea
   komando host edit web1 --password-ref secret:web1-pass
 
 komando shows a saved value only to a person: at a terminal with
-` + "`secret show --reveal`" + `, or after "Allow once" in komando's window; never
+` + "`credential password show --reveal`" + `, or after "Allow once" in komando's window; never
 to an AI agent. ` + "`secret check`" + ` compares a value with the saved one
-without showing either. ` + "`secret rename`" + ` and ` + "`secret cp`" + ` rename and copy.
+without showing either. ` + "`credential password rename`" + ` and ` + "`secret cp`" + ` rename and copy.
 
 How it is stored: each secret sealed with AES-256-GCM in ~/.komando/store.db.
 The random key is in the OS keychain (or in store.key where there is none,
 or with KOMANDO_KEYCHAIN=off), or comes from $KOMANDO_VAULT_PASS when that is
-set at first use (` + "`secret passphrase`" + ` changes it).
+set at first use (` + "`config vault passphrase`" + ` changes it).
 
 A --password-ref (and the other -ref flags) can also read a password your
 team keeps elsewhere; komando reads it when needed and never stores it:
@@ -259,7 +263,7 @@ func bodyHandler(body func() *cobra.Command) handler {
 	}
 }
 
-// secretCopyCmd is `secret mv` (move) or `secret cp`. The value is copied
+// secretCopyCmd is `credential password rename` (move) or `secret cp`. The value is copied
 // inside the vault and never printed, so an AI agent can rename a secret it
 // cannot read. mv also points every server, conn, key and VPN that used the
 // old name at the new one, in the same step.

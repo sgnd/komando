@@ -82,7 +82,7 @@ How the login works:
 - Once a person imported (or allowed) a kubeconfig, agents use the conn
   without asking. If the kubeconfig in the vault changes to another program
   or anything in its cluster block (the server, its CA, `tls-server-name`,
-  `proxy-url`, `insecure-skip-tls-verify`; `secret set`), or reads its
+  `proxy-url`, `insecure-skip-tls-verify`; `credential password add`), or reads its
   token from a local file (`tokenFile`), every agent command asks again,
   reads included, until a person imports it again. This holds for the EKS
   and GKE logins too.

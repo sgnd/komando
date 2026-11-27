@@ -19,7 +19,7 @@ komando credential key remove deploy                             # and out of ko
 
 Typed alone, `komando credential key install` asks for the key, then the servers.
 
-`key revoke` stops before it removes the key komando itself still logs in
+`credential key uninstall` stops before it removes the key komando itself still logs in
 with (you would lock yourself out): at your terminal you type the name to
 go on; an AI agent or a script adds `--allow-dangerous` after a person
 agrees.
@@ -86,9 +86,9 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 
 ## Limits
 
-- `key rm` is refused while a server still uses the key: point those
-  servers at the new key first (`key deploy --set-default` does it).
-- `key revoke` removes the key from `~/.ssh/authorized_keys` of the login
+- `credential key remove` is refused while a server still uses the key: point those
+  servers at the new key first (`credential key install --set-default` does it).
+- `credential key uninstall` removes the key from `~/.ssh/authorized_keys` of the login
   user, or of `--user NAME` (with sudo). Keys in other users' files stay.
 - `audit --actor` finds only what was done through komando.
 
@@ -96,8 +96,8 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 
 | Error | What it means | What to do |
 |-------|---------------|------------|
-| `POLICY_BLOCKED` (exit 6) | `key revoke` of the key komando logs in with | deploy another key with `--set-default` first |
-| `KEY_IN_USE` (exit 8) | `key rm` of a key a server still uses | point the server at another key first |
-| `KEY_EXISTS` (exit 8) | `key gen` to a name that is taken | choose another name, or `komando credential key remove NAME` first |
+| `POLICY_BLOCKED` (exit 6) | `credential key uninstall` of the key komando logs in with | deploy another key with `--set-default` first |
+| `KEY_IN_USE` (exit 8) | `credential key remove` of a key a server still uses | point the server at another key first |
+| `KEY_EXISTS` (exit 8) | `credential key create` to a name that is taken | choose another name, or `komando credential key remove NAME` first |
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` (exit 6) | a change on a protected server or conn | at your terminal komando asks first; a script adds `--yes` |
 | `AUTH_FAILED` (exit 4) | the new key or password does not log in | check it before you remove the old one; see [Results and errors](output.md#troubleshooting) |

@@ -2,7 +2,7 @@
 
 Save a password, key passphrase or token once, then point to it as
 `secret:NAME` instead of typing it. komando shows a saved value only to a
-person who asks with `--reveal` (`secret show`, `key show`), at a terminal
+person who asks with `--reveal` (`credential password show`, `credential key show`), at a terminal
 or after "Allow once" in komando's window, and never to an AI agent.
 
 ## Save a password and use it
@@ -47,10 +47,10 @@ komando credential token add tls-key < server.key        # a value of several li
   stops with `USAGE` and stores nothing.
 - From a pipe, the line break at the end is not part of the value. Spaces
   are kept; komando warns when the value starts or ends with one.
-- `secret set` on a name that exists replaces its value. When a protected
+- `credential password add` on a name that exists replaces its value. When a protected
   server or conn uses it, komando asks you first; an AI agent or a script
   adds `--yes` after a person agrees.
-- `secret set NAME --new` only stores a new secret: when NAME is in the
+- `credential password add NAME --new` only stores a new secret: when NAME is in the
   vault already, it stops with `SECRET_EXISTS` (exit 8) and the stored
   value stays. The value comes in as without `--new`. When several
   komando commands store the same name with `--new` at once, exactly one
@@ -195,11 +195,11 @@ komando credential key show deploy --reveal > deploy.key     # the private key o
   agent uses `secret:NAME` in a command instead. A key through `ssh-gate`
   (the iPhone and iPad app) is refused too.
 - A dry run shows no value and asks nobody.
-- Every value shown goes in the audit log, as `secret.reveal` or
-  `key.reveal`, with how you allowed it (`via`: `terminal` or `window`) and
+- Every value shown goes in the audit log, as `credential.password.reveal`,
+  `credential.token.reveal` or `credential.key.reveal`, with how you allowed it (`via`: `terminal` or `window`) and
   the programs that started komando (`started_from`); every refusal goes
   there too, with the secret's or key's name. The value never does.
-- `key show --reveal` prints only keys komando made (`key gen`), which it
+- `credential key show --reveal` prints only keys komando made (`credential key create`), which it
   keeps in its sealed store; for a key added from a file it names that file.
 
 ## Rename, copy and remove
@@ -211,13 +211,13 @@ komando secret cp db-pass db-pass-old                          # a copy; nothing
 komando credential password remove old-pass other-old-pass                      # all of them, or none
 ```
 
-- `secret rename` points every server, conn, key and VPN that used `secret:OLD`
+- `credential password rename` points every server, conn, key and VPN that used `secret:OLD`
   at `secret:NEW` in the same step (conn URL options such as
   `?ca=secret:OLD` too). Scripts and files of your own are not changed.
 - When NEW exists, add `--overwrite`; what uses NEW then gets the value of
   OLD. When a protected server or conn uses NEW, komando asks you first
   (`--yes` for an AI agent or a script).
-- `secret rm` is refused while anything uses a name (`SECRET_IN_USE` lists
+- `credential password remove` is refused while anything uses a name (`SECRET_IN_USE` lists
   what does); point those at another secret first, or rename it.
 - A deleted secret has no copy, so at your terminal you type the secret's
   name first (several: how many). An AI agent or a script adds
@@ -271,8 +271,8 @@ An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
 | store a token a program made | `echo "$TOKEN" \| komando credential token add NAME` or `--from-env VAR` | |
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
-| rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
-| read or compare a value | asks the user (`secret show --reveal`, `key show --reveal`, `secret check`) | `REVEAL_NEEDS_TERMINAL`, `NEEDS_PERSON` |
+| rename, copy, remove | `credential password rename`, `secret cp`, `credential password remove` | |
+| read or compare a value | asks the user (`credential password show --reveal`, `credential key show --reveal`, `secret check`) | `REVEAL_NEEDS_TERMINAL`, `NEEDS_PERSON` |
 
 The agent never asks for a password in the chat: the hint names the
 command the user runs in their own terminal.
@@ -283,7 +283,7 @@ command the user runs in their own terminal.
   [Safety](safety.md#limits)).
 - A vault value that is a common word (such as `shared`) is hidden
   wherever that word appears, komando's own notes included. That is the
-  safe side: the value never shows. `secret set`, `import`, `vpn add` and
+  safe side: the value never shows. `credential password add`, `import`, `vpn add` and
   `doctor` warn about a value of only letters shorter than 10 characters,
   or a common password; use a longer value, or add digits or symbols.
 - A secret from a password manager (`vault:`, `op://` ...) is read when
@@ -301,10 +301,10 @@ command the user runs in their own terminal.
 | `SECRET_IN_ARGS` (exit 2) | the value was on the command line | `komando credential password add NAME`, then type it after the prompt |
 | `USAGE` (exit 2) | an empty value, or a paste of several lines | type it again, or give several lines on stdin: `komando credential token add NAME < FILE` |
 | `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` (exit 3) | no secret by that name, or a reference that cannot be read | `komando credential list` |
-| `SECRET_EXISTS` (exit 8) | `secret rename` or `secret cp` to a name that is taken, or `secret set --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename, cp) or run `komando credential password add NAME` without `--new` |
-| `SECRET_IN_USE` (exit 8) | `secret rm` of a secret something still uses | point those at another secret, or `secret rename` it |
+| `SECRET_EXISTS` (exit 8) | `credential password rename` or `secret cp` to a name that is taken, or `credential password add --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename, cp) or run `komando credential password add NAME` without `--new` |
+| `SECRET_IN_USE` (exit 8) | `credential password remove` of a secret something still uses | point those at another secret, or `credential password rename` it |
 | `SECRET_MISMATCH` (exit 1) | `secret check`: the value you typed is not the stored one | `data.difference` says how they differ; `komando credential password add NAME` stores the right one |
-| `NEEDS_PERSON` (exit 6) | only a person can do this (`secret set` for an agent, `secret check`, `secret keychain`, `secret passphrase`) | the person runs it in their own terminal |
+| `NEEDS_PERSON` (exit 6) | only a person can do this (`credential password add` for an agent, `secret check`, `config vault keychain`, `config vault passphrase`) | the person runs it in their own terminal |
 | `VAULT_LOCKED` (exit 1) | the vault has a passphrase and `KOMANDO_VAULT_PASS` is not set | set `KOMANDO_VAULT_PASS` in the shell that runs komando (an AI agent asks the user) |
 | `VAULT_DECRYPT` (exit 1) | `KOMANDO_VAULT_PASS` is not this vault's passphrase | set the right one; nothing was lost. `komando doctor` says which mode is in use |
 | `VAULT_KEY` (exit 1) | the key is missing: `store.key` is gone, or the keychain item is on another computer | restore `~/.komando/store.key` from a backup, or run `komando config vault keychain` on the computer whose keychain holds the key |
