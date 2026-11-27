@@ -384,7 +384,7 @@ func clusterHistoryCmd() *cobra.Command {
 					return nil, err
 				}
 				if r.KindName() != "Deployment" {
-					return nil, out.Usage("history works on deployments; for others use `komando cluster kubernetes raw TARGET -- rollout history ...`")
+					return nil, out.Usage("history works on deployments; for others use `komando cluster kubernetes raw NAME -- rollout history ...`")
 				}
 				space := cmp.Or(ns, k.Namespace)
 				var d map[string]any
@@ -545,7 +545,7 @@ revision. A Swarm service goes back to its previous version.`,
 					return nil, err
 				}
 				if r.KindName() != "Deployment" {
-					return nil, out.Usage("rollback works on deployments; for others use `komando cluster kubernetes raw TARGET --write -- rollout undo ...`")
+					return nil, out.Usage("rollback works on deployments; for others use `komando cluster kubernetes raw NAME --write -- rollout undo ...`")
 				}
 				space := cmp.Or(ns, k.Namespace)
 				var d map[string]any

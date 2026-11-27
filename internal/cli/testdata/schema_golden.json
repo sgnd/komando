@@ -867,130 +867,17 @@
       {
         "path": "komando cluster",
         "usage": "komando cluster [flags]",
-        "short": "Kubernetes and Docker Swarm: check, read logs, roll out, scale",
-        "long": "TARGET is a Kubernetes cluster (bring yours in with `komando import\nkubeconfig`) or a Swarm manager server. The same verbs work on both. Reads\nneed nothing; restart, scale and apply change the cluster (protected targets\nneed --yes; try --dry-run); rm needs --allow-dangerous. Anything else:\n`cluster run` passes the native kubectl or docker command, read-only unless\n--write.\n\nA cluster's usual namespace is its kubeconfig context's; change it with\n`komando conn edit NAME --option namespace=shop`, or name one per command\nwith --namespace.",
+        "short": "Kubernetes clusters: save, check, read logs, roll out, scale",
+        "long": "TARGET is a Kubernetes cluster saved with `komando cluster kubernetes add`\nor a Swarm manager server. Reads need nothing; restart, scale and apply\nchange the cluster (protected targets need --yes; try --dry-run); rm needs\n--allow-dangerous. Anything else: `cluster kubernetes raw` passes the native\nkubectl command, read-only unless --write.\n\nA cluster's usual namespace is its kubeconfig context's; change it with\n`komando cluster kubernetes edit NAME --option namespace=shop`, or name one\nper command with --namespace.",
         "aliases": [
-          "k8s",
-          "kube",
-          "swarm",
           "clusters"
         ],
-        "example": "  komando import kubeconfig                       # one cluster per kubeconfig context\n  komando cluster status prod-k8s                     # version, nodes, what is not healthy\n  komando cluster list prod-k8s pods --namespace shop\n  komando cluster logs prod-k8s deploy/api --namespace shop -f\n  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait",
+        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n  komando cluster status prod-k8s                     # version, nodes, what is not healthy\n  komando cluster list prod-k8s pods --namespace shop\n  komando cluster logs prod-k8s deploy/api --namespace shop -f\n  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait",
         "runnable": true,
         "kind": "read",
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster add",
-        "usage": "komando cluster add NAME URL [flags]",
-        "short": "Add a cluster",
-        "long": "Same as `komando conn add NAME URL`, for a cluster.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a cluster under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`.",
-        "example": "  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig\n  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig --dry-run",
-        "flags": [
-          {
-            "name": "ask-password",
-            "type": "bool",
-            "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "group",
-            "shorthand": "g",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "label",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "login",
-            "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
-          },
-          {
-            "name": "notes",
-            "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
-          },
-          {
-            "name": "option",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
-          },
-          {
-            "name": "protected",
-            "type": "bool",
-            "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
-          },
-          {
-            "name": "tag",
-            "shorthand": "t",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ],
-        "add_kinds": [
-          {
-            "id": "k8s",
-            "display_name": "Kubernetes",
-            "family": "cluster",
-            "url_schemes": [
-              "k8s",
-              "kubernetes"
-            ],
-            "url_example": "k8s://api.cluster.example:6443",
-            "url_note": "the kubeconfig goes to the vault: `komando import kubeconfig`",
-            "default_port": 6443,
-            "file": false,
-            "required": [
-              "password-ref"
-            ],
-            "one_of": [],
-            "optional": [
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "protected",
-              "tag",
-              "via"
-            ]
           }
         ]
       },
@@ -1137,68 +1024,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster exec",
-        "usage": "komando cluster exec TARGET POD|TYPE/NAME -- COMMAND... [flags]",
-        "short": "Run a command in a pod, checked by the policy",
-        "long": "Runs COMMAND in the pod (for TYPE/NAME, in one of its pods) and returns its\noutput. Commands that only look can say so with --read-only: it runs only\ncommands komando knows only read (cat, ls, printenv ...) and refuses any\nother; a protected cluster then needs no --yes. For an\ninteractive shell use `komando cluster shell TARGET POD`.\n\nSafety: a change; try it with --dry-run first; when the command matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
-        "example": "  komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml\n  komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear",
-        "flags": [
-          {
-            "name": "container",
-            "shorthand": "c",
-            "type": "string",
-            "usage": "container in the pod"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          },
-          {
-            "name": "read-only",
-            "type": "bool",
-            "default": "false",
-            "usage": "declare that the command only looks: only commands komando knows only read run (protected clusters: no --yes)"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "changes things unless --read-only says the command only reads (the policy checks it either way)",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when the command matches a destructive rule"
-          }
-        ]
-      },
-      {
-        "path": "komando cluster forward",
-        "usage": "komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE [flags]",
-        "short": "Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C",
-        "long": "Forwards 127.0.0.1:LOCAL on this computer to REMOTE on a pod, deployment or\nservice, through the conn's --via path. It runs until Ctrl-C (or --timeout).\nOnly this computer can use it. For a service, REMOTE is the service's port;\nkomando forwards to the pod's port behind it.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cluster forward prod-k8s svc/api 8080:80 --namespace shop\n  komando cluster forward prod-k8s svc/api 8080:80 --namespace shop --dry-run\n  komando cluster forward prod-k8s deploy/db 15432:5432 --namespace shop\n  komando cluster forward prod-k8s svc/api :80 --namespace shop   # any free local port",
-        "flags": [
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
           }
         ]
       },
@@ -1386,6 +1211,417 @@
         "confirm": [
           {
             "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes",
+        "usage": "komando cluster kubernetes [flags]",
+        "short": "Kubernetes clusters: save them, and run commands on them",
+        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --dry-run\n  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig\n  komando cluster kubernetes test prod-k8s\n  komando cluster kubernetes raw prod-k8s -- get pods -A -o wide\n  komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes add",
+        "usage": "komando cluster kubernetes add NAME [URL] [flags]",
+        "short": "Save a kubernetes cluster under a short name",
+        "long": "Save a kubernetes cluster under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --via web1\n  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes edit",
+        "usage": "komando cluster kubernetes edit NAME [flags]",
+        "short": "Change a saved kubernetes cluster (only the flags you pass change)",
+        "long": "Change a saved kubernetes cluster (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cluster kubernetes edit prod-k8s --add-tag critical\n  komando cluster kubernetes edit prod-k8s --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes exec",
+        "usage": "komando cluster kubernetes exec NAME POD -- COMMAND... [flags]",
+        "short": "Run a command in a pod, checked by the policy",
+        "long": "Run a command in a pod, checked by the policy.\n\nSafety: a change; try it with --dry-run first; when the command matches a\ndestructive rule: dangerous, it cannot be undone: a person types the name to\ngo on, and an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml\n  komando cluster kubernetes exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear",
+        "flags": [
+          {
+            "name": "container",
+            "shorthand": "c",
+            "type": "string",
+            "usage": "container in the pod"
+          },
+          {
+            "name": "namespace",
+            "shorthand": "n",
+            "type": "string",
+            "usage": "Kubernetes namespace (default: the context's, else default)"
+          },
+          {
+            "name": "read-only",
+            "type": "bool",
+            "default": "false",
+            "usage": "the command only reads (the policy checks it either way)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "changes things unless --read-only says the command only reads (the policy checks it either way)",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the command matches a destructive rule"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes list",
+        "usage": "komando cluster kubernetes list [TARGET] [flags]",
+        "short": "List the saved kubernetes clusters",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando cluster kubernetes list\n  komando cluster kubernetes list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes raw",
+        "usage": "komando cluster kubernetes raw NAME -- COMMAND... [flags]",
+        "short": "Run one kubectl command and show the result",
+        "long": "Run one kubectl command and show the result.\n\nSafety: a change; try it with --dry-run first; when the cluster command\ndeletes something or scales to 0: dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous.",
+        "example": "  komando cluster kubernetes raw prod-k8s -- get pods -A -o wide\n  komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop --dry-run\n  komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the cluster command deletes something or scales to 0"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes remove",
+        "usage": "komando cluster kubernetes remove TARGET... [flags]",
+        "short": "Forget a saved kubernetes cluster (the cluster is not touched)",
+        "long": "Forget a saved kubernetes cluster (the cluster is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando cluster kubernetes remove prod-k8s --dry-run\n  komando cluster kubernetes remove prod-k8s",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes rename",
+        "usage": "komando cluster kubernetes rename NAME NEW [flags]",
+        "short": "Rename a saved kubernetes cluster and every reference to it",
+        "long": "Rename a saved kubernetes cluster and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run\n  komando cluster kubernetes rename prod-k8s prod-k8s-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes shell",
+        "usage": "komando cluster kubernetes shell NAME POD [-- COMMAND...] [flags]",
+        "short": "Open a shell in a pod, like kubectl exec (person only)",
+        "long": "Open a shell in a pod, like kubectl exec.\n\nSafety: only a person at a terminal can run it.",
+        "example": "  komando cluster kubernetes shell prod-k8s deploy/api --namespace shop\n  komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash",
+        "flags": [
+          {
+            "name": "container",
+            "shorthand": "c",
+            "type": "string",
+            "usage": "container in the pod"
+          },
+          {
+            "name": "namespace",
+            "shorthand": "n",
+            "type": "string",
+            "usage": "Kubernetes namespace (default: the context's, else default)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes show",
+        "usage": "komando cluster kubernetes show NAME [flags]",
+        "short": "Show a saved kubernetes cluster's settings (credentials as names)",
+        "example": "  komando cluster kubernetes show prod-k8s\n  komando cluster kubernetes show prod-k8s -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes test",
+        "usage": "komando cluster kubernetes test TARGET [flags]",
+        "short": "Check that a saved kubernetes cluster answers and lets you in",
+        "example": "  komando cluster kubernetes test prod-k8s\n  komando cluster kubernetes test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes tunnel",
+        "usage": "komando cluster kubernetes tunnel [flags]",
+        "short": "Reach a port of a pod or service from this computer: start",
+        "example": "  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop --dry-run\n  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop\n  komando cluster kubernetes tunnel start prod-k8s deploy/db 15432:5432 --namespace shop",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster kubernetes tunnel start",
+        "usage": "komando cluster kubernetes tunnel start NAME OBJECT PORT [flags]",
+        "short": "Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C",
+        "long": "Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop\n  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop --dry-run\n  komando cluster kubernetes tunnel start prod-k8s deploy/db 15432:5432 --namespace shop\n  komando cluster kubernetes tunnel start prod-k8s svc/api :80 --namespace shop   # any free local port",
+        "flags": [
+          {
+            "name": "namespace",
+            "shorthand": "n",
+            "type": "string",
+            "usage": "Kubernetes namespace (default: the context's, else default)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
           }
         ]
       },
@@ -1588,34 +1824,6 @@
         ]
       },
       {
-        "path": "komando cluster run",
-        "usage": "komando cluster run TARGET -- ARGS... [flags]",
-        "short": "Run any kubectl or docker command (read only by default)",
-        "long": "For Kubernetes, komando runs the kubectl command itself (no kubectl\nneeded) and reaches the API through the conn's --via path: get (tables,\nwide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,\nevents, top, explain, version, api-resources, api-versions, cluster-info,\nauth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,\npatch, label, annotate, scale, set image, cordon, uncordon, drain, taint,\nrun, exec, cp, debug, certificate and config. For Swarm, docker runs on the\nmanager. Commands that change things need --write; delete, drain and other\nrisky verbs also need --allow-dangerous.\n\nSafety: a change; try it with --dry-run first; when the cluster command\ndeletes something or scales to 0: dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.",
-        "example": "  komando cluster run prod-k8s -- get pods -A -o wide\n  komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop\n  komando cluster run prod-k8s --write --dry-run -- rollout undo deployment/api -n shop\n  komando cluster run swarm1 -- service ps web",
-        "flags": [
-          {
-            "name": "write",
-            "type": "bool",
-            "default": "false",
-            "usage": "allow commands that change the cluster"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "only reads unless --write",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when the cluster command deletes something or scales to 0"
-          }
-        ]
-      },
-      {
         "path": "komando cluster scale",
         "usage": "komando cluster scale TARGET TYPE/NAME REPLICAS [flags]",
         "short": "Set the number of replicas",
@@ -1649,35 +1857,6 @@
         ]
       },
       {
-        "path": "komando cluster shell",
-        "usage": "komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...] [flags]",
-        "short": "Open a shell in a pod, like kubectl exec (person only)",
-        "long": "Opens a terminal in the pod's container: bash when it has one, else sh, or\nCOMMAND. For people at a terminal; agents use `komando cluster exec`.\nAnything can be typed inside, so a protected cluster asks first.\n\nSafety: only a person at a terminal can run it.",
-        "example": "  komando cluster shell prod-k8s deploy/api --namespace shop\n  komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash",
-        "flags": [
-          {
-            "name": "container",
-            "shorthand": "c",
-            "type": "string",
-            "usage": "container in the pod"
-          },
-          {
-            "name": "namespace",
-            "shorthand": "n",
-            "type": "string",
-            "usage": "Kubernetes namespace (default: the context's, else default)"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "an shellNote shell for a person: whatever they type",
-        "confirm": [
-          {
-            "tier": "person"
-          }
-        ]
-      },
-      {
         "path": "komando cluster status",
         "usage": "komando cluster status TARGET [TYPE/NAME] [flags]",
         "short": "Show the version, the nodes and what is not healthy",
@@ -1702,6 +1881,47 @@
         "confirm": [
           {
             "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster swarm",
+        "usage": "komando cluster swarm [flags]",
+        "short": "Docker Swarm: run docker commands on a manager server",
+        "example": "  komando cluster swarm raw swarm1 -- service ls\n  komando cluster swarm raw swarm1 -- service ps web\n  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando cluster swarm raw",
+        "usage": "komando cluster swarm raw NAME -- COMMAND... [flags]",
+        "short": "Run one docker command on a Swarm manager and show the result",
+        "long": "Run one docker command on a Swarm manager and show the result.\n\nSafety: a change; try it with --dry-run first; when the cluster command\ndeletes something or scales to 0: dangerous, it cannot be undone: a person\ntypes the name to go on, and an AI agent or a script needs\n--allow-dangerous.",
+        "example": "  komando cluster swarm raw swarm1 -- service ls\n  komando cluster swarm raw swarm1 -- service ps web\n  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run\n  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the cluster command deletes something or scales to 0"
           }
         ]
       },
@@ -3882,7 +4102,7 @@
         "path": "komando docker",
         "usage": "komando docker [flags]",
         "short": "Docker on servers: check, read logs, run compose, clean up",
-        "long": "Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,\ncompose up and a docker run through `docker raw` change things (protected\nservers need --yes); rm, prune, compose down -v and other deletes need\n--allow-dangerous. The same rules apply to `docker raw`, `docker compose`\nand `cluster run` on a Swarm manager.",
+        "long": "Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,\ncompose up and a docker run through `docker raw` change things (protected\nservers need --yes); rm, prune, compose down -v and other deletes need\n--allow-dangerous. The same rules apply to `docker raw` and `docker\ncompose`.",
         "aliases": [
           "container",
           "ctr",
@@ -8232,7 +8452,7 @@
         "path": "komando safety",
         "usage": "komando safety [flags]",
         "short": "How komando keeps a change from going wrong",
-        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
+        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
         "runnable": false
       },
       {
@@ -8546,7 +8766,7 @@
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster exec or recipe run, unless the line also has --network.\n`komando ssh-gate status` tells a key which it is. Every command a key runs\nor is refused is in `komando audit`, with --name, even when the audit\nsetting is off.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster kubernetes exec or recipe run, unless the line also has\n--network. `komando ssh-gate status` tells a key which it is. Every command\na key runs or is refused is in `komando audit`, with --name, even when the\naudit setting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -8561,7 +8781,7 @@
         "path": "komando ssh-gate line",
         "usage": "komando ssh-gate line PUBLIC_KEY --name NAME [flags]",
         "short": "Print the authorized_keys line that limits a key to komando",
-        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay\non the servers and conns in your list: no net checks, no cert check of\na website, and no exec, job start, docker exec, cluster exec or recipe run,\nwhose programs can connect anywhere and carry what they read in a URL or a\nDNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one.\nThe shell is refused on a protected server, a Windows server or this\ncomputer, with any other word or flag, without the terminal, and on every\nserver while you have deny rules of your own (komando policy list); db\nshell and cluster shell stay refused. On the servers it opens on, the\nshell is full control of the server, as the account komando logs in with:\nwhat is typed is outside komando's per-command rules, masking and audit.\nGive such a key only to a device you would give that login to. Each\nsession's start and end are in komando audit (key, server, how long, why\nit ended), and a session with no input and no output for 30 minutes ends.",
+        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay on\nthe servers and conns in your list: no net checks, no cert check of a\nwebsite, and no exec, job start, docker exec, cluster kubernetes exec or\nrecipe run, whose programs can connect anywhere and carry what they read in\na URL or a DNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one. The\nshell is refused on a protected server, a Windows server or this computer,\nwith any other word or flag, without the terminal, and on every server while\nyou have deny rules of your own (komando policy list); db shell and cluster\nkubernetes shell stay refused. On the servers it opens on, the shell is full\ncontrol of the server, as the account komando logs in with: what is typed is\noutside komando's per-command rules, masking and audit. Give such a key only\nto a device you would give that login to. Each session's start and end are\nin komando audit (key, server, how long, why it ended), and a session with\nno input and no output for 30 minutes ends.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'\n  komando ssh-gate line --name phone-checks --read-only --network ~/phone.pub\n  komando ssh-gate line --name ops --shell-access ~/ops.pub",
         "flags": [
           {
@@ -11424,7 +11644,7 @@
         "code": "FILE_TOO_LARGE",
         "exit": 8,
         "example": "…:… is more than …; komando holds a copy from a pod in memory, and stopped",
-        "hint": "copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`"
+        "hint": "copy a smaller part, or pack it smaller in the pod first: `komando cluster kubernetes raw NAME --write -- exec POD -- gzip PATH`"
       },
       {
         "code": "FOLDER_NOT_FOUND",
@@ -11728,8 +11948,8 @@
       {
         "code": "NEEDS_TERMINAL",
         "exit": 2,
-        "example": "cluster shell needs a person at a terminal",
-        "hint": "agents and scripts use `komando cluster exec`"
+        "example": "cluster kubernetes shell needs a person at a terminal",
+        "hint": "agents and scripts use `komando cluster kubernetes exec`"
       },
       {
         "code": "NOTHING_TO_RENAME",

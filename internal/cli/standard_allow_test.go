@@ -18,6 +18,7 @@ var (
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
 	allowPairs = []string{
 		"host ca grant/revoke",
+		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}

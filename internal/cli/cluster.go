@@ -352,7 +352,7 @@ func kubeErr(err error) error {
 		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
 		switch {
 		case e.Code == 401 || e.Code == 403:
-			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster kubernetes raw TARGET -- auth whoami` and what it may do with `komando cluster kubernetes raw TARGET -- auth can-i --list`"
+			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster kubernetes raw NAME -- auth whoami` and what it may do with `komando cluster kubernetes raw NAME -- auth can-i --list`"
 		case e.Code == 404:
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
 		case e.Code == 409:
@@ -517,7 +517,7 @@ func age(ts string) string {
 func clusterCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cluster",
-		Short: "Kubernetes clusters: save them, check, read logs, roll out, scale",
+		Short: "Kubernetes clusters: save, check, read logs, roll out, scale",
 		Long: `TARGET is a Kubernetes cluster saved with ` + "`komando cluster kubernetes add`" + ` or a Swarm
 manager server. Reads need nothing; restart, scale and apply change the cluster
 (protected targets need --yes; try --dry-run); rm needs --allow-dangerous.

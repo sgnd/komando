@@ -54,6 +54,7 @@ var clusterLeaves = each(clusterProviders, func(p provider) []Leaf {
 		raw.Example = cmd + "raw " + p.entry + " -- " + p.rawExample + "\n" + cmd + "raw " + p.entry + " --write -- " + p.writeExample + " --dry-run"
 	case "swarm":
 		raw.State = Built
+		raw.Today = nil // kubernetes raw holds the runs of cluster.run until the swarm entry (E1) has its own
 		raw.Short = "Run one docker command on a Swarm manager and show the result"
 		raw.Example = cmd + "raw swarm1 -- service ls\n" + cmd + "raw swarm1 -- service ps web\n" +
 			cmd + "raw swarm1 --write -- service scale web=3 --dry-run"
@@ -76,7 +77,7 @@ var clusterLeaves = each(clusterProviders, func(p provider) []Leaf {
 					cmd + "shell " + p.entry + " api-7d9f-x2 -c api -- /bin/ash"},
 			// forward exists, on 127.0.0.1 only; tunnel list and stop are new code
 			Leaf{Key: key("tunnel", "start"), Today: []string{"cluster.forward"},
-				Args:    []Arg{{Name: "NAME"}, {Name: "OBJECT"}, {Name: "PORTS"}},
+				Args:    []Arg{{Name: "NAME"}, {Name: "OBJECT"}, {Name: "PORT"}},
 				Options: []Option{namespaceOpt},
 				Short:   "Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C",
 				Example: cmd + "tunnel start " + p.entry + " svc/api 8080:80 --namespace shop\n" +

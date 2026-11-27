@@ -266,14 +266,6 @@
 "cluster --help"	netread	cluster	runs
 "cluster --help"	read	cluster	runs
 "cluster --help"	shell	cluster	runs
-"cluster add --help"	full	cluster.add	runs
-"cluster add --help"	netread	cluster.add	runs
-"cluster add --help"	read	cluster.add	runs
-"cluster add --help"	shell	cluster.add	runs
-"cluster add"	full	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cluster add"	netread	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cluster add"	read	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"cluster add"	shell	cluster.add	SSH_GATE_REFUSED|komando cluster add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "cluster apply --help"	full	cluster.apply	runs
 "cluster apply --help"	netread	cluster.apply	runs
 "cluster apply --help"	read	cluster.apply	runs
@@ -306,38 +298,6 @@
 "cluster events"	netread	cluster.events	runs
 "cluster events"	read	cluster.events	runs
 "cluster events"	shell	cluster.events	runs
-"cluster exec --analyze"	full	cluster.exec	runs
-"cluster exec --analyze"	netread	cluster.exec	runs
-"cluster exec --analyze"	read	cluster.exec	runs
-"cluster exec --analyze"	shell	cluster.exec	runs
-"cluster exec --help"	full	cluster.exec	runs
-"cluster exec --help"	netread	cluster.exec	runs
-"cluster exec --help"	read	cluster.exec	runs
-"cluster exec --help"	shell	cluster.exec	runs
-"cluster exec --read-only"	full	cluster.exec	runs
-"cluster exec --read-only"	netread	cluster.exec	runs
-"cluster exec --read-only"	read	cluster.exec	SSH_GATE_NETWORK_REQUIRED|komando cluster exec is refused for a read key without network: it runs a program of your choosing in a pod, which can connect anywhere
-"cluster exec --read-only"	shell	cluster.exec	runs
-"cluster exec --refresh"	full	cluster.exec	runs
-"cluster exec --refresh"	netread	cluster.exec	runs
-"cluster exec --refresh"	read	cluster.exec	runs
-"cluster exec --refresh"	shell	cluster.exec	runs
-"cluster exec --write"	full	cluster.exec	runs
-"cluster exec --write"	netread	cluster.exec	runs
-"cluster exec --write"	read	cluster.exec	runs
-"cluster exec --write"	shell	cluster.exec	runs
-"cluster exec"	full	cluster.exec	runs
-"cluster exec"	netread	cluster.exec	SSH_GATE_READ_ONLY|komando cluster exec is refused for a read-only key: without --read-only it can change something
-"cluster exec"	read	cluster.exec	SSH_GATE_READ_ONLY|komando cluster exec is refused for a read-only key: without --read-only it can change something
-"cluster exec"	shell	cluster.exec	runs
-"cluster forward --help"	full	cluster.forward	runs
-"cluster forward --help"	netread	cluster.forward	runs
-"cluster forward --help"	read	cluster.forward	runs
-"cluster forward --help"	shell	cluster.forward	runs
-"cluster forward"	full	cluster.forward	runs
-"cluster forward"	netread	cluster.forward	SSH_GATE_READ_ONLY|komando cluster forward is refused for a read-only key: it opens a port on the komando computer
-"cluster forward"	read	cluster.forward	SSH_GATE_READ_ONLY|komando cluster forward is refused for a read-only key: it opens a port on the komando computer
-"cluster forward"	shell	cluster.forward	runs
 "cluster get --help"	full	cluster.get	runs
 "cluster get --help"	netread	cluster.get	runs
 "cluster get --help"	read	cluster.get	runs
@@ -402,6 +362,142 @@
 "cluster info"	netread	cluster.status	runs
 "cluster info"	read	cluster.status	runs
 "cluster info"	shell	cluster.status	runs
+"cluster kubernetes --help"	full	cluster.kubernetes	runs
+"cluster kubernetes --help"	netread	cluster.kubernetes	runs
+"cluster kubernetes --help"	read	cluster.kubernetes	runs
+"cluster kubernetes --help"	shell	cluster.kubernetes	runs
+"cluster kubernetes add --help"	full	cluster.kubernetes.add	runs
+"cluster kubernetes add --help"	netread	cluster.kubernetes.add	runs
+"cluster kubernetes add --help"	read	cluster.kubernetes.add	runs
+"cluster kubernetes add --help"	shell	cluster.kubernetes.add	runs
+"cluster kubernetes add"	full	cluster.kubernetes.add	SSH_GATE_REFUSED|komando cluster kubernetes add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes add"	netread	cluster.kubernetes.add	SSH_GATE_REFUSED|komando cluster kubernetes add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes add"	read	cluster.kubernetes.add	SSH_GATE_REFUSED|komando cluster kubernetes add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes add"	shell	cluster.kubernetes.add	SSH_GATE_REFUSED|komando cluster kubernetes add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes edit --help"	full	cluster.kubernetes.edit	runs
+"cluster kubernetes edit --help"	netread	cluster.kubernetes.edit	runs
+"cluster kubernetes edit --help"	read	cluster.kubernetes.edit	runs
+"cluster kubernetes edit --help"	shell	cluster.kubernetes.edit	runs
+"cluster kubernetes edit"	full	cluster.kubernetes.edit	SSH_GATE_REFUSED|komando cluster kubernetes edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes edit"	netread	cluster.kubernetes.edit	SSH_GATE_REFUSED|komando cluster kubernetes edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes edit"	read	cluster.kubernetes.edit	SSH_GATE_REFUSED|komando cluster kubernetes edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes edit"	shell	cluster.kubernetes.edit	SSH_GATE_REFUSED|komando cluster kubernetes edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes exec --analyze"	full	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --analyze"	netread	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --analyze"	read	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --analyze"	shell	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --help"	full	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --help"	netread	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --help"	read	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --help"	shell	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --read-only"	full	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --read-only"	netread	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --read-only"	read	cluster.kubernetes.exec	SSH_GATE_NETWORK_REQUIRED|komando cluster kubernetes exec is refused for a read key without network: it runs a program of your choosing in a pod, which can connect anywhere
+"cluster kubernetes exec --read-only"	shell	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --refresh"	full	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --refresh"	netread	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --refresh"	read	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --refresh"	shell	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --write"	full	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --write"	netread	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --write"	read	cluster.kubernetes.exec	runs
+"cluster kubernetes exec --write"	shell	cluster.kubernetes.exec	runs
+"cluster kubernetes exec"	full	cluster.kubernetes.exec	runs
+"cluster kubernetes exec"	netread	cluster.kubernetes.exec	SSH_GATE_READ_ONLY|komando cluster kubernetes exec is refused for a read-only key: without --read-only it can change something
+"cluster kubernetes exec"	read	cluster.kubernetes.exec	SSH_GATE_READ_ONLY|komando cluster kubernetes exec is refused for a read-only key: without --read-only it can change something
+"cluster kubernetes exec"	shell	cluster.kubernetes.exec	runs
+"cluster kubernetes list --help"	full	cluster.kubernetes.list	runs
+"cluster kubernetes list --help"	netread	cluster.kubernetes.list	runs
+"cluster kubernetes list --help"	read	cluster.kubernetes.list	runs
+"cluster kubernetes list --help"	shell	cluster.kubernetes.list	runs
+"cluster kubernetes list"	full	cluster.kubernetes.list	runs
+"cluster kubernetes list"	netread	cluster.kubernetes.list	runs
+"cluster kubernetes list"	read	cluster.kubernetes.list	runs
+"cluster kubernetes list"	shell	cluster.kubernetes.list	runs
+"cluster kubernetes raw --analyze"	full	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --analyze"	netread	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --analyze"	read	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --analyze"	shell	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --help"	full	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --help"	netread	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --help"	read	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --help"	shell	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --read-only"	full	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --read-only"	netread	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --read-only"	read	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --read-only"	shell	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --refresh"	full	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --refresh"	netread	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --refresh"	read	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --refresh"	shell	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --write"	full	cluster.kubernetes.raw	runs
+"cluster kubernetes raw --write"	netread	cluster.kubernetes.raw	SSH_GATE_READ_ONLY|komando cluster kubernetes raw is refused for a read-only key: with --write it can change something
+"cluster kubernetes raw --write"	read	cluster.kubernetes.raw	SSH_GATE_READ_ONLY|komando cluster kubernetes raw is refused for a read-only key: with --write it can change something
+"cluster kubernetes raw --write"	shell	cluster.kubernetes.raw	runs
+"cluster kubernetes raw"	full	cluster.kubernetes.raw	runs
+"cluster kubernetes raw"	netread	cluster.kubernetes.raw	runs
+"cluster kubernetes raw"	read	cluster.kubernetes.raw	runs
+"cluster kubernetes raw"	shell	cluster.kubernetes.raw	runs
+"cluster kubernetes remove --help"	full	cluster.kubernetes.remove	runs
+"cluster kubernetes remove --help"	netread	cluster.kubernetes.remove	runs
+"cluster kubernetes remove --help"	read	cluster.kubernetes.remove	runs
+"cluster kubernetes remove --help"	shell	cluster.kubernetes.remove	runs
+"cluster kubernetes remove"	full	cluster.kubernetes.remove	SSH_GATE_REFUSED|komando cluster kubernetes remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes remove"	netread	cluster.kubernetes.remove	SSH_GATE_REFUSED|komando cluster kubernetes remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes remove"	read	cluster.kubernetes.remove	SSH_GATE_REFUSED|komando cluster kubernetes remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes remove"	shell	cluster.kubernetes.remove	SSH_GATE_REFUSED|komando cluster kubernetes remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes rename --help"	full	cluster.kubernetes.rename	runs
+"cluster kubernetes rename --help"	netread	cluster.kubernetes.rename	runs
+"cluster kubernetes rename --help"	read	cluster.kubernetes.rename	runs
+"cluster kubernetes rename --help"	shell	cluster.kubernetes.rename	runs
+"cluster kubernetes rename"	full	cluster.kubernetes.rename	SSH_GATE_REFUSED|komando cluster kubernetes rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes rename"	netread	cluster.kubernetes.rename	SSH_GATE_REFUSED|komando cluster kubernetes rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes rename"	read	cluster.kubernetes.rename	SSH_GATE_REFUSED|komando cluster kubernetes rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes rename"	shell	cluster.kubernetes.rename	SSH_GATE_REFUSED|komando cluster kubernetes rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"cluster kubernetes shell --help"	full	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell --help"	netread	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell --help"	read	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell --help"	shell	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell"	full	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell"	netread	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell"	read	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes shell"	shell	cluster.kubernetes.shell	SSH_GATE_REFUSED|komando cluster kubernetes shell needs a person at a terminal on this computer; a key cannot run it
+"cluster kubernetes show --help"	full	cluster.kubernetes.show	runs
+"cluster kubernetes show --help"	netread	cluster.kubernetes.show	runs
+"cluster kubernetes show --help"	read	cluster.kubernetes.show	runs
+"cluster kubernetes show --help"	shell	cluster.kubernetes.show	runs
+"cluster kubernetes show"	full	cluster.kubernetes.show	runs
+"cluster kubernetes show"	netread	cluster.kubernetes.show	runs
+"cluster kubernetes show"	read	cluster.kubernetes.show	runs
+"cluster kubernetes show"	shell	cluster.kubernetes.show	runs
+"cluster kubernetes test --help"	full	cluster.kubernetes.test	runs
+"cluster kubernetes test --help"	netread	cluster.kubernetes.test	runs
+"cluster kubernetes test --help"	read	cluster.kubernetes.test	runs
+"cluster kubernetes test --help"	shell	cluster.kubernetes.test	runs
+"cluster kubernetes test"	full	cluster.kubernetes.test	runs
+"cluster kubernetes test"	netread	cluster.kubernetes.test	runs
+"cluster kubernetes test"	read	cluster.kubernetes.test	runs
+"cluster kubernetes test"	shell	cluster.kubernetes.test	runs
+"cluster kubernetes tunnel --help"	full	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel --help"	netread	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel --help"	read	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel --help"	shell	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel start --help"	full	cluster.kubernetes.tunnel.start	runs
+"cluster kubernetes tunnel start --help"	netread	cluster.kubernetes.tunnel.start	runs
+"cluster kubernetes tunnel start --help"	read	cluster.kubernetes.tunnel.start	runs
+"cluster kubernetes tunnel start --help"	shell	cluster.kubernetes.tunnel.start	runs
+"cluster kubernetes tunnel start"	full	cluster.kubernetes.tunnel.start	runs
+"cluster kubernetes tunnel start"	netread	cluster.kubernetes.tunnel.start	SSH_GATE_READ_ONLY|komando cluster kubernetes tunnel start is refused for a read-only key: it opens a port on the komando computer
+"cluster kubernetes tunnel start"	read	cluster.kubernetes.tunnel.start	SSH_GATE_READ_ONLY|komando cluster kubernetes tunnel start is refused for a read-only key: it opens a port on the komando computer
+"cluster kubernetes tunnel start"	shell	cluster.kubernetes.tunnel.start	runs
+"cluster kubernetes tunnel"	full	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel"	netread	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel"	read	cluster.kubernetes.tunnel	runs
+"cluster kubernetes tunnel"	shell	cluster.kubernetes.tunnel	runs
+"cluster kubernetes"	full	cluster.kubernetes	runs
+"cluster kubernetes"	netread	cluster.kubernetes	runs
+"cluster kubernetes"	read	cluster.kubernetes	runs
+"cluster kubernetes"	shell	cluster.kubernetes	runs
 "cluster list --help"	full	cluster.list	runs
 "cluster list --help"	netread	cluster.list	runs
 "cluster list --help"	read	cluster.list	runs
@@ -442,30 +538,6 @@
 "cluster rollback"	netread	cluster.rollback	SSH_GATE_READ_ONLY|komando cluster rollback is refused for a read-only key: it changes something
 "cluster rollback"	read	cluster.rollback	SSH_GATE_READ_ONLY|komando cluster rollback is refused for a read-only key: it changes something
 "cluster rollback"	shell	cluster.rollback	runs
-"cluster run --analyze"	full	cluster.run	runs
-"cluster run --analyze"	netread	cluster.run	runs
-"cluster run --analyze"	read	cluster.run	runs
-"cluster run --analyze"	shell	cluster.run	runs
-"cluster run --help"	full	cluster.run	runs
-"cluster run --help"	netread	cluster.run	runs
-"cluster run --help"	read	cluster.run	runs
-"cluster run --help"	shell	cluster.run	runs
-"cluster run --read-only"	full	cluster.run	runs
-"cluster run --read-only"	netread	cluster.run	runs
-"cluster run --read-only"	read	cluster.run	runs
-"cluster run --read-only"	shell	cluster.run	runs
-"cluster run --refresh"	full	cluster.run	runs
-"cluster run --refresh"	netread	cluster.run	runs
-"cluster run --refresh"	read	cluster.run	runs
-"cluster run --refresh"	shell	cluster.run	runs
-"cluster run --write"	full	cluster.run	runs
-"cluster run --write"	netread	cluster.run	SSH_GATE_READ_ONLY|komando cluster run is refused for a read-only key: with --write it can change something
-"cluster run --write"	read	cluster.run	SSH_GATE_READ_ONLY|komando cluster run is refused for a read-only key: with --write it can change something
-"cluster run --write"	shell	cluster.run	runs
-"cluster run"	full	cluster.run	runs
-"cluster run"	netread	cluster.run	runs
-"cluster run"	read	cluster.run	runs
-"cluster run"	shell	cluster.run	runs
 "cluster scale --help"	full	cluster.scale	runs
 "cluster scale --help"	netread	cluster.scale	runs
 "cluster scale --help"	read	cluster.scale	runs
@@ -474,14 +546,38 @@
 "cluster scale"	netread	cluster.scale	SSH_GATE_READ_ONLY|komando cluster scale is refused for a read-only key: it changes something
 "cluster scale"	read	cluster.scale	SSH_GATE_READ_ONLY|komando cluster scale is refused for a read-only key: it changes something
 "cluster scale"	shell	cluster.scale	runs
-"cluster shell --help"	full	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell --help"	netread	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell --help"	read	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell --help"	shell	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell"	full	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell"	netread	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell"	read	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
-"cluster shell"	shell	cluster.shell	SSH_GATE_REFUSED|komando cluster shell needs a person at a terminal on this computer; a key cannot run it
+"cluster swarm --help"	full	cluster.swarm	runs
+"cluster swarm --help"	netread	cluster.swarm	runs
+"cluster swarm --help"	read	cluster.swarm	runs
+"cluster swarm --help"	shell	cluster.swarm	runs
+"cluster swarm raw --analyze"	full	cluster.swarm.raw	runs
+"cluster swarm raw --analyze"	netread	cluster.swarm.raw	runs
+"cluster swarm raw --analyze"	read	cluster.swarm.raw	runs
+"cluster swarm raw --analyze"	shell	cluster.swarm.raw	runs
+"cluster swarm raw --help"	full	cluster.swarm.raw	runs
+"cluster swarm raw --help"	netread	cluster.swarm.raw	runs
+"cluster swarm raw --help"	read	cluster.swarm.raw	runs
+"cluster swarm raw --help"	shell	cluster.swarm.raw	runs
+"cluster swarm raw --read-only"	full	cluster.swarm.raw	runs
+"cluster swarm raw --read-only"	netread	cluster.swarm.raw	runs
+"cluster swarm raw --read-only"	read	cluster.swarm.raw	runs
+"cluster swarm raw --read-only"	shell	cluster.swarm.raw	runs
+"cluster swarm raw --refresh"	full	cluster.swarm.raw	runs
+"cluster swarm raw --refresh"	netread	cluster.swarm.raw	runs
+"cluster swarm raw --refresh"	read	cluster.swarm.raw	runs
+"cluster swarm raw --refresh"	shell	cluster.swarm.raw	runs
+"cluster swarm raw --write"	full	cluster.swarm.raw	runs
+"cluster swarm raw --write"	netread	cluster.swarm.raw	SSH_GATE_READ_ONLY|komando cluster swarm raw is refused for a read-only key: with --write it can change something
+"cluster swarm raw --write"	read	cluster.swarm.raw	SSH_GATE_READ_ONLY|komando cluster swarm raw is refused for a read-only key: with --write it can change something
+"cluster swarm raw --write"	shell	cluster.swarm.raw	runs
+"cluster swarm raw"	full	cluster.swarm.raw	runs
+"cluster swarm raw"	netread	cluster.swarm.raw	runs
+"cluster swarm raw"	read	cluster.swarm.raw	runs
+"cluster swarm raw"	shell	cluster.swarm.raw	runs
+"cluster swarm"	full	cluster.swarm	runs
+"cluster swarm"	netread	cluster.swarm	runs
+"cluster swarm"	read	cluster.swarm	runs
+"cluster swarm"	shell	cluster.swarm	runs
 "cluster"	full	cluster	runs
 "cluster"	netread	cluster	runs
 "cluster"	read	cluster	runs

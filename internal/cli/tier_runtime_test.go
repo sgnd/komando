@@ -204,6 +204,8 @@ var tierUnreached = map[string]string{
 	"floor | secret.keychain":                                "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
 	"floor | host.ca.rm":                                     "adding the CA it removes needs a person",
 	"floor | tunnel.stop":                                    "no stop for an agent: change on an unprotected target",
+	"floor | cluster.swarm.raw":                              "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"cluster raw dynamic dangerous | cluster.swarm.raw":      "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
 	"floor | cluster.kubernetes.add":                         "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
 	"floor | secret.run":                                     "an agent always meets the row: secret run always hands a secret on",
 	"floor | storage.link":                                   "an agent always meets the row: a link is always --reveal for an agent",

@@ -447,7 +447,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 (1) a curated table of foreign words, each mapped to a full command for
 `error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
 (or the noun in the next word), `get` → `komando list`,
-`ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster kubernetes raw TARGET -- ...`,
+`ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster kubernetes raw NAME -- ...`,
 `psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
 `systemctl` → `komando svc`; (2) edit distance 1 for words of 4 letters or
 fewer, 2 otherwise, at most 2 suggestions; (3) the hint names a command only

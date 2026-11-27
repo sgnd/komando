@@ -201,7 +201,7 @@ func (r *kctlRun) exec() error {
 		return kfail("exec needs POD -- COMMAND")
 	}
 	if r.a.bools["tty"] || r.a.bools["stdin"] {
-		return kfail("exec -it opens a terminal: use `komando cluster kubernetes shell TARGET %s`", r.a.pos[0])
+		return kfail("exec -it opens a terminal: use `komando cluster kubernetes shell NAME %s`", r.a.pos[0])
 	}
 	pod, err := onePod(r.ctx, r.k, r.ns(), r.a.pos[0])
 	if err != nil {
@@ -234,7 +234,7 @@ func (r *kctlRun) debug() error {
 		r.dryQuery(), body, "application/strategic-merge-patch+json"); err != nil {
 		return err
 	}
-	fmt.Fprintf(&r.stdout, "pod/%s: ephemeral container %s added%s; open it with `komando cluster kubernetes shell TARGET %s -c %s -- sh`\n", pod, name, r.dryNote(), pod, name)
+	fmt.Fprintf(&r.stdout, "pod/%s: ephemeral container %s added%s; open it with `komando cluster kubernetes shell NAME %s -c %s -- sh`\n", pod, name, r.dryNote(), pod, name)
 	return nil
 }
 

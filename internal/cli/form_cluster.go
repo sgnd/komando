@@ -259,14 +259,8 @@ func clusterChangeHints() map[string]formHint {
 // shell and tunnel start, which are today's cluster kubernetes raw, exec, shell and
 // forward.
 func init() {
-	hints := inventoryHints("cluster", "kubernetes", "cluster", "Clusters", "Kubernetes")
-	for k, h := range clusterChangeHints() {
-		if strings.HasPrefix(k, "cluster kubernetes ") {
-			hints[k] = h
-		}
-	}
-	hints["cluster kubernetes"] = formHint{}
-	addFormHints(hints)
+	// raw, exec, shell and tunnel start are in clusterChangeHints.
+	addFormHints(inventoryHints("cluster", "kubernetes", "cluster", "Clusters", "Kubernetes"))
 	addFormHints(map[string]formHint{
 		"cluster status":   {next: []string{"cluster list {} pods", "cluster events {} --warnings"}},
 		"cluster list":     {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},

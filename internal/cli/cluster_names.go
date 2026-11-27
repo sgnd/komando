@@ -79,7 +79,7 @@ func resource(ctx context.Context, k *kube.Client, typ string) (kube.ResourceTyp
 	var uk *kube.UnknownKindError
 	if errors.As(err, &uk) {
 		e := out.Usage("%v", err)
-		e.Hint = "see every kind with `komando cluster kubernetes raw TARGET -- api-resources`"
+		e.Hint = "see every kind with `komando cluster kubernetes raw NAME -- api-resources`"
 		return r, e
 	}
 	return r, err

@@ -372,7 +372,7 @@ func execInstead(err error, verb string) error {
 		return err
 	}
 	c := *e
-	c.Hint = "for a command in a pod, `komando cluster kubernetes exec TARGET POD --read-only -- CMD` runs one that only reads without it; otherwise: " + e.Hint
+	c.Hint = "for a command in a pod, `komando cluster kubernetes exec NAME POD --read-only -- CMD` runs one that only reads without it; otherwise: " + e.Hint
 	return &c
 }
 

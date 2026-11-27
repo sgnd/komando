@@ -27,13 +27,10 @@ cache.set	kind=change|	target=""
 cert	kind=read|	target="servers"	
 cert.check	kind=read|	target=""	
 cluster	kind=read|	target="clusters"	
-cluster.add	kind=change|	target="clusters"	
 cluster.apply	kind=change|	target="clusters"	
 cluster.deploy	kind=change|	target="clusters"	
 cluster.describe	kind=read|	target="clusters"	
 cluster.events	kind=read|	target="clusters"	
-cluster.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
-cluster.forward	kind=change|	target="clusters"	
 cluster.get	kind=read|	target="clusters"	
 cluster.helm	kind=read|	target="clusters"	
 cluster.helm.history	kind=read|	target="clusters"	
@@ -41,15 +38,28 @@ cluster.helm.list	kind=read|	target="clusters"
 cluster.helm.status	kind=read|	target="clusters"	
 cluster.helm.values	kind=read|	target="clusters"	
 cluster.history	kind=read|	target="clusters"	
+cluster.kubernetes	kind=read|	target="clusters"	
+cluster.kubernetes.add	kind=change|	target="clusters"	
+cluster.kubernetes.edit	kind=change|	target="clusters"	
+cluster.kubernetes.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
+cluster.kubernetes.list	kind=read|	target="clusters"	
+cluster.kubernetes.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
+cluster.kubernetes.remove	kind=change|	target="clusters"	
+cluster.kubernetes.rename	kind=change|	target="clusters"	
+cluster.kubernetes.shell	kind=depends|an shellNote shell for a person: whatever they type	target="clusters"	person||||||
+cluster.kubernetes.show	kind=read|	target="clusters"	
+cluster.kubernetes.test	kind=read|	target="clusters"	
+cluster.kubernetes.tunnel	kind=read|	target="clusters"	
+cluster.kubernetes.tunnel.start	kind=change|	target="clusters"	
 cluster.list	kind=read|	target="clusters"	
 cluster.logs	kind=read|	target="clusters"	
 cluster.restart	kind=change|	target="clusters"	
 cluster.rm	kind=change|	target="clusters"	dangerous||deletes it from the cluster||||
 cluster.rollback	kind=change|	target="clusters"	
-cluster.run	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
 cluster.scale	kind=change|	target="clusters"	dangerous|REPLICAS is 0|stops every copy of the app||||
-cluster.shell	kind=depends|an shellNote shell for a person: whatever they type	target="clusters"	person||||||
 cluster.status	kind=read|	target="clusters"	
+cluster.swarm	kind=read|	target="clusters"	
+cluster.swarm.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
 completion	kind=none	target=""	
 completion.bash	kind=none	target=""	
 completion.fish	kind=none	target=""	
