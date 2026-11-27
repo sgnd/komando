@@ -62,7 +62,8 @@ under a pseudo-terminal and komando does not know your agent, set
    person at a terminal can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
-   `komando vpn up NAME`. For a server that asks for a two-factor code,
+   `komando vpn KIND start NAME` (KIND is the VPN's kind, for example
+   `wireguard`). For a server that asks for a two-factor code,
    ask them to run `komando test SERVER` once; your commands then use it.
    A server or conn with `login: ask` keeps no password: komando asks the
    human to type it in a window on their screen, never you. On
