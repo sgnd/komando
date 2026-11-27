@@ -326,7 +326,7 @@ func TestProgressStorageCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	var with, without map[string]any
-	said := stderrOf(t, func() { with = mustRun(t, "storage", "upload", "bk", f, "a/db.sql", "--progress") })
+	said := stderrOf(t, func() { with = mustRun(t, "copy", f, "bk:a/db.sql", "--progress") })
 	d := lastDone(t, progressLines(t, said))
 	wantCounts(t, "storage upload", d, 3000, 3000, 1, 1)
 	if d["ok"] != true || d["file"] != f {
@@ -335,7 +335,7 @@ func TestProgressStorageCommands(t *testing.T) {
 	if len(m.objs["a/db.sql"]) != 3000 {
 		t.Fatal("the upload did not arrive whole")
 	}
-	if said := stderrOf(t, func() { without = mustRun(t, "upload", "bk", f, "a/db.sql") }); strings.Contains(said, `"event"`) {
+	if said := stderrOf(t, func() { without = mustRun(t, "copy", f, "bk:a/db.sql") }); strings.Contains(said, `"event"`) {
 		t.Errorf("without --progress: %s", said)
 	}
 	for _, d := range []map[string]any{with, without} {
@@ -347,30 +347,27 @@ func TestProgressStorageCommands(t *testing.T) {
 	}
 
 	to := filepath.Join(t.TempDir(), "got.sql")
-	said = stderrOf(t, func() { mustRun(t, "download", "bk", "a/db.sql", "--to", to, "--progress") })
+	said = stderrOf(t, func() { mustRun(t, "copy", "bk:a/db.sql", to, "--progress") })
 	wantCounts(t, "storage download", lastDone(t, progressLines(t, said)), 3000, 3000, 1, 1)
 
 	m.objs["logs/a.log"], m.objs["logs/b.log"] = "aaaa", "bb"
-	said = stderrOf(t, func() { mustRun(t, "storage", "download", "bk", "logs/", "-r", "--to", t.TempDir(), "--progress") })
+	said = stderrOf(t, func() { mustRun(t, "copy", "bk:logs/", t.TempDir(), "-r", "--progress") })
 	wantCounts(t, "storage download -r", lastDone(t, progressLines(t, said)), 6, 6, 2, 2)
 
-	said = stderrOf(t, func() { _, _ = invRun(t, "download", "bk", "nope.sql", "--to", t.TempDir()+"/", "--progress") })
+	said = stderrOf(t, func() { _, _ = invRun(t, "copy", "bk:nope.sql", t.TempDir()+"/", "--progress") })
 	if d := lastDone(t, progressLines(t, said)); d["ok"] != false {
 		t.Errorf("a failed download: %v", d)
 	}
 
-	said = stderrOf(t, func() { mustRun(t, "sync", filepath.Dir(f), "bk:sync/", "--progress", "--dry-run") })
+	said = stderrOf(t, func() { mustRun(t, "copy", filepath.Dir(f), "bk:sync/", "--sync", "--progress", "--dry-run") })
 	if strings.Contains(said, `"event"`) {
 		t.Errorf("a dry run moves nothing, so it writes no progress: %s", said)
 	}
-	said = stderrOf(t, func() { _, _ = invRun(t, "-o", "text", "upload", "bk", f, "t.sql", "--progress") })
+	said = stderrOf(t, func() { _, _ = invRun(t, "-o", "text", "copy", f, "bk:t.sql", "--progress") })
 	if strings.Contains(said, `"event"`) {
 		t.Errorf("-o text: %s", said)
 	}
-	for _, path := range [][]string{{"upload"}, {"download"}, {"cp"}, {"sync"}, {"storage", "upload"}, {"storage", "download"}} {
-		c, _, err := newRoot(tcl).Find(path)
-		if err != nil || c.Flags().Lookup("progress") == nil {
-			t.Errorf("%v has no --progress", path)
-		}
+	if c, _, err := newRoot(tcl).Find([]string{"copy"}); err != nil || c.Flags().Lookup("progress") == nil {
+		t.Errorf("copy has no --progress")
 	}
 }

@@ -211,7 +211,7 @@ func TestEveryHandlerHasLeaf(t *testing.T) {
 		if !built[k] {
 			t.Errorf("handler for %s: no built leaf has that key", k)
 		}
-		if !slices.Contains(movedTypes, k.Type) {
+		if !slices.Contains(movedTypes, k.Type) && !(k.Type == "" && slices.Contains(movedTop, k.Verb)) {
 			t.Errorf("handler for %s: its type is not in movedTypes", k)
 		}
 	}
@@ -629,7 +629,7 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 	gone := map[string]bool{}
 	byKey := map[string]map[string]string{} // a key's entries, by the leaf that has them
 	for _, l := range capability.All() {
-		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) {
+		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) && !(l.Type == "" && slices.Contains(movedTop, l.Verb)) {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
@@ -651,7 +651,11 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			byKey[key] = map[string]string{}
 		}
 		byKey[key][id] = strings.Join(has, " ")
-		for _, old := range l.Today {
+		olds := l.Today
+		if l.Type == "" {
+			olds = slices.Concat(l.Today, l.Carries) // a moved top-level leaf retires what it carries
+		}
+		for _, old := range olds {
 			if !stays[old] {
 				gone[old] = true
 			}
@@ -1094,5 +1098,40 @@ func TestC8NounsHaveTheirOwnKey(t *testing.T) {
 	}
 	if _, ok := cmdKeys["recipe"]; ok {
 		t.Error(`cmdKeys["recipe"] is still there: the noun is snippet`)
+	}
+}
+
+// An option that works only with a bool option needs it TRUE: --sync=false
+// --delete is refused by the table, before any window can ask a person.
+func TestCheckOptionsNeedsATrueBool(t *testing.T) {
+	l := capability.Leaf{Options: []capability.Option{
+		{Name: "sync", Kind: capability.Bool},
+		{Name: "delete", Kind: capability.Bool, Needs: []string{"sync"}},
+		{Name: "exclude", Kind: capability.String, Needs: []string{"sync"}},
+	}}
+	typed := func(names ...string) func(string) bool {
+		return func(n string) bool { return slices.Contains(names, n) }
+	}
+	input := func(sync bool, changed ...string) leafInput {
+		yes, no, s := sync, false, ""
+		return leafInput{
+			vals:    map[string]any{"sync": &yes, "delete": &no, "exclude": &s},
+			changed: typed(changed...),
+		}
+	}
+	for _, c := range []struct {
+		name string
+		in   leafInput
+		ok   bool
+	}{
+		{"--sync --delete", input(true, "sync", "delete"), true},
+		{"--sync=false --delete", input(false, "sync", "delete"), false},
+		{"--delete alone", input(false, "delete"), false},
+		{"--sync=false --exclude", input(false, "sync", "exclude"), false},
+		{"--sync --exclude", input(true, "sync", "exclude"), true},
+	} {
+		if err := checkOptions(l, c.in); (err == nil) != c.ok {
+			t.Errorf("%s: %v, want ok=%v", c.name, err, c.ok)
+		}
 	}
 }

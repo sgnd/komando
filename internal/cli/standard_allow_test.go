@@ -40,7 +40,6 @@ var (
 	// S-6.5: Longs with indented lines (examples, tables) wider than 76 columns
 	allowLong = []string{
 		"config set",
-		"cp",
 		"import",
 		"secret",
 		"tunnel",
@@ -71,7 +70,6 @@ var (
 		"pkg installed",
 		"shell",
 		"ssh-gate",
-		"storage download",
 		"tunnel list",
 		"version",
 	}
@@ -93,7 +91,7 @@ var (
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{
-		"cp",
+		"copy",
 		"pkg security",
 		"pkg upgradable",
 		"snippet exec",

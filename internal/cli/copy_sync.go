@@ -63,7 +63,7 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	if fi, err := os.Stat(l.root); os.IsNotExist(err) {
 		return files, errSideMissing // a new destination folder
 	} else if err == nil && !fi.IsDir() {
-		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando upload` or `komando download`", "%s is a file, not a folder", l.root)
+		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando copy` without --sync", "%s is a file, not a folder", l.root)
 	}
 	// a folder given as a symbolic link is the folder it names; links
 	// inside it are listed as skipped
@@ -220,7 +220,7 @@ func (s sftpSide) list(context.Context) (map[string]syncFile, error) {
 		}
 		return nil, fsErrHint(s.root, err, syncPermHint)
 	} else if !fi.IsDir() {
-		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando download` or `komando upload`", "%s is a file, not a folder", s.root)
+		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando copy` without --sync", "%s is a file, not a folder", s.root)
 	}
 	w := s.sc.Walk(s.root)
 	for w.Step() {
@@ -496,30 +496,7 @@ func syncCmd() *cobra.Command {
 	var o syncOpts
 	var progress bool
 	c := &cobra.Command{
-		Use:   "sync SRC DST",
-		Short: "Copy a folder one way, sending only new and changed files",
-		Long: `One side is a folder on this computer; the other is TARGET:PATH on servers
-(many at once: @web:/var/www/site) or CONN:PREFIX in a storage conn (a bucket
-or a file server). Files that are new, a different size or file mode, or
-newer in SRC are copied; the rest are left alone. --delete also removes files SRC no longer has
-(that needs --allow-dangerous). --exclude skips names or paths (shell globs,
-repeatable). Try --dry-run first: it lists every file it would touch.
-
---delete stops before it empties a folder that SRC lists as empty while
-DST has files in it: a listing cut short looks like that. A person types
-the folder to go on; a script names each folder it means with --emptied
-(--allow-dangerous alone does not do), or removes the folder on DST first.
-
---sudo writes on the servers as root, for a folder the SSH user cannot
-write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
-privately and checked by root, keeping the owner of a file that is there;
-the SSH user still needs to read the folder.`,
-		Example: `  komando sync ./site @web:/var/www/site --exclude .git --dry-run
-  komando sync ./site web1:/var/www/site --delete --allow-dangerous
-  komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run
-  komando sync ./backups backups:2026/ --exclude '*.tmp'
-  komando sync backups:2026/ ./restore
-  komando sync web1:/var/log/app ./logs/web1`,
+		Use:  "sync SRC DST",
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), progress)
@@ -554,13 +531,13 @@ func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error
 			return localFileErr("PATH_NOT_FOUND", err, "")
 		}
 		if !fi.IsDir() {
-			return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
+			return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando copy` without --sync", "%s is a file, not a folder", srcP)
 		}
 	}
 	if dstRemote {
-		return colonHint(syncUp(cl, ctx, "sync", srcP, dstT, dstP, o), args[1])
+		return colonHint(syncUp(cl, ctx, "copy", srcP, dstT, dstP, o), args[1])
 	}
-	return colonHint(syncDown(cl, ctx, "sync", srcT, srcP, dstP, o), args[0])
+	return colonHint(syncDown(cl, ctx, "copy", srcT, srcP, dstP, o), args[0])
 }
 
 // syncUp sends a local folder to servers or to a storage conn.
@@ -594,7 +571,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		if o.delete {
 			v = driver.DataDelete()
 		}
-		return syncStorage(cl, ctx, name, target, v, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+		return syncStorage(cl, ctx, name, target, v, o, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
 			return runSync(cl, ctx, src, bucketSide{b: b, prefix: folderKey(remote)}, local, c.Name+":"+remote, o)
 		})
 	}
@@ -632,13 +609,13 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		}
 		return r, err
 	})
-	return finishSync(cl, st, name, hosts, res, local, target+":"+remote)
+	return finishSync(cl, st, name, hosts, res, local, target+":"+remote, o)
 }
 
 // syncDown fetches a folder from one server or a storage conn.
 func syncDown(cl *call, ctx context.Context, name, target, remote, local string, o syncOpts) error {
 	if o.sudo {
-		return out.Usage("sync --sudo writes as root on servers (a folder here to a server); to read a file only root can read, use `komando download %s %s --sudo` per file", target, remote)
+		return out.Usage("sync --sudo writes as root on servers (a folder here to a server); to read a file only root can read, use `komando copy %s:%s . --sudo` per file", target, remote)
 	}
 	storage, err := fileTarget(cl, target)
 	if err != nil {
@@ -656,7 +633,7 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 	}
 	dst := localSide{cl: cl, root: local}
 	if storage {
-		return syncStorage(cl, ctx, name, target, driver.Verdict{}, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+		return syncStorage(cl, ctx, name, target, driver.Verdict{}, o, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
 			return runSync(cl, ctx, bucketSide{b: b, prefix: folderKey(remote)}, dst, c.Name+":"+remote, local, o)
 		})
 	}
@@ -664,7 +641,7 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 	if err != nil {
 		return err
 	}
-	h, err := oneServer(cl, st, target, "sync downloads from one server; name one, for example `komando sync SERVER:"+remote+" "+local+"`")
+	h, err := oneServer(cl, st, target, "sync downloads from one server; name one, for example `komando copy SERVER:"+remote+" "+local+" --sync`")
 	if err != nil {
 		return err
 	}
@@ -680,12 +657,12 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 		}
 		return r, err
 	})
-	return finishSync(cl, st, name, []*store.Host{h}, res, target+":"+remote, local)
+	return finishSync(cl, st, name, []*store.Host{h}, res, target+":"+remote, local, o)
 }
 
 // syncStorage runs a sync against one storage conn. Unlike other storage
 // changes, a dry run still reads both sides, so it can list the files.
-func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
+func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, o syncOpts, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -711,7 +688,8 @@ func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.
 	defer b.Close()
 	data, err := fn(ctx, c, b)
 	r, _ := data.(*syncResult)
-	rec := map[string]any{"conns": []string{c.Name}, "risk": v.Risk.String()}
+	rec := copyRecord("sync", o.delete, o.sudo)
+	rec["conns"], rec["risk"] = []string{c.Name}, v.Risk.String()
 	if r != nil {
 		rec["copied"], rec["updated"], rec["deleted"] = r.Copied, r.Updated, r.Deleted
 	}
@@ -763,7 +741,7 @@ func (f syncFleet) Text() string {
 	return sb.String()
 }
 
-func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
+func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string, o syncOpts) error {
 	data := syncFleet{Results: []any{}}
 	worst := 0
 	var fails []hostFail
@@ -782,7 +760,9 @@ func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res
 		data.Results = append(data.Results, o.Value)
 	}
 	if !cl.dryRun() {
-		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+		rec := copyRecord("sync", o.delete, o.sudo)
+		rec["src"], rec["dst"] = src, dst
+		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, rec)
 	}
 	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

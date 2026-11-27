@@ -55,7 +55,7 @@ komando storage s3 edit NAME, komando storage s3 remove NAME. komando list
 kind:storage lists them.`,
 		Example: `  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
   komando storage s3 object list backups 2026/
-  komando download backups 2026/app.sql.gz --to ./
+  komando copy backups:2026/app.sql.gz ./
   komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run`,
 	}
 	c.AddCommand(storageDownloadCmd(), storageUploadCmd())
@@ -374,7 +374,7 @@ func storageCatCmd() *cobra.Command {
 						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
 					}
 					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
-						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN OBJECT`", "%s is not text", args[1])
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "copy it to this computer with `komando copy SOURCE DESTINATION`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -582,7 +582,7 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, 
 	}
 	fi, err := os.Stat(file)
 	if err != nil || fi.IsDir() {
-		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando upload CONN DIR KEY -r`)", "cannot upload %s", file)
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando copy DIR CONN:KEY -r`)", "cannot upload %s", file)
 	}
 	if err := guardLocalRead(cl, file); err != nil {
 		return err
@@ -684,5 +684,11 @@ func init() {
 			"  komando storage " + p + " object create backups reports/2026 --dry-run\n" +
 			"  komando storage " + p + " object delete backups --prefix daily/ --older-than 30d --dry-run"
 	}
+	groupShorts["storage"] = "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove"
+	examples["komando storage"] = "  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n" +
+		"  komando storage s3 test backups\n" +
+		"  komando storage s3 object list backups 2026/\n" +
+		"  komando copy backups:2026/app.sql.gz ./\n" +
+		"  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run"
 	moveType("storage")
 }

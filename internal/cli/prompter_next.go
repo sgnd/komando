@@ -214,8 +214,8 @@ var showKinds = map[string]string{
 // gets its family's (or its kind's, db:sqlite) list, then the conn list.
 var itemCommands = map[string][]string{
 	"server": {"logs {} --since 30m", "exec {} -- uptime", "shell {}",
-		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "upload {} ./FILE /tmp/FILE",
-		"download {} /var/log/syslog --to ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
+		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "copy ./FILE {}:/tmp/FILE",
+		"copy {}:/var/log/syslog ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
 		"credential key install KEY {}", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	"server:windows": {"exec {} -- Get-Date", "audit list --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
@@ -248,8 +248,8 @@ var itemCommands = map[string][]string{
 	"queue:sqs": {"queue sqs info {}", "queue sqs topic list {}", "queue sqs message list {} QUEUE", "queue sqs message create {} QUEUE --value hi --dry-run"},
 	"queue:pubsub": {"queue pubsub info {}", "queue pubsub topic list {}", "queue pubsub consumer list {}", "queue pubsub message list {} SUBSCRIPTION",
 		"queue pubsub message create {} TOPIC --value hi --dry-run"},
-	"storage": {"storage {P} object list {}", "storage {P} object read {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
-		"sync ./folder {}:FOLDER/ --dry-run", "storage {P} object delete {} --prefix FOLDER/ --older-than 30d --dry-run"},
+	"storage": {"storage {P} object list {}", "storage {P} object read {} OBJECT --tail 50", "copy {}:KEY ./", "copy ./FILE {}:FOLDER/",
+		"copy ./folder {}:FOLDER/ --sync --dry-run", "storage {P} object delete {} --prefix FOLDER/ --older-than 30d --dry-run"},
 	"storage:link": {"storage {P} object link {} OBJECT --expires 24h"},
 	"cluster": {"cluster status {}", "cluster list {} pods", "cluster events {} --warnings", "cluster logs {} deploy/NAME",
 		"cluster deploy {} deploy/NAME --image IMAGE --wait", "cluster apply {} --file app.yaml --dry-run",

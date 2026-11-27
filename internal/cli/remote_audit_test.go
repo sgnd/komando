@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // auditHome is a komando home with web1 (protected) and web2 (tag edge).
@@ -59,7 +60,7 @@ func TestCpSelectorsAndAdhocPort(t *testing.T) {
 		{"root@192.0.2.50:2222:/tmp/x", "root@192.0.2.50:2222"},
 		{"[2001:db8::1]:/tmp/x", "[2001:db8::1]"},
 	} {
-		d, e := invRun(t, "cp", f, c.dst, "--dry-run")
+		d, e := invRun(t, "copy", f, c.dst, "--dry-run")
 		if e != nil {
 			t.Errorf("%s: %s %s", c.dst, e.Code, e.Message)
 			continue
@@ -165,8 +166,7 @@ func TestScriptInputFlagsAndHiddenValues(t *testing.T) {
 	}
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	for _, args := range [][]string{
-		{"upload", "bk", masked, "--dry-run"},
-		{"storage", "upload", "bk", masked, "--dry-run"},
+		{"copy", masked, "bk:", "--dry-run"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "HIDDEN_VALUE" {
 			t.Errorf("%v: want HIDDEN_VALUE, got %+v", args, e)
@@ -316,16 +316,93 @@ func TestDryRunMissingSecretFails(t *testing.T) {
 
 func TestDownloadChecks(t *testing.T) {
 	dir := auditHome(t)
-	if d, e := invRun(t, "download", "web2", "/etc/hosts", "--to", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
+	if d, e := invRun(t, "copy", "web2:/etc/hosts", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
 		t.Errorf("--to - for a server, dry run: %v %+v", d, e)
 	}
 	exists := filepath.Join(dir, "exists.txt")
 	_ = os.WriteFile(exists, []byte("x"), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "hosts"), []byte("x"), 0o600)
 	for _, to := range []string{exists, dir} {
-		if _, e := invRun(t, "download", "web2", "/etc/hosts", "--to", to, "--dry-run"); e == nil || e.Code != "FILE_EXISTS" {
+		if _, e := invRun(t, "copy", "web2:/etc/hosts", to, "--dry-run"); e == nil || e.Code != "FILE_EXISTS" {
 			t.Errorf("--to %s: want FILE_EXISTS, got %+v", to, e)
 		}
 	}
-	mustRun(t, "download", "web2", "/etc/hosts", "--to", exists, "--overwrite", "--dry-run")
+	mustRun(t, "copy", "web2:/etc/hosts", exists, "--overwrite", "--dry-run")
+}
+
+// copyAudits are the audit records of the copy command, oldest first.
+func copyAudits(t *testing.T) []map[string]any {
+	t.Helper()
+	var recs []map[string]any
+	for _, line := range strings.Split(auditText(t), "\n") {
+		var r map[string]any
+		if json.Unmarshal([]byte(line), &r) == nil && r["command"] == "copy" {
+			recs = append(recs, r)
+		}
+	}
+	return recs
+}
+
+// wantCopyRecord checks the op, delete and sudo of the newest copy record:
+// a sync --delete must not read as a plain copy in the log.
+func wantCopyRecord(t *testing.T, what, op string, del, sudo bool) {
+	t.Helper()
+	recs := copyAudits(t)
+	if len(recs) == 0 {
+		t.Fatalf("%s: no copy record in the audit log", what)
+	}
+	r := recs[len(recs)-1]
+	if r["op"] != op || r["delete"] != del || r["sudo"] != sudo {
+		t.Errorf("%s: op %v delete %v sudo %v, want %s %v %v (%v)", what, r["op"], r["delete"], r["sudo"], op, del, sudo, r)
+	}
+}
+
+func TestCopyAuditNamesTheOperation(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
+	mustRun(t, "conn", "add", "bk2", "s3://AKIAEXAMPLE@shop-dr/backups?region=eu-west-1")
+	one := &memBucket{objs: map[string]string{"db.sql": "x", "site/a.txt": "a"}}
+	two := &memBucket{objs: map[string]string{"gone.txt": "g"}}
+	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
+	dir := t.TempDir()
+	writeTree(t, dir, map[string]string{"a.txt": "a"})
+
+	mustRun(t, "copy", "bk:db.sql", "bk2:2026/")
+	wantCopyRecord(t, "storage to storage", "remote", false, false)
+
+	mustRun(t, "copy", dir, "bk2:sync/", "--sync")
+	wantCopyRecord(t, "sync up", "sync", false, false)
+
+	mustRun(t, "copy", dir, "bk2:sync/", "--sync", "--delete", "--allow-dangerous")
+	wantCopyRecord(t, "sync up --delete", "sync", true, false)
+
+	mustRun(t, "copy", "bk:site/", t.TempDir(), "--sync")
+	wantCopyRecord(t, "sync down", "sync", false, false)
+}
+
+// A sync to servers writes its record in finishSync: the op, the delete
+// and the sudo of the run are in it.
+func TestCopyAuditOfServerSync(t *testing.T) {
+	auditHome(t)
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := st.Hosts["web2"]
+	res := []outcome{{Host: h, Value: &syncResult{}}}
+	if err := finishSync(tcl, st, "copy", []*store.Host{h}, res, "./site", "web2:/srv", syncOpts{delete: true, sudo: true}); err != nil {
+		t.Fatal(err)
+	}
+	wantCopyRecord(t, "server sync --delete --sudo", "sync", true, true)
+}
+
+// The upload, download and stream records need a live server; the record
+// they start from is the same one the cases above check.
+func TestCopyRecordNamesEveryOp(t *testing.T) {
+	for _, op := range []string{"upload", "download", "stream", "remote", "sync"} {
+		r := copyRecord(op, false, false)
+		if r["op"] != op || r["delete"] != false || r["sudo"] != false {
+			t.Errorf("%s: %v", op, r)
+		}
+	}
 }

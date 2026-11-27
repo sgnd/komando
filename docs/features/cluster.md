@@ -430,7 +430,7 @@ is kubectl's namespace flag.
 - `cp POD:SRC DST` writes only inside DST, never into a `.git` folder, and
   skips links and devices, like kubectl cp. It brings at most 512 MiB
   (`FILE_TOO_LARGE`): komando checks every name before it writes any, so
-  it holds the copy in memory. For an AI agent it copies as `download`
+  it holds the copy in memory. For an AI agent it copies as `copy`
   does: a file that is a secret by its name (`.env`, a private key) is
   refused (`SENSITIVE_FILE`; when SRC itself is named so, before komando
   reads the pod), a text file is written with its secret

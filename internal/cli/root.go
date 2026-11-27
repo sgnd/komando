@@ -577,6 +577,12 @@ func treeOf(cl *call) *cobra.Command {
 // name (mountTable sets it).
 var helpGroups = map[string]string{}
 
+// topGroups is the help group of each top-level leaf the table mounts.
+var topGroups = map[string]string{"copy": "servers"}
+
+// movedTop are the top-level leaves (by verb) that moveTop has moved.
+var movedTop []string
+
 // addCommands adds komando's commands to root under the groups of
 // `komando` alone (personHelp), so --help reads the same.
 func addCommands(cl *call, root *cobra.Command) {

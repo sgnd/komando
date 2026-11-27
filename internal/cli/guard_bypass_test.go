@@ -23,7 +23,7 @@ func TestGuardDotDotThroughLink(t *testing.T) {
 		{"export", "--to", filepath.Join(proj, "l") + "/../exported"},
 		{"database", "sqlite", "backup", "lite", "--to", filepath.Join(proj, "k") + "/../dump.sql"},
 		{"export", "--to", filepath.Join(proj, "a") + "/../config", "--overwrite"},
-		{"download", "web1", "/etc/hosts", "--to", filepath.Join(proj, "l") + "/../authorized_keys"},
+		{"copy", "web1:/etc/hosts", filepath.Join(proj, "l") + "/../authorized_keys"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("%v: want SENSITIVE_FILE, got %+v", args, e)

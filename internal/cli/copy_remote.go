@@ -63,7 +63,7 @@ func resolveCopyEnd(cl *call, st *store.State, target string) (*copyEnd, error) 
 		}
 		return &copyEnd{conn: c}, nil
 	}
-	h, err := oneServer(cl, st, target, "a copy between two remote places goes from one server or conn to one: name one on each side, for example `komando cp web1:/tmp/a web2:/tmp/a`")
+	h, err := oneServer(cl, st, target, "a copy between two remote places goes from one server or conn to one: name one on each side, for example `komando copy web1:/tmp/a web2:/tmp/a`")
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,8 @@ func runRemoteCp(ctx context.Context, cmd *cobra.Command, srcT, srcP, dstT, dstP
 		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	rec := map[string]any{"src": from, "dst": to}
+	rec := copyRecord("remote", false, false)
+	rec["src"], rec["dst"] = from, to
 	if conns != nil {
 		rec["conns"] = conns
 	}
@@ -288,7 +289,7 @@ func connectAndCopy(cl *call, ctx context.Context, st *store.State, src, dst *co
 }
 
 // remoteCopy copies srcP on src to dstP on dst, both connected: one file,
-// or a folder with -r (as cpFolderRule says).
+// or a folder with -r (as the folder rules in docs/features/files.md say).
 func remoteCopy(cl *call, ctx context.Context, src, dst *copyEnd, srcP, dstP string, o cpOpts) (xferStats, error) {
 	contents := strings.HasSuffix(srcP, "/")
 	dstSlash := strings.HasSuffix(dstP, "/") || dstP == ""
@@ -309,7 +310,7 @@ func remoteCopy(cl *call, ctx context.Context, src, dst *copyEnd, srcP, dstP str
 	if si.dir {
 		if !o.recursive {
 			return xferStats{}, out.Errf(out.ExitUsage, "IS_A_DIRECTORY",
-				fmt.Sprintf("copy the folder and everything in it with -r: `komando cp -r %s %s`", argQ(src.name()+":"+srcP), argQ(dst.name()+":"+dstP)),
+				fmt.Sprintf("copy the folder and everything in it with -r: `komando copy -r %s %s`", argQ(src.name()+":"+srcP), argQ(dst.name()+":"+dstP)),
 				"%s:%s is a folder, not a file", src.name(), srcP)
 		}
 		return copyFolder(cl, ctx, src, dst, strings.TrimSuffix(sp, "/"), dp, contents, dstIsDir, dstSlash, o)

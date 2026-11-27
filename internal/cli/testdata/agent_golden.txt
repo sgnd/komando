@@ -2030,53 +2030,53 @@ exit 2
 Error: missing arguments; usage: komando conn test TARGET
 Hint: for example: komando conn test prod-db
 (code USAGE, exit 2)
-### komando -o json cp (agent json)
+### komando -o json copy (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cp","error":{"code":"USAGE","message":"missing arguments; usage: komando cp SRC DST","hint":"for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"USAGE","message":"copy takes SOURCE DESTINATION","hint":"for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cp (agent text)
+### komando -o text copy (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cp SRC DST
-Hint: for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz
+Error: copy takes SOURCE DESTINATION
+Hint: for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)
 (code USAGE, exit 2)
-### komando -o json cp (script json)
+### komando -o json copy (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cp","error":{"code":"USAGE","message":"missing arguments; usage: komando cp SRC DST","hint":"for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"USAGE","message":"copy takes SOURCE DESTINATION","hint":"for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cp (script text)
+### komando -o text copy (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cp SRC DST
-Hint: for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz
+Error: copy takes SOURCE DESTINATION
+Hint: for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)
 (code USAGE, exit 2)
-### komando -o json cp x1 (agent json)
+### komando -o json copy x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cp","error":{"code":"USAGE","message":"missing arguments; usage: komando cp SRC DST","hint":"for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"USAGE","message":"copy takes SOURCE DESTINATION","hint":"for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cp x1 (agent text)
+### komando -o text copy x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cp SRC DST
-Hint: for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz
+Error: copy takes SOURCE DESTINATION
+Hint: for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)
 (code USAGE, exit 2)
-### komando -o json cp x1 (script json)
+### komando -o json copy x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cp","error":{"code":"USAGE","message":"missing arguments; usage: komando cp SRC DST","hint":"for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"USAGE","message":"copy takes SOURCE DESTINATION","hint":"for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text cp x1 (script text)
+### komando -o text copy x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando cp SRC DST
-Hint: for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz
+Error: copy takes SOURCE DESTINATION
+Hint: for example: komando copy ./app.tar.gz web1:/tmp/app.tar.gz (more in `komando copy --help`)
 (code USAGE, exit 2)
 ### komando -o json credential certificate add (agent json)
 exit 2
@@ -5821,54 +5821,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando docker stop TARGET CONTAINER...
 Hint: for example: komando docker stop web1 api
-(code USAGE, exit 2)
-### komando -o json download (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando download TARGET PATH","hint":"for example: komando download web1 /var/log/nginx/error.log --to ./logs/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text download (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando download TARGET PATH
-Hint: for example: komando download web1 /var/log/nginx/error.log --to ./logs/
-(code USAGE, exit 2)
-### komando -o json download (script json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando download TARGET PATH","hint":"for example: komando download web1 /var/log/nginx/error.log --to ./logs/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text download (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando download TARGET PATH
-Hint: for example: komando download web1 /var/log/nginx/error.log --to ./logs/
-(code USAGE, exit 2)
-### komando -o json download x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando download TARGET PATH","hint":"for example: komando download web1 /var/log/nginx/error.log --to ./logs/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text download x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando download TARGET PATH
-Hint: for example: komando download web1 /var/log/nginx/error.log --to ./logs/
-(code USAGE, exit 2)
-### komando -o json download x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando download TARGET PATH","hint":"for example: komando download web1 /var/log/nginx/error.log --to ./logs/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text download x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando download TARGET PATH
-Hint: for example: komando download web1 /var/log/nginx/error.log --to ./logs/
 (code USAGE, exit 2)
 ### komando -o json exec (agent json)
 exit 2
@@ -11030,54 +10982,6 @@ exit 2
 Error: storage azblob test takes TARGET
 Hint: for example: komando storage azblob test backups (more in `komando storage azblob test --help`)
 (code USAGE, exit 2)
-### komando -o json storage download (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage download (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage download CONN OBJECT
-Hint: for example: komando storage download backups reports/q3.pdf --to ~/Downloads/
-(code USAGE, exit 2)
-### komando -o json storage download (script json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage download (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage download CONN OBJECT
-Hint: for example: komando storage download backups reports/q3.pdf --to ~/Downloads/
-(code USAGE, exit 2)
-### komando -o json storage download x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage download x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage download CONN OBJECT
-Hint: for example: komando storage download backups reports/q3.pdf --to ~/Downloads/
-(code USAGE, exit 2)
-### komando -o json storage download x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"download","error":{"code":"USAGE","message":"missing arguments; usage: komando storage download CONN OBJECT","hint":"for example: komando storage download backups reports/q3.pdf --to ~/Downloads/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage download x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage download CONN OBJECT
-Hint: for example: komando storage download backups reports/q3.pdf --to ~/Downloads/
-(code USAGE, exit 2)
 ### komando -o json storage ftp add (agent json)
 exit 2
 --- stdout
@@ -12974,54 +12878,6 @@ exit 2
 Error: storage smb test takes TARGET
 Hint: for example: komando storage smb test backups (more in `komando storage smb test --help`)
 (code USAGE, exit 2)
-### komando -o json storage upload (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage upload (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
-Hint: for example: komando storage upload backups ./report.pdf reports/2026/
-(code USAGE, exit 2)
-### komando -o json storage upload (script json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage upload (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
-Hint: for example: komando storage upload backups ./report.pdf reports/2026/
-(code USAGE, exit 2)
-### komando -o json storage upload x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage upload x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
-Hint: for example: komando storage upload backups ./report.pdf reports/2026/
-(code USAGE, exit 2)
-### komando -o json storage upload x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando storage upload CONN FILE [OBJECT]","hint":"for example: komando storage upload backups ./report.pdf reports/2026/"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text storage upload x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando storage upload CONN FILE [OBJECT]
-Hint: for example: komando storage upload backups ./report.pdf reports/2026/
-(code USAGE, exit 2)
 ### komando -o json storage webdav add (agent json)
 exit 2
 --- stdout
@@ -13382,54 +13238,6 @@ exit 2
 Error: storage webdav test takes TARGET
 Hint: for example: komando storage webdav test backups (more in `komando storage webdav test --help`)
 (code USAGE, exit 2)
-### komando -o json sync (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"sync","error":{"code":"USAGE","message":"missing arguments; usage: komando sync SRC DST","hint":"for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text sync (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando sync SRC DST
-Hint: for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run
-(code USAGE, exit 2)
-### komando -o json sync (script json)
-exit 2
---- stdout
-{"ok":false,"command":"sync","error":{"code":"USAGE","message":"missing arguments; usage: komando sync SRC DST","hint":"for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text sync (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando sync SRC DST
-Hint: for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run
-(code USAGE, exit 2)
-### komando -o json sync x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"sync","error":{"code":"USAGE","message":"missing arguments; usage: komando sync SRC DST","hint":"for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text sync x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando sync SRC DST
-Hint: for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run
-(code USAGE, exit 2)
-### komando -o json sync x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"sync","error":{"code":"USAGE","message":"missing arguments; usage: komando sync SRC DST","hint":"for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text sync x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando sync SRC DST
-Hint: for example: komando sync ./site @web:/var/www/site --exclude .git --dry-run
-(code USAGE, exit 2)
 ### komando -o json test (agent json)
 exit 2
 --- stdout
@@ -13478,55 +13286,7 @@ exit 2
 Error: missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)
 Hint: for example: komando tunnel start prod-db
 (code USAGE, exit 2)
-### komando -o json upload (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando upload TARGET FILE [DEST]","hint":"for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text upload (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando upload TARGET FILE [DEST]
-Hint: for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz
-(code USAGE, exit 2)
-### komando -o json upload (script json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando upload TARGET FILE [DEST]","hint":"for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text upload (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando upload TARGET FILE [DEST]
-Hint: for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz
-(code USAGE, exit 2)
-### komando -o json upload x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando upload TARGET FILE [DEST]","hint":"for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text upload x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando upload TARGET FILE [DEST]
-Hint: for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz
-(code USAGE, exit 2)
-### komando -o json upload x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"upload","error":{"code":"USAGE","message":"missing arguments; usage: komando upload TARGET FILE [DEST]","hint":"for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text upload x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando upload TARGET FILE [DEST]
-Hint: for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz
-(code USAGE, exit 2)
-### komando -o json vpn anyconnect add (agent json)
+### komando -o json vpn add (agent json)
 exit 2
 --- stdout
 {"ok":false,"command":"vpn.anyconnect.add","error":{"code":"USAGE","message":"vpn anyconnect add takes NAME","hint":"for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
@@ -17198,29 +16958,29 @@ exit 6
 Stopped: this can delete or break things (removes the top-level path /), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json sync testdata web1:/tmp/x --delete (agent json, gate inventory)
+### komando -o json copy testdata web1:/tmp/x --sync --delete (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"sync","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text sync testdata web1:/tmp/x --delete (agent text, gate inventory)
+### komando -o text copy testdata web1:/tmp/x --sync --delete (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: --delete removes files in the destination that the source does not have; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json sync testdata web1:/tmp/x --delete (script json, gate inventory)
+### komando -o json copy testdata web1:/tmp/x --sync --delete (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"sync","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json sync testdata web1:/tmp/x --delete --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"POLICY_BLOCKED","message":"--delete removes files in the destination that the source does not have","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json copy testdata web1:/tmp/x --sync --delete --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text sync testdata web1:/tmp/x --delete (script text, gate inventory)
+### komando -o text copy testdata web1:/tmp/x --sync --delete (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: --delete removes files in the destination that the source does not have; nothing was changed
-Hint: check with --dry-run, then run it again with --allow-dangerous: `komando -o text sync testdata web1:/tmp/x --delete --allow-dangerous`
+Hint: check with --dry-run, then run it again with --allow-dangerous: `komando -o text copy testdata web1:/tmp/x --sync --delete --allow-dangerous`
 (code POLICY_BLOCKED, exit 6)
 ### komando -o json cache rm cache1 k (agent json, gate inventory)
 exit 6
@@ -17726,24 +17486,24 @@ exit 6
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
 (code PROTECTED_TARGET, exit 6)
-### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (agent json, gate inventory)
+### komando -o json copy testdata/golden_restore.sql prod1:/tmp/h (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
+{"ok":false,"command":"copy","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
 --- stderr
-### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (agent text, gate inventory)
+### komando -o text copy testdata/golden_restore.sql prod1:/tmp/h (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
 (code PROTECTED_TARGET, exit 6)
-### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (script json, gate inventory)
+### komando -o json copy testdata/golden_restore.sql prod1:/tmp/h (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json upload prod1 testdata/golden_restore.sql /tmp/h --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"copy","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json copy testdata/golden_restore.sql prod1:/tmp/h --yes`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (script text, gate inventory)
+### komando -o text copy testdata/golden_restore.sql prod1:/tmp/h (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr

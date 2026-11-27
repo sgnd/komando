@@ -11,10 +11,10 @@ func TestSyncSudoWhere(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
 	dir := t.TempDir()
-	if e := wantCode(t, "USAGE", "sync", "web1:/etc/nginx", dir, "--sudo"); e.Hint == "" && e.Message == "" {
+	if e := wantCode(t, "USAGE", "copy", "web1:/etc/nginx", dir, "--sync", "--sudo"); e.Hint == "" && e.Message == "" {
 		t.Error("no message")
 	}
-	if _, e := invRun(t, "sync", "web1:/etc/nginx", dir, "--sudo"); e == nil || !strings.Contains(e.Message, "download") {
+	if _, e := invRun(t, "copy", "web1:/etc/nginx", dir, "--sync", "--sudo"); e == nil || !strings.Contains(e.Message, "copy") {
 		t.Errorf("down: %+v", e)
 	}
 }

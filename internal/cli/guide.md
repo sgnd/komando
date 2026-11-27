@@ -96,7 +96,7 @@ runs itself is not connected): ask the human to run `komando vpn KIND start NAME
 
 Windows servers (`"os": "windows"` in `komando host show`, pick them with
 `os:windows`): commands run in PowerShell, not sh. `exec` (also
-`--script`), `facts`, `fs list/stat/cat/write`, `upload`, `download` and
+`--script`), `facts`, `fs list/stat/cat/write`, `copy` and
 `svc` (not `reload`, `daemon-reload` or `logs`) work; there
 is no `--sudo` (the login's own rights apply). Other commands stop with
 `NOT_SUPPORTED`: use PowerShell through `exec` instead. A server added
@@ -148,7 +148,7 @@ stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 
 Writes are atomic (temporary file, then rename). `fs write --if-changed` and
 `cron set` are idempotent, so retries are safe. To copy a whole folder, use
-`komando sync SRC DST --dry-run` first: it sends only new and changed files.
+`komando copy SOURCE DESTINATION --sync --dry-run` first: it sends only new and changed files.
 
 Your list itself changes in bulk too, each with `--dry-run` first:
 
@@ -275,8 +275,8 @@ run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.
 
 **Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage s3 object list CONN [FOLDER]`,
-`storage s3 object read CONN OBJECT --tail 50` and `komando download CONN OBJECT` read;
-`komando upload CONN FILE` and `storage s3 object link` change or share;
+`storage s3 object read CONN OBJECT --tail 50` and `komando copy CONN:OBJECT .` read;
+`komando copy FILE CONN:OBJECT` and `storage s3 object link` change or share;
 `storage s3 object create CONN PATH`, `storage s3 object move CONN SRC DST` (on S3, Google Cloud
 and Azure: a copy that is checked, then the delete) and `storage sftp object move NAME PATH --mode
 MODE` (SFTP only) change;

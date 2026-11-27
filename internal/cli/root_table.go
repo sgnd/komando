@@ -242,6 +242,10 @@ func childNamed(c *cobra.Command, name string) *cobra.Command {
 
 // buildLeaf is the cobra command of one leaf.
 func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
+	var group string
+	if len(l.Key.Path()) == 1 {
+		group = topGroups[l.Key.Verb]
+	}
 	use := []string{l.Key.Path()[len(l.Key.Path())-1]}
 	least, most := 0, 0
 	for _, a := range l.Args {
@@ -268,6 +272,7 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Short:   l.Short,
 		Example: l.Example,
 		Aliases: slices.Clone(l.Synonyms),
+		GroupID: group,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < least || most >= 0 && len(args) > most {
 				return out.Usage("%s takes %s", strings.Join(l.Key.Path(), " "), strings.Join(use[1:], " "))
@@ -387,7 +392,7 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 			}
 		}
 		for _, n := range o.Needs {
-			if !in.Changed(n) {
+			if b, isBool := in.vals[n].(*bool); !in.Changed(n) || (isBool && !*b) { // --sync=false is not --sync
 				return out.Usage("--%s works only with --%s", o.Name, n)
 			}
 		}

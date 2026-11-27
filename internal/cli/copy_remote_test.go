@@ -68,7 +68,7 @@ func TestRemoteCopyEveryPairing(t *testing.T) {
 		t.Error("storage to server: the copy differs")
 	}
 
-	// folders, by cpFolderRule
+	// folders, by the folder rules in docs/features/files.md
 	if _, err := remoteCopy(tcl, ctx, web1, web2, filepath.Join(a, "site"), b, cpOpts{}); toErr(err).Code != "IS_A_DIRECTORY" {
 		t.Errorf("a folder without -r: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestRemoteCopyCommand(t *testing.T) {
 	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
 
 	var d map[string]any
-	said := stderrOf(t, func() { d = mustRun(t, "cp", "bk:db.sql", "bk2:2026/", "--progress") })
+	said := stderrOf(t, func() { d = mustRun(t, "copy", "bk:db.sql", "bk2:2026/", "--progress") })
 	wantCounts(t, "cp storage to storage", lastDone(t, progressLines(t, said)), 3000, 3000, 1, 1)
 	r := d["results"].([]any)[0].(map[string]any)
 	if r["sha256"] != sumOf([]byte(strings.Repeat("x", 3000))) || r["source"] != "bk:db.sql" || r["dest"] != "bk2:2026/db.sql" || r["ok"] != true || r["host"] != "bk2" {
@@ -163,7 +163,7 @@ func TestRemoteCopyCommand(t *testing.T) {
 	n := 0
 	for _, e := range a["entries"].([]any) {
 		e := e.(map[string]any)
-		if e["command"] == "cp" {
+		if e["command"] == "copy" {
 			n++
 			if e["src"] != "bk:db.sql" || e["dst"] != "bk2:2026/" || e["bytes"].(float64) != 3000 || e["sha256"] == nil {
 				t.Errorf("audit: %v", e)
@@ -174,26 +174,26 @@ func TestRemoteCopyCommand(t *testing.T) {
 		t.Errorf("%d audit records for one copy", n)
 	}
 
-	plan := mustRun(t, "--dry-run", "cp", "web1:/etc/hosts", "bk2:hosts")
+	plan := mustRun(t, "--dry-run", "copy", "web1:/etc/hosts", "bk2:hosts")
 	if plan["direction"] != "copy" || plan["src"] != "web1:/etc/hosts" || plan["dst"] != "bk2:hosts" {
 		t.Errorf("dry run: %v", plan)
 	}
 
 	mustRun(t, "conn", "edit", "bk2", "--protected")
-	wantCode(t, "PROTECTED_TARGET", "cp", "bk:db.sql", "bk2:again.sql")
+	wantCode(t, "PROTECTED_TARGET", "copy", "bk:db.sql", "bk2:again.sql")
 	if _, ok := two.objs["again.sql"]; ok {
 		t.Error("a protected conn was written without a yes")
 	}
 
 	for _, args := range [][]string{
-		{"cp", "bk:db.sql", "bk2:x", "--sudo"},
-		{"cp", "bk:db.sql", "bk2:x", "--overwrite"},
-		{"cp", "bk:db.sql", "bk2:x", "-p"},
-		{"cp", "web1:/a", "web1:/b", "--mode", "99x"},
+		{"copy", "bk:db.sql", "bk2:x", "--sudo"},
+		{"copy", "bk:db.sql", "bk2:x", "--overwrite"},
+		{"copy", "bk:db.sql", "bk2:x", "-p"},
+		{"copy", "web1:/a", "web1:/b", "--mode", "99x"},
 	} {
 		wantCode(t, "USAGE", args...)
 	}
-	wantCode(t, "PATH_NOT_FOUND", "cp", "bk:nope.sql", "bk:x")
+	wantCode(t, "PATH_NOT_FOUND", "copy", "bk:nope.sql", "bk:x")
 }
 
 // An AI agent copies a file that is a secret by name to another place
@@ -205,7 +205,7 @@ func TestRemoteCopySecretsForAgents(t *testing.T) {
 	two := &memBucket{objs: map[string]string{}}
 	withBuckets(t, map[string]*memBucket{"bk": one})
 	asAgent(t, false, false)
-	wantCode(t, "SENSITIVE_FILE", "cp", "bk:app/.env", "bk:copy/.env")
+	wantCode(t, "SENSITIVE_FILE", "copy", "bk:app/.env", "bk:copy/.env")
 	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
 	src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
 	dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: two}
@@ -228,20 +228,20 @@ func TestRemoteCopyProtectedServer(t *testing.T) {
 	mustRun(t, "host", "edit", "web2", "--protected")
 	// the protected stop (its name is C79's to settle): exit 6, nothing copied
 	for _, args := range [][]string{
-		{"cp", "web1:/tmp/a", "web2:/tmp/a"},
-		{"cp", "bk:db.sql", "web2:/tmp/db.sql", "--continue"},
+		{"copy", "web1:/tmp/a", "web2:/tmp/a"},
+		{"copy", "bk:db.sql", "web2:/tmp/db.sql", "--continue"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Exit != out.ExitPolicy || !strings.HasPrefix(e.Code, "PROTECTED_") {
 			t.Errorf("%v: want the protected stop, got %+v", args, e)
 		}
 	}
-	d := mustRun(t, "cp", "web1:/tmp/a", "web2:/tmp/a", "--dry-run")
+	d := mustRun(t, "copy", "web1:/tmp/a", "web2:/tmp/a", "--dry-run")
 	meta, _ := d["_meta"].(map[string]any)
 	if need := fmt.Sprint(meta["would_need"]); !strings.Contains(need, "--yes") {
 		t.Errorf("dry run: would_need %v (%v)", meta, d)
 	}
 	// web2 as the source: only read; the copy goes on to bk (its own result)
-	d = mustRun(t, "cp", "web2:/tmp/a", "bk:a", "--dry-run")
+	d = mustRun(t, "copy", "web2:/tmp/a", "bk:a", "--dry-run")
 	if d["src"] != "web2:/tmp/a" || d["dst"] != "bk:a" {
 		t.Errorf("a protected source: %v", d)
 	}
@@ -331,7 +331,7 @@ func TestRemoteCopyFolderNeedsR(t *testing.T) {
 	src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
 	dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: &memBucket{objs: map[string]string{}}}
 	_, err := remoteCopy(tcl, context.Background(), src, dst, "app", "", cpOpts{})
-	if e := toErr(err); e.Code != "IS_A_DIRECTORY" || e.Exit != out.ExitUsage || e.Hint != "copy the folder and everything in it with -r: `komando cp -r bk:app bk2:`" {
+	if e := toErr(err); e.Code != "IS_A_DIRECTORY" || e.Exit != out.ExitUsage || e.Hint != "copy the folder and everything in it with -r: `komando copy -r bk:app bk2:`" {
 		t.Fatalf("a folder without -r: %v (exit %d, hint %q)", err, e.Exit, e.Hint)
 	}
 }
@@ -380,7 +380,7 @@ func TestRemoteCopyPersonalFromTheSource(t *testing.T) {
 	two := &memBucket{objs: map[string]string{}}
 	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
 	asAgent(t, false, false)
-	wantCode(t, "SENSITIVE_FILE", "cp", "bk:people.csv", "bk2:people.csv")
+	wantCode(t, "SENSITIVE_FILE", "copy", "bk:people.csv", "bk2:people.csv")
 	if len(two.objs) != 0 {
 		t.Errorf("copied: %v", two.objs)
 	}

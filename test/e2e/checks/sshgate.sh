@@ -45,8 +45,8 @@ gx komando host add gx agent@10.9.9.9 -o json >/dev/null # a person sets komando
 check "no key changes komando's servers" SSH_GATE_REFUSED "$(kssh gate-rw komando host add gy agent@10.9.9.8 -o json | code || true)"
 # no key writes on this computer: a file saved over authorized_keys would give it a shell
 AK0=$(gx sha256sum /home/agent/.ssh/authorized_keys)
-check "no download to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando download gx /etc/hostname --to .ssh/authorized_keys --overwrite -o json | code || true)"
-check "no cp to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando cp gx:/etc/hostname .bashrc -o json | code || true)"
+check "no copy from a server to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando copy gx:/etc/hostname .ssh/authorized_keys --overwrite -o json | code || true)"
+check "no copy to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando copy gx:/etc/hostname .bashrc -o json | code || true)"
 # nor through a target that is this computer: a sqlite file, or a server at 127.0.0.1
 gx komando conn add gxdb sqlite:///home/agent/gx.db -o json >/dev/null
 gx komando host add gme agent@127.0.0.1 -o json >/dev/null
@@ -136,7 +136,7 @@ check "--yes from a key needs a person" PROTECTED_TARGET "$(kssh gate-rw komando
 check "a shell key opens no shell on a protected server" True "$(ktty gate-sh komando shell gx | refusedq && echo True || echo False)"
 A1=$(gx komando audit list -n 200 -o json)
 check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read", "phone-net")) >= 14' <<<"$A1")"
-check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "download" for e in d["data"]["entries"])' <<<"$A1")"
+check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "copy" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the refusals and why" True "$(jget 'any(e.get("blocked") == "SSH_GATE_READ_ONLY" and e["ok"] is False and e.get("reason") for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: what the key's komando did names the key" True "$(jget 'any(e["command"] != "ssh-gate" and e.get("agent") == "ssh-gate key phone" for e in d["data"]["entries"])' <<<"$A1")"
 check "audit: the shell went through the gate, with sshd's terminal" True "$(jget 'any(e.get("ssh_gate") == "ops" and e.get("runs") == "shell" and e["ok"] is True and e.get("shell_access") is True for e in d["data"]["entries"])' <<<"$A1")"

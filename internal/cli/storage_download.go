@@ -75,7 +75,7 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 		return err
 	}
 	if strings.HasSuffix(key, "/") {
-		return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "add -r to download everything in it: `komando storage download CONN "+key+" -r`", "%q is a folder", key)
+		return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "add -r to download everything in it: `komando copy CONN:"+key+" . -r`", "%q is a folder", key)
 	}
 	if err := storex.CheckKey(key); err != nil {
 		return err
@@ -86,10 +86,10 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 	if !toStdout {
 		if fi, err := os.Stat(dest); err == nil {
 			if fi.IsDir() {
-				return out.Errf(out.ExitConflict, "FILE_EXISTS", "give a file name with --to", "%s is a folder", dest)
+				return out.Errf(out.ExitConflict, "FILE_EXISTS", "give a file as DESTINATION", "%s is a folder", dest)
 			}
 			if !overwrite && !resume {
-				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to, or add --overwrite to replace it", "%s already exists", dest)
+				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another DESTINATION, or add --overwrite to replace it", "%s already exists", dest)
 			}
 			exists = !resume
 		}

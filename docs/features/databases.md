@@ -325,8 +325,8 @@ Which kinds komando can back up itself:
 | MySQL / MariaDB | yes | |
 | SQLite | `dump` copies the database file; no `restore` | stop the app, then copy the file back |
 | MongoDB | no | `mongodump` on a server, with `komando exec` |
-| SQL Server | no | `BACKUP DATABASE ... TO DISK` with `database sqlserver query --write`, then `komando download` the `.bak` file |
-| Oracle | no | Data Pump (`expdp`, `impdp`) or RMAN with `komando exec`, then `komando download` |
+| SQL Server | no | `BACKUP DATABASE ... TO DISK` with `database sqlserver query --write`, then `komando copy` the `.bak` file |
+| Oracle | no | Data Pump (`expdp`, `impdp`) or RMAN with `komando exec`, then `komando copy` |
 | ClickHouse | no | `BACKUP TABLE ... TO Disk('backups', 'name.zip')` (or `S3(...)`) with `database clickhouse query --write` |
 | Snowflake | no | `COPY INTO @stage`, Time Travel or `CLONE` |
 | BigQuery | no | `EXPORT DATA` to Cloud Storage, or table snapshots |

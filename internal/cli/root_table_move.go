@@ -84,6 +84,20 @@ func noCheck(v any) bool {
 // that a type not moved yet still names keeps them.
 func moveType(typ string) { moveLeaves(typ, capability.All()) }
 
+// moveTop is moveType for a top-level leaf (copy): what it carries leaves the tables.
+func moveTop(verb string) {
+	movedTop = append(movedTop, verb)
+	moveWhere("", capability.All(), func(l capability.Leaf) bool { return l.Type == "" && l.Verb == verb })
+}
+
+// leafMoved says whether l's type, or l itself when it is a top-level leaf, has moved.
+func leafMoved(l capability.Leaf) bool {
+	if l.Type == "" {
+		return slices.Contains(movedTop, l.Verb)
+	}
+	return slices.Contains(movedTypes, l.Type)
+}
+
 // moveLeaves is moveType over the table leaves.
 func moveLeaves(typ string, leaves []capability.Leaf) {
 	movedTypes = append(movedTypes, typ)
@@ -98,6 +112,11 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 			gateNoNetwork[typ] = v
 		}
 	}
+	moveWhere(typ, leaves, func(l capability.Leaf) bool { return l.Type == typ })
+}
+
+// moveWhere moves the built leaves pick selects.
+func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) bool) {
 	tables := idTables()
 	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
 	var built []capability.Leaf
@@ -108,12 +127,12 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		if l.State != capability.Built {
 			continue
 		}
-		if !slices.Contains(movedTypes, l.Type) {
+		if !leafMoved(l) {
 			for _, id := range slices.Concat(l.Today, l.Carries) {
 				stays[id] = true
 			}
 		}
-		if l.Type != typ {
+		if !pick(l) {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
@@ -191,7 +210,7 @@ func carriedByMovedIn(leaves []capability.Leaf) func(id string) bool {
 		if l.State != capability.Built {
 			continue
 		}
-		moved := slices.Contains(movedTypes, l.Type)
+		moved := leafMoved(l)
 		for _, id := range l.Carries {
 			carried[id] = true
 			waits[id] = waits[id] || !moved

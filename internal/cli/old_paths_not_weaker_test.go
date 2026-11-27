@@ -93,6 +93,13 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 				}
 				continue
 			}
+			if !ok && l.Type == "" && slices.Contains(movedTop, l.Verb) && slices.Contains(l.Carries, id) {
+				// a top-level leaf (copy) took the command's job and path: the leaf is at least as strict
+				if k := capability.TodayKeys()[id]; int(capability.Highest(l.Key)) < int(todayTier(safetyKey{k.Type, k.Area, k.Verb})) {
+					t.Errorf("%s: weaker than %s", l.Key, id)
+				}
+				continue
+			}
 			if !ok && replacedByExec[id] {
 				// removed in step D: exec carries it, and TestReplacedIDsNameTheirRules
 				// pins the rules and stops that keep its protection

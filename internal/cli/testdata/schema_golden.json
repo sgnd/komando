@@ -3212,72 +3212,98 @@
         ]
       },
       {
-        "path": "komando cp",
-        "usage": "komando cp SRC DST [flags]",
-        "short": "Copy files, written SRC DST with TARGET:PATH (upload/download)",
-        "long": "Remote paths are written TARGET:PATH (TARGET: alone, or TARGET:~/x, is the\nlogin user's home folder). Uploads accept any target selector (@group,\ntag:x, ...) and run in parallel. Downloads from several servers go to\nDST/<server>/... . A single-file copy reports its sha256, so you can check\nit. TARGET can be a storage conn too (backups:2026/db.sql.gz). cp is upload\nor download written the cp way: the same code, flags and results.\n\nSafety: a change; try it with --dry-run first.\n\nWith TARGET:PATH on both sides, cp copies from one server or storage conn\nto another (server to server, storage to storage, or one of each). The\ndata streams through this computer and is never saved on its disk. The\nfile at the destination is replaced, as an upload replaces it.\n\n--continue goes on with a single file that was cut off: the part already\nat the destination is kept when it matches the source (sha256), the rest\nis sent, and the whole file is checked against the source. A destination\nthat is longer, or differs, stops with RESUME_CONFLICT and is not touched.\nS3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and\ncannot add to one (RESUME_UNSUPPORTED).\n\nFolders (-r), like cp and rsync:\n  SRC/  (trailing slash)  the contents of SRC go into DST\n  SRC   into a new DST    DST becomes the copy of SRC\n  SRC   into a folder DST of the same name (site -> /var/www/site): DST is\n        updated in place, so running the same copy again never nests site/site\n  SRC   into another existing folder DST: the copy is DST/SRC\nSymbolic links are not copied (they are listed as skipped). For repeatable\ndeploys that send only changed files, use `komando sync`.",
-        "aliases": [
-          "copy"
-        ],
-        "example": "  komando cp ./app.tar.gz @web:/tmp/app.tar.gz\n  komando cp -r ./site web1:/var/www/site\n  komando cp ./nginx.conf web1:/etc/nginx/nginx.conf --sudo\n  komando cp web1:/var/log/nginx/error.log ./logs/\n  komando cp @web:/etc/nginx/nginx.conf ./configs/\n  komando cp ./db.sql.gz backups:2026/db.sql.gz\n  komando cp web1:/var/backups/db.sql.gz web2:/var/backups/\n  komando cp -r web1:/var/www/site backups:sites/\n  komando cp web1:/var/backups/db.sql.gz ./db.sql.gz --continue",
+        "path": "komando copy",
+        "usage": "komando copy SOURCE DESTINATION [flags]",
+        "short": "Copy files between this computer, servers and file storage",
+        "long": "Copy files between this computer, servers and file storage.\n\nSafety: a change; try it with --dry-run first; with --sync --delete:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous.",
+        "example": "  komando copy ./app.tar.gz web1:/tmp/app.tar.gz\n  komando copy ./site @web:/var/www/site --sync --dry-run\n  komando copy web1:/var/log/nginx/error.log ./logs/\n  komando copy ./db.sql.gz backups:2026/db.sql.gz",
         "flags": [
           {
             "name": "continue",
             "type": "bool",
             "default": "false",
-            "usage": "go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)"
+            "usage": "go on with a single file that was cut off"
+          },
+          {
+            "name": "delete",
+            "type": "bool",
+            "default": "false",
+            "usage": "with --sync: also remove files that the source does not have"
+          },
+          {
+            "name": "emptied",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "with --delete: this folder of the source is empty on purpose (repeatable)"
+          },
+          {
+            "name": "exclude",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "with --sync: skip names or paths that match this glob (repeatable)"
           },
           {
             "name": "mode",
             "type": "string",
-            "usage": "upload: file mode, like 0755"
+            "usage": "to a server: file mode, like 0755"
           },
           {
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-            "usage": "download: replace files that already exist on this computer"
+            "usage": "to this computer: replace files that already exist"
           },
           {
             "name": "parents",
             "shorthand": "p",
             "type": "bool",
             "default": "false",
-            "usage": "upload: create missing parent folders"
+            "usage": "to a server: create missing parent folders"
           },
           {
             "name": "progress",
             "type": "bool",
             "default": "false",
-            "usage": "with -o json, write progress to the error output (stderr), one JSON object per line"
+            "usage": "show how far the copy is"
           },
           {
             "name": "recursive",
             "shorthand": "r",
             "type": "bool",
             "default": "false",
-            "usage": "copy folders (a trailing / on SRC copies its contents)"
+            "usage": "copy folders (a trailing / on the source copies its contents)"
           },
           {
             "name": "size",
             "type": "bytes",
             "default": "0",
-            "usage": "an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)"
+            "usage": "from stdin (-): how many bytes it sends, like 10MiB"
           },
           {
             "name": "sudo",
             "shorthand": "s",
             "type": "bool",
             "default": "false",
-            "usage": "single files with sudo: install as root (upload), read as root (download)"
+            "usage": "single files: install as root (to a server) or read as root (from one); with --sync, write a folder as root"
+          },
+          {
+            "name": "sync",
+            "type": "bool",
+            "default": "false",
+            "usage": "send only what changed (compares size, mode and time); the source is a folder"
           }
         ],
         "runnable": true,
         "kind": "depends",
-        "kind_note": "changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC",
+        "kind_note": "changes the destination: a server or bucket when it is the DESTINATION, only this computer when it is the SOURCE",
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "with --sync --delete"
           }
         ]
       },
@@ -7648,59 +7674,6 @@
             "type": "bool",
             "default": "false",
             "usage": "check the store with your key and seal its settings row again, after STATE_CORRUPT for a changed settings row (a person only)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando download",
-        "usage": "komando download TARGET PATH [flags]",
-        "short": "Download files from servers or from file storage",
-        "long": "PATH is the path on the servers, or the key in the storage conn. --to is\nwhere it lands: a file name, or a folder (existing, or ending in /); a\nfolder per server when several are picked. A file that is already here is\nreplaced only with --overwrite: without it, one file stops with FILE_EXISTS,\nand a folder keeps them (kept) and copies the rest. --sudo reads one file\nas root (up to 512 MiB).\n\n--to - streams one file to stdout, from a server or storage: stdout has the\nfile's bytes and nothing else, whatever -o says, and komando's own answer\n(the result with bytes and sha256, or the error) goes to stderr.\n\n--continue goes on with a download of one file that was cut off: the part\nalready here is kept when it matches the source (sha256), the rest is\nfetched, and the whole file is checked. A file here that is longer, or\ndiffers, stops with RESUME_CONFLICT and is not touched.\n\nFolders (-r), like cp and rsync:\n  PATH/  (trailing slash)  the contents of PATH go into --to\n  PATH   into a new --to    --to becomes the copy of PATH\n  PATH   into a folder --to of the same name (/var/log/app -> ./app): it\n         is updated in place, so downloading again never nests app/app\n  PATH   into another existing folder --to: the copy is --to/NAME\nWithout --to it lands in the current folder under its own name. Symbolic\nlinks are not copied (they are listed as skipped).\n",
-        "example": "  komando download web1 /var/log/nginx/error.log --to ./logs/\n  komando download @web /etc/nginx/nginx.conf --to ./configs/\n  komando download backups 2026/db.sql.gz\n  komando download backups reports/ -r --to ./reports\n  komando download web1 /var/backups/db.sql.gz --continue\n  komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf",
-        "flags": [
-          {
-            "name": "continue",
-            "type": "bool",
-            "default": "false",
-            "usage": "go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace files that already exist on this computer"
-          },
-          {
-            "name": "progress",
-            "type": "bool",
-            "default": "false",
-            "usage": "with -o json, write progress to the error output (stderr), one JSON object per line"
-          },
-          {
-            "name": "recursive",
-            "shorthand": "r",
-            "type": "bool",
-            "default": "false",
-            "usage": "download a folder (servers) or every object under a prefix (storage)"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "read the file as root (single files)"
-          },
-          {
-            "name": "to",
-            "type": "string",
-            "usage": "where to save it, or - to stream it to stdout (default: the current folder)"
           }
         ],
         "runnable": true,
@@ -13436,7 +13409,7 @@
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndatabase KIND shell, secret passphrase ...) are refused (a --shell-access\nkey may open `komando shell SERVER`: see ssh-gate line; that shell is full\ncontrol of the server, outside these rules). The key runs commands on\nservers, never one that writes on this computer or reads a file here (a\nscript, SQL or upload source by path; '-' for the key's own input works): no\ndownload or cp to a file here (download --to - and cp SRC - stream to the\nkey's own output), no change to servers, VPNs, settings, rules, secrets,\nkeys or recipes in komando, no update, no change on a sqlite file or a\ntarget at localhost or 127.x. With --read-only only commands that read run\n(database KIND query and cache redis raw without --write), and only those\nthat stay on the servers and conns in your list: no net, no cert check of a\nwebsite, no exec, job start, docker exec, cluster exec or recipe run, unless\nthe line also has --network. `komando ssh-gate status` tells a key which it\nis. Every command a key runs or is refused is in `komando audit`, with\n--name, even when the audit setting is off.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no copy to a file here\n(copy SRC - streams to the key's own output), no change to servers, VPNs,\nsettings, rules, secrets, keys or recipes in komando, no update, no change\non a sqlite file or a target at localhost or 127.x. With --read-only only\ncommands that read run (db query and cache redis raw without --write), and\nonly those that stay on the servers and conns in your list: no net, no cert\ncheck of a website, no exec, job start, docker exec, cluster kubernetes exec\nor recipe run, unless the line also has --network. `komando ssh-gate status`\ntells a key which it is. Every command a key runs or is refused is in\n`komando audit`, with --name, even when the audit setting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -13526,11 +13499,7 @@
         "path": "komando storage",
         "usage": "komando storage [flags]",
         "short": "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove",
-        "long": "List, copy and share files in a bucket or on a file server. Add one with\n`komando storage s3 add` (or gcs, azblob, sftp, ftp, smb, webdav).\n\nIt works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,\nor a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,\nSamba, Azure Files). Keys are relative to the folder in the storage URL; a\nkey ending in / is a folder. ls, cat and download only read. upload,\nmkdir, mv and chmod (SFTP only) change files and link shares one (S3,\nGoogle Cloud and Azure; on production storage they ask first); rm deletes,\nso it also needs --allow-dangerous.\nDownloads never overwrite a local file unless --overwrite, and uploads to\nfile servers go to a temporary name first, so a failed upload leaves\nnothing half written.\n\nThe storage itself: komando storage s3 add, komando storage s3 test NAME,\nkomando storage s3 edit NAME, komando storage s3 remove NAME. komando list\nkind:storage lists them.",
-        "aliases": [
-          "s3"
-        ],
-        "example": "  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n  komando storage s3 object list backups 2026/\n  komando download backups 2026/app.sql.gz --to ./\n  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run",
+        "example": "  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n  komando storage s3 test backups\n  komando storage s3 object list backups 2026/\n  komando copy backups:2026/app.sql.gz ./\n  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -14013,55 +13982,6 @@
             "type": "duration",
             "default": "0",
             "usage": "wait this long for a person's sign-in"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando storage download",
-        "usage": "komando storage download CONN OBJECT [flags]",
-        "short": "Download an object from a storage conn",
-        "long": "Same as `komando download TARGET PATH`.",
-        "aliases": [
-          "get"
-        ],
-        "example": "  komando storage download backups reports/q3.pdf --to ~/Downloads/",
-        "flags": [
-          {
-            "name": "continue",
-            "type": "bool",
-            "default": "false",
-            "usage": "go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace files that already exist on this computer"
-          },
-          {
-            "name": "progress",
-            "type": "bool",
-            "default": "false",
-            "usage": "with -o json, write progress to the error output (stderr), one JSON object per line"
-          },
-          {
-            "name": "recursive",
-            "shorthand": "r",
-            "type": "bool",
-            "default": "false",
-            "usage": "download a folder (servers) or every object under a prefix (storage)"
-          },
-          {
-            "name": "to",
-            "type": "string",
-            "usage": "where to save it, or - to stream it to stdout (default: the current folder)"
           }
         ],
         "runnable": true,
@@ -16397,50 +16317,6 @@
         ]
       },
       {
-        "path": "komando storage upload",
-        "usage": "komando storage upload CONN FILE [OBJECT] [flags]",
-        "short": "Upload a file to a storage conn",
-        "long": "Same as `komando upload TARGET FILE [DEST]`.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "aliases": [
-          "put"
-        ],
-        "example": "  komando storage upload backups ./report.pdf reports/2026/\n  komando storage upload backups ./report.pdf reports/2026/ --dry-run",
-        "flags": [
-          {
-            "name": "continue",
-            "type": "bool",
-            "default": "false",
-            "usage": "go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)"
-          },
-          {
-            "name": "progress",
-            "type": "bool",
-            "default": "false",
-            "usage": "with -o json, write progress to the error output (stderr), one JSON object per line"
-          },
-          {
-            "name": "recursive",
-            "shorthand": "r",
-            "type": "bool",
-            "default": "false",
-            "usage": "upload a folder (new and changed files, like komando sync)"
-          },
-          {
-            "name": "size",
-            "type": "bytes",
-            "default": "0",
-            "usage": "an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
         "path": "komando storage webdav",
         "usage": "komando storage webdav [flags]",
         "short": "Save webdav storage, and look after its objects",
@@ -16893,58 +16769,6 @@
         ]
       },
       {
-        "path": "komando sync",
-        "usage": "komando sync SRC DST [flags]",
-        "short": "Copy a folder one way, sending only new and changed files",
-        "long": "One side is a folder on this computer; the other is TARGET:PATH on servers\n(many at once: @web:/var/www/site) or CONN:PREFIX in a storage conn (a\nbucket or a file server). Files that are new, a different size or file mode,\nor newer in SRC are copied; the rest are left alone. --delete also removes\nfiles SRC no longer has (that needs --allow-dangerous). --exclude skips\nnames or paths (shell globs, repeatable). Try --dry-run first: it lists\nevery file it would touch.\n\nSafety: a change; try it with --dry-run first; with --delete: dangerous, it\ncannot be undone: a person types the name to go on, and an AI agent or a\nscript needs --allow-dangerous.\n\n--delete stops before it empties a folder that SRC lists as empty while\nDST has files in it: a listing cut short looks like that. A person types\nthe folder to go on; a script names each folder it means with --emptied\n(--allow-dangerous alone does not do), or removes the folder on DST first.\n\n--sudo writes on the servers as root, for a folder the SSH user cannot\nwrite (/etc/nginx): each file goes in as `upload --sudo` puts one, staged\nprivately and checked by root, keeping the owner of a file that is there;\nthe SSH user still needs to read the folder.",
-        "example": "  komando sync ./site @web:/var/www/site --exclude .git --dry-run\n  komando sync ./site web1:/var/www/site --delete --dry-run\n  komando sync ./site web1:/var/www/site --delete --allow-dangerous   # after a person's yes\n  komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run\n  komando sync ./backups backups:2026/ --exclude '*.tmp'\n  komando sync backups:2026/ ./restore\n  komando sync web1:/var/log/app ./logs/web1",
-        "flags": [
-          {
-            "name": "delete",
-            "type": "bool",
-            "default": "false",
-            "usage": "also remove files that SRC does not have (needs --allow-dangerous)"
-          },
-          {
-            "name": "emptied",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "with --delete: this folder of SRC is empty on purpose, so its files go from DST (repeatable)"
-          },
-          {
-            "name": "exclude",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "skip names or paths matching this glob (repeatable), like .git, '*.log'"
-          },
-          {
-            "name": "progress",
-            "type": "bool",
-            "default": "false",
-            "usage": "with -o json, write progress to the error output (stderr), one JSON object per line"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "write on the servers as root, file by file as upload --sudo does (a folder here to servers)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "with --delete"
-          }
-        ]
-      },
-      {
         "path": "komando test",
         "usage": "komando test TARGET [flags]",
         "short": "Check that servers, conns and VPNs answer and let you in",
@@ -17101,66 +16925,6 @@
             "tier": "safety",
             "flag": "--yes",
             "when": "when it installs an older version"
-          }
-        ]
-      },
-      {
-        "path": "komando upload",
-        "usage": "komando upload TARGET FILE [DEST] [flags]",
-        "short": "Upload a file to servers (many at once) or to file storage",
-        "long": "DEST is the path on the servers, or the key in the storage conn. It defaults\nto the file's name (servers: in the login user's home folder; ~/x works\ntoo). A storage KEY ending in / is a folder, so the file keeps its name\ninside it. An existing file at DEST is replaced (the result says replaced).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.\n\nFILE - reads the file from stdin into DEST, which then names the file: on a\nserver through a temporary file moved into place at the end. --size N\nmakes a stream of another length fail (SIZE_CONFLICT) and replace nothing.\n\n--continue goes on with an upload of one file that was cut off: the part\nalready at DEST is kept when it matches the file (sha256), the rest is\nsent, and the whole file is checked. S3, Google Cloud Storage, Azure\nBlob and WebDAV store a file whole and cannot add to one\n(RESUME_UNSUPPORTED).\n\nFolders (-r), like cp and rsync:\n  FILE/  (trailing slash)  the contents of FILE go into DEST\n  FILE   into a new DEST    DEST becomes the copy of FILE\n  FILE   into a folder DEST of the same name (site -> /var/www/site): DEST\n         is updated in place, so running the same upload again never nests\n         site/site\n  FILE   into another existing folder DEST: the copy is DEST/FILE\nWithout DEST the folder keeps its name (servers: in the home folder). In\nstorage, a DEST ending in / is an existing folder. Symbolic links are not\ncopied (they are listed as skipped). For repeatable deploys that send only\nchanged files, use `komando sync`.\n",
-        "example": "  komando upload @web ./app.tar.gz /tmp/app.tar.gz\n  komando upload @web ./app.tar.gz /tmp/app.tar.gz --dry-run\n  komando upload web1 ./site /var/www/site -r\n  komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo\n  komando upload backups ./db.sql.gz 2026/db.sql.gz\n  komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue\n  komando upload web1 - /etc/app/motd --size 120 < motd.txt",
-        "flags": [
-          {
-            "name": "continue",
-            "type": "bool",
-            "default": "false",
-            "usage": "go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)"
-          },
-          {
-            "name": "mode",
-            "type": "string",
-            "usage": "file mode, like 0755"
-          },
-          {
-            "name": "parents",
-            "shorthand": "p",
-            "type": "bool",
-            "default": "false",
-            "usage": "create missing parent folders"
-          },
-          {
-            "name": "progress",
-            "type": "bool",
-            "default": "false",
-            "usage": "with -o json, write progress to the error output (stderr), one JSON object per line"
-          },
-          {
-            "name": "recursive",
-            "shorthand": "r",
-            "type": "bool",
-            "default": "false",
-            "usage": "copy folders (a trailing / on SRC copies its contents)"
-          },
-          {
-            "name": "size",
-            "type": "bytes",
-            "default": "0",
-            "usage": "an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "install into place with sudo (single files)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
           }
         ]
       },
@@ -21972,7 +21736,7 @@
         "code": "BINARY_FILE",
         "exit": 1,
         "example": "… is a binary file; fs cat shows text only",
-        "hint": "save it with `komando download … …`"
+        "hint": "save it with `komando copy …:… .`"
       },
       {
         "code": "BUCKET_NOT_FOUND",
@@ -22259,7 +22023,7 @@
         "code": "EMPTY_FOLDER_CONFIRM_REQUIRED",
         "exit": 6,
         "example": "… lists no files in …, so --delete would remove … there in …; nothing was deleted",
-        "hint": "see what would go with `komando sync SRC DST --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"
+        "hint": "see what would go with `komando copy SOURCE DESTINATION --sync --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"
       },
       {
         "code": "ENCODED_SECRET_INVALID",
@@ -22277,7 +22041,7 @@
         "code": "FILE_CHANGED",
         "exit": 8,
         "example": "… …; nothing was added",
-        "hint": "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again"
+        "hint": "run the same command again (`komando copy SOURCE DESTINATION --continue`): komando reads the file's length again"
       },
       {
         "code": "FILE_ERROR",
@@ -22289,7 +22053,7 @@
         "code": "FILE_EXISTS",
         "exit": 8,
         "example": "… already exists on this computer",
-        "hint": "choose another --to, remove the file, or pass --overwrite"
+        "hint": "choose another DESTINATION, remove the file, or pass --overwrite"
       },
       {
         "code": "FILE_NOT_FOUND",
@@ -22421,7 +22185,7 @@
         "code": "IS_A_DIRECTORY",
         "exit": 2,
         "example": "…:… is a folder, not a file",
-        "hint": "copy the folder and everything in it with -r: `komando cp -r … …`"
+        "hint": "copy the folder and everything in it with -r: `komando copy -r … …`"
       },
       {
         "code": "IS_A_SYMLINK",
@@ -22648,7 +22412,7 @@
         "code": "NOT_A_FOLDER",
         "exit": 8,
         "example": "… is a file, not a folder",
-        "hint": "give a folder path, not a file"
+        "hint": "sync works on folders; for one file use `komando copy` without --sync"
       },
       {
         "code": "NOT_SUPPORTED",
@@ -22666,7 +22430,7 @@
         "code": "NOT_TEXT",
         "exit": 2,
         "example": "… is not text",
-        "hint": "download it with `komando storage download CONN OBJECT`"
+        "hint": "copy it to this computer with `komando copy SOURCE DESTINATION`"
       },
       {
         "code": "NOT_WRITABLE",
@@ -23044,13 +22808,13 @@
         "code": "RESUME_CONFLICT",
         "exit": 8,
         "example": "… does not match the source after the copy (sha256 …, the source …); it was left as it is",
-        "hint": "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST`"
+        "hint": "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando copy SOURCE DESTINATION`"
       },
       {
         "code": "RESUME_UNSUPPORTED",
         "exit": 2,
         "example": "… cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed",
-        "hint": "run it again without --continue to copy the whole file: `komando cp SRC DST`"
+        "hint": "run it again without --continue to copy the whole file: `komando copy SOURCE DESTINATION`"
       },
       {
         "code": "REVEAL_NEEDS_PERSON",
@@ -23259,7 +23023,7 @@
         "code": "SIZE_CONFLICT",
         "exit": 8,
         "example": "--size said … bytes, and stdin sent …; nothing was put into place",
-        "hint": "send the whole file again: `komando upload TARGET - DEST --size N`"
+        "hint": "send the whole file again: `komando copy - DESTINATION --size N`"
       },
       {
         "code": "SKIPPED",

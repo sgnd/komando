@@ -95,7 +95,7 @@ func guardAttacks(home string) []guardAttack {
 		{"komando output piped into interpreter code", "Bash", bash(`komando doctor | python3 -c "import sys; open(sys.stdin.read().split()[0],'w')"`), "the line names komando and runs python3"},
 		{"cd into komando's data", "Bash", bash("cd ~/.komando && ls"), "komando's own data"},
 		{"ssh past komando", "Bash", bash("ssh web1 uptime"), "use komando for servers"},
-		{"rsync to a server", "Bash", bash("rsync -a /tmp/x web1:/tmp/"), "use `komando sync` or `komando cp`"},
+		{"rsync to a server", "Bash", bash("rsync -a /tmp/x web1:/tmp/"), "use `komando copy`"},
 		{"dump the environment", "Bash", bash("env"), "listing every environment variable"},
 		{"read the keychain", "Bash", bash("security find-generic-password -w -s x"), "reading passwords from the keychain"},
 		{"git -C komando's data", "Bash", bash("git -C ~/.komando status"), "komando's own data"},

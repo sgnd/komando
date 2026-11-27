@@ -38,7 +38,7 @@ var t3Cases = []struct {
 	{"credential.token.remove", "the name gsec", []string{"credential", "token", "remove", "gsec"}}, // one saved value for both kinds until step E
 	{"credential.key.remove", "the name gkey", []string{"credential", "key", "remove", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
-	{"sync", "the name web1", []string{"sync", "testdata", "web1:/tmp/x", "--delete"}},
+	{"copy", "the name web1", []string{"copy", "testdata", "web1:/tmp/x", "--sync", "--delete"}},
 	// what user rm, svc stop and user lock asked before the cut (D1): exec
 	// on a server that is not protected asks for its name
 	{"host.exec", "the name web1", []string{"exec", "web1", "--", "userdel", "bob"}},

@@ -259,7 +259,7 @@ komando registry oci image copy harbor:app:latest harbor:app:stable           # 
 Typed alone at a terminal, `komando registry oci image copy` asks where from
 (`ghcr:myorg/api:1.4.2`), then where to.
 
-- Both sides are written `CONN:IMAGE`, as with `komando cp`. The image is
+- Both sides are written `CONN:IMAGE`, as with `komando copy`. The image is
   `REPO[:TAG]` or `REPO@DIGEST`.
 - Every platform of a multi-platform image is copied, and the digest stays
   the same, so signatures and pinned deployments stay valid.

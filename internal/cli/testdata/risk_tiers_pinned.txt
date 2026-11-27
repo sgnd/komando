@@ -87,106 +87,7 @@ conn.rename	plain=change	highest=read
 conn.rm	plain=change	highest=read
 conn.show	plain=read	highest=read
 conn.test	plain=read	highest=read
-cp	plain=change	highest=read
-cron	plain=read	highest=read
-cron.list	plain=read	highest=read
-cron.rm	plain=change	highest=change
-cron.set	plain=change	highest=read
-database	plain=read	highest=read
-database.bigquery	plain=read	highest=read
-database.bigquery.add	plain=change	highest=read
-database.bigquery.edit	plain=change	highest=read
-database.bigquery.list	plain=read	highest=read
-database.bigquery.query	plain=dangerous	highest=dangerous
-database.bigquery.remove	plain=change	highest=read
-database.bigquery.rename	plain=change	highest=read
-database.bigquery.shell	plain=person	highest=person
-database.bigquery.show	plain=read	highest=read
-database.bigquery.test	plain=read	highest=read
-database.clickhouse	plain=read	highest=read
-database.clickhouse.add	plain=change	highest=read
-database.clickhouse.edit	plain=change	highest=read
-database.clickhouse.list	plain=read	highest=read
-database.clickhouse.query	plain=dangerous	highest=dangerous
-database.clickhouse.remove	plain=change	highest=read
-database.clickhouse.rename	plain=change	highest=read
-database.clickhouse.shell	plain=person	highest=person
-database.clickhouse.show	plain=read	highest=read
-database.clickhouse.test	plain=read	highest=read
-database.mongodb	plain=read	highest=read
-database.mongodb.add	plain=change	highest=read
-database.mongodb.edit	plain=change	highest=read
-database.mongodb.list	plain=read	highest=read
-database.mongodb.query	plain=dangerous	highest=dangerous
-database.mongodb.remove	plain=change	highest=read
-database.mongodb.rename	plain=change	highest=read
-database.mongodb.show	plain=read	highest=read
-database.mongodb.test	plain=read	highest=read
-database.mysql	plain=read	highest=read
-database.mysql.add	plain=change	highest=read
-database.mysql.backup	plain=person	highest=person
-database.mysql.edit	plain=change	highest=read
-database.mysql.list	plain=read	highest=read
-database.mysql.query	plain=dangerous	highest=dangerous
-database.mysql.remove	plain=change	highest=read
-database.mysql.rename	plain=change	highest=read
-database.mysql.restore	plain=dangerous	highest=dangerous
-database.mysql.shell	plain=person	highest=person
-database.mysql.show	plain=read	highest=read
-database.mysql.test	plain=read	highest=read
-database.oracle	plain=read	highest=read
-database.oracle.add	plain=change	highest=read
-database.oracle.edit	plain=change	highest=read
-database.oracle.list	plain=read	highest=read
-database.oracle.query	plain=dangerous	highest=dangerous
-database.oracle.remove	plain=change	highest=read
-database.oracle.rename	plain=change	highest=read
-database.oracle.shell	plain=person	highest=person
-database.oracle.show	plain=read	highest=read
-database.oracle.test	plain=read	highest=read
-database.postgres	plain=read	highest=read
-database.postgres.add	plain=change	highest=read
-database.postgres.backup	plain=person	highest=person
-database.postgres.edit	plain=change	highest=read
-database.postgres.list	plain=read	highest=read
-database.postgres.query	plain=dangerous	highest=dangerous
-database.postgres.remove	plain=change	highest=read
-database.postgres.rename	plain=change	highest=read
-database.postgres.restore	plain=dangerous	highest=dangerous
-database.postgres.shell	plain=person	highest=person
-database.postgres.show	plain=read	highest=read
-database.postgres.test	plain=read	highest=read
-database.snowflake	plain=read	highest=read
-database.snowflake.add	plain=change	highest=read
-database.snowflake.edit	plain=change	highest=read
-database.snowflake.list	plain=read	highest=read
-database.snowflake.query	plain=dangerous	highest=dangerous
-database.snowflake.remove	plain=change	highest=read
-database.snowflake.rename	plain=change	highest=read
-database.snowflake.shell	plain=person	highest=person
-database.snowflake.show	plain=read	highest=read
-database.snowflake.test	plain=read	highest=read
-database.sqlite	plain=read	highest=read
-database.sqlite.add	plain=change	highest=read
-database.sqlite.backup	plain=person	highest=person
-database.sqlite.edit	plain=change	highest=read
-database.sqlite.list	plain=read	highest=read
-database.sqlite.query	plain=dangerous	highest=dangerous
-database.sqlite.remove	plain=change	highest=read
-database.sqlite.rename	plain=change	highest=read
-database.sqlite.shell	plain=person	highest=person
-database.sqlite.show	plain=read	highest=read
-database.sqlite.test	plain=read	highest=read
-database.sqlserver	plain=read	highest=read
-database.sqlserver.add	plain=change	highest=read
-database.sqlserver.edit	plain=change	highest=read
-database.sqlserver.list	plain=read	highest=read
-database.sqlserver.query	plain=dangerous	highest=dangerous
-database.sqlserver.remove	plain=change	highest=read
-database.sqlserver.rename	plain=change	highest=read
-database.sqlserver.shell	plain=person	highest=person
-database.sqlserver.show	plain=read	highest=read
-database.sqlserver.test	plain=read	highest=read
+copy	plain=change	highest=dangerous
 db	plain=read	highest=read
 db.activity	plain=read	highest=read
 db.explain	plain=dangerous	highest=dangerous
@@ -219,7 +120,6 @@ docker.start	plain=change	highest=read
 docker.stats	plain=read	highest=read
 docker.stop	plain=change	highest=read
 doctor	plain=read	highest=read
-download	plain=read	highest=read
 environment	plain=change	highest=read
 exec	plain=dangerous	highest=dangerous
 exit-codes	plain=change	highest=read
@@ -296,7 +196,7 @@ probe cluster kubernetes edit prod-k8s --protected=false	safety
 probe cluster scale c1 web 0	dangerous
 probe config vault keychain	person
 probe conn edit app-db --protected=false	safety
-probe credential key remove k1 --delete-file	dangerous
+probe copy ./site web1:/srv --sync --delete	dangerous
 probe export --for-phone	person
 probe export --sealed	person
 probe group remove big	change
@@ -314,9 +214,8 @@ probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
 probe snippet create r1 --overwrite --read-only	safety
 probe storage s3 edit prod-s3 --protected=false	safety
-probe sync ./site web1:/srv --delete	dangerous
-probe vpn socks edit kantor --mfa=false	safety
-probe vpn socks edit kantor --protected=false	safety
+probe vpn edit kantor --mfa=false	safety
+probe vpn edit kantor --protected=false	safety
 queue	plain=read	highest=read
 queue.kafka	plain=read	highest=read
 queue.kafka.add	plain=change	highest=read
@@ -464,7 +363,6 @@ storage.azblob.remove	plain=change	highest=read
 storage.azblob.rename	plain=change	highest=read
 storage.azblob.show	plain=read	highest=read
 storage.azblob.test	plain=read	highest=read
-storage.download	plain=read	highest=read
 storage.ftp	plain=read	highest=read
 storage.ftp.add	plain=change	highest=read
 storage.ftp.edit	plain=change	highest=safety
@@ -537,7 +435,6 @@ storage.smb.remove	plain=change	highest=read
 storage.smb.rename	plain=change	highest=read
 storage.smb.show	plain=read	highest=read
 storage.smb.test	plain=read	highest=read
-storage.upload	plain=change	highest=read
 storage.webdav	plain=read	highest=read
 storage.webdav.add	plain=change	highest=read
 storage.webdav.edit	plain=change	highest=safety
@@ -552,7 +449,6 @@ storage.webdav.remove	plain=change	highest=read
 storage.webdav.rename	plain=change	highest=read
 storage.webdav.show	plain=read	highest=read
 storage.webdav.test	plain=read	highest=read
-sync	plain=change	highest=dangerous
 test	plain=read	highest=read
 tunnel	plain=read	highest=read
 tunnel.list	plain=read	highest=read
@@ -560,7 +456,6 @@ tunnel.serve	plain=change	highest=read
 tunnel.start	plain=safety	highest=safety
 tunnel.stop	plain=change	highest=read
 update	plain=safety	highest=safety
-upload	plain=change	highest=read
 version	plain=read	highest=read
 vpn	plain=read	highest=read
 vpn.anyconnect	plain=read	highest=read

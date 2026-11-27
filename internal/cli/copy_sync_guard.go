@@ -177,7 +177,7 @@ func emptiedErr(cl *call, left []emptiedFolder, src, folders, files, dst string)
 	var e *out.Error
 	if cl.isAgent() {
 		e = out.Errf(out.ExitPolicy, code,
-			"see what would go with `komando sync SRC DST --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)",
+			"see what would go with `komando copy SOURCE DESTINATION --sync --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)",
 			"%s lists no files in %s, so --delete would remove %s there in %s; nothing was deleted", src, folders, files, dst)
 	} else {
 		flags := make([]string, len(left))

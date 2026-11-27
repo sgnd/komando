@@ -92,7 +92,7 @@ func TestWindowsRefusals(t *testing.T) {
 		{"exec", "win", "--sudo", "--", "Get-Date"},
 		{"exec", "win", "--pty", "--", "Get-Date"},
 		{"fs", "write", "win", `C:\x`, "--content", "a", "--sudo"},
-		{"upload", "win", "./windows_test.go", `C:\x`, "--mode", "0644"},
+		{"copy", "./windows_test.go", "win:" + `C:\x`, "--mode", "0644"},
 	} {
 		if got := runCode(t, args...); got != "NOT_SUPPORTED" {
 			t.Errorf("%v: got %s, want NOT_SUPPORTED", args, got)
@@ -192,7 +192,7 @@ func TestWindowsDownloadAndUpload(t *testing.T) {
 	body := []byte(strings.Repeat("windows data ", 5000))
 	srv.reply("#komando:size=" + strconv.Itoa(len(body)) + "\n" + base64.StdEncoding.EncodeToString(body[:40000]) + "\n" + base64.StdEncoding.EncodeToString(body[40000:]) + "\n")
 	dir := t.TempDir()
-	_ = captureOutput(t, func() error { return runRoot(t, "download", "win", `C:\logs\app.log`, "--to", dir+"/") })
+	_ = captureOutput(t, func() error { return runRoot(t, "copy", "win:"+`C:\logs\app.log`, dir+"/") })
 	b, err := os.ReadFile(filepath.Join(dir, "app.log"))
 	if err != nil || !bytes.Equal(b, body) {
 		t.Fatalf("downloaded %d bytes, %v", len(b), err)
@@ -202,7 +202,7 @@ func TestWindowsDownloadAndUpload(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "site.zip")
 	_ = os.WriteFile(src, body, 0o600)
 	srv.reply("#komando:path=C:\\site.zip\n#komando:bytes=65000\n#komando:replaced=False\n#komando:sha256=abc\n")
-	got := captureOutput(t, func() error { return runRoot(t, "upload", "win", src, `C:\`) })
+	got := captureOutput(t, func() error { return runRoot(t, "copy", src, "win:"+`C:\`) })
 	execs := srv.take()
 	if len(execs) != 1 || !strings.Contains(got, `"sha256":"abc"`) {
 		t.Fatalf("upload: %v %s", execs, got)

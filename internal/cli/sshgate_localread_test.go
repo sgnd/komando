@@ -22,8 +22,8 @@ func TestGateLocalReads(t *testing.T) {
 		"exec web --read-only --stdin-file .ssh/id_ed25519 -- cat", "job start web --read-only --script ./x.sh",
 		"job start web --stdin-file x -- cat", "database postgres query pg --file /home/u/.ssh/id_ed25519",
 		"database postgres restore pg --from ./dump.sql", "cluster apply k8s --file ./x.yaml", "fs write web /tmp/k --from .ssh/id_ed25519",
-		"upload web .ssh/id_ed25519 /tmp/k", "storage upload s3 .ssh/id_ed25519",
-		"cp .ssh/id_ed25519 web:/tmp/k", "sync .ssh web:/tmp/k", "cluster kubernetes raw k8s -- apply -f /home/u/.ssh/id_ed25519",
+		"copy .ssh/id_ed25519 s3:",
+		"copy .ssh/id_ed25519 web:/tmp/k", "copy .ssh web:/tmp/k --sync", "cluster kubernetes raw k8s -- apply -f /home/u/.ssh/id_ed25519",
 		"cluster kubernetes raw k8s -- diff --filename=./x.yaml", "cluster kubernetes raw k8s -- create secret generic x --from-file=.ssh/id_ed25519",
 		"cluster kubernetes raw k8s -- cp ./x pod-1:/tmp/x",
 	}
@@ -42,7 +42,7 @@ func TestGateLocalReads(t *testing.T) {
 	}
 	// the key's own input is the key's
 	for _, line := range []string{"exec web --read-only --script - ", "database postgres query pg --file -", "cluster kubernetes raw k8s -- apply -f -",
-		"exec web --read-only -- uptime", "upload web - /tmp/x", "cp web:/etc/hosts web:/tmp/hosts"} {
+		"exec web --read-only -- uptime", "copy - web:/tmp/x", "copy web:/etc/hosts web:/tmp/hosts"} {
 		if got := gateKeyAnswer(t, line, fullKey); got != "" {
 			t.Errorf("%q, full key: %q", line, got)
 		}
@@ -61,13 +61,11 @@ func init() { // the providers of a moved type share one handler, so one reason
 }
 
 var gateLocalNotRead = map[string]string{
-	"cp.overwrite":        "a download replaces files here: cp to here is refused anyway",
-	"sync.sudo":           "writes as root on the servers",
-	"fs.mv.SRC":           "a path on the servers",
-	"storage.mv.SRC":      "a key in the conn",
-	"cp.size":             "a number of bytes",
-	"upload.size":         "a number of bytes",
-	"storage.upload.size": "a number of bytes",
+	"cp.overwrite":   "a download replaces files here: cp to here is refused anyway",
+	"sync.sudo":      "writes as root on the servers",
+	"fs.mv.SRC":      "a path on the servers",
+	"storage.mv.SRC": "a key in the conn",
+	"copy.size":      "a number of bytes",
 }
 
 // Every flag or argument a key can reach that names a file on this

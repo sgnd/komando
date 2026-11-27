@@ -134,9 +134,9 @@ q $K conn rm mc
 
 # storage
 echo backup-data > "$TMP/obj.txt"
-q $K storage upload bucket "$TMP/obj.txt" 2026/obj.txt
+q $K copy "$TMP/obj.txt" bucket:2026/obj.txt
 check "storage s3 object list via bastion" 2026/obj.txt "$($K storage s3 object list bucket --recursive | jget 'd["data"]["objects"][0]["key"]')"
-q $K storage download bucket 2026/obj.txt --to "$TMP/obj-back.txt"
+q $K copy bucket:2026/obj.txt "$TMP/obj-back.txt"
 check "storage round trip" backup-data "$(cat "$TMP/obj-back.txt")"
 # aws_profile: komando reads ~/.aws itself; no aws CLI on PATH
 printf '[e2e]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$S3ID" "$(awk '/Secret key/{printf "%s", $3}' "$TMP/s3key")" > "$TMP/aws-credentials"
@@ -147,12 +147,12 @@ q $K conn edit bucket-aws --option aws_profile=nope
 check "unknown aws_profile is named" AWS_PROFILE_NOT_FOUND "$("${AWSENV[@]}" $K storage s3 object list bucket-aws | jget 'd["error"]["code"]' || true)"
 q $K conn rm bucket-aws
 mkdir -p "$TMP/tree/sub" && echo one > "$TMP/tree/a.txt" && echo two > "$TMP/tree/sub/b.txt" && echo skip > "$TMP/tree/c.tmp"
-check "upload -r to storage" 3 "$($K upload bucket "$TMP/tree" tree -r | jget 'd["data"]["copied"]')"
-check "sync to storage sends nothing new" 0 "$($K sync "$TMP/tree" bucket:tree --exclude '*.tmp' | jget 'd["data"]["copied"] + d["data"]["updated"]')"
+check "upload -r to storage" 3 "$($K copy "$TMP/tree" bucket:tree -r | jget 'd["data"]["copied"]')"
+check "sync to storage sends nothing new" 0 "$($K copy "$TMP/tree" bucket:tree --sync --exclude '*.tmp' | jget 'd["data"]["copied"] + d["data"]["updated"]')"
 check "storage s3 object read --tail" two "$($K storage s3 object read bucket tree/sub/b.txt --tail 1 | jget 'd["data"]["content"].strip()')"
-q $K download bucket tree -r --to "$TMP/tree-back"
+q $K copy bucket:tree "$TMP/tree-back" -r
 check "download -r from storage" two "$(cat "$TMP/tree-back/sub/b.txt")"
-check "download -r keeps local files" True "$(echo changed > "$TMP/tree-back/a.txt"; $K download bucket tree -r --to "$TMP/tree-back" | jget 'd["data"]["kept"] >= 1')"
+check "download -r keeps local files" True "$(echo changed > "$TMP/tree-back/a.txt"; $K copy bucket:tree "$TMP/tree-back" -r | jget 'd["data"]["kept"] >= 1')"
 check "rm --prefix --dry-run lists" True "$($K storage s3 object delete bucket --prefix tree/ --dry-run | jget 'd["data"]["count"] >= 2')"
 check "rm --prefix needs --allow-dangerous" POLICY_BLOCKED "$($K storage s3 object delete bucket --prefix tree/ | jget 'd["error"]["code"]' || true)"
 check "rm --older-than leaves new objects" 0 "$($K storage s3 object delete bucket --prefix tree/ --older-than 30d --allow-dangerous | jget 'd["data"]["count"]')"
@@ -164,10 +164,10 @@ q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-r
 q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
 for c in files-sftp files-ftps; do
   # check the upload itself, so a failed upload shows its own error instead of an empty listing below
-  check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"
+  check "$c upload" True "$($K copy "$TMP/obj.txt" "$c:2026/11/obj.txt" | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"
   check "$c upload creates folders" 2026/11/obj.txt "$($K storage "$(sprov "$c")" object list "$c" --recursive | jget '[o["key"] for o in d["data"]["objects"] if not o.get("dir")][0]')"
-  check "$c upload replaces" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["data"]["replaced"]')"
-  q $K storage download "$c" 2026/11/obj.txt --to "$TMP/$c.txt"
+  check "$c upload replaces" True "$($K copy "$TMP/obj.txt" "$c:2026/11/obj.txt" | jget 'd["data"]["replaced"]')"
+  q $K copy "$c:2026/11/obj.txt" "$TMP/$c.txt"
   check "$c round trip" backup-data "$(cat "$TMP/$c.txt")"
   set +e; $K storage "$(sprov "$c")" object delete "$c" 2026/11/obj.txt >/dev/null; check "$c rm needs --allow-dangerous" 6 $?; set -e
 done
@@ -183,22 +183,22 @@ check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg 
 
 # one verb pair for files, and tunnels to conns by name
 echo hello-upload > "$TMP/up.txt"
-q $K upload direct "$TMP/up.txt" /tmp/up.txt
-q $K download direct /tmp/up.txt --to "$TMP/down/"
+q $K copy "$TMP/up.txt" direct:/tmp/up.txt
+q $K copy direct:/tmp/up.txt "$TMP/down/"
 check "upload/download to a server" hello-upload "$(cat "$TMP/down/up.txt")"
-check "download never replaces a local file" FILE_EXISTS "$($K download direct /tmp/up.txt --to "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-q $K download direct /tmp/up.txt --to "$TMP/down/" --overwrite
+check "download never replaces a local file" FILE_EXISTS "$($K copy direct:/tmp/up.txt "$TMP/down/" | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+q $K copy direct:/tmp/up.txt "$TMP/down/" --overwrite
 check "no temporary files left" 0 "$(find "$TMP/down" -maxdepth 1 -name '*komando-download*' | wc -l | tr -d ' ')"
 dd if=/dev/urandom of="$TMP/big.bin" bs=1048576 count=40 2>/dev/null
-check "large upload is streamed intact" "$(shasum -a 256 "$TMP/big.bin" | cut -c1-64)" "$($K upload direct "$TMP/big.bin" /tmp/big.bin | jget 'd["data"]["results"][0]["sha256"]')"
-check "sync to a server" 2 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"]')"
-check "sync again sends nothing" 0 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"] + d["data"]["results"][0]["updated"]')"
+check "large upload is streamed intact" "$(shasum -a 256 "$TMP/big.bin" | cut -c1-64)" "$($K copy "$TMP/big.bin" direct:/tmp/big.bin | jget 'd["data"]["results"][0]["sha256"]')"
+check "sync to a server" 2 "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"]')"
+check "sync again sends nothing" 0 "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' | jget 'd["data"]["results"][0]["copied"] + d["data"]["results"][0]["updated"]')"
 rm "$TMP/tree/sub/b.txt"
-check "sync --delete needs --allow-dangerous" POLICY_BLOCKED "$($K sync "$TMP/tree" direct:/home/agent/site --delete | jget 'd["error"]["code"]' || true)"
-check "sync --delete --dry-run lists it" sub/b.txt "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --dry-run | jget '[a["path"] for a in d["data"]["results"][0]["actions"] if a["op"]=="delete"][0]')"
-check "sync --delete stops before it empties sub/" EMPTY_FOLDER_CONFIRM_REQUIRED "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --allow-dangerous | jget '(d.get("error") or d["data"]["results"][0]["error"])["code"]' || true)"
-check "sync --delete --emptied sub removes it" 1 "$($K sync "$TMP/tree" direct:/home/agent/site --exclude '*.tmp' --delete --allow-dangerous --emptied sub | jget 'd["data"]["results"][0]["deleted"]')"
-check "sync from a server" one "$($K sync direct:/home/agent/site "$TMP/site-back" >/dev/null; cat "$TMP/site-back/a.txt")"
+check "sync --delete needs --allow-dangerous" POLICY_BLOCKED "$($K copy "$TMP/tree" direct:/home/agent/site --sync --delete | jget 'd["error"]["code"]' || true)"
+check "sync --delete --dry-run lists it" sub/b.txt "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' --delete --dry-run | jget '[a["path"] for a in d["data"]["results"][0]["actions"] if a["op"]=="delete"][0]')"
+check "sync --delete stops before it empties sub/" EMPTY_FOLDER_CONFIRM_REQUIRED "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' --delete --allow-dangerous | jget '(d.get("error") or d["data"]["results"][0]["error"])["code"]' || true)"
+check "sync --delete --emptied sub removes it" 1 "$($K copy "$TMP/tree" direct:/home/agent/site --sync --exclude '*.tmp' --delete --allow-dangerous --emptied sub | jget 'd["data"]["results"][0]["deleted"]')"
+check "sync from a server" one "$($K copy direct:/home/agent/site "$TMP/site-back" --sync >/dev/null; cat "$TMP/site-back/a.txt")"
 TUN=$($K tunnel start pg | jget 'd["data"]["listen"]')
 check "tunnel to a conn by name" 0 "$(nc -z "${TUN%:*}" "${TUN##*:}"; echo $?)"
 q $K tunnel stop --all

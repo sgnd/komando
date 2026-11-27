@@ -470,44 +470,31 @@ title: Check that conns answer and let you in
 - arg0 | Target (conns) | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
-### komando cp
-title: Copy files, written SRC DST with TARGET:PATH (upload/download)
-- arg0 | Src | Copy from where? | A file or folder on this computer (./site), or on a server as SERVER:PATH (web1:/var/log/app). | ./site | check
-- arg1 | Dst | Copy to where? | SERVER:PATH on servers (@web:/var/www/site for a group), or a folder on this computer (./logs/). | web1:/var/www/site | check
-- flag:recursive | --recursive | Is it a folder? (copy everything in it) | Ending the source with / copies what is in the folder, not the folder itself. |  | default,choices
+### komando copy
+title: Copy files between this computer, servers and file storage
+- arg0 | Source | Copy from where? | A file or folder on this computer (./site), or on a server as SERVER:PATH (web1:/var/log/app). | ./site | check
+- arg1 | Destination | Copy to where? | SERVER:PATH on servers (@web:/var/www/site for a group), or a folder on this computer (./logs/). | web1:/var/www/site | check
+- flag:sync | --sync | Send only what is new or changed? (a folder, like a deploy) | Compares size, mode and time, and leaves the rest alone. Try it with --dry-run first. |  | default,choices
+- flag:recursive | --recursive | Is it a folder? (copy everything in it) | Ending the source with / copies what is in the folder, not the folder itself. |  | default,choices,show
 - flag:sudo | --sudo | Run it with sudo (as root)? | Yes for system files, like /etc. Works for single files. |  | default,choices
-- flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
-- flag:mode | --mode | Upload: file mode, like 0755 |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Download: replace files that already exist on this computer |  |  | advanced,default,choices
-- flag:parents | --parents | Upload: create missing parent folders |  |  | advanced,default,choices
-- flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
-- flag:size | --size | An upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT) |  |  | optional,advanced,check
-### komando cron
-title: Cron entries on servers: see, set and remove them
-- flag:user | --user | Crontab of this user (uses sudo) |  |  | optional,advanced,check
-### komando cron list
-title: Show crontab entries
-- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- flag:user | --user | Whose crontab? | Leave empty for the user komando logs in as. Another user's crontab is read with sudo. | www-data | optional,check
-- flag:limit | --limit | Show at most this many entries per server (0 = all) |  |  | optional,advanced,check
-### komando cron rm
-title: Remove the cron entry with this NAME
-- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- arg1 | Name | Which entry? | Its ID: the last column of `komando cron list`. | nightly-backup | check
-- flag:user | --user | Whose crontab? | Leave empty for the user komando logs in as. Another user's crontab is read with sudo. | www-data | optional,check
-### komando cron set
-title: Create or replace the entry with this NAME
-- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- arg1 | Name | What name should this entry have? | A short name komando finds it by later. A name used before replaces that entry. | nightly-backup | check
-- arg2 | Command | What command should it run? | Type it as you would on the server itself. | /usr/local/bin/backup.sh | check
-- flag:schedule | --schedule | When should it run? | @hourly, @daily, @weekly, @monthly or @reboot, or five fields (minute hour day month weekday): 0 2 * * * is every night at 2:00. | 0 2 * * * | check
-- flag:user | --user | Whose crontab? | Leave empty for the user komando logs in as. Another user's crontab is read with sudo. | www-data | optional,check
-### komando database
-title: Databases: save them, query them, back them up and restore them
-### komando database bigquery
-title: BigQuery: save a project and query it
-### komando database bigquery add
-title: Save a bigquery database under a short name
+- flag:exclude | --exclude | Skip some names? | Files or folders to leave out, like .git or *.log. Empty copies everything. | .git | optional,show,check
+- flag:continue | --continue | Go on with a single file that was cut off |  |  | advanced,default,choices
+- flag:delete | --delete | With --sync: also remove files that the source does not have |  |  | advanced,default,choices
+- flag:emptied | --emptied | With --delete: this folder of the source is empty on purpose (repeatable) |  |  | optional,advanced,check
+- flag:mode | --mode | To a server: file mode, like 0755 |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | To this computer: replace files that already exist |  |  | advanced,default,choices
+- flag:parents | --parents | To a server: create missing parent folders |  |  | advanced,default,choices
+- flag:progress | --progress | Show how far the copy is |  |  | advanced,default,choices
+- flag:size | --size | From stdin (-): how many bytes it sends, like 10MiB |  |  | optional,advanced,check
+### komando db
+title: Databases: query safely, look at the schema, back up, restore
+### komando db activity
+title: Sessions running something now: pid, user, how long, what
+- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
+- flag:all | --all | Show idle sessions too? | No shows only sessions running something now. |  | default,choices
+- flag:limit | --limit | Show at most this many sessions (0 = all) |  |  | optional,advanced,check
+### komando db add
+title: Add a database
 - arg0 | Name | Name? |  |  | check
 - arg1 | URL | URL? |  |  | optional,check
 - flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
@@ -1283,16 +1270,6 @@ title: Stop running containers (docker stop)
 title: Check komando's setup, your list and its security
 - flag:accept-old-copy | --accept-old-copy | Use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only) |  |  | advanced,default,choices
 - flag:reseal-meta | --reseal-meta | Check the store with your key and seal its settings row again, after STATE_CORRUPT for a changed settings row (a person only) |  |  | advanced,default,choices
-### komando download
-title: Download files from servers or from file storage
-- arg0 | Target (servers or file storage) | From which servers or file storage? | A server, a group like @web (one folder per server), all, or a file storage (S3, SFTP, FTP). |  | free,choices,check
-- arg1 | Path | Which file or folder? | The full path on the server, or the name in the storage. | /var/log/nginx/error.log | check
-- flag:to | --to | Where should it be saved on this computer? | A folder or file name here. Empty saves it in the folder you are in. | ./logs/ | optional,check
-- flag:recursive | --recursive | Is it a folder? (download everything in it) | Download a folder (servers) or every object under a prefix (storage) |  | default,choices
-- flag:sudo | --sudo | Read it as root (sudo)? | Yes for files only root can read. Works for single files. |  | default,choices
-- flag:overwrite | --overwrite | Replace files that are already here? | Replace files that already exist on this computer |  | default,choices
-- flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
-- flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
 ### komando exec
 title: Run a shell command on one or many servers in parallel
 - arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
@@ -2455,15 +2432,6 @@ title: Check that a saved azblob storage answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
-### komando storage download
-title: Download an object from a storage conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | Object | Which file (or folder) to download? | Its name inside the storage, as object list shows it. A folder ends in /. | reports/q3.pdf | check
-- flag:to | --to | Where to save it on this computer? | A file or a folder. Empty saves it in the current folder with its own name. | ~/Downloads/ | optional,check
-- flag:recursive | --recursive | Is it a folder? Download everything in it? | Download a folder (servers) or every object under a prefix (storage) |  | default,choices
-- flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
-- flag:overwrite | --overwrite | Replace files that already exist on this computer |  |  | advanced,default,choices
-- flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
 ### komando storage ftp
 title: Save ftp storage, and look after its objects
 ### komando storage ftp add
@@ -2916,15 +2884,6 @@ title: Check that a saved smb storage answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
-### komando storage upload
-title: Upload a file to a storage conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
-- arg1 | File | Which file on this computer? | Its path; ~/ means your home folder. | ./report.pdf | check
-- arg2 | Object | Where in the storage? | Empty keeps its name, at the top. A folder ends in /, like reports/2026/. | reports/2026/ | optional,check
-- flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
-- flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
-- flag:recursive | --recursive | Upload a folder (new and changed files, like komando sync) |  |  | advanced,default,choices
-- flag:size | --size | An upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT) |  |  | optional,advanced,check
 ### komando storage webdav
 title: Save webdav storage, and look after its objects
 ### komando storage webdav add
@@ -3013,15 +2972,6 @@ title: Check that a saved webdav storage answers and lets you in
 - arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
-### komando sync
-title: Copy a folder one way, sending only new and changed files
-- arg0 | Src | Copy from where? | A folder on this computer, SERVER:PATH on a server, or STORAGE:PREFIX in file storage. | ./site | check
-- arg1 | Dst | Copy to where? | The other side: SERVER:PATH (@web:/var/www/site for a group), STORAGE:PREFIX, or a folder here. | web1:/var/www/site | check
-- flag:exclude | --exclude | Skip some names? | Files or folders to leave out, like .git or *.log. Empty copies everything. | .git | optional,check
-- flag:delete | --delete | Also remove files that SRC does not have (needs --allow-dangerous) |  |  | advanced,default,choices
-- flag:emptied | --emptied | With --delete: this folder of SRC is empty on purpose, so its files go from DST (repeatable) |  |  | optional,advanced,check
-- flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
-- flag:sudo | --sudo | Write on the servers as root, file by file as upload --sudo does (a folder here to servers) |  |  | advanced,default,choices
 ### komando test
 title: Check that servers, conns and VPNs answer and let you in
 - arg0 | Target | Which ones? | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | free,choices,check
@@ -3046,18 +2996,6 @@ title: Stop tunnels by ID (--all for every tunnel)
 ### komando update
 title: Update komando to the newest release
 - arg0 | Version | Which version? (leave empty for the newest) | Empty installs the newest release. | v0.6.0 | optional,check
-### komando upload
-title: Upload a file to servers (many at once) or to file storage
-- arg0 | Target (servers or file storage) | To which servers or file storage? | A server, a group like @web, all, or a file storage (S3, SFTP, FTP). Several servers: separate them with spaces or commas. |  | free,choices,check
-- arg1 | File | Which file or folder on this computer? | Its path here. ./ means the folder you are in, ~/ your home folder. | ./app.tar.gz | check
-- arg2 | Dest | Where should it go? | The full path on the server, or the name in the storage. Empty uses the same name, in the login user's home folder. | /tmp/app.tar.gz | optional,check
-- flag:recursive | --recursive | Is it a folder? (copy everything in it) | Copy folders (a trailing / on SRC copies its contents) |  | default,choices
-- flag:sudo | --sudo | Put it in place as root (sudo)? | Yes for system places, like /etc. Works for single files. |  | default,choices
-- flag:parents | --parents | Make missing folders on the way? | Create missing parent folders |  | default,choices
-- flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
-- flag:mode | --mode | File mode, like 0755 |  |  | optional,advanced,check
-- flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
-- flag:size | --size | An upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT) |  |  | optional,advanced,check
 ### komando version
 title: Print the komando version and its home folder
 ### komando vpn

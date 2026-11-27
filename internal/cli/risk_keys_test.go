@@ -163,7 +163,7 @@ var whenProbes = []string{
 	"cluster scale c1 web 0",
 	"credential key remove k1 --delete-file",
 	"pkg rm web1 openssh-server",
-	"sync ./site web1:/srv --delete",
+	"copy ./site web1:/srv --sync --delete",
 	"pkg upgrade web1 --security",
 	"host edit web1 --protected=false",
 	"conn edit app-db --protected=false",

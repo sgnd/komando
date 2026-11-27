@@ -21,9 +21,8 @@ import (
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// Streams (C72): `download TARGET PATH --to -` (and `cp TARGET:PATH -`)
-// writes one file's bytes to stdout, and `upload TARGET - DEST` (and
-// `cp - TARGET:PATH`) reads them from stdin. The phone apps read and
+// Streams (C72): `copy TARGET:PATH -` writes one file's bytes to stdout,
+// and `copy - TARGET:PATH` reads them from stdin. The phone apps read and
 // write files this way, through ssh-gate.
 //
 // The contract for a stream to stdout: stdout carries the file's bytes as
@@ -72,15 +71,11 @@ func streamsToStdout(cl *call, cmd *cobra.Command) bool {
 	if cl.dryRun() {
 		return false
 	}
-	switch cmd.Name() {
-	case "download":
-		f := cmd.Flags().Lookup("to")
-		return f != nil && f.Value.String() == "-"
-	case "cp":
-		a := cmd.Flags().Args()
-		return len(a) == 2 && a[1] == "-"
+	if cmd.Name() != "copy" {
+		return false
 	}
-	return false
+	a := cmd.Flags().Args()
+	return len(a) == 2 && a[1] == "-" && !copySync(cmd)
 }
 
 // streamTo writes what get writes to w. For an AI agent it keeps what a
@@ -102,7 +97,7 @@ func streamTo(cl *call, ctx context.Context, w io.Writer, get func(io.Writer) (i
 		return streamed{}, err
 	}
 	if c.full {
-		return streamed{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file with --to FILE",
+		return streamed{}, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file: give a file as DESTINATION instead of -",
 			"the file is larger than %s, the most komando streams to an AI agent (it checks the whole file for secret values first)", term.HumanBytes(hiddenScanMax))
 	}
 	b := c.buf.Bytes()
@@ -153,7 +148,7 @@ func serverReader(cl *call, ctx context.Context, sc *sftp.Client, p string) func
 			return 0, fsErrHint(p, err, downloadPermHint)
 		}
 		if fi.IsDir() {
-			return 0, out.Usage("%s is a folder; --to - streams one file (save a folder with -r --to DIR)", p)
+			return 0, out.Usage("%s is a folder; a copy to - (stdout) takes one file (save a folder with -r and a folder as DESTINATION)", p)
 		}
 		f, err := sc.Open(p)
 		if err != nil {
@@ -171,13 +166,13 @@ func serverReader(cl *call, ctx context.Context, sc *sftp.Client, p string) func
 	}
 }
 
-// streamServer is `download TARGET PATH --to -` from one server.
+// streamServer is `copy TARGET:PATH -` from one server.
 func streamServer(cl *call, ctx context.Context, name, target, p string, o cpOpts) error {
 	switch {
 	case o.recursive:
-		return out.Usage("--to - streams one file; save a folder with -r --to DIR")
+		return out.Usage("a copy to - (stdout) takes one file; save a folder with -r and a folder as DESTINATION")
 	case o.sudo:
-		return out.Usage("--to - reads as the SSH user; read a root-only file with `komando fs cat %s %s --sudo`", target, p)
+		return out.Usage("a copy to - (stdout) reads as the SSH user; read a root-only file with `komando fs cat %s %s --sudo`", target, p)
 	}
 	if err := guardSensitiveCopy(cl, p); err != nil {
 		return err
@@ -186,7 +181,7 @@ func streamServer(cl *call, ctx context.Context, name, target, p string, o cpOpt
 	if err != nil {
 		return err
 	}
-	h, err := oneServer(cl, st, target, "--to - streams one file from one server: name one")
+	h, err := oneServer(cl, st, target, "a copy to - (stdout) takes one file from one server: name one")
 	if err != nil {
 		return err
 	}
@@ -197,7 +192,7 @@ func streamServer(cl *call, ctx context.Context, name, target, p string, o cpOpt
 	}
 	raw := takeStdout(cl)
 	if h.Windows() {
-		return out.Usage("--to - works with Linux and other Unix servers (SFTP); %s runs Windows", h.Name)
+		return out.Usage("a copy to - (stdout) works with Linux and other Unix servers (SFTP); %s runs Windows", h.Name)
 	}
 	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
@@ -205,7 +200,8 @@ func streamServer(cl *call, ctx context.Context, name, target, p string, o cpOpt
 		defer cancel()
 	}
 	r, err := streamFromServer(cl, ctx, st, h, p, raw)
-	rec := map[string]any{"src": from, "dst": "stdout", "bytes": r.bytes}
+	rec := copyRecord("stream", false, false)
+	rec["src"], rec["dst"], rec["bytes"] = from, "stdout", r.bytes
 	if err != nil {
 		rec["error"] = toErr(err).Code
 	}
@@ -284,7 +280,7 @@ func (s *stdinSource) Read(p []byte) (int, error) {
 func (s *stdinSource) sum() string { return hex.EncodeToString(s.h.Sum(nil)) }
 
 func sizeMismatch(want int64, got string) error {
-	return out.Errf(out.ExitConflict, "SIZE_CONFLICT", "send the whole file again: `komando upload TARGET - DEST --size N`",
+	return out.Errf(out.ExitConflict, "SIZE_CONFLICT", "send the whole file again: `komando copy - DESTINATION --size N`",
 		"--size said %d bytes, and stdin sent %s; nothing was put into place", want, got)
 }
 

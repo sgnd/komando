@@ -379,7 +379,7 @@ func (b *ftpBucket) Link(context.Context, string, time.Duration) (*url.URL, erro
 }
 
 func noLinks(what string) error {
-	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "download the file with `komando storage download` and share it another way",
+	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "copy the file to this computer with `komando copy` and share it another way",
 		"%s servers have no temporary download links", what)
 }
 

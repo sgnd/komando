@@ -67,11 +67,10 @@ func TestAgentLocalWriteCommands(t *testing.T) {
 	before, _ := os.ReadFile(filepath.Join(home, ".komando", "store.db"))
 	for _, p := range protected {
 		for _, args := range [][]string{
-			{"download", "web1", "/etc/hosts", "--to", p},
-			{"cp", "web1:/etc/hosts", p},
+			{"copy", "web1:/etc/hosts", p},
 			{"database", "sqlite", "backup", "lite", "--to", p},
 			{"export", "--to", p},
-			{"sync", "web1:/srv/app", p},
+			{"copy", "web1:/srv/app", p, "--sync"},
 		} {
 			_, e := invRun(t, args...)
 			if e == nil || e.Code != "SENSITIVE_FILE" {

@@ -73,6 +73,18 @@ var gateReadForm = map[safetyKey]func(c *cobra.Command) string{
 	{"host", "package", "upgradable"}: noFlag("refresh"),          // refreshes the package index
 	{"host", "package", "security"}:   noFlag("refresh"),
 	{"snippet", "", "exec"}:           gateRecipeWrites,
+	{"", "", "copy"}:                  gateCopyWrites,
+}
+
+// gateCopyWrites: copy reads only when it streams a file to the key's own
+// output (DESTINATION -, no --sync); every other copy writes at its
+// destination.
+func gateCopyWrites(c *cobra.Command) string {
+	args := c.Flags().Args()
+	if len(args) == 2 && args[1] == "-" && !copySync(c) {
+		return ""
+	}
+	return "it writes the files at its destination (copy SOURCE - streams one file to the key's own output)"
 }
 
 // gateNotForReadKey are commands a read-only key does not run, with a
@@ -98,15 +110,15 @@ var gateNotForReadKey = map[safetyKey]string{
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
-	{"host", "", "exec"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
-	{"", "cp", "copy"}: gateLocalDst, {"", "sync", "copy"}: gateLocalDst,
+	{"host", "", "exec"}: nil, {"snippet", "", "exec"}: nil,
+	{"", "", "copy"}:         gateLocalDst,
 	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
 	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
 	{"host", "package", "install"}: nil, {"host", "package", "rm"}: nil, {"host", "package", "security"}: nil, {"host", "package", "update"}: nil, {"host", "package", "upgradable"}: nil, {"host", "package", "upgrade"}: nil,
 	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
 	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
 	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
-	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
+	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil,
 	{"registry", "image", "copy"}: nil, {"registry", "image", "prune"}: nil, {"registry", "image", "delete"}: nil,
 	{"host", "docker", "compose"}: nil, {"host", "docker", "exec"}: nil, {"host", "docker", "prune"}: nil, {"host", "docker", "pull"}: nil, {"host", "docker", "raw"}: nil,
 	{"host", "docker", "restart"}: nil, {"host", "docker", "rm"}: nil, {"host", "docker", "start"}: nil, {"host", "docker", "stop"}: nil,
@@ -118,19 +130,7 @@ var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
 
 // gateSavesHere are reads that save a file on this computer, and when.
 var gateSavesHere = map[safetyKey]func(c *cobra.Command) string{
-	{"", "download", "copy"}: func(c *cobra.Command) string {
-		if to, _ := c.Flags().GetString("to"); to == "-" {
-			return "" // to the key's own output
-		}
-		return "it saves files on this computer (--to - streams one instead)"
-	},
 	{"database", "", "backup"}: func(*cobra.Command) string { return "it saves a file on this computer" },
-	{"storage", "object", "download"}: func(c *cobra.Command) string {
-		if to, _ := c.Flags().GetString("to"); to == "-" {
-			return "" // to the key's own output
-		}
-		return "it saves files on this computer (--to - prints one instead)"
-	},
 	{"", "", "export"}: func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to != "" {
 			return "--to saves a file on this computer (without it, export prints)"
@@ -139,7 +139,7 @@ var gateSavesHere = map[safetyKey]func(c *cobra.Command) string{
 	},
 }
 
-// gateLocalDst: cp and sync write here when DST is not TARGET:PATH. It
+// gateLocalDst: copy writes here when DESTINATION is not TARGET:PATH. It
 // reads the arguments with the same splitArg the command uses.
 func gateLocalDst(c *cobra.Command) string {
 	cl := callOf(c)
@@ -147,16 +147,16 @@ func gateLocalDst(c *cobra.Command) string {
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
 	}
-	if args[1] == "-" && c.Name() == "cp" {
-		// cp's stream to the key's own output (to sync, - is a folder
+	if args[1] == "-" && !copySync(c) {
+		// the stream to the key's own output (with --sync, - is a folder
 		// here); only from a server or storage: a file here is never sent
 		if _, _, remote := splitArg(cl, args[0]); !remote {
-			return "its SRC " + args[0] + " is on this computer; a key streams from servers or storage only"
+			return "its SOURCE " + args[0] + " is on this computer; a key streams from servers or storage only"
 		}
 		return ""
 	}
 	if _, _, remote := splitArg(cl, args[1]); !remote {
-		return "its DST is on this computer; a key copies to servers or storage only"
+		return "its DESTINATION is on this computer; a key copies to servers or storage only"
 	}
 	return ""
 }
@@ -677,7 +677,7 @@ database KIND shell, config vault passphrase ...) are refused (a --shell-access 
 of the server, outside these rules). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
-no download or cp to a file here (download --to - and cp SRC - stream to
+no copy to a file here (copy SRC - streams to
 the key's own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (database

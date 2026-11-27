@@ -19,9 +19,9 @@ check "exec keeps the remote exit code (like ssh)" 3 "$($K exec direct -- 'exit 
 
 # copying a file (scp): byte for byte, both ways
 head -c 300000 /dev/urandom >"$TMP/$V.bin"
-q $K cp "$TMP/$V.bin" "direct:/tmp/$V.bin"
+q $K copy "$TMP/$V.bin" "direct:/tmp/$V.bin"
 check "upload = native sha256" "$(shasum -a 256 "$TMP/$V.bin" | cut -d' ' -f1)" "$(native direct sha256sum "/tmp/$V.bin" | cut -d' ' -f1)"
-q $K cp "direct:/tmp/$V.bin" "$TMP/$V.back"
+q $K copy "direct:/tmp/$V.bin" "$TMP/$V.back"
 check "download = the same bytes" "$(shasum -a 256 "$TMP/$V.bin" | cut -d' ' -f1)" "$(shasum -a 256 "$TMP/$V.back" | cut -d' ' -f1)"
 
 # editing a file (sed -i): only the line asked for changes
@@ -48,7 +48,7 @@ check "cache TTL = redis-cli TTL" True "$(t=$(native redis redis-cli -a redispas
 
 # SFTP storage: what komando uploads is what the server holds
 echo "parity $V" >"$TMP/$V.txt"
-q $K storage upload files-sftp "$TMP/$V.txt" "$V.txt"
+q $K copy "$TMP/$V.txt" "files-sftp:$V.txt"
 check "storage upload = file on the sftp server" "parity $V" "$(native sftp cat "/home/deploy/uploads/$V.txt")"
 check "storage sftp object list = ls" True "$($K storage sftp object list files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
 fi
@@ -82,7 +82,7 @@ check "logs --file = tail" "$(native direct tail -n 5 /etc/passwd)" "$($K logs d
 
 # sync = diff -r afterwards; job logs = the job's own output
 mkdir -p "$TMP/$V.src/sub" && echo one >"$TMP/$V.src/a.txt" && echo two >"$TMP/$V.src/sub/b.txt"
-q $K sync "$TMP/$V.src" "direct:/tmp/$V.sync"
+q $K copy "$TMP/$V.src" "direct:/tmp/$V.sync" --sync
 check "sync = same tree (diff -r)" "$(cd "$TMP/$V.src" && find . -type f | sort | xargs cat | shasum | cut -c1-12)" \
   "$(native direct sh -c "cd /tmp/$V.sync && find . -type f | sort | xargs cat | sha1sum" | cut -c1-12)"
 J=$($K job start direct -- 'printf "line1\nline2\n"' | jget 'd["data"]["jobs"][0]["id"]')

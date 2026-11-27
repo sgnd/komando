@@ -201,8 +201,8 @@ komando fs list win1 'C:\inetpub\logs' -r --limit 200
 komando fs stat win1 'C:\app\web.config' --sha256
 komando fs cat win1 'C:\app\app.log' --tail 50
 komando fs write win1 'C:\app\web.config' --from ./web.config --backup --if-changed
-komando upload os:windows ./tool.exe 'C:\tools\'
-komando download win1 'C:\app\app.log' --to ./logs/
+komando copy ./tool.exe 'os:windows:C:\tools\'
+komando copy 'win1:C:\app\app.log' ./logs/
 ```
 
 - `fs list` leaves out hidden files unless `--all`.
@@ -213,7 +213,7 @@ komando download win1 'C:\app\app.log' --to ./logs/
   PowerShell of its own: `--validate 'Test-Json (Get-Content %s -Raw)'`.
   To undo, copy the `.bak` back with `komando exec win1 -- Copy-Item ...`;
   `fs restore` does not work on Windows yet.
-- `upload`, `download` and `cp` copy single files. Folders (`-r`), `--sudo`,
+- `copy` copies single files. Folders (`-r`), `--sudo`,
   `--mode` and `--owner` do not work on Windows yet.
 
 ## Services
@@ -234,8 +234,8 @@ lists services that should start automatically but stopped with an error.
 | Works | Not yet |
 |-------|--------------------------------------|
 | `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `cert check`, `snippet exec`, `reboot` |
-| `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
-| `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
+| `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `copy --sync` |
+| `copy` (single files) | `job`, `copy -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
 | `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |
 

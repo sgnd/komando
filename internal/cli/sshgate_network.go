@@ -44,7 +44,7 @@ type gateKey struct {
 // reaches a place the key names, or "".
 var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"audit": nil, "audit.verify": nil, "version": nil, "status": nil, "schema": nil, "guide": nil, "doctor": nil,
-	"list": nil, "test": nil, "logs": nil, "export": nil, "download": nil, "ssh-gate.status": nil,
+	"list": nil, "test": nil, "logs": nil, "export": nil, "copy": nil, "ssh-gate.status": nil,
 	"cache": nil, "cache.get": nil, "cache.info": nil, "cache.keys": nil, "cache.run": nil,
 	"queue": nil, "queue.describe": nil, "queue.groups": nil, "queue.info": nil, "queue.lag": nil, "queue.list": nil, "queue.peek": nil,
 	"cert": nil, "cert.check": gateCertURL,
@@ -66,7 +66,7 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"snippet": nil, "recipe.list": nil, "snippet.show": nil,
 	"registry": nil, "registry.inspect": nil, "registry.list": nil,
 	"secret": nil, "secret.list": nil, "secret.show": nil,
-	"storage": nil, "storage.cat": nil, "storage.download": nil, "storage.list": nil,
+	"storage": nil, "storage.cat": nil, "storage.list": nil,
 	"tunnel": nil, "tunnel.list": nil,
 	"vpn": nil, "vpn.list": nil, "vpn.show": nil, "vpn.status": nil, "vpn.test": nil,
 }

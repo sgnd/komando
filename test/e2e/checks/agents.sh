@@ -19,8 +19,8 @@ q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new '
 check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
 check "an agent's guess of a vault value gets the answer any value gets" True "$(A exec direct --read-only -- echo opspass | jget 'd["ok"]' || true)"
 check "the guess is in the audit log" True "$($K audit --limit 5 | jget '"secret_value_in_input" in json.dumps(d) and "opspass" not in json.dumps(d)')"
-check "agent cannot copy .env here" SENSITIVE_FILE "$(A download direct /home/agent/app/.env --to "$TMP/" | jget 'd["error"]["code"]' || true)"
-q A download direct /home/agent/app --to "$TMP/agentcopy" -r
+check "agent cannot copy .env here" SENSITIVE_FILE "$(A copy direct:/home/agent/app/.env "$TMP/" | jget 'd["error"]["code"]' || true)"
+q A copy direct:/home/agent/app "$TMP/agentcopy" -r
 check "agent folder copy leaves .env behind" "False True" "$(python3 -c "import os; print(os.path.exists('$TMP/agentcopy/.env'), os.path.exists('$TMP/agentcopy/readme.txt'))")"
 check "agent secret get --reveal refused" REVEAL_NEEDS_TERMINAL "$(A credential password show ops-pass --reveal | jget 'd["error"]["code"]' || true)"
 check "guard stops reading the vault" deny "$(printf '{"tool_name":"Read","tool_input":{"file_path":"%s/.komando/vault.key"}}' "$HOME" | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"

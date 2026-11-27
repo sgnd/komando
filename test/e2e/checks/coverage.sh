@@ -72,7 +72,7 @@ check "tunnel list" True "$($K tunnel list | ok)"
 check "db explain" True "$($K db explain pg 'select 1' | ok)"
 q $K cache set cache "$C:k" v
 check "cache keys" True "$($K cache keys cache "$C:*" | has "$C:k")"
-q $K storage upload bucket "$TMP/hosts.json" "$C/hosts.json"
+q $K copy "$TMP/hosts.json" "bucket:$C/hosts.json"
 check "storage s3 object link" True "$($K storage s3 object link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
 check "storage s3 object link --endpoint signs for that address" True "$($K storage s3 object link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"
 U=$($K storage s3 object link bucket "$C/hosts.json" --endpoint http://s3:3900 | jget 'd["data"]["url"]')

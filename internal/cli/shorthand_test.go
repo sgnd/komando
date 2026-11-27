@@ -105,7 +105,7 @@ func TestStandardShorthands(t *testing.T) {
 		"g": {"group": editOrAdd},
 		"l": {"selector": cluster},
 		"n": {"namespace": cluster, "limit": func(p string) bool { return !cluster(p) && !in(p, "storage s3 object delete") }},
-		"p": {"parents": func(p string) bool { return in(p, "cp", "upload", "fs write", "fs replace", "fs mkdir") },
+		"p": {"parents": func(p string) bool { return in(p, "copy", "fs write", "fs replace", "fs mkdir") },
 			"priority": func(p string) bool { return in(p, "logs", "docker logs") }},
 		"r": {"recursive": nil}, "s": {"sudo": nil},
 		"t": {"tag": editOrAdd},

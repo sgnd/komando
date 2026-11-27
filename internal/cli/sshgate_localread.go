@@ -30,11 +30,8 @@ var gateLocalFlags = map[string][]string{
 }
 
 var gateLocalArgs = map[string]func(c *cobra.Command) string{
-	"upload":         gateArgFile(1),
-	"storage.upload": gateArgFile(1),
-	"cp":             gateLocalSrc,
-	"sync":           gateLocalSrc,
-	"cluster.run":    gateKubectlFiles,
+	"copy":        gateLocalSrc,
+	"cluster.run": gateKubectlFiles,
 }
 
 // gateLocalRead says why c as given reads a file on this computer, or "".
@@ -54,27 +51,17 @@ func gateLocalRead(c *cobra.Command, name string) string {
 	return ""
 }
 
-// gateArgFile: argument i is a file on this computer ("-": the key's input).
-func gateArgFile(i int) func(c *cobra.Command) string {
-	return func(c *cobra.Command) string {
-		if args := c.Flags().Args(); i < len(args) && args[i] != "-" {
-			return args[i] + " is a file on this computer"
-		}
-		return ""
-	}
-}
-
-// gateLocalSrc: cp and sync read here when SRC is not TARGET:PATH.
+// gateLocalSrc: copy reads here when SOURCE is not TARGET:PATH.
 func gateLocalSrc(c *cobra.Command) string {
 	args := c.Flags().Args()
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
 	}
-	if args[0] == "-" && c.Name() == "cp" {
-		return "" // cp - DST: the key's own input; to sync, - is a folder here
+	if args[0] == "-" && !copySync(c) {
+		return "" // copy - DESTINATION: the key's own input; with --sync, - is a folder here
 	}
 	if _, _, remote := splitArg(callOf(c), args[0]); !remote {
-		return "its SRC " + args[0] + " is on this computer"
+		return "its SOURCE " + args[0] + " is on this computer"
 	}
 	return ""
 }

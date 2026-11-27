@@ -66,7 +66,7 @@ nouns]
 | Kind | Top-level commands |
 |---|---|
 | Nouns | every noun in S-2.1 |
-| Shortcuts | `list`, `test`, `exec`, `shell`, `logs`, `cp`, `upload`, `download`, `sync`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
+| Shortcuts | `list`, `test`, `exec`, `shell`, `logs`, `copy`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
 | About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `help`, `ssh-gate` |
 | Help topics (only as `komando help TOPIC`) | `environment`, `exit-codes`, `output`, `safety` |
 
@@ -163,7 +163,6 @@ tool-word list S-3.3]
 | `rename` | rename an item and every reference to it | mv | git branch -m |
 | `rm` | take an item out of komando (the real thing is not touched) | remove, delete, del | git rm, docker rm |
 | `test` | can komando reach it and log in | ping | ansible ping |
-| `cp` | copy to a new name or place | copy | cp |
 | `check` | compare against a rule, change nothing | | terraform validate |
 
 ### Verbs inside a target
@@ -193,8 +192,9 @@ tool-word list S-3.3]
 | `run` | the area's own raw command (`cache redis raw`, `cluster kubernetes raw`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
 | `shell` | an interactive session, person only (aliases ssh, connect) | |
-| `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
-| `sync`, `backup`, `restore` | copy trees, back up and load | rsync, pg_dump |
+| `copy` | files between this computer, servers and file storage; `--sync` sends only what changed | cp, scp, rsync, aws s3 cp |
+| `dump`, `restore` | back up and load | pg_dump |
+| `up`, `down` | a VPN session | wg-quick, tailscale |
 | `login`, `logout` | a kept login | gh auth, docker login |
 | `install`, `uninstall` | put files in, take them out | helm, apt |
 | `update` | refresh an index (`pkg update`); komando itself at top level | apt update |
@@ -339,7 +339,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--container` | `-c` | string | a container name | |
 | `--dir` | `-C` | string | the working folder | |
 | `--revision` | | int | a release or rollout revision | 0 = previous |
-| `--progress` | | bool | with `-o json`, progress as one JSON object per line on stderr (`upload`, `download`, `cp`, `sync`, `storage upload/download`); text mode keeps its own progress line | false |
+| `--progress` | | bool | with `-o json`, progress as one JSON object per line on stderr (`copy`); text mode keeps its own progress line | false |
 
 **S-5.2** Durations use one komando type (`Type() == "duration"`): Go units
 and `Nd` days. A bare integer is accepted only as `0`; every other span

@@ -171,8 +171,8 @@ func TestGateCheck(t *testing.T) {
 		{"__complete exec ''", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"host add x u@10.0.0.9", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"credential password add db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"cp web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
-		{"cp web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
+		{"copy web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
+		{"copy web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
 		{"exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
 		{"exec web --read-only -- uptime", "", ""},
 		{"docker exec web app ls", "", "SSH_GATE_READ_ONLY"},
@@ -205,18 +205,15 @@ func TestGateCheck(t *testing.T) {
 		{"cluster kubernetes exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
 		{"cluster kubernetes exec k8s pod/x --read-only -- ls", "", ""},
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
-		{"cp web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"download web /etc/hosts --to -", "", ""}, // a stream to the key's own stdout saves nothing here
-		{"download s3 backups/db.gz --to -", "", ""},
-		{"download web /etc/hosts --to=-", "", ""},
-		{"download web /etc/hosts --to ./-", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"upload web - /tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
-		{"storage upload s3 - backups/db.gz", "", "SSH_GATE_READ_ONLY"},
-		{"cp - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"},
-		{"sync - web:/tmp/app", "SSH_GATE_REFUSED", "SSH_GATE_READ_ONLY"},   // to sync, - is a folder here
-		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"},                   // cp is a change kind: read-only keys use download --to -
-		{"sync web:/var/log/app -", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
+		{"copy web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy web:/etc/hosts .", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy web:/etc/hosts -", "", ""}, // a stream to the key's own stdout saves nothing here
+		{"copy s3:backups/db.gz -", "", ""},
+		{"copy web:/etc/hosts ./-", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
+		{"copy - s3:backups/db.gz", "", "SSH_GATE_READ_ONLY"},
+		{"copy - web:/tmp/app --sync", "SSH_GATE_REFUSED", "SSH_GATE_READ_ONLY"},   // to sync, - is a folder here
+		{"copy web:/var/log/app - --sync", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
 		{"database postgres backup pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage s3 object link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object create s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
@@ -225,13 +222,13 @@ func TestGateCheck(t *testing.T) {
 		{"cluster kubernetes tunnel start k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
-		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
-		{"cp web:/tmp/rc .bashrc", R, R},
-		{"cp ./app.tar.gz web:/tmp/app.tar.gz", R, "SSH_GATE_READ_ONLY"},
-		{"sync ./site web:/var/www/site", R, "SSH_GATE_READ_ONLY"},
-		{"sync web:/var/log/app ./logs", R, R},
-		{"storage download s3 a.txt --to .profile", R, R},
-		{"storage download s3 a.txt --to -", "", ""},
+		{"copy web:/home/u/.ssh/id_ed25519.pub .ssh/authorized_keys --overwrite", R, R},
+		{"copy web:/tmp/rc .bashrc", R, R},
+		{"copy ./app.tar.gz web:/tmp/app.tar.gz", R, "SSH_GATE_READ_ONLY"},
+		{"copy ./site web:/var/www/site --sync", R, "SSH_GATE_READ_ONLY"},
+		{"copy web:/var/log/app ./logs --sync", R, R},
+		{"copy s3:a.txt .profile", R, R},
+		{"copy s3:a.txt -", "", ""},
 		{"export --to x.json", R, R},
 		{"export", "", ""},
 		{"conn add pg postgres://u@db/x", R, R},
@@ -338,7 +335,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"cluster apply k8slocal --file pod.yaml":                                            R,
 		"cluster kubernetes raw k8slocal --write -- delete pod x":                           R,
 		"cluster apply k8s --file pod.yaml":                                                 R, // reads a file here
-		"storage upload sftplocal x.txt .ssh/authorized_keys":                               R,
+		"copy x.txt sftplocal:.ssh/authorized_keys":                                         R,
 		"storage sftp object create sftplocal x":                                            R, // the storage changes meet the local-target rule too
 		"storage sftp object move sftplocal a.txt b.txt":                                    R,
 		"storage sftp object move sftplocal a.txt --mode 0600":                              R,
@@ -357,7 +354,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"exec u@192.0.2.10 -- id":                                            R, // ad hoc: could be this computer's own address
 		"exec 192.0.2.10:22 -- id":                                           R,
 		"exec u@127.0.0.1.nip.io -- id":                                      R,
-		"cp ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":                   R,
+		"copy ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":                 R,
 		"logs u@192.0.2.10 --file /var/log/x":                                R, // reads too
 		"exec web,me -- id":                                                  R,
 		"exec @nothing -- id":                                                R, // cannot tell where: refused
@@ -369,16 +366,15 @@ func TestGateLocalTargets(t *testing.T) {
 		"fs restore me /home/u/.bashrc":                                      R,
 		"fs restore web /etc/nginx/nginx.conf":                               "", // the undo of fs replace --backup
 		"docker raw me -- run -v /:/h x":                                     R,
-		"cp ./id.pub me:/home/u/.ssh/x":                                      R,
-		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                           R, // reads a file here
-		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                      R,
-		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                       R,
-		"cp web:/tmp/k web:/tmp/k2":                                          "",
-		"download me /home/u/.ssh/id_ed25519 --to -":                         R, // a stream reads here too
-		"storage download sftplocal .ssh/id_ed25519 --to -":                  R,
-		"cp ./id_ed25519 -":                                                  R, // SRC on this computer, whatever DST is
-		"cp me:/home/u/.ssh/id_ed25519 -":                                    R,
-		"sync ./site web:/var/www":                                           R, // reads files here
+		"copy ./id.pub me:/home/u/.ssh/x":                                    R,
+		"copy me:/home/u/.ssh/id_ed25519 web:/tmp/k":                         R, // reads a file here
+		"copy web:/tmp/k me:/home/u/.ssh/authorized_keys":                    R,
+		"copy web:/tmp/k sftplocal:.ssh/authorized_keys":                     R,
+		"copy web:/tmp/k web:/tmp/k2":                                        "",
+		"copy me:/home/u/.ssh/id_ed25519 -":                                  R, // a stream reads here too
+		"copy sftplocal:.ssh/id_ed25519 -":                                   R,
+		"copy ./id_ed25519 -":                                                R, // SRC on this computer, whatever DST is
+		"copy ./site web:/var/www --sync":                                    R, // reads files here
 		"snippet exec disk me":                                               R, // runs its command here
 		"snippet exec disk web":                                              "",
 		"database postgres query pghostparam --write 'select 1'":             R, // pgx dials ?host=
@@ -531,8 +527,7 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir) // sshd runs the gate in the account's home
 	for _, line := range []string{
-		"komando download web /tmp/k.pub --to .ssh/authorized_keys --overwrite",
-		"komando cp web:/tmp/k.pub .ssh/authorized_keys --overwrite",
+		"komando copy web:/tmp/k.pub .ssh/authorized_keys --overwrite",
 		"komando host add me u@127.0.0.1",
 		"komando config set audit off --yes",
 		"komando update",

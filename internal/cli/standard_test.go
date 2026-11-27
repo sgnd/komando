@@ -73,7 +73,7 @@ func TestStandardTopLevel(t *testing.T) {
 		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "job", "tunnel", "config",
 		"fs", "pkg", "docker", "cert", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
+		"list", "test", "exec", "shell", "logs", "copy", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
 		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "help", "ssh-gate",
@@ -151,7 +151,7 @@ var (
 	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "cp", "check",
 		"describe", "get", "info", "status", "logs", "history", "events", "create", "set",
 		"start", "stop", "restart", "reload", "enable", "disable", "kill", "wait", "purge", "prune",
-		"exec", "run", "query", "shell", "upload", "download", "sync", "backup", "restore", "up", "down",
+		"exec", "run", "query", "shell", "backup", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
 		"remove", "raw", "copy", "delete", "read", "move", "link"} // the v2.7 verbs join as their type moves (step C)
@@ -247,7 +247,7 @@ var useWords = []string{"TARGET", "SERVER", "CONN", "NAME", "GROUP", "USER", "JO
 	// an item of the command's own kind
 	"MODE", "PID", "SQL", "TABLE", "TOPIC", "UNIT", "PACKAGE", "RELEASE", "REPLICAS", "SECTION", "SOURCE",
 	"VERSION", "KIND", "OLD", "NEW", "VALUE", "TEXT", "PATTERN", "PREFIX", "REGEX", "PUBLIC_KEY", "SRC", "DST",
-	"DEST", "CONTAINER", "REPO", "LOCAL", "REMOTE", "SPEC", "SCHEDULE", "REF", "SRC_CONN", "DST_CONN", "TYPE"}
+	"DEST", "DESTINATION", "CONTAINER", "REPO", "LOCAL", "REMOTE", "SPEC", "SCHEDULE", "REF", "SRC_CONN", "DST_CONN", "TYPE"}
 
 var useToken = regexp.MustCompile(`[A-Z][A-Z_]*(/[A-Z]+)?`)
 

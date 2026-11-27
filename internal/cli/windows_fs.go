@@ -363,7 +363,7 @@ func winFsCat(cl *call, ctx context.Context, st *store.State, h *store.Host, p s
 	}
 	if trunc && tail > 0 {
 		// the part read is the start of the file: its last lines are not the file's
-		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "raise --max-bytes, or save it with `komando download`",
+		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "raise --max-bytes, or save it with `komando copy`",
 			"%s is larger than --max-bytes (%s), so --tail cannot show its last lines", abs, term.HumanBytes(maxBytes))
 	}
 	return catContent(cl, h.Name, abs, b, trunc, head, tail, numbered)

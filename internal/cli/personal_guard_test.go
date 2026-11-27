@@ -115,9 +115,9 @@ func blockedCode(d map[string]any) string {
 }
 
 // Every command that copies a target's data to this computer hides
-// personal data as download does; fs replace shows the file too.
+// personal data as copy does; fs replace shows the file too.
 func TestCopiesHidePersonalData(t *testing.T) {
-	for _, id := range []string{"cp", "sync", "download", "fs replace", "storage download"} {
+	for _, id := range []string{"copy", "fs replace"} {
 		if !personalCmds[id] {
 			t.Errorf("%s shows or saves a target's data, but personal data is never hidden for it", id)
 		}
@@ -440,7 +440,7 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 		t.Fatalf("no masking conn yet: %s", got)
 	}
 	to := filepath.Join(t.TempDir(), "x.csv")
-	if _, e := invRun(t, "download", "dev", "/tmp/x.csv", "--to", to, "--dry-run"); e != nil || tcl.out.Personal {
+	if _, e := invRun(t, "copy", "dev:/tmp/x.csv", to, "--dry-run"); e != nil || tcl.out.Personal {
 		t.Fatalf("a download from dev, no masking conn yet: hidden %v, %+v", tcl.out.Personal, e)
 	}
 	setGate(tcl, false, gateDryRun)
@@ -453,7 +453,7 @@ func TestExecOnAMaskingConnsServerHidesPersonalData(t *testing.T) {
 		t.Fatalf("a masking conn reaches the database through dev: %s", got)
 	}
 	// a download from dev takes the same decision (runCp's selection)
-	if _, e := invRun(t, "download", "dev", "/tmp/x.csv", "--to", to, "--dry-run"); e != nil || !tcl.out.Personal {
+	if _, e := invRun(t, "copy", "dev:/tmp/x.csv", to, "--dry-run"); e != nil || !tcl.out.Personal {
 		t.Fatalf("a download from dev: hidden %v, %+v", tcl.out.Personal, e)
 	}
 	setGate(tcl, false, gateDryRun)

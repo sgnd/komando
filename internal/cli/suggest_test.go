@@ -2,6 +2,7 @@ package cli
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +66,25 @@ func TestSwappedLine(t *testing.T) {
 	}
 	if _, ok := swappedLine([]string{"exec", "web1", "--", "exce"}, "exce", "exec"); ok {
 		t.Error("a word after -- was swapped")
+	}
+}
+
+// Every command a foreign word suggests exists: its words (up to the first
+// placeholder, flag or "...") walk down the command tree to one command.
+// A command that is renamed or removed fails here, not in a person's shell.
+func TestForeignWordsSuggestRunnableCommands(t *testing.T) {
+	root := newRoot(tcl)
+	for word, sug := range foreignWords {
+		var path []string
+		for _, w := range strings.Fields(sug) {
+			if w == "--" || w == "..." || strings.HasPrefix(w, "-") || w != strings.ToLower(w) {
+				break
+			}
+			path = append(path, w)
+		}
+		c, rest, err := root.Find(path)
+		if err != nil || c == root || len(rest) != 0 || !(c.Runnable() || c.HasSubCommands()) {
+			t.Errorf("%s suggests %q, which is no komando command (found %q, left over %v, %v)", word, sug, c.CommandPath(), rest, err)
+		}
 	}
 }

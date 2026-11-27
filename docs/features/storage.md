@@ -107,8 +107,8 @@ komando storage s3 object read backups config/app.env --head 20
 ## Download and upload
 
 ```bash
-komando download backups 2026/app.sql.gz                    # into the current folder
-komando upload backups ./app.sql.gz 2026/app.sql.gz
+komando copy backups:2026/app.sql.gz .                    # into the current folder
+komando copy ./app.sql.gz backups:2026/app.sql.gz
 ```
 
 ```text
@@ -116,38 +116,35 @@ backups: app.sql.gz (48.2 MiB)
 uploaded ./app.sql.gz -> 2026/app.sql.gz (48.2 MiB), replaced the old object
 ```
 
-Typed alone, `komando download` asks which server or storage, then the
-path.
+Typed alone, `komando copy` asks where from and where to.
 
 ```bash
-komando download backups reports/q3.pdf --to ~/Downloads/   # into a folder
-komando download backups logs/app.log --to - | less         # to stdout
-komando download backups reports -r --to ./reports          # a whole folder
-komando upload backups ./a.pdf reports/                     # stores reports/a.pdf
-komando upload backups ./reports reports -r                 # a whole folder
+komando copy backups:reports/q3.pdf ~/Downloads/   # into a folder
+komando copy backups:logs/app.log - | less         # to stdout
+komando copy backups:reports ./reports -r          # a whole folder
+komando copy ./a.pdf backups:reports/                     # stores reports/a.pdf
+komando copy ./reports backups:reports -r                 # a whole folder
 ```
 
-`komando storage download` and `komando storage upload` do the same for
-storage conns only, and `komando cp` writes the same copy as
-`cp ./a.pdf backups:reports/`. A folder upload (`-r`) sends only new and
-changed files, like `komando sync`.
+A copy into a folder (`-r`) sends only new and changed files with `--sync`:
+`komando copy ./reports backups:reports --sync`.
 
-- Downloads never overwrite a file on your computer unless you add
-  `--overwrite`. The file is readable only by you. `--to` takes a file name,
+- A copy to your computer never overwrites a file there unless you add
+  `--overwrite`. The file is readable only by you. The destination takes a file name,
   a folder (one that exists, or a name ending in `/`: the file keeps its
   name inside), or `-` to stream it to stdout (any `-o`: komando's own
   answer then goes to stderr). A folder download keeps files that are
   already there.
-- `komando storage upload CONN - KEY` (or `upload CONN - KEY`) streams
+- `komando copy - CONN:KEY` streams
   stdin into KEY; `--size N` makes a stream of another length fail with
   `SIZE_CONFLICT` and replace nothing. See
   [Stream a file through stdout or stdin](files.md#stream-a-file-through-stdout-or-stdin).
 - Uploads replace an object with the same key; the result says
   `"replaced": true`. A key ending in `/` is a folder.
-- On a protected conn, `upload` asks a person at a terminal first; an AI
+- On a protected conn, a copy to it asks a person at a terminal first; an AI
   agent or a script adds `--yes` after a person agrees.
-- `--dry-run` sends nothing, but checks: `upload` shows the key and
-  whether it would replace an object, `download` where the file would go
+- `--dry-run` sends nothing, but checks: a copy to the conn shows the key and
+  whether it would replace an object, a copy from it where the file would go
   and its size.
 - `--continue` goes on with one file that was cut off. A download keeps
   the part already on your computer when it matches the object (sha256),
@@ -158,15 +155,15 @@ changed files, like `komando sync`.
   `--continue`). Storage
   cannot work out the sum of part of an object, so komando reads the part
   already copied once more to check it.
-- `komando cp` also copies between two storage conns, or between a conn
-  and a server: `komando cp backups:2026/db.sql.gz dr-backups:2026/`. The
+- `komando copy` also copies between two storage conns, or between a conn
+  and a server: `komando copy backups:2026/db.sql.gz dr-backups:2026/`. The
   data streams through your computer and is never saved on its disk.
 - To keep a folder in step and send only new and changed files, use
-  `komando sync` (see [Files](files.md)):
+  `komando copy --sync` (see [Files](files.md)):
 
 ```bash
-komando sync ./site backups:site --exclude '*.tmp'
-komando sync backups:2026/ ./restore
+komando copy ./site backups:site --sync --exclude '*.tmp'
+komando copy backups:2026/ ./restore --sync
 ```
 
 ## Share a file with a temporary link
@@ -186,7 +183,7 @@ komando storage s3 object link backups 2026/app.sql.gz --endpoint https://files.
 
 - For an AI agent, `storage s3 object link` needs a person's yes (`--reveal`): a
   link is the file as it is, past the hiding that `storage s3 object read` and
-  `storage download` apply. Without it the command stops with
+  `copy` apply. Without it the command stops with
   `SENSITIVE_FILE`; for a file that is a secret by its name (`.env`, a
   key) it always does.
 - The link works for anyone who has it until it expires. Share it like a
@@ -241,7 +238,7 @@ would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is chec
   `640`, `2775`), and the result says the old mode too. Only SFTP servers
   have modes; on any other kind it stops with `STORAGE_UNSUPPORTED` before
   komando contacts the storage.
-- All three are changes, like `upload`: try them with `--dry-run`, a
+- All three are changes, like `copy`: try them with `--dry-run`, a
   protected conn asks a person first (an AI agent or a script adds `--yes`
   after a person agrees), and each run is in `komando audit list`.
 
@@ -335,8 +332,8 @@ server as a conn:
 komando credential password add hosting-pass
 komando storage ftp add site 'ftps://deploy@files.example.com/public_html' --credential hosting-pass
 komando storage s3 object list site --recursive
-komando upload site ./index.html index.html
-komando download site logs/error.log
+komando copy ./index.html site:index.html
+komando copy site:logs/error.log .
 ```
 
 - Uploads go to a temporary name first and are renamed into place, so a
@@ -365,7 +362,7 @@ A shared folder on a Windows server, Samba, a NAS or Azure Files (the
 komando credential password add team-share
 komando storage smb add team 'smb://alice@fileserver.corp.lan/team/reports?domain=CORP' --credential team-share
 komando storage s3 object list team
-komando upload team ./q3.pdf 2026/q3.pdf
+komando copy ./q3.pdf team:2026/q3.pdf
 ```
 
 - **The URL:** `smb://USER@HOST/SHARE/FOLDER`. The first part of the path
@@ -434,10 +431,10 @@ komando conn rm backups                       # komando forgets it; the files st
   FTP, and on FTPS when the connection closes after the encryption is set
   up, the only sign is the server's answer at the end, and a server that
   says "226 Transfer complete" anyway is believed. komando stops when the
-  connection closes before the encryption is set up, and `sync --delete`
+  connection closes before the encryption is set up, and `copy --sync --delete`
   stops before it empties a folder the source lists as empty
   (`EMPTY_FOLDER_CONFIRM_REQUIRED`, see [files.md](files.md)). A folder
-  that only lists some of its files is not caught: run `sync --delete`
+  that only lists some of its files is not caught: run `copy --sync --delete`
   from an FTP or FTPS source with `--dry-run` first and read what it
   would delete.
 

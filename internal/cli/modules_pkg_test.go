@@ -102,7 +102,7 @@ func TestPkgNameRemovalSuffixOnEveryAction(t *testing.T) {
 	} {
 		wantCode(t, "USAGE", append(args, "--dry-run")...)
 	}
-	if e := wantCode(t, "USAGE", "pkg", "install", "web1", "./app.deb"); !strings.Contains(e.Message, "komando upload") {
+	if e := wantCode(t, "USAGE", "pkg", "install", "web1", "./app.deb"); !strings.Contains(e.Message, "komando copy") {
 		t.Errorf("message: %s", e.Message)
 	}
 }

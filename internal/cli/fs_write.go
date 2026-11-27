@@ -386,7 +386,7 @@ func fsWriteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			h, err := oneServer(cl, st, args[0], "to put one file on many servers use `komando upload "+args[0]+" FILE PATH`")
+			h, err := oneServer(cl, st, args[0], "to put one file on many servers use `komando copy FILE "+args[0]+":PATH`")
 			if err != nil {
 				return err
 			} else if h.Windows() {
