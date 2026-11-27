@@ -532,41 +532,52 @@ func shellGlobMatches(p, f string) bool {
 // checkTreeChange refuses rm -r, mv and chmod, chown or chgrp -R of a
 // folder that is or holds a protected path or a guard file, the rule
 // find -delete follows (touchesProtected): the change reaches everything
-// under the folder. A glob counts as the names it matches now.
-func checkTreeChange(cl *call, base string, args []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
+// under the folder. A glob counts as the names it matches now. bases are
+// the names the program may have; each word is checked once, however many
+// argument lists and names give it.
+func checkTreeChange(cl *call, bases, args []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
 	lines, flat, whole := treeLines(cl, args, globs, vars, home, cwd)
 	if !whole {
 		return deny("the line has %s; name the folders plainly", braceLimitWhy)
 	}
 	if flat {
-		base = anyProgram // one list of every value: an option from one value says nothing of the words after it
+		bases = []string{anyProgram} // one list of every value: an option from one value says nothing of the words after it
 	}
-	verb := "changes"
-	switch base {
-	case "rm":
-		verb = "removes"
-	case "mv", "trash":
-		verb = "moves"
-	case anyProgram:
-		verb = "may remove or move"
-	}
-	for _, line := range lines {
-		words := make([]string, len(line))
-		for i, w := range line {
-			words[i] = w.w
-		}
-		for _, i := range treeOperands(base, words) {
-			if words[i] == "" {
-				continue // an empty value names no folder: the word goes, or rm "" fails
+	checked := map[treeWord]bool{}
+	for _, base := range bases {
+		for _, line := range lines {
+			words := make([]string, len(line))
+			for i, w := range line {
+				words[i] = w.w
 			}
-			for _, p := range treeTargets(cl, words[i], line[i].glob, home, cwd) {
-				if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
-					return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)
+			for _, i := range treeOperands(base, words) {
+				if words[i] == "" || checked[line[i]] {
+					continue // an empty value names no folder: the word goes, or rm "" fails
+				}
+				checked[line[i]] = true
+				for _, p := range treeTargets(cl, words[i], line[i].glob, home, cwd) {
+					if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
+						return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, treeVerb(base), p)
+					}
 				}
 			}
 		}
 	}
 	return allow()
+}
+
+// treeVerb is what the program base does to a folder checkTreeChange
+// refuses.
+func treeVerb(base string) string {
+	switch base {
+	case "rm":
+		return "removes"
+	case "mv", "trash":
+		return "moves"
+	case anyProgram:
+		return "may remove or move"
+	}
+	return "changes"
 }
 
 // anyProgram stands for a program the guard cannot name before the line

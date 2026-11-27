@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // cp, mv and rsync write DEST/NAME, or a folder's contents into DEST; ln
@@ -182,6 +184,24 @@ func TestGuardFolderRuleSplitsValuesAsTheShellDoes(t *testing.T) {
 		`S='a b'; mv "$S" /tmp/out`,
 		`IFS=,; o="build,/tmp/out"; mv $o`,
 	}, false)
+}
+
+// The folder rule checks each word once, however many argument lists and
+// program values a line gives: a crafted line ends well inside the guard's
+// time budget.
+func TestGuardFolderRuleChecksEachWordOnce(t *testing.T) {
+	home, repo := guardLineHome(t)
+	names := make([]string, 64)
+	for i := range names {
+		names[i] = fmt.Sprint(i + 1)
+	}
+	list := "{" + strings.Join(names, ",") + "}"
+	line := "A=a; true || A=b; P=rm; true || P=trash; $P -rf $A $A $A $A $A $A /tmp/x/" + list + " /tmp/y/" + list
+	start := time.Now()
+	checkLines(t, home, repo, []string{line}, false)
+	if el := time.Since(start); el > time.Second {
+		t.Errorf("the check took %v, want under 1s", el)
+	}
 }
 
 // Copies and links in project and temporary folders stay allowed.

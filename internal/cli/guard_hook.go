@@ -440,10 +440,8 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 			bases = append(bases, filepath.Base(p))
 		}
 	}
-	for _, b := range bases {
-		if d := checkTreeChange(cl, b, words[from:], globs[from:], vars, home, cwd); d.Deny {
-			return d
-		}
+	if d := checkTreeChange(cl, bases, words[from:], globs[from:], vars, home, cwd); d.Deny {
+		return d
 	}
 	if b := filepath.Base(prog); copyPrograms[b] {
 		return checkCopyInto(cl, b, args, globs[first:], vars, home, cwd)
