@@ -79,7 +79,7 @@ conn.rename	plain=change	highest=read
 conn.rm	plain=change	highest=read
 conn.show	plain=read	highest=read
 conn.test	plain=read	highest=read
-cp	plain=change	highest=read
+copy	plain=change	highest=dangerous
 db	plain=read	highest=read
 db.activity	plain=read	highest=read
 db.add	plain=change	highest=read
@@ -117,7 +117,6 @@ docker.start	plain=change	highest=read
 docker.stats	plain=read	highest=read
 docker.stop	plain=change	highest=read
 doctor	plain=read	highest=read
-download	plain=read	highest=read
 environment	plain=change	highest=read
 exec	plain=dangerous	highest=dangerous
 exit-codes	plain=change	highest=read
@@ -207,6 +206,7 @@ probe cache redis edit prod-redis --protected=false	safety
 probe cluster kubernetes edit prod-k8s --protected=false	safety
 probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
+probe copy ./site web1:/srv --sync --delete	dangerous
 probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
@@ -225,7 +225,6 @@ probe recipe add r1 --overwrite --read-only	safety
 probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
 probe storage s3 edit prod-s3 --protected=false	safety
-probe sync ./site web1:/srv --delete	dangerous
 probe vpn edit kantor --mfa=false	safety
 probe vpn edit kantor --protected=false	safety
 queue	plain=read	highest=read
@@ -382,7 +381,6 @@ storage.azblob.remove	plain=change	highest=read
 storage.azblob.rename	plain=change	highest=read
 storage.azblob.show	plain=read	highest=read
 storage.azblob.test	plain=read	highest=read
-storage.download	plain=read	highest=read
 storage.ftp	plain=read	highest=read
 storage.ftp.add	plain=change	highest=read
 storage.ftp.edit	plain=change	highest=safety
@@ -455,7 +453,6 @@ storage.smb.remove	plain=change	highest=read
 storage.smb.rename	plain=change	highest=read
 storage.smb.show	plain=read	highest=read
 storage.smb.test	plain=read	highest=read
-storage.upload	plain=change	highest=read
 storage.webdav	plain=read	highest=read
 storage.webdav.add	plain=change	highest=read
 storage.webdav.edit	plain=change	highest=safety
@@ -470,7 +467,6 @@ storage.webdav.remove	plain=change	highest=read
 storage.webdav.rename	plain=change	highest=read
 storage.webdav.show	plain=read	highest=read
 storage.webdav.test	plain=read	highest=read
-sync	plain=change	highest=dangerous
 test	plain=read	highest=read
 tunnel	plain=read	highest=read
 tunnel.list	plain=read	highest=read
@@ -478,7 +474,6 @@ tunnel.serve	plain=change	highest=read
 tunnel.start	plain=safety	highest=safety
 tunnel.stop	plain=change	highest=read
 update	plain=safety	highest=safety
-upload	plain=change	highest=read
 version	plain=read	highest=read
 vpn	plain=read	highest=read
 vpn.add	plain=change	highest=read

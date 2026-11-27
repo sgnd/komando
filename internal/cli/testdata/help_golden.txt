@@ -26,9 +26,8 @@ Usage:
 
 Servers:
   cert         TLS certificates: when do they expire, and do they verify
-  cp           Copy files, written SRC DST with TARGET:PATH (upload/download)
+  copy         Copy files between this computer, servers and file storage
   docker       Docker on servers: check, read logs, run compose, clean up
-  download     Download files from servers or from file storage
   exec         Run a shell command on one or many servers in parallel
   fs           Files on servers: read, edit, undo an edit, move, remove
   job          Long-running jobs on servers: start, follow, wait for, stop
@@ -36,14 +35,11 @@ Servers:
   pkg          Packages on servers: install, update, remove, check for updates
   recipe       Ready-made and saved commands: run them, save your own
   shell        Open a login shell on one server (person only)
-  sync         Copy a folder one way, sending only new and changed files
-  upload       Upload a file to servers (many at once) or to file storage
 
 Data:
   cache        Caches (Redis, Valkey, memcached): read and change keys
   db           Databases: query safely, look at the schema, back up, restore
   queue        Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage
-  storage      Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Platform:
   cluster      Kubernetes clusters: save, check, read logs, roll out, scale
@@ -82,6 +78,9 @@ Setup:
   ssh-gate     Let an SSH key run komando here and nothing else (person only)
   update       Update komando to the newest release
   version      Print the komando version and its home folder
+
+Additional Commands:
+  storage      Buckets (S3, GCS, Azure) and file servers: save them, and look after their files
 
 Flags:
       --connect-timeout duration   time to connect, like 30s (default: setting connect_timeout, 15s)
@@ -2656,66 +2655,38 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando cp --help
+### komando copy --help
 exit 0
 --- stdout
-Remote paths are written TARGET:PATH (TARGET: alone, or TARGET:~/x, is the
-login user's home folder). Uploads accept any target selector (@group,
-tag:x, ...) and run in parallel. Downloads from several servers go to
-DST/<server>/... . A single-file copy reports its sha256, so you can check
-it. TARGET can be a storage conn too (backups:2026/db.sql.gz). cp is upload
-or download written the cp way: the same code, flags and results.
+Copy files between this computer, servers and file storage.
 
-Safety: a change; try it with --dry-run first.
-
-With TARGET:PATH on both sides, cp copies from one server or storage conn
-to another (server to server, storage to storage, or one of each). The
-data streams through this computer and is never saved on its disk. The
-file at the destination is replaced, as an upload replaces it.
-
---continue goes on with a single file that was cut off: the part already
-at the destination is kept when it matches the source (sha256), the rest
-is sent, and the whole file is checked against the source. A destination
-that is longer, or differs, stops with RESUME_CONFLICT and is not touched.
-S3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and
-cannot add to one (RESUME_UNSUPPORTED).
-
-Folders (-r), like cp and rsync:
-  SRC/  (trailing slash)  the contents of SRC go into DST
-  SRC   into a new DST    DST becomes the copy of SRC
-  SRC   into a folder DST of the same name (site -> /var/www/site): DST is
-        updated in place, so running the same copy again never nests site/site
-  SRC   into another existing folder DST: the copy is DST/SRC
-Symbolic links are not copied (they are listed as skipped). For repeatable
-deploys that send only changed files, use `komando sync`.
+Safety: a change; try it with --dry-run first; with --sync --delete:
+dangerous, it cannot be undone: a person types the name to go on, and an AI
+agent or a script needs --allow-dangerous.
 
 Usage:
-  komando cp SRC DST [flags]
-
-Aliases:
-  cp, copy
+  komando copy SOURCE DESTINATION [flags]
 
 Examples:
-  komando cp ./app.tar.gz @web:/tmp/app.tar.gz
-  komando cp -r ./site web1:/var/www/site
-  komando cp ./nginx.conf web1:/etc/nginx/nginx.conf --sudo
-  komando cp web1:/var/log/nginx/error.log ./logs/
-  komando cp @web:/etc/nginx/nginx.conf ./configs/
-  komando cp ./db.sql.gz backups:2026/db.sql.gz
-  komando cp web1:/var/backups/db.sql.gz web2:/var/backups/
-  komando cp -r web1:/var/www/site backups:sites/
-  komando cp web1:/var/backups/db.sql.gz ./db.sql.gz --continue
+  komando copy ./app.tar.gz web1:/tmp/app.tar.gz
+  komando copy ./site @web:/var/www/site --sync --dry-run
+  komando copy web1:/var/log/nginx/error.log ./logs/
+  komando copy ./db.sql.gz backups:2026/db.sql.gz
 
 Flags:
-      --continue[=true|false]    go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)
-  -h, --help[=true|false]        help for cp
-      --mode string              upload: file mode, like 0755
-      --overwrite[=true|false]   download: replace files that already exist on this computer
-  -p, --parents[=true|false]     upload: create missing parent folders
-      --progress[=true|false]    with -o json, write progress to the error output (stderr), one JSON object per line
-  -r, --recursive[=true|false]   copy folders (a trailing / on SRC copies its contents)
-      --size bytes               an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)
-  -s, --sudo[=true|false]        single files with sudo: install as root (upload), read as root (download)
+      --continue[=true|false]    go on with a single file that was cut off
+      --delete[=true|false]      with --sync: also remove files that the source does not have
+      --emptied stringArray      with --delete: this folder of the source is empty on purpose (repeatable)
+      --exclude stringArray      with --sync: skip names or paths that match this glob (repeatable)
+  -h, --help[=true|false]        help for copy
+      --mode string              to a server: file mode, like 0755
+      --overwrite[=true|false]   to this computer: replace files that already exist
+  -p, --parents[=true|false]     to a server: create missing parent folders
+      --progress[=true|false]    show how far the copy is
+  -r, --recursive[=true|false]   copy folders (a trailing / on the source copies its contents)
+      --size bytes               from stdin (-): how many bytes it sends, like 10MiB
+  -s, --sudo[=true|false]        single files: install as root (to a server) or read as root (from one); with --sync, write a folder as root
+      --sync[=true|false]        send only what changed (compares size, mode and time); the source is a folder
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -3975,62 +3946,6 @@ Flags:
       --accept-old-copy[=true|false]   use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only)
   -h, --help[=true|false]              help for doctor
       --reseal-meta[=true|false]       check the store with your key and seal its settings row again, after STATE_CORRUPT for a changed settings row (a person only)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando download --help
-exit 0
---- stdout
-PATH is the path on the servers, or the key in the storage conn. --to is
-where it lands: a file name, or a folder (existing, or ending in /); a
-folder per server when several are picked. A file that is already here is
-replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
-and a folder keeps them (kept) and copies the rest. --sudo reads one file
-as root (up to 512 MiB).
-
---to - streams one file to stdout, from a server or storage: stdout has the
-file's bytes and nothing else, whatever -o says, and komando's own answer
-(the result with bytes and sha256, or the error) goes to stderr.
-
---continue goes on with a download of one file that was cut off: the part
-already here is kept when it matches the source (sha256), the rest is
-fetched, and the whole file is checked. A file here that is longer, or
-differs, stops with RESUME_CONFLICT and is not touched.
-
-Folders (-r), like cp and rsync:
-  PATH/  (trailing slash)  the contents of PATH go into --to
-  PATH   into a new --to    --to becomes the copy of PATH
-  PATH   into a folder --to of the same name (/var/log/app -> ./app): it
-         is updated in place, so downloading again never nests app/app
-  PATH   into another existing folder --to: the copy is --to/NAME
-Without --to it lands in the current folder under its own name. Symbolic
-links are not copied (they are listed as skipped).
-
-Usage:
-  komando download TARGET PATH [flags]
-
-Examples:
-  komando download web1 /var/log/nginx/error.log --to ./logs/
-  komando download @web /etc/nginx/nginx.conf --to ./configs/
-  komando download backups 2026/db.sql.gz
-  komando download backups reports/ -r --to ./reports
-  komando download web1 /var/backups/db.sql.gz --continue
-  komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf
-
-Flags:
-      --continue[=true|false]    go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)
-  -h, --help[=true|false]        help for download
-      --overwrite[=true|false]   replace files that already exist on this computer
-      --progress[=true|false]    with -o json, write progress to the error output (stderr), one JSON object per line
-  -r, --recursive[=true|false]   download a folder (servers) or every object under a prefix (storage)
-  -s, --sudo[=true|false]        read the file as root (single files)
-      --to string                where to save it, or - to stream it to stdout (default: the current folder)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -11082,46 +10997,26 @@ Global Flags (all of them: komando --help):
 ### komando storage --help
 exit 0
 --- stdout
-List, copy and share files in a bucket or on a file server. Add one with
-`komando storage s3 add` (or gcs, azblob, sftp, ftp, smb, webdav).
-
-It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,
-or a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,
-Samba, Azure Files). Keys are relative to the folder in the storage URL; a
-key ending in / is a folder. ls, cat and download only read. upload,
-mkdir, mv and chmod (SFTP only) change files and link shares one (S3,
-Google Cloud and Azure; on production storage they ask first); rm deletes,
-so it also needs --allow-dangerous.
-Downloads never overwrite a local file unless --overwrite, and uploads to
-file servers go to a temporary name first, so a failed upload leaves
-nothing half written.
-
-The storage itself: komando storage s3 add, komando storage s3 test NAME,
-komando storage s3 edit NAME, komando storage s3 remove NAME. komando list
-kind:storage lists them.
+Buckets (S3, GCS, Azure) and file servers: save them, and look after their files
 
 Usage:
   komando storage [flags]
   komando storage [command]
 
-Aliases:
-  storage, s3
-
 Examples:
   komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+  komando storage s3 test backups
   komando storage s3 object list backups 2026/
-  komando download backups 2026/app.sql.gz --to ./
+  komando copy backups:2026/app.sql.gz ./
   komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run
 
 Available Commands:
   azblob      Save azblob storage, and look after its objects
-  download    Download an object from a storage conn
   ftp         Save ftp storage, and look after its objects
   gcs         Save gcs storage, and look after its objects
   s3          Save s3 storage, and look after its objects
   sftp        Save sftp storage, and look after its objects
   smb         Save smb storage, and look after its objects
-  upload      Upload a file to a storage conn
   webdav      Save webdav storage, and look after its objects
 
 Flags:
@@ -11576,36 +11471,6 @@ Flags:
       --end[=true|false]    end the session a person's login keeps open
   -h, --help[=true|false]   help for test
       --wait duration       wait this long for a person's sign-in
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando storage download --help
-exit 0
---- stdout
-Same as `komando download TARGET PATH`.
-
-Usage:
-  komando storage download CONN OBJECT [flags]
-
-Aliases:
-  download, get
-
-Examples:
-  komando storage download backups reports/q3.pdf --to ~/Downloads/
-
-Flags:
-      --continue[=true|false]    go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)
-  -h, --help[=true|false]        help for download
-      --overwrite[=true|false]   replace files that already exist on this computer
-      --progress[=true|false]    with -o json, write progress to the error output (stderr), one JSON object per line
-  -r, --recursive[=true|false]   download a folder (servers) or every object under a prefix (storage)
-      --to string                where to save it, or - to stream it to stdout (default: the current folder)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -13765,39 +13630,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage upload --help
-exit 0
---- stdout
-Same as `komando upload TARGET FILE [DEST]`.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando storage upload CONN FILE [OBJECT] [flags]
-
-Aliases:
-  upload, put
-
-Examples:
-  komando storage upload backups ./report.pdf reports/2026/
-  komando storage upload backups ./report.pdf reports/2026/ --dry-run
-
-Flags:
-      --continue[=true|false]    go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)
-  -h, --help[=true|false]        help for upload
-      --progress[=true|false]    with -o json, write progress to the error output (stderr), one JSON object per line
-  -r, --recursive[=true|false]   upload a folder (new and changed files, like komando sync)
-      --size bytes               an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando storage webdav --help
 exit 0
 --- stdout
@@ -14216,59 +14048,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando sync --help
-exit 0
---- stdout
-One side is a folder on this computer; the other is TARGET:PATH on servers
-(many at once: @web:/var/www/site) or CONN:PREFIX in a storage conn (a
-bucket or a file server). Files that are new, a different size or file mode,
-or newer in SRC are copied; the rest are left alone. --delete also removes
-files SRC no longer has (that needs --allow-dangerous). --exclude skips
-names or paths (shell globs, repeatable). Try --dry-run first: it lists
-every file it would touch.
-
-Safety: a change; try it with --dry-run first; with --delete: dangerous, it
-cannot be undone: a person types the name to go on, and an AI agent or a
-script needs --allow-dangerous.
-
---delete stops before it empties a folder that SRC lists as empty while
-DST has files in it: a listing cut short looks like that. A person types
-the folder to go on; a script names each folder it means with --emptied
-(--allow-dangerous alone does not do), or removes the folder on DST first.
-
---sudo writes on the servers as root, for a folder the SSH user cannot
-write (/etc/nginx): each file goes in as `upload --sudo` puts one, staged
-privately and checked by root, keeping the owner of a file that is there;
-the SSH user still needs to read the folder.
-
-Usage:
-  komando sync SRC DST [flags]
-
-Examples:
-  komando sync ./site @web:/var/www/site --exclude .git --dry-run
-  komando sync ./site web1:/var/www/site --delete --dry-run
-  komando sync ./site web1:/var/www/site --delete --allow-dangerous   # after a person's yes
-  komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run
-  komando sync ./backups backups:2026/ --exclude '*.tmp'
-  komando sync backups:2026/ ./restore
-  komando sync web1:/var/log/app ./logs/web1
-
-Flags:
-      --delete[=true|false]     also remove files that SRC does not have (needs --allow-dangerous)
-      --emptied stringArray     with --delete: this folder of SRC is empty on purpose, so its files go from DST (repeatable)
-      --exclude stringArray     skip names or paths matching this glob (repeatable), like .git, '*.log'
-  -h, --help[=true|false]       help for sync
-      --progress[=true|false]   with -o json, write progress to the error output (stderr), one JSON object per line
-  -s, --sudo[=true|false]       write on the servers as root, file by file as upload --sudo does (a folder here to servers)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando test --help
 exit 0
 --- stdout
@@ -14488,69 +14267,6 @@ Examples:
 
 Flags:
   -h, --help[=true|false]   help for update
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando upload --help
-exit 0
---- stdout
-DEST is the path on the servers, or the key in the storage conn. It defaults
-to the file's name (servers: in the login user's home folder; ~/x works
-too). A storage KEY ending in / is a folder, so the file keeps its name
-inside it. An existing file at DEST is replaced (the result says replaced).
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-FILE - reads the file from stdin into DEST, which then names the file: on a
-server through a temporary file moved into place at the end. --size N
-makes a stream of another length fail (SIZE_CONFLICT) and replace nothing.
-
---continue goes on with an upload of one file that was cut off: the part
-already at DEST is kept when it matches the file (sha256), the rest is
-sent, and the whole file is checked. S3, Google Cloud Storage, Azure
-Blob and WebDAV store a file whole and cannot add to one
-(RESUME_UNSUPPORTED).
-
-Folders (-r), like cp and rsync:
-  FILE/  (trailing slash)  the contents of FILE go into DEST
-  FILE   into a new DEST    DEST becomes the copy of FILE
-  FILE   into a folder DEST of the same name (site -> /var/www/site): DEST
-         is updated in place, so running the same upload again never nests
-         site/site
-  FILE   into another existing folder DEST: the copy is DEST/FILE
-Without DEST the folder keeps its name (servers: in the home folder). In
-storage, a DEST ending in / is an existing folder. Symbolic links are not
-copied (they are listed as skipped). For repeatable deploys that send only
-changed files, use `komando sync`.
-
-Usage:
-  komando upload TARGET FILE [DEST] [flags]
-
-Examples:
-  komando upload @web ./app.tar.gz /tmp/app.tar.gz
-  komando upload @web ./app.tar.gz /tmp/app.tar.gz --dry-run
-  komando upload web1 ./site /var/www/site -r
-  komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
-  komando upload backups ./db.sql.gz 2026/db.sql.gz
-  komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
-  komando upload web1 - /etc/app/motd --size 120 < motd.txt
-
-Flags:
-      --continue[=true|false]    go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256)
-  -h, --help[=true|false]        help for upload
-      --mode string              file mode, like 0755
-  -p, --parents[=true|false]     create missing parent folders
-      --progress[=true|false]    with -o json, write progress to the error output (stderr), one JSON object per line
-  -r, --recursive[=true|false]   copy folders (a trailing / on SRC copies its contents)
-      --size bytes               an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)
-  -s, --sudo[=true|false]        install into place with sudo (single files)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

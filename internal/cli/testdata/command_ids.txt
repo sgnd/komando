@@ -79,7 +79,7 @@ conn.rename
 conn.rm
 conn.show
 conn.test
-cp
+copy
 db
 db.activity
 db.add
@@ -117,7 +117,6 @@ docker.start
 docker.stats
 docker.stop
 doctor
-download
 environment
 exec
 exit-codes
@@ -357,7 +356,6 @@ storage.azblob.remove
 storage.azblob.rename
 storage.azblob.show
 storage.azblob.test
-storage.download
 storage.ftp
 storage.ftp.add
 storage.ftp.edit
@@ -430,7 +428,6 @@ storage.smb.remove
 storage.smb.rename
 storage.smb.show
 storage.smb.test
-storage.upload
 storage.webdav
 storage.webdav.add
 storage.webdav.edit
@@ -445,7 +442,6 @@ storage.webdav.remove
 storage.webdav.rename
 storage.webdav.show
 storage.webdav.test
-sync
 test
 tunnel
 tunnel.list
@@ -453,7 +449,6 @@ tunnel.serve
 tunnel.start
 tunnel.stop
 update
-upload
 version
 vpn
 vpn.add

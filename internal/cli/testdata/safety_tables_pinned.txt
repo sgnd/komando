@@ -79,7 +79,7 @@ conn.rename	kind=change|	target="conns"
 conn.rm	kind=change|	target="conns"	
 conn.show	kind=read|	target="conns"	
 conn.test	kind=read|	target="conns"	
-cp	kind=depends|changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC	target="servers or file storage"	
+copy	kind=depends|changes the destination: a server or bucket when it is the DESTINATION, only this computer when it is the SOURCE	target="servers or file storage"	dangerous|with --sync --delete|deletes the files in the destination that the source does not have||||
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
 db.add	kind=change|	target=""	
@@ -117,7 +117,6 @@ docker.start	kind=change|	target="servers"
 docker.stats	kind=read|	target="servers"	
 docker.stop	kind=change|	target="servers"	
 doctor	kind=read|	target=""	
-download	kind=read|	target="servers or file storage"	
 environment	kind=none	target=""	
 exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 exit-codes	kind=none	target=""	
@@ -207,6 +206,7 @@ probe cache redis edit prod-redis --protected=false	safety|turns protection off|
 probe cluster kubernetes edit prod-k8s --protected=false	safety|turns protection off||
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe conn edit app-db --protected=false	safety|turns protection off||
+probe copy ./site web1:/srv --sync --delete	dangerous|deletes the files in the destination that the source does not have||
 probe export --for-phone	person|||
 probe export --sealed	person|||
 probe group rm big	change|||deleting a group of more than 3 members
@@ -225,7 +225,6 @@ probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet
 probe registry oci edit ghcr --protected=false	safety|turns protection off||
 probe secret keychain	person|moves the key into the keychain||
 probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
-probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
 probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
 probe vpn edit kantor --protected=false	safety|turns protection off||
 queue	kind=read|	target=""	
@@ -382,7 +381,6 @@ storage.azblob.remove	kind=change|	target=""
 storage.azblob.rename	kind=change|	target=""	
 storage.azblob.show	kind=read|	target=""	
 storage.azblob.test	kind=read|	target=""	
-storage.download	kind=read|	target=""	
 storage.ftp	kind=read|	target=""	
 storage.ftp.add	kind=change|	target=""	
 storage.ftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
@@ -455,7 +453,6 @@ storage.smb.remove	kind=change|	target=""
 storage.smb.rename	kind=change|	target=""	
 storage.smb.show	kind=read|	target=""	
 storage.smb.test	kind=read|	target=""	
-storage.upload	kind=change|	target=""	
 storage.webdav	kind=read|	target=""	
 storage.webdav.add	kind=change|	target=""	
 storage.webdav.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
@@ -470,7 +467,6 @@ storage.webdav.remove	kind=change|	target=""
 storage.webdav.rename	kind=change|	target=""	
 storage.webdav.show	kind=read|	target=""	
 storage.webdav.test	kind=read|	target=""	
-sync	kind=change|	target="servers or file storage"	dangerous|with --delete|deletes the files in DST that SRC does not have||||
 test	kind=read|	target=""	
 tunnel	kind=read|	target="servers"	
 tunnel.list	kind=read|	target="servers"	
@@ -478,7 +474,6 @@ tunnel.serve	kind=none	target="servers"
 tunnel.start	kind=change|	target="servers"	safety|||it listens on an open address|||
 tunnel.stop	kind=change|	target="servers"	
 update	kind=change|	target=""	safety|||it installs an older version|||
-upload	kind=change|	target="servers or file storage"	
 version	kind=read|	target=""	
 vpn	kind=read|	target="VPNs"	
 vpn.add	kind=change|	target="VPNs"	
