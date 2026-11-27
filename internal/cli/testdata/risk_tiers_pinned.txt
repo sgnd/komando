@@ -190,7 +190,13 @@ key.rm	plain=change	highest=dangerous
 key.show	plain=read	highest=read
 komando	plain=change	highest=read
 list	plain=read	highest=read
+login	plain=person	highest=person
 login-holder	plain=change	highest=read
+login.aws	plain=person	highest=person
+login.azure	plain=change	highest=read
+login.gcp	plain=change	highest=read
+logout	plain=change	highest=read
+logout.aws	plain=change	highest=read
 logs	plain=read	highest=read
 net	plain=read	highest=read
 net.check	plain=read	highest=read

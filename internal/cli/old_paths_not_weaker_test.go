@@ -224,7 +224,7 @@ func TestHostExecKeepsItsNetworkRule(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
 	for _, provider := range []string{"ssh", "winrm"} {
-		_, _, e := gateCheck([]string{"host", provider, "exec", "web1", "--read-only", "--", "uptime"}, readKey)
+		_, _, e := gateCheck([]string{"host", provider, "exec", "web", "--read-only", "--", "uptime"}, readKey)
 		if e == nil || e.Code != "SSH_GATE_NETWORK_REQUIRED" {
 			t.Errorf("host %s exec --read-only for a read key: %v, want SSH_GATE_NETWORK_REQUIRED", provider, e)
 		}

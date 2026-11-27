@@ -1320,7 +1320,7 @@
 "host ssh exec --help"	shell	host.ssh.exec	runs
 "host ssh exec --read-only"	full	host.ssh.exec	runs
 "host ssh exec --read-only"	netread	host.ssh.exec	runs
-"host ssh exec --read-only"	read	host.ssh.exec	runs
+"host ssh exec --read-only"	read	host.ssh.exec	SSH_GATE_NETWORK_REQUIRED|komando host ssh exec is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
 "host ssh exec --read-only"	shell	host.ssh.exec	runs
 "host ssh exec --refresh"	full	host.ssh.exec	runs
 "host ssh exec --refresh"	netread	host.ssh.exec	runs
@@ -1726,6 +1726,38 @@
 "list"	netread	list	runs
 "list"	read	list	runs
 "list"	shell	list	runs
+"login --help"	full	login	runs
+"login --help"	netread	login	runs
+"login --help"	read	login	runs
+"login --help"	shell	login	runs
+"login aws --help"	full	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws --help"	netread	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws --help"	read	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws --help"	shell	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	full	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	netread	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	read	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login aws"	shell	login.aws	SSH_GATE_REFUSED|komando login aws needs a person at a terminal on this computer; a key cannot run it
+"login azure --help"	full	login.azure	runs
+"login azure --help"	netread	login.azure	runs
+"login azure --help"	read	login.azure	runs
+"login azure --help"	shell	login.azure	runs
+"login azure"	full	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login azure"	netread	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login azure"	read	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login azure"	shell	login.azure	SSH_GATE_REFUSED|komando login azure is komando's own plumbing, not for a key
+"login gcp --help"	full	login.gcp	runs
+"login gcp --help"	netread	login.gcp	runs
+"login gcp --help"	read	login.gcp	runs
+"login gcp --help"	shell	login.gcp	runs
+"login gcp"	full	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login gcp"	netread	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login gcp"	read	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login gcp"	shell	login.gcp	SSH_GATE_REFUSED|komando login gcp is komando's own plumbing, not for a key
+"login"	full	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"login"	netread	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"login"	read	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"login"	shell	login	SSH_GATE_REFUSED|komando login is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "login-holder --help"	full	login-holder	runs
 "login-holder --help"	netread	login-holder	runs
 "login-holder --help"	read	login-holder	runs
@@ -1734,6 +1766,22 @@
 "login-holder"	netread	login-holder	SSH_GATE_REFUSED|komando login-holder is komando's own plumbing, not for a key
 "login-holder"	read	login-holder	SSH_GATE_REFUSED|komando login-holder is komando's own plumbing, not for a key
 "login-holder"	shell	login-holder	SSH_GATE_REFUSED|komando login-holder is komando's own plumbing, not for a key
+"logout --help"	full	logout	runs
+"logout --help"	netread	logout	runs
+"logout --help"	read	logout	runs
+"logout --help"	shell	logout	runs
+"logout aws --help"	full	logout.aws	runs
+"logout aws --help"	netread	logout.aws	runs
+"logout aws --help"	read	logout.aws	runs
+"logout aws --help"	shell	logout.aws	runs
+"logout aws"	full	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout aws"	netread	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout aws"	read	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout aws"	shell	logout.aws	SSH_GATE_REFUSED|komando logout aws is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	full	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	netread	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	read	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"logout"	shell	logout	SSH_GATE_REFUSED|komando logout is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "logs --help"	full	logs	runs
 "logs --help"	netread	logs	runs
 "logs --help"	read	logs	runs

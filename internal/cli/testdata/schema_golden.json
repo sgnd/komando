@@ -7035,6 +7035,90 @@
         ]
       },
       {
+        "path": "komando login",
+        "usage": "komando login [SERVER] [flags]",
+        "short": "Log in once to a server or a cloud account (person only)",
+        "long": "Type the password and code once; for 8 hours your commands and your AI\nagent reuse that login. The safety rules, approvals and history of each\ncommand stay the same.\n\nSafety: only a person at a terminal can run it.\n\n`komando logout SERVER` ends it sooner, and `komando status` lists the kept\nlogins. A login to a jump host covers every server behind it. The 8 hours\ncome from the login_for setting.\n\nkomando login aws logs in to AWS IAM Identity Center (SSO).",
+        "example": "  komando login web1      # answer the code once; AI agents can then use web1\n  komando login web1 --dry-run\n  komando logout web1\n  komando login aws --profile prod",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando login aws",
+        "usage": "komando login aws [flags]",
+        "short": "Log in to AWS IAM Identity Center for a profile (person only)",
+        "long": "Opens the AWS sign-in page in your browser and waits until you confirm the\ncode shown here. The login is saved where the aws CLI keeps it\n(~/.aws/sso/cache), so komando, the AWS SDKs and the aws CLI all use it. The\nprofile is the one in ~/.aws/config with sso_start_url or sso_session, or a\nprofile that assumes a role from one (source_profile).\n\nSafety: only a person at a terminal can run it.\n\nConns that name the profile (--option aws_profile=NAME) use the login until\nit runs out; then their commands stop with AWS_LOGIN_REQUIRED and the same\ncommand renews it. Logging in is for a person: an AI agent gets\nNEEDS_PERSON and asks you to run it. A profile with keys in\n~/.aws/credentials needs no login.",
+        "example": "  komando login aws --profile prod       # opens the browser; confirm the code shown\n  komando login aws                      # the profile in AWS_PROFILE, else default\n  komando login aws --profile prod --dry-run   # which sign-in page, without logging in",
+        "flags": [
+          {
+            "name": "profile",
+            "type": "string",
+            "usage": "profile in ~/.aws/config (default: AWS_PROFILE, else default)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando logout",
+        "usage": "komando logout [SERVER...] [flags]",
+        "short": "End server logins kept by `komando login` (--all for every one)",
+        "long": "Ends what `komando login SERVER` keeps: the connection closes, and later\ncommands to that server log in again (a two-factor server asks a person).\n`komando status` lists the logins that are kept. `komando logout aws` ends\nan AWS IAM Identity Center (SSO) login.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando logout web1\n  komando logout web1 --dry-run\n  komando logout --all\n  komando logout aws --profile prod",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "end every kept server login"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando logout aws",
+        "usage": "komando logout aws [flags]",
+        "short": "End an AWS IAM Identity Center (SSO) login",
+        "long": "Ends the SSO login a profile uses, as `aws sso logout` does: AWS is told to\nend the token, and the login saved in ~/.aws/sso/cache is deleted, so\nkomando, the AWS SDKs and the aws CLI all need `komando login aws` again.\nProfiles that share the login (one sso-session) are logged out together.\n--all ends every SSO login of the profiles in ~/.aws/config.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando logout aws --profile prod\n  komando logout aws --profile prod --dry-run\n  komando logout aws --all",
+        "flags": [
+          {
+            "name": "all",
+            "type": "bool",
+            "default": "false",
+            "usage": "end every AWS SSO login"
+          },
+          {
+            "name": "profile",
+            "type": "string",
+            "usage": "profile in ~/.aws/config (default: AWS_PROFILE, else default)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
         "path": "komando logs",
         "usage": "komando logs TARGET [flags]",
         "short": "Read logs from journald, a file or a container",

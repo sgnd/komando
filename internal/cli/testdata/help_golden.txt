@@ -63,6 +63,8 @@ Inventory:
 
 Access:
   key          SSH keys: make, add, put on servers, take off
+  login        Log in once to a server or a cloud account (person only)
+  logout       End server logins kept by `komando login` (--all for every one)
   secret       Saved passwords and tokens: store, check, use as secret:NAME
   vpn          VPNs komando connects when a path needs one: add, connect, check
 
@@ -6428,6 +6430,154 @@ Examples:
 Flags:
   -h, --help[=true|false]   help for list
   -n, --limit int           show at most this many items (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando login --help
+exit 0
+--- stdout
+Type the password and code once; for 8 hours your commands and your AI
+agent reuse that login. The safety rules, approvals and history of each
+command stay the same.
+
+Safety: only a person at a terminal can run it.
+
+`komando logout SERVER` ends it sooner, and `komando status` lists the kept
+logins. A login to a jump host covers every server behind it. The 8 hours
+come from the login_for setting.
+
+komando login aws logs in to AWS IAM Identity Center (SSO).
+
+Usage:
+  komando login [SERVER] [flags]
+  komando login [command]
+
+Examples:
+  komando login web1      # answer the code once; AI agents can then use web1
+  komando login web1 --dry-run
+  komando logout web1
+  komando login aws --profile prod
+
+Available Commands:
+  aws         Log in to AWS IAM Identity Center for a profile (person only)
+
+Flags:
+  -h, --help[=true|false]   help for login
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando login [command] --help" for more information about a command.
+--- stderr
+### komando login aws --help
+exit 0
+--- stdout
+Opens the AWS sign-in page in your browser and waits until you confirm the
+code shown here. The login is saved where the aws CLI keeps it
+(~/.aws/sso/cache), so komando, the AWS SDKs and the aws CLI all use it. The
+profile is the one in ~/.aws/config with sso_start_url or sso_session, or a
+profile that assumes a role from one (source_profile).
+
+Safety: only a person at a terminal can run it.
+
+Conns that name the profile (--option aws_profile=NAME) use the login until
+it runs out; then their commands stop with AWS_LOGIN_REQUIRED and the same
+command renews it. Logging in is for a person: an AI agent gets
+NEEDS_PERSON and asks you to run it. A profile with keys in
+~/.aws/credentials needs no login.
+
+Usage:
+  komando login aws [flags]
+
+Examples:
+  komando login aws --profile prod       # opens the browser; confirm the code shown
+  komando login aws                      # the profile in AWS_PROFILE, else default
+  komando login aws --profile prod --dry-run   # which sign-in page, without logging in
+
+Flags:
+  -h, --help[=true|false]   help for aws
+      --profile string      profile in ~/.aws/config (default: AWS_PROFILE, else default)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando logout --help
+exit 0
+--- stdout
+Ends what `komando login SERVER` keeps: the connection closes, and later
+commands to that server log in again (a two-factor server asks a person).
+`komando status` lists the logins that are kept. `komando logout aws` ends
+an AWS IAM Identity Center (SSO) login.
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando logout [SERVER...] [flags]
+  komando logout [command]
+
+Examples:
+  komando logout web1
+  komando logout web1 --dry-run
+  komando logout --all
+  komando logout aws --profile prod
+
+Available Commands:
+  aws         End an AWS IAM Identity Center (SSO) login
+
+Flags:
+      --all[=true|false]    end every kept server login
+  -h, --help[=true|false]   help for logout
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando logout [command] --help" for more information about a command.
+--- stderr
+### komando logout aws --help
+exit 0
+--- stdout
+Ends the SSO login a profile uses, as `aws sso logout` does: AWS is told to
+end the token, and the login saved in ~/.aws/sso/cache is deleted, so
+komando, the AWS SDKs and the aws CLI all need `komando login aws` again.
+Profiles that share the login (one sso-session) are logged out together.
+--all ends every SSO login of the profiles in ~/.aws/config.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando logout aws [flags]
+
+Examples:
+  komando logout aws --profile prod
+  komando logout aws --profile prod --dry-run
+  komando logout aws --all
+
+Flags:
+      --all[=true|false]    end every AWS SSO login
+  -h, --help[=true|false]   help for aws
+      --profile string      profile in ~/.aws/config (default: AWS_PROFILE, else default)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

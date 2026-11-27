@@ -1101,6 +1101,20 @@ title: Show a key's public part, or a person its private key
 title: List servers, conns and VPNs
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many items (0 = all) |  |  | optional,advanced,check
+### komando login
+title: Log in once to a server or a cloud account (person only)
+- arg0 | Server | Server? |  |  | optional,choices,check
+### komando login aws
+title: Log in to AWS IAM Identity Center for a profile (person only)
+- flag:profile | --profile | Which AWS profile? | Its name in ~/.aws/config. Leave empty for the usual one. Your browser opens for the AWS sign-in. | prod | optional,check
+### komando logout
+title: End server logins kept by `komando login` (--all for every one)
+- arg0 | Server | From which servers? (leave empty with --all) | Ends the login `komando login` kept. Several: separate them with spaces. |  | optional,free,choices,check
+- flag:all | --all | End every kept login instead? | End every kept server login |  | default,choices
+### komando logout aws
+title: End an AWS IAM Identity Center (SSO) login
+- flag:profile | --profile | Which AWS profile? | The profile in ~/.aws/config whose SSO login should end. Empty: AWS_PROFILE, else default. | prod | optional,check
+- flag:all | --all | End every AWS SSO login |  |  | advanced,default,choices
 ### komando logs
 title: Read logs from journald, a file or a container
 - arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check

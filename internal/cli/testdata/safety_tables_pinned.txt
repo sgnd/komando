@@ -190,7 +190,13 @@ key.rm	kind=change|	target="servers"	dangerous|with --delete-file|deletes the pr
 key.show	kind=read|	target="servers"	
 komando	kind=none	target=""	
 list	kind=read|	target=""	
+login	kind=change|	target=""	person||||||
 login-holder	kind=none	target=""	
+login.aws	kind=change|	target=""	person||||||
+login.azure	kind=none	target=""	
+login.gcp	kind=none	target=""	
+logout	kind=change|	target=""	
+logout.aws	kind=change|	target=""	
 logs	kind=read|	target="servers"	
 net	kind=read|	target="servers"	
 net.check	kind=read|	target="servers"	
