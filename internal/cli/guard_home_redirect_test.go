@@ -59,12 +59,12 @@ func TestAgentHomeRedirect(t *testing.T) {
 	found := false
 	for _, e := range d["entries"].([]any) {
 		m := e.(map[string]any)
-		if m["command"] == "exec" && m["blocked"] == "PROTECTED_TARGET" && m["agent"] != nil {
+		if m["command"] == "host.ssh.exec" && m["blocked"] == "PROTECTED_TARGET" && m["agent"] != nil { // the leaf ID (rule R1)
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("the agent's blocked exec is in the person's audit log: %v", d["entries"])
+		t.Errorf("the agent's blocked exec is not in the person's audit log: %v", d["entries"])
 	}
 }
 
