@@ -314,9 +314,9 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 	cases := []struct {
 		cmd, tier string // tier: words of its Safety line, "" for a read
 	}{
-		{"host list", ""},
-		{"host rm", "a change"},
-		{"secret rm", "dangerous"},
+		{"host ssh list", ""},
+		{"host ssh remove", "a change"},
+		{"credential password remove", "dangerous"},
 	}
 	// the runs first: a whole tree built before them could hide a step
 	// that only the whole tree takes
