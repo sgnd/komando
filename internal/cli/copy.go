@@ -304,22 +304,30 @@ func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts)
 	return colonHint(runDownload(ctx, cmd, srcT, srcP, dstP, false, o), args[0])
 }
 
+// cpLocalChecks are an upload's checks that need no server: the local path
+// exists, a folder needs -r, and --sudo takes single files.
+func cpLocalChecks(target, local string, o cpOpts) error {
+	fi, err := os.Stat(local)
+	if err != nil {
+		return localFileErr("PATH_NOT_FOUND", err, "")
+	}
+	if fi.IsDir() && !o.recursive {
+		return out.Usage("%s is a folder; add -r", local)
+	}
+	if fi.IsDir() && o.sudo {
+		return out.Usage("--sudo uploads single files; upload the folder to a place you own (for example /tmp/%s), then `komando host ssh exec %s --sudo -- cp -r /tmp/%s/. DEST/`",
+			filepath.Base(local), target, filepath.Base(local))
+	}
+	return nil
+}
+
 // runCp copies between this computer and the servers target picks, over
 // SFTP: local to remote when up is true, else remote to local.
 func runCp(cl *call, ctx context.Context, name, target, remote, local string, up bool, o cpOpts) error {
-	// checks that need no server come first
 	stdin := up && local == "-"
 	if up && !stdin {
-		fi, err := os.Stat(local)
-		if err != nil {
-			return localFileErr("PATH_NOT_FOUND", err, "")
-		}
-		if fi.IsDir() && !o.recursive {
-			return out.Usage("%s is a folder; add -r", local)
-		}
-		if fi.IsDir() && o.sudo {
-			return out.Usage("--sudo uploads single files; upload the folder to a place you own (for example /tmp/%s), then `komando host ssh exec %s --sudo -- cp -r /tmp/%s/. DEST/`",
-				filepath.Base(local), target, filepath.Base(local))
+		if err := cpLocalChecks(target, local, o); err != nil {
+			return err
 		}
 	}
 	st, err := loadState()
