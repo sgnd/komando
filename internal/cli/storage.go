@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -36,7 +37,7 @@ func storageCmd() *cobra.Command {
 		Aliases: []string{"s3"},
 		Short:   "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove",
 		Long: `List, copy and share files in a bucket or on a file server. Add one with
-` + "`komando storage add`" + `.
+` + "`komando storage s3 add`" + ` (or gcs, azblob, sftp, ftp, smb, webdav).
 
 It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,
 or a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,
@@ -49,22 +50,15 @@ Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
 nothing half written.
 
-The storage itself: komando storage add, komando test CONN, komando conn
-edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
-		Example: `  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
-  komando storage list backups 2026/
+The storage itself: komando storage s3 add, komando storage s3 test NAME,
+komando storage s3 edit NAME, komando storage s3 remove NAME. komando list
+kind:storage lists them.`,
+		Example: `  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+  komando storage s3 object list backups 2026/
   komando download backups 2026/app.sql.gz --to ./
-  komando storage rm backups --prefix daily/ --older-than 30d --dry-run`,
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run`,
 	}
-	add := connAddCmdFor("storage")
-	add.Example += `
-  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
-  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
-  komando storage add media gs://my-bucket/site   # logs in like gcloud
-  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
-  komando storage add site 'sftp://deploy@files.example.com/uploads'`
-	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd(),
-		storageMkdirCmd(), storageMvCmd(), storageChmodCmd())
+	c.AddCommand(storageDownloadCmd(), storageUploadCmd())
 	return c
 }
 
@@ -137,7 +131,13 @@ func namedHint(err error, conn string) error {
 		return err
 	}
 	h := oe.Hint
-	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "storage mv ", "storage rm ", "download ", "upload "} {
+	cmds := []string{"conn test ", "conn show ", "conn edit ", "download ", "upload "}
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		for _, v := range []string{"list", "move", "delete", "read", "create", "link"} {
+			cmds = append(cmds, "storage "+p+" object "+v+" ")
+		}
+	}
+	for _, cmd := range cmds {
 		for _, word := range []string{"NAME", "CONN"} {
 			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
 		}
@@ -235,7 +235,7 @@ func temporaryKeys(b storex.Bucket) bool {
 	return ok && t.TemporaryKeys()
 }
 
-// LinkAt passes through to the bucket inside (S3 only), so storage link
+// LinkAt passes through to the bucket inside (S3 only), so object link
 // --endpoint works for conns reached through --via, the case it is for.
 func (c closeBoth) LinkAt(ctx context.Context, key string, expires time.Duration, endpoint *url.URL) (*url.URL, error) {
 	at, ok := c.Bucket.(interface {
@@ -292,8 +292,8 @@ func storageLsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list CONN [PREFIX]",
 		Short: "List the objects and folders of a storage conn",
-		Example: `  komando storage list backups
-  komando storage list backups db/2026-11/ --recursive`,
+		Example: `  komando storage s3 object list backups
+  komando storage s3 object list backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			prefix := ""
@@ -322,7 +322,7 @@ func storageLsCmd() *cobra.Command {
 					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
 						// a bucket has no folders, only keys: nothing under the
 						// prefix is what a missing folder is on a file server,
-						// unless it is an empty folder (storage mkdir's marker)
+						// unless it is an empty folder (object create's marker)
 						if o, found, err := s.Lookup(ctx, prefix); err != nil || !found || !o.Dir {
 							return nil, storex.FolderNotFound(prefix)
 						}
@@ -346,8 +346,8 @@ func storageCatCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cat CONN OBJECT",
 		Short: "Show the text of an object",
-		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
-  komando storage cat config prod/app.env`,
+		Example: `  komando storage s3 object read backups logs/app-2026-11-02.log --tail 50
+  komando storage s3 object read config prod/app.env`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
@@ -453,14 +453,14 @@ func storageLinkCmd() *cobra.Command {
 at most 7 days). Treat it like a password while it is valid. Sharing from a
 protected conn needs --yes. An AI agent gets a link only when a person allows
 --reveal, and never for a file that is a secret by its name (.env, a key): a
-link is the file as it is, past the hiding of storage cat and download. The
+link is the file as it is, past the hiding of object read and download. The
 link itself is not stored in the audit log.
 The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
-		Example: `  komando storage link backups reports/q3.pdf --expires 24h
-  komando storage link backups reports/q3.pdf --expires 7d
-  komando storage link backups reports/q3.pdf --endpoint https://files.example.com`,
+		Example: `  komando storage s3 object link backups reports/q3.pdf --expires 24h
+  komando storage s3 object link backups reports/q3.pdf --expires 7d
+  komando storage s3 object link backups reports/q3.pdf --endpoint https://files.example.com`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
@@ -628,4 +628,61 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, 
 			d.DryRun = true
 			return d, err
 		})
+}
+
+// The storage type of the table: komando storage PROVIDER VERB and storage
+// PROVIDER object VERB. The inventory verbs are the shared ones
+// (inventoryHandlers); the object verbs are today's list, cat, mkdir, mv,
+// rm and link; move with --mode is chmod. upload and download stay at their
+// places until the copy step.
+func init() {
+	providers := []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"}
+	inventoryHandlers("storage", providers...)
+	bodies := map[string]func() *cobra.Command{"list": storageLsCmd, "read": storageCatCmd, "create": storageMkdirCmd,
+		"move": storageMvCmd, "delete": storageRmCmd, "link": storageLinkCmd}
+	for _, p := range providers {
+		for verb, body := range bodies {
+			key := capability.Key{Type: "storage", Provider: p, Area: "object", Verb: verb}
+			if _, ok := capability.Find(key); !ok {
+				continue // link only where the service makes links
+			}
+			leafBodies[key] = body
+			handlers[key] = func(cl *call, ctx context.Context, in leafInput) error {
+				if err := withEntry(cl, in.Args[0], "storage", p, "object "+verb); err != nil {
+					return err
+				}
+				run := body // not body itself: this closure runs again
+				if verb == "move" {
+					if in.Changed("mode") { // chmod: NAME PATH --mode MODE
+						if len(in.Args) != 2 {
+							return out.Usage("--mode changes the mode of one path: komando storage %s object move NAME PATH --mode MODE", p)
+						}
+						in = leafInput{Args: []string{in.Args[0], in.String("mode"), in.Args[1]}, Dash: -1, ID: in.ID}
+						run = storageChmodCmd
+					} else if len(in.Args) != 3 {
+						return out.Usage("komando storage %s object move takes NAME SRC DST (or NAME PATH --mode MODE)", p)
+					}
+				}
+				err := runBody(cl, ctx, run(), in, nil)
+				var oe *out.Error
+				if errors.As(err, &oe) { // the bodies write the path of s3; this entry's provider is p
+					oe.Hint = strings.ReplaceAll(oe.Hint, "storage s3 object", "storage "+p+" object")
+					oe.Message = strings.ReplaceAll(oe.Message, "storage s3 object", "storage "+p+" object")
+				}
+				return err
+			}
+		}
+		groupShorts["storage "+p] = "Save " + p + " storage, and look after its objects"
+		groupShorts["storage "+p+" object"] = "Files and folders of " + p + " storage"
+		examples["komando storage "+p] = "  komando storage " + p + " add backups URL --dry-run\n" +
+			"  komando storage " + p + " add backups URL\n" +
+			"  komando storage " + p + " test backups\n" +
+			"  komando storage " + p + " object list backups 2026/\n" +
+			"  komando storage " + p + " object read backups logs/app.log --tail 50"
+		examples["komando storage "+p+" object"] = "  komando storage " + p + " object list backups 2026/\n" +
+			"  komando storage " + p + " object read backups logs/app.log --tail 50\n" +
+			"  komando storage " + p + " object create backups reports/2026 --dry-run\n" +
+			"  komando storage " + p + " object delete backups --prefix daily/ --older-than 30d --dry-run"
+	}
+	moveType("storage")
 }

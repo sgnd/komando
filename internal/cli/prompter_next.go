@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -57,6 +58,16 @@ func promptNext(cl *call) {
 	}
 }
 
+// noLinkLeaf says whether the Next: line n suggests `storage PROVIDER object
+// link` for a provider that has no such command.
+func noLinkLeaf(n, provider string) bool {
+	if !strings.Contains(n, "{P} object link") || provider == "PROVIDER" {
+		return false
+	}
+	_, ok := capability.Find(capability.Key{Type: "storage", Provider: provider, Area: "object", Verb: "link"})
+	return !ok
+}
+
 // nextLines are the Next: lines of the command key, filled in: its
 // formHint's list, or else the one its verb gives (verbNext). A line with
 // {} needs first; one with NEW needs rename's second argument.
@@ -75,7 +86,12 @@ func nextLines(key, first string, args []string) []string {
 		if strings.Contains(n, "{}") && first == "" || strings.Contains(n, " NEW") && newName == "" {
 			continue
 		}
+		prov := providerOfEntry(first)
+		if noLinkLeaf(n, prov) {
+			continue
+		}
 		n = strings.ReplaceAll(n, "{}", first)
+		n = strings.ReplaceAll(n, "{P}", prov)
 		if newName != "" {
 			n = strings.ReplaceAll(n, " NEW", " "+newName)
 		}
@@ -196,12 +212,11 @@ var showKinds = map[string]string{
 // item; the show commands in showKinds list them for a person. A conn
 // gets its family's (or its kind's, db:sqlite) list, then the conn list.
 var itemCommands = map[string][]string{
-	"server": {"facts {}", "logs {} --since 30m", "exec {} -- uptime", "shell {}", "svc list {} --failed",
+	"server": {"logs {} --since 30m", "exec {} -- uptime", "shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "upload {} ./FILE /tmp/FILE",
 		"download {} /var/log/syslog --to ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
 		"key deploy KEY {}", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
-	"server:windows": {"facts {}", "svc list {} --state running", "svc status {} NAME", "svc restart {} NAME --wait 10s",
-		"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+	"server:windows": {"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster status {}", "cluster list {} services", "cluster logs {} service/NAME",
 		"cluster deploy {} service/NAME --image IMAGE --wait", "cluster apply {} --file compose.yml --stack STACK"},
@@ -224,9 +239,9 @@ var itemCommands = map[string][]string{
 	"queue:sqs": {"queue sqs info {}", "queue sqs topic list {}", "queue sqs message list {} QUEUE", "queue sqs message create {} QUEUE --value hi --dry-run"},
 	"queue:pubsub": {"queue pubsub info {}", "queue pubsub topic list {}", "queue pubsub consumer list {}", "queue pubsub message list {} SUBSCRIPTION",
 		"queue pubsub message create {} TOPIC --value hi --dry-run"},
-	"storage": {"storage list {}", "storage cat {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
-		"sync ./folder {}:FOLDER/ --dry-run", "storage rm {} --prefix FOLDER/ --older-than 30d --dry-run"},
-	"storage:link": {"storage link {} OBJECT --expires 24h"},
+	"storage": {"storage {P} object list {}", "storage {P} object read {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
+		"sync ./folder {}:FOLDER/ --dry-run", "storage {P} object delete {} --prefix FOLDER/ --older-than 30d --dry-run"},
+	"storage:link": {"storage {P} object link {} OBJECT --expires 24h"},
 	"cluster": {"cluster status {}", "cluster list {} pods", "cluster events {} --warnings", "cluster logs {} deploy/NAME",
 		"cluster deploy {} deploy/NAME --image IMAGE --wait", "cluster apply {} --file app.yaml --dry-run",
 		"cluster helm list {} -A", "cluster run {} -- get pods -A"},
@@ -234,7 +249,7 @@ var itemCommands = map[string][]string{
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn KIND start {}", "vpn KIND test {}", "vpn KIND stop {}", "vpn KIND edit {} --check HOST:PORT", "vpn KIND rename {} NEW", "vpn KIND remove {}",
 		"host add NAME USER@ADDRESS --via {}"},
-	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "facts @{}", "pkg upgradable @{}", "recipe run health @{}",
+	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "pkg upgradable @{}", "recipe run health @{}",
 		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},
 	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
@@ -295,6 +310,6 @@ func showCommands(cl *call, kind, name string) {
 		if v, ok := st.Vpns[name]; ok {
 			c = strings.ReplaceAll(c, "vpn KIND ", "vpn "+v.Kind+" ")
 		}
-		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(c, "{}", name))
+		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(strings.ReplaceAll(c, "{}", name), "{P}", providerOfEntry(name)))
 	}
 }

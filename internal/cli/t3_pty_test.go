@@ -23,7 +23,7 @@ var t3Cases = []struct {
 	{"queue.kafka.topic.delete", "the name t", []string{"queue", "kafka", "topic", "delete", "q1", "t"}},
 	{"cache.rm", "the name k", []string{"cache", "rm", "cache1", "k"}},
 	{"cache.rm", "2 (", []string{"cache", "rm", "cache1", "k", "k2"}},
-	{"storage.rm", "the name k", []string{"storage", "rm", "st1", "k"}},
+	{"storage.s3.object.delete", "the name k", []string{"storage", "sftp", "object", "delete", "st1", "k"}},
 	{"cluster.rm", "the name web", []string{"cluster", "rm", "prod", "deployment", "web"}},
 	{"cluster.scale", "the name web", []string{"cluster", "scale", "prod", "deploy/web", "0"}},
 	{"registry.oci.image.delete", "the name a:1", []string{"registry", "oci", "image", "delete", "reg1", "a:1"}},
@@ -34,15 +34,15 @@ var t3Cases = []struct {
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x", "--recursive"}},
 	{"docker.rm", "the name c1", []string{"docker", "rm", "web1", "c1"}},
 	{"docker.prune", "the name web1", []string{"docker", "prune", "web1"}},
-	{"user.rm", "the name bob", []string{"user", "rm", "web1", "bob"}},
-	{"user.rm", "the name bob", []string{"user", "rm", "web1", "bob", "--remove-home"}},
 	{"secret.rm", "the name gsec", []string{"secret", "rm", "gsec"}},
 	{"key.rm", "the name gkey", []string{"key", "rm", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
-	{"reboot", "the name web1", []string{"reboot", "web1"}},
-	{"svc.stop", "the name web1", []string{"svc", "stop", "web1", "sshd"}},
-	{"svc.disable", "the name web1", []string{"svc", "disable", "web1", "sshd"}},
 	{"sync", "the name web1", []string{"sync", "testdata", "web1:/tmp/x", "--delete"}},
+	// what user rm, svc stop and user lock asked before the cut (D1): exec
+	// on a server that is not protected asks for its name
+	{"host.exec", "the name web1", []string{"exec", "web1", "--", "userdel", "bob"}},
+	{"host.exec", "the name web1", []string{"exec", "web1", "--", "systemctl", "stop", "sshd"}},
+	{"host.exec", "the name web1", []string{"exec", "web1", "--", "usermod", "-L", "root"}},
 }
 
 // Every T3 row a command always has (not one decided at run time) asks a
@@ -95,7 +95,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	// protection too: no [y/N] after it (S-7.4, C-C04)
 	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	t.Run("protected", func(t *testing.T) {
-		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "reboot", "prod1")
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "exec", "prod1", "--", "reboot")
 		p.answer(" to continue: ", "prod1\r")
 		code := p.exit()
 		shown := p.shown()

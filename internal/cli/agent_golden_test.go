@@ -175,21 +175,21 @@ var goldenExtra = [][]string{
 	{"cluster", "ls", "x1", "pods", "-n", "50"},
 	{"cluster", "events", "x1", "-n", "50"},
 	{"cluster", "logs", "x1", "x2", "-n", "50"},
-	// C-F03: storage rm has no -n (its cap is --max-remove): USAGE
-	{"storage", "rm", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
+	// C-F03: storage s3 object delete has no -n (its cap is --max-remove): USAGE
+	{"storage", "s3", "object", "delete", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
 }
 
 // goldenGateKeys are the command lines a read-only ssh-gate key sends
 // whose answer changed (changes.md 11b): SSH_GATE_READ_ONLY, exit 6.
 var goldenGateKeys = []string{
-	"komando storage link s3 report.pdf",
+	"komando storage s3 object link s3 report.pdf",
 	"komando cluster forward k8s svc/web 8080",
 }
 
 // goldenSchema are commands whose schema values the release notes list
 // (changes.md 11a), one or more per row.
 var goldenSchema = [][]string{
-	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
+	{"storage", "s3", "object", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
 	{"cache", "set"}, {"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01

@@ -123,7 +123,7 @@ so it is not listed. See [What needs a yes](safety.md#what-needs-a-yes).
 
 The conn add commands also list the kinds they take, under `add_kinds`, so a
 program can build its add forms from them. `komando schema conn add` (and
-`db add`, `cache redis add`, `queue kafka add`, `storage add`,
+`db add`, `cache redis add`, `queue kafka add`, `storage s3 add`,
 `cluster add`, `registry oci add` for their own kinds) gives each conn kind
 its `id`, `display_name`, `family`, `url_schemes`, `url_example`,
 `default_port`, the flags it needs (`required`, and `one_of`: groups where

@@ -365,7 +365,7 @@ func toErr(err error) error {
 	}
 	switch r.Code {
 	case "NoSuchKey", "NotFound":
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "object not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage s3 object list NAME [PREFIX]`", "object not found")
 	case "NoSuchBucket":
 		return out.Errf(out.ExitNotFound, "BUCKET_NOT_FOUND", "check the bucket name in the conn URL (`komando conn show NAME`)", "bucket does not exist")
 	case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "InvalidToken", "ExpiredToken":

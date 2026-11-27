@@ -27,17 +27,14 @@ var personalCmds = map[string]bool{
 	"cache get": true, "cache keys": true, "cache run": true, // moveType moves cache run to each provider's raw
 	"cluster describe": true, "cluster events": true, "cluster exec": true, "cluster get": true, "cluster logs": true, "cluster run": true,
 	"cluster helm status": true, "cluster helm values": true,
-	"cron list":   true,
 	"db activity": true, "db explain": true, "db locks": true, "db query": true,
 	"docker compose": true, "docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
 	"cp": true, "download": true, "exec": true, "recipe run": true, "sync": true,
 	"fs cat": true, "fs list": true, "fs replace": true, "fs restore": true, "fs write": true,
 	"job logs": true, "job status": true, "job wait": true,
-	"logs": true, "svc logs": true, "svc status": true,
-	"net http":    true,
+	"logs":        true,
 	"queue peek":  true,
 	"storage cat": true, "storage download": true, "storage list": true,
-	"user list": true,
 }
 
 // startPersonal decides, before a command runs, whether it may hide

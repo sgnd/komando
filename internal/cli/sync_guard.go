@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// guardDelete: --delete removes files for good, like `storage rm`. A person
+// guardDelete: --delete removes files for good, like `storage s3 object delete`. A person
 // at the terminal confirms by typing the destination.
 // Under --dry-run the stop goes to meta.would_be_blocked.
 func guardDelete(cl *call, o syncOpts, dst string) error {
@@ -185,7 +185,7 @@ func emptiedErr(cl *call, left []emptiedFolder, src, folders, files, dst string)
 			flags[i] = "--emptied " + shellQuote(f.Path)
 		}
 		e = out.Errf(out.ExitPolicy, code,
-			"check that the source really has no files there (`komando storage list` or `komando ls`); if so, run it again with "+
+			"check that the source really has no files there (`komando storage s3 object list` or `komando ls`); if so, run it again with "+
 				strings.Join(flags, " ")+", or remove the folder on the destination first",
 			"%s lists no files in %s, so --delete would remove %s there in %s; nothing was deleted", src, folders, files, dst).NoFlag()
 	}

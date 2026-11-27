@@ -8,7 +8,7 @@ said() { case "$1" in *"$2"*) echo True ;; *) echo False ;; esac; }
 check "missing args name the usage line" True "$($K fs cat direct | jget '"usage: komando fs cat SERVER PATH" in d["error"]["message"]' || true)"
 check "-o text applies to usage errors" True "$(said "$(stderr_of $K fs cat direct -o text)" '(code USAGE')"
 set +e; $K host lst >/dev/null 2>&1; check "unknown subcommand fails" 2 $?; set -e
-check "unknown subcommand suggests" True "$($K svc restat direct x | jget '"did you mean restart" in d["error"]["message"]' || true)"
+check "unknown subcommand suggests" True "$($K pkg instal direct x | jget '"did you mean install" in d["error"]["message"]' || true)"
 check "dry-run shows a protected change" PROTECTED_TARGET "$($K exec target --dry-run -- touch /tmp/x | jget 'd["meta"]["would_be_blocked"]["code"]')"
 check "dry-run banner in text" True "$(said "$(stderr_of $K exec target --dry-run -o text -- touch /tmp/x)" 'Dry run: nothing was changed')"
 q $K host add t-e2egen-alias agent@TARGET. --via bastion --password-ref secret:agent-pass

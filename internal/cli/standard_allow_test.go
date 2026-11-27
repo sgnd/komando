@@ -11,8 +11,6 @@ var (
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
 		"policy deny",
-		"storage cat",
-		"storage link",
 	}
 	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
@@ -59,7 +57,6 @@ var (
 		"config show",
 		"conn kinds",
 		"conn show",
-		"cron list",
 		"db info",
 		"db locks",
 		"db sizes",
@@ -76,18 +73,13 @@ var (
 		"host show",
 		"job status",
 		"key list",
-		"net check",
-		"net http",
-		"net ports",
 		"pkg installed",
 		"policy list",
 		"secret list",
 		"shell",
 		"ssh-gate",
 		"storage download",
-		"svc logs",
 		"tunnel list",
-		"user list",
 		"version",
 	}
 	// S-6.8: names outside the sample table where an example needs its own
@@ -95,7 +87,8 @@ var (
 		"app1",
 		"bastion",
 		"bq",
-		"config",
+		"client-x",
+		"lab",
 		"local",
 		"mongo-db",
 		"shop-2",

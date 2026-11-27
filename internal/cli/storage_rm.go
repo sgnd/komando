@@ -16,7 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/storex"
 )
 
-// storage rm: exact keys, or everything under a folder (--prefix).
+// storage s3 object delete: exact keys, or everything under a folder (--prefix).
 
 func storageRmCmd() *cobra.Command {
 	var prefix, olderThan string
@@ -32,10 +32,10 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.
 
 In an S3 bucket with versioning, rm leaves the old versions behind (and a
 delete marker): --all-versions removes every version of the keys too, so
-they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows them.`,
-		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous
-  komando storage rm backups --prefix daily/ --older-than 30d --dry-run
-  komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous`,
+they are really gone. ` + "`storage s3 object list NAME PREFIX --all-versions`" + ` shows them.`,
+		Example: `  komando storage s3 object delete backups tmp/old.sql.gz --allow-dangerous
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --allow-dangerous`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			keys := args[1:]
@@ -44,21 +44,21 @@ they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows 
 			}
 			if prefix == "" && len(keys) == 0 {
 				return out.Errf(out.ExitUsage, "USAGE",
-					fmt.Sprintf("for example: komando storage rm %s KEY, or komando storage rm %s --prefix FOLDER/ --dry-run (komando storage list %s shows the keys). To take %s out of komando's list, not its files: komando conn rm %s", args[0], args[0], args[0], args[0], args[0]),
+					fmt.Sprintf("for example: komando storage s3 object delete %s KEY, or komando storage s3 object delete %s --prefix FOLDER/ --dry-run (komando storage s3 object list %s shows the keys). To take %s out of komando's list, not its files: komando conn rm %s", args[0], args[0], args[0], args[0], args[0]),
 					"give exact keys, or --prefix FOLDER/")
 			}
 			if prefix != "" && len(keys) > 0 {
 				return out.Usage("give keys or --prefix, not both")
 			}
 			if allVersions && prefix != "" {
-				return out.Usage("--all-versions takes exact keys; list a folder's versions first with `komando storage list %s %s --all-versions`", args[0], prefix)
+				return out.Usage("--all-versions takes exact keys; list a folder's versions first with `komando storage s3 object list %s %s --all-versions`", args[0], prefix)
 			}
 			for _, k := range keys {
 				if strings.HasSuffix(k, "/") {
-					return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "remove a folder with --prefix: `komando storage rm CONN --prefix "+k+"`", "%q is a folder", k)
+					return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "remove a folder with --prefix: `komando storage s3 object delete NAME --prefix "+k+"`", "%q is a folder", k)
 				}
 				if strings.ContainsAny(k, "*?") {
-					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage list`)", k)
+					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage s3 object list`)", k)
 				}
 				if err := storex.CheckKey(k); err != nil {
 					return err

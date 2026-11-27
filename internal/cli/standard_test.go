@@ -71,9 +71,9 @@ func TestStandardTopLevel(t *testing.T) {
 	want := []string{
 		// nouns (S-2.1)
 		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
-		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
+		"fs", "pkg", "docker", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
+		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
 		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
@@ -132,9 +132,9 @@ func TestStandardNounAliases(t *testing.T) {
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
 		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
-		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
-		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
-		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
+		"tunnel": {"tunnels"}, "fs": {"files"}, "pkg": {"package", "packages"},
+		"docker": {"container", "containers"},
+		"cert":   {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
 	} {
 		want := findCmd(t, root, noun)
@@ -154,14 +154,13 @@ var (
 		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
-		"remove", "raw", "copy", "delete"} // the v2.7 verbs join as their type moves (step C)
+		"remove", "raw", "copy", "delete", "read", "move", "link"} // the v2.7 verbs join as their type moves (step C)
 	toolWords = []string{"docker ps", "docker images", "docker pull", "docker compose", "docker raw", "docker inspect",
-		"registry oci image show", "registry oci image copy", "cache keys", "user add", "db user add", "db grant", "db revoke",
+		"registry oci image show", "registry oci image copy", "cache keys", "db user add", "db grant", "db revoke",
 		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
-		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
-		"storage chmod", "storage mkdir", "storage mv",
+		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
-		"net dns", "net http", "net ports", "net check", "key gen", "key deploy", "host trust", "host ssh-command",
+		"key gen", "key deploy", "host trust", "host ssh-command",
 		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
 )
 
@@ -643,7 +642,7 @@ func TestStandardReferences(t *testing.T) {
 	}
 	for key, h := range formHints {
 		for _, n := range h.next {
-			check(key+" next", strings.ReplaceAll(n, "{}", "web1"))
+			check(key+" next", strings.ReplaceAll(strings.ReplaceAll(n, "{}", "web1"), "{P}", "s3"))
 		}
 	}
 	allowCheck(t, "S-6.10", got, allowReferences)

@@ -1,15 +1,12 @@
 package cli
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/sgnd/komando/internal/store"
 )
 
 // runFactsOnly runs the --only script in a real sh, with /etc/os-release
@@ -68,30 +65,5 @@ func TestFactsOnlySystemOsRelease(t *testing.T) {
 	got, _ = runFactsOnly(t, "ID=x\nPRETTY_NAME=\"A\\nuptime_sec=5\"\n", "system")
 	if strings.Contains(got, "\nuptime_sec=5\n") {
 		t.Errorf("a value wrote its own line: %q", got)
-	}
-}
-
-// Values keep their type: a name is a string whatever it looks like, and
-// one the server does not have is null, not "".
-func TestFactsOnlySystemTypes(t *testing.T) {
-	_, keys, _ := factsOnly([]string{"system"})
-	d, err := factsOnlyParse(keys)(&store.Host{Name: "web"}, "os=true\nos_version=\nos_pretty=2024\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, _ := json.Marshal(d)
-	if want := `{"os":"true","os_pretty":"2024","os_version":null,"uptime_sec":null}`; string(b) != want {
-		t.Errorf("got  %s\nwant %s", b, want)
-	}
-}
-
-// -o text shows the system section too.
-func TestFactsOnlySystemText(t *testing.T) {
-	code := 0
-	d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: map[string]any{
-		"os": "ubuntu", "os_version": "24.04", "os_pretty": "Ubuntu 24.04.1 LTS", "uptime_sec": int64(90000)}}}}
-	got := factsOnlyText(d)
-	if !strings.Contains(got, "Ubuntu 24.04.1 LTS") || !strings.Contains(got, "up 25h") {
-		t.Errorf("text %q", got)
 	}
 }

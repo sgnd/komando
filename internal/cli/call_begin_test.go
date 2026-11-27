@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 
@@ -128,4 +129,21 @@ func TestBeginWhileHooksRead(t *testing.T) {
 	}
 	close(done)
 	wg.Wait()
+}
+
+// TestWindowShowsScriptWithBypassrls: BYPASSRLS is a PostgreSQL role
+// attribute. A script that names it before a colon is not refused as one
+// that holds a password, key or token (C574).
+func TestWindowShowsScriptWithBypassrls(t *testing.T) {
+	cl := testCall()
+	script := "#!/bin/sh\n" +
+		`echo "== tables with row-level security (verify_reader has no BYPASSRLS: each one fails the restore test)"` + "\n"
+	b := &approvalBody{label: "the script ./c281-1-reads.sh", body: []byte(script)}
+	text, bad := b.whole(cl)
+	if bad != "" {
+		t.Fatalf("whole refused the script: %s", bad)
+	}
+	if !strings.Contains(text, "BYPASSRLS: each one fails") {
+		t.Errorf("the window text lost the line:\n%s", text)
+	}
 }

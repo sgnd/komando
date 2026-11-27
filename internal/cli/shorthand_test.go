@@ -47,7 +47,7 @@ func TestShorthandDidYouMean(t *testing.T) {
 		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando shell TARGET`"},
 		{[]string{"cluster", "exec", "k", "api", "-it", "--", "sh"}, "`komando cluster shell TARGET POD`"},
 		{[]string{"exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando tunnel start TARGET -L SPEC`"},
-		{[]string{"svc", "restart", "web1", "nginx", "-w", "10s"}, "did you mean --wait?"},
+		{[]string{"cluster", "restart", "k", "api", "-w", "10s"}, "did you mean --wait?"},
 		{[]string{"cache", "get", "c1", "k", "-x"}, ""},
 		{[]string{"fs", "replace", "web1", "/etc/x", "-b"}, "did you mean --backup?"},
 		{[]string{"queue", "kafka", "topic", "list", "q1", "-j"}, ""},
@@ -89,13 +89,13 @@ func TestStandardShorthands(t *testing.T) {
 		n := path[strings.LastIndex(path, " ")+1:]
 		return n == "add" || n == "edit" || n == "import"
 	}
-	logStreamers := []string{"logs", "svc logs", "docker logs", "cluster logs"}
+	logStreamers := []string{"logs", "docker logs", "cluster logs"}
 	// letter -> long flag -> where it may be (nil: everywhere)
 	table := map[string]map[string]func(path string) bool{
 		"o": {"output": nil}, "P": {"parallel": nil}, "y": {"yes": nil}, "h": {"help": nil},
 		"v": {"version": func(p string) bool { return p == "komando" }},
 		"a": {"all": func(p string) bool {
-			return in(p, "docker ps", "docker prune", "fs list", "user list", "db activity", "cache info", "cluster helm values", "guide")
+			return in(p, "docker ps", "docker prune", "fs list", "db activity", "cache info", "cluster helm values", "guide")
 		}},
 		"A": {"all-namespaces": cluster},
 		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "exec", "job start") }},
@@ -104,12 +104,12 @@ func TestStandardShorthands(t *testing.T) {
 		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},
 		"g": {"group": editOrAdd},
 		"l": {"selector": cluster},
-		"n": {"namespace": cluster, "limit": func(p string) bool { return !cluster(p) && !in(p, "storage rm") }},
+		"n": {"namespace": cluster, "limit": func(p string) bool { return !cluster(p) && !in(p, "storage s3 object delete") }},
 		"p": {"parents": func(p string) bool { return in(p, "cp", "upload", "fs write", "fs replace", "fs mkdir") },
-			"priority": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }},
+			"priority": func(p string) bool { return in(p, "logs", "docker logs") }},
 		"r": {"recursive": nil}, "s": {"sudo": nil},
 		"t": {"tag": editOrAdd},
-		"u": {"unit": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }}, // the logs family
+		"u": {"unit": func(p string) bool { return in(p, "logs", "docker logs") }}, // the logs family
 		"b": {"bits": func(p string) bool { return in(p, "key gen") }},
 		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start") }},
 		"L": {"local": func(p string) bool { return in(p, "tunnel start") }},

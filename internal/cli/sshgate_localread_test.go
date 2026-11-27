@@ -54,6 +54,12 @@ var localReadUsage = regexp.MustCompile(`(?i)this computer|\('-'|stdin|file to s
 
 // gateLocalNotRead are flags whose help matches localReadUsage but which
 // read nothing here, and why.
+func init() { // the providers of a moved type share one handler, so one reason
+	for _, p := range []string{"s3", "gcs", "azblob", "sftp", "ftp", "smb", "webdav"} {
+		gateLocalNotRead["storage."+p+".object.move.SRC"] = "a key in the conn"
+	}
+}
+
 var gateLocalNotRead = map[string]string{
 	"cp.overwrite":        "a download replaces files here: cp to here is refused anyway",
 	"sync.sudo":           "writes as root on the servers",

@@ -73,18 +73,12 @@ check "db explain" True "$($K db explain pg 'select 1' | ok)"
 q $K cache set cache "$C:k" v
 check "cache keys" True "$($K cache keys cache "$C:*" | has "$C:k")"
 q $K storage upload bucket "$TMP/hosts.json" "$C/hosts.json"
-check "storage link" True "$($K storage link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
-check "storage link --endpoint signs for that address" True "$($K storage link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"
-U=$($K storage link bucket "$C/hosts.json" --endpoint http://s3:3900 | jget 'd["data"]["url"]')
+check "storage s3 object link" True "$($K storage s3 object link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
+check "storage s3 object link --endpoint signs for that address" True "$($K storage s3 object link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"
+U=$($K storage s3 object link bucket "$C/hosts.json" --endpoint http://s3:3900 | jget 'd["data"]["url"]')
 check "a link signed for an address works there" True "$($K exec bastion -- "curl -sf '$U'" | has direct)"
 
-# system modules (the lab containers run without systemd: svc must say so)
-check "svc list fails clearly without systemd" False "$($K svc list direct | ok || true)"
-check "svc status fails clearly without systemd" False "$($K svc status direct ssh | ok || true)"
-check "svc logs fails clearly without systemd" NO_SYSTEMD "$($K svc logs direct ssh | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-for a in start stop restart reload enable disable; do
-  check "svc $a on a protected host previews" PROTECTED_TARGET "$($K svc $a target nginx --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
-done
+# system modules
 check "pkg installed" True "$($K pkg installed direct curl | jget 'd["data"]["results"][0]["data"][0]["installed"]')"
 check "pkg upgradable" True "$($K pkg upgradable direct | ok)"
 check "pkg update (dry run)" True "$($K pkg update direct --dry-run | ok)"
@@ -93,16 +87,6 @@ q $K pkg install direct tree
 check "pkg install" True "$($K pkg installed direct tree | jget 'd["data"]["results"][0]["data"][0]["installed"]')"
 q $K pkg rm direct tree
 check "pkg rm" False "$($K pkg installed direct tree | jget 'd["data"]["results"][0]["data"][0]["installed"]')"
-q $K user add direct "$C-u"
-check "user list" True "$($K user list direct | has "$C-u")"
-q $K user lock direct "$C-u"
-q $K user unlock direct "$C-u"
-q $K user rm direct "$C-u" --remove-home --allow-dangerous
-check "user rm" False "$($K user list direct | has "$C-u")"
-q $K cron set direct "$C-c" true --schedule @daily
-check "cron rm" 1 "$($K cron rm direct "$C-c" | jget 'd["data"]["results"][0]["data"]["removed"]')"
-check "net dns" True "$($K net dns direct localhost | ok)"
-check "net ports" True "$($K net ports direct | jget 'any(r["port"] == 22 for r in d["data"]["results"][0]["data"])')"
 
 # VPNs
 check "vpn list" True "$($K vpn system list | has corp)"
@@ -120,10 +104,6 @@ check "db query through the renamed conn and VPN" 1 "$($K db query "$C-db2" 'sel
 q $K conn rm "$C-db2"
 q $K vpn socks remove "$C-vpn2"
 q $K tunnel stop "$TUN"
-fi
-
-if in_area registry; then
-check "net http" True "$($K net http bastion http://registry:5000/v2/ | jget 'd["data"]["results"][0]["data"]["code"] in (200, 401)')"
 fi
 
 if in_area swarm; then

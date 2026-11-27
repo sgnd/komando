@@ -52,8 +52,8 @@ func TestStandardDurations(t *testing.T) {
 	})
 	invHome(t)
 	for _, args := range [][]string{
-		{"storage", "rm", "s3", "--prefix", "a/", "--older-than", "30", "--dry-run"},
-		{"storage", "rm", "s3", "--prefix", "a/", "--older-than", "0", "--dry-run"},
+		{"storage", "s3", "object", "delete", "s3", "--prefix", "a/", "--older-than", "30", "--dry-run"},
+		{"storage", "s3", "object", "delete", "s3", "--prefix", "a/", "--older-than", "0", "--dry-run"},
 		{"cache", "set", "c", "k", "v", "--ttl", "30", "--dry-run"},
 		{"cert", "check", "web1", "--warn", "-1d", "--dry-run"},
 		{"list", "--timeout", "30"},
@@ -62,7 +62,7 @@ func TestStandardDurations(t *testing.T) {
 			t.Errorf("%v: %+v, want USAGE exit 2", args, e)
 		}
 	}
-	if e := mainErr(t, "storage", "rm", "s3", "--prefix", "a/", "--older-than", "30", "--dry-run"); !strings.Contains(e.Message, "30d") || !strings.HasPrefix(e.Message, "--older-than: ") {
+	if e := mainErr(t, "storage", "s3", "object", "delete", "s3", "--prefix", "a/", "--older-than", "30", "--dry-run"); !strings.Contains(e.Message, "30d") || !strings.HasPrefix(e.Message, "--older-than: ") {
 		t.Errorf("--older-than 30 names the units: %q", e.Message)
 	}
 }
@@ -180,7 +180,7 @@ func TestStandardKeyValue(t *testing.T) {
 		}
 	})
 	if n != 74 {
-		t.Errorf("%d KEY=VALUE flags, want 74 (--env x2, then --label and --option on the add and edit of each typed provider and of each VPN kind)", n)
+		t.Errorf("%d KEY=VALUE flags, want 74 (--env x2, then --label and --option on the add and edit of each typed provider and VPN kind)", n)
 	}
 	var got []string
 	v := &kvArray{p: &got, name: "option"}
