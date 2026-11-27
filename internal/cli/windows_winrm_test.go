@@ -34,7 +34,7 @@ func TestParseWinRMAddress(t *testing.T) {
 func TestHostAddWinRM(t *testing.T) {
 	startFakeServer(t)
 	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "ssh", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--credential", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -43,8 +43,8 @@ func TestHostAddWinRM(t *testing.T) {
 		t.Errorf("host = %+v %+v", h, h.WinRMOpts)
 	}
 	for args, code := range map[string][]string{
-		"WINRM_INSECURE": {"host", "ssh", "add", "w3", "winrm://a@10.0.0.10?auth=basic&tls=off"},
-		"USAGE":          {"host", "ssh", "add", "w4", "winrm://a@10.0.0.11?auth=kerberos"},
+		"WINRM_INSECURE": {"host", "winrm", "add", "w3", "winrm://a@10.0.0.10?auth=basic&tls=off"},
+		"USAGE":          {"host", "winrm", "add", "w4", "winrm://a@10.0.0.11?auth=kerberos"},
 	} {
 		if got := errCode(runRoot(t, code...)); got != args {
 			t.Errorf("%v: %s, want %s", code, got, args)
@@ -55,7 +55,7 @@ func TestHostAddWinRM(t *testing.T) {
 			t.Errorf("%v: %s", args, got)
 		}
 	}
-	if err := runRoot(t, "host", "ssh", "edit", "win2", "--address", "winrm://10.0.0.12:5985?tls=off"); err != nil {
+	if err := runRoot(t, "host", "winrm", "edit", "win2", "--address", "winrm://10.0.0.12:5985?tls=off"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()
@@ -92,7 +92,7 @@ func TestExecOverWinRM(t *testing.T) {
 	}))
 	defer srv.Close()
 	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "ssh", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--credential", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
 	got := captureOutput(t, func() error { return runRoot(t, "host", "ssh", "exec", "win2", "--read-only", "--", "Get-Date") })
@@ -109,10 +109,10 @@ func TestExecOverWinRM(t *testing.T) {
 func TestHostAddWinRMAddressFlag(t *testing.T) {
 	startFakeServer(t)
 	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "ssh", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--credential", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
-	if err := runRoot(t, "host", "ssh", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--credential", "env:WIN_PW"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()

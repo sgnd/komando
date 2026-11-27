@@ -10,7 +10,7 @@ check "the bastion takes many logins at once" "maxstartups 200:30:400" "$(DC exe
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
 check "reveal needs a person" REVEAL_NEEDS_TERMINAL "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
 check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
-check "plain password refused as a ref" USAGE "$($K host ssh add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
+check "plain password refused as a ref" USAGE "$($K host ssh add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential agentpass | jget 'd["error"]["code"]' || true)"
 # renaming a secret moves every reference with it; the logins below prove the value survived the round trip
 check "secret mv updates the 3 servers" 3 "$($K secret mv agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
 check "the server follows the rename" secret:agent-pass-renamed "$($K host ssh show direct | jget 'd["data"]["password_ref"]')"
@@ -28,7 +28,7 @@ check "host ssh test all ok" 3 "$($K host ssh test @lab | jget 'd["data"]["summa
 echo "==> exec"
 check "exec stdout via jump" "target" "$($K host ssh exec target --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # six servers behind one bastion: one login to the bastion, not six
-for i in 1 2 3 4 5 6; do $K host ssh add "fan$i" agent@target --via bastion --password-ref secret:agent-pass -g fan >/dev/null; done
+for i in 1 2 3 4 5 6; do $K host ssh add "fan$i" agent@target --via bastion --credential secret:agent-pass -g fan >/dev/null; done
 logins() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" logs bastion 2>/dev/null | grep -c 'Accepted password' || true; }
 before=$(logins)
 check "exec -P 6 through one bastion" 6 "$($K host ssh exec @fan -P 6 --read-only -- hostname | jget 'd["data"]["summary"]["ok"]')"
@@ -96,8 +96,8 @@ curl -sf -H 'X-Amz-Target: secretsmanager.CreateSecret' -H 'Content-Type: applic
   -H 'Authorization: AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/secretsmanager/aws4_request, SignedHeaders=host, Signature=0' \
   -d '{"Name":"e2e/agent","SecretString":"{\"password\":\"agentpass\"}"}' "http://127.0.0.1:$E2E_MOTO/" >/dev/null
 SMENV=(env PATH=/usr/bin:/bin AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
-$K host ssh add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'vault:secret/e2e#agentpass' >/dev/null
-$K host ssh add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'aws-sm:e2e/agent#password' >/dev/null
+$K host ssh add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential 'vault:secret/e2e#agentpass' >/dev/null
+$K host ssh add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential 'aws-sm:e2e/agent#password' >/dev/null
 check "password from OpenBao" agent "$("${BAOENV[@]}" $K host ssh exec direct-bao --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
 check "password from AWS Secrets Manager" agent "$("${SMENV[@]}" $K host ssh exec direct-sm --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
 $K host ssh remove direct-bao direct-sm >/dev/null
@@ -140,7 +140,7 @@ echo payload > "$TMP/f"
 
 echo "==> sudo password"
 echo -n opspass | $K secret set ops-pass >/dev/null
-$K host ssh add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass --sudo-ref secret:ops-pass >/dev/null
+$K host ssh add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --credential secret:ops-pass --sudo-credential secret:ops-pass >/dev/null
 printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K host ssh exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sudo password then stdin" payload "$($K host ssh exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
@@ -167,7 +167,7 @@ $K job wait "$SJ" --interval 1s >/dev/null
 check "job start --script --arg" "got:a b:c" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
 check "job list shows the script, not its text" True "$($K job list | jget 'any(j["command"].startswith("--script") for j in d["data"]["jobs"])')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
-$K host ssh edit direct --sudo-ref secret:agent-pass >/dev/null
+$K host ssh edit direct --sudo-credential secret:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K host ssh exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K host ssh exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 SJ=$($K job start direct --sudo --stdin-file "$TMP/f" -- 'cat' | jget 'd["data"]["jobs"][0]["id"]')

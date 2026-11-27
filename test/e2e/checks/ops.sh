@@ -135,7 +135,7 @@ check "person: a wrong name stops docker prune (6)" 6 "$RC"
 O=$(tty 'wrong\n' pkg rm direct openssh-server); RC=$?
 check "person: removing an essential package asks for its name" 1 "$(grep -c 'Type the name openssh-server to continue' <<<"$O")"
 check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg installed direct openssh-server | jget "${r0}['data'][0]['installed']")"
-q $K host ssh add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
+q $K host ssh add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential secret:agent-pass --protected
 q $K host ssh trust t-fixops-p
 O=$(tty 'n\n' svc restart t-fixops-p ssh); RC=$?
 check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"

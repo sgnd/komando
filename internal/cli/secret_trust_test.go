@@ -110,8 +110,8 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "host", "ssh", "add", "win1", "winrm://Administrator@10.0.0.9?ca=secret:win-ca", "--password-ref", "secret:win-pass")
-	mustRun(t, "host", "ssh", "add", "win2", "winrm://Administrator@10.0.0.10?ca=secret:later-ca")
+	mustRun(t, "host", "winrm", "add", "win1", "winrm://Administrator@10.0.0.9?ca=secret:win-ca", "--credential", "secret:win-pass")
+	mustRun(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.10?ca=secret:later-ca")
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app?sslmode=verify-full&ca=secret:db-ca")
 	texts := windowText(t, true)
 	t.Setenv("V", "PEM-AGENT")
@@ -150,11 +150,11 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "host", "ssh", "add", "win1", "winrm://Administrator@10.0.0.9?ca=secret:win-ca")
-	mustRun(t, "host", "ssh", "add", "win2", "winrm://Administrator@10.0.0.10")
+	mustRun(t, "host", "winrm", "add", "win1", "winrm://Administrator@10.0.0.9?ca=secret:win-ca")
+	mustRun(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.10")
 	texts := windowText(t, true)
-	wantCode(t, "SAFETY_SETTING", "host", "ssh", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?ca=secret:mine")
-	wantCode(t, "SAFETY_SETTING", "host", "ssh", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=secret:mine")
+	wantCode(t, "SAFETY_SETTING", "host", "winrm", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?ca=secret:mine")
+	wantCode(t, "SAFETY_SETTING", "host", "winrm", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=secret:mine")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -162,12 +162,12 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 		t.Errorf("win1 trusts %s", h.WinRMOpts.CA)
 	}
 	// a new server with a CA of its own, and dropping the extra CA, ask nothing
-	mustRun(t, "host", "ssh", "add", "win3", "winrm://Administrator@10.0.0.11?ca=secret:win-ca")
-	mustRun(t, "host", "ssh", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9")
+	mustRun(t, "host", "winrm", "add", "win3", "winrm://Administrator@10.0.0.11?ca=secret:win-ca")
+	mustRun(t, "host", "winrm", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9")
 	if len(*texts) != 0 {
 		t.Errorf("nothing weaker: %q", *texts)
 	}
-	mustRun(t, "host", "ssh", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=secret:mine", "--yes")
+	mustRun(t, "host", "winrm", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=secret:mine", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "server win2") || !strings.Contains((*texts)[0], "CA certificate") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -180,7 +180,7 @@ func TestMovedHopNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.3")
 	mustRun(t, "host", "ssh", "add", "edge", "u@10.0.0.4")
-	mustRun(t, "host", "ssh", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-ref", "secret:db-pass")
+	mustRun(t, "host", "ssh", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-credential", "secret:db-pass")
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass", "--via", "jump")
 	mustRun(t, "host", "ssh", "add", "lone", "u@10.0.0.8")
 	texts := windowText(t, true)
@@ -271,7 +271,7 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 func TestMovedHopReachesEverythingBehindIt(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.3", "--port", "2222")
-	mustRun(t, "host", "ssh", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-ref", "secret:db-pass")
+	mustRun(t, "host", "ssh", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-credential", "secret:db-pass")
 	mustRun(t, "host", "ssh", "add", "mid", "u@10.0.1.2", "--via", "jump")
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass", "--via", "mid")
 	texts := windowText(t, true)

@@ -27,7 +27,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	setGate(tcl, true, gateYes)
-	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--script", "./deploy.sh", "--yes"}
 	resetApproval()
 	noteApprovalScript(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
 	err := Guard(tcl, st, []*store.Host{st.Hosts["web"]}, "sh -s", true)

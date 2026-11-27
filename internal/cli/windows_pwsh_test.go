@@ -171,7 +171,7 @@ func TestPwshRealFiles(t *testing.T) {
 		got := captureOutput(t, func() error { err = runRoot(t, args...); return err })
 		return got, err
 	}
-	_, _ = run("exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"' -ErrorAction SilentlyContinue")
+	_, _ = run("host", "ssh", "exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"' -ErrorAction SilentlyContinue")
 	if got, err := run("fs", "write", "win", p, "--content", "one\n", "-p"); err != nil || !strings.Contains(got, `"changed":true`) {
 		t.Fatalf("fs write: %v %s", err, got)
 	}
@@ -224,7 +224,7 @@ func TestPwshRealFiles(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(to, "big.bin")); string(b) != body {
 		t.Errorf("download: %d bytes back", len(b))
 	}
-	_, _ = run("exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"'")
+	_, _ = run("host", "ssh", "exec", "win", "--", "Remove-Item -Recurse -Force -LiteralPath '"+strings.ReplaceAll(dir, "'", "''")+"'")
 }
 
 // TestPwshRealParse has PowerShell parse every script komando sends to

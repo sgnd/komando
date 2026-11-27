@@ -10,8 +10,8 @@ R="t-ren$$"
 N="t-new$$"
 
 echo -n agentpass | $K secret set "$R-pass" >/dev/null
-q $K host ssh add "$R-jump" "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref "secret:$R-pass" -g "$R" -g "$R-edge"
-q $K host ssh add "$R-target" agent@target --via "$R-jump" --password-ref "secret:$R-pass" -g "$R" --protected
+q $K host ssh add "$R-jump" "agent@127.0.0.1:$E2E_SSH_BASTION" --credential "secret:$R-pass" -g "$R" -g "$R-edge"
+q $K host ssh add "$R-target" agent@target --via "$R-jump" --credential "secret:$R-pass" -g "$R" --protected
 q $K key gen "$R-key"
 q $K conn add "$R-db" "postgres://shop@10.9.9.9/shop?sslmode=disable" --via "$R-jump" --password-ref "secret:$R-pass"
 check "rename: the project answers before" True "$($K test "$R-target" | jget 'd["ok"]')"

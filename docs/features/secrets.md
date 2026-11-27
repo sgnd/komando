@@ -9,7 +9,7 @@ or after "Allow once" in komando's window, and never to an AI agent.
 
 ```bash
 komando secret set web1-pass                          # type or paste it after the prompt, nothing is shown
-komando host ssh edit web1 --password-ref secret:web1-pass
+komando host ssh edit web1 --credential secret:web1-pass
 komando test web1
 komando secret list                                   # names, when they changed, what uses them
 ```
@@ -68,7 +68,7 @@ Every `--password-ref`, `--sudo-ref`, `--passphrase-ref` and VPN key flag
 takes a reference:
 
 ```bash
-komando host ssh edit web1 --sudo-ref secret:web1-sudo
+komando host ssh edit web1 --sudo-credential secret:web1-sudo
 komando conn add prod-db postgres://app@10.0.0.5/shop --password-ref secret:prod-db-pass
 komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
 komando host ssh exec web1 --env DB_PASS=secret:prod-db-pass -- ./migrate.sh

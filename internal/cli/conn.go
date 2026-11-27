@@ -690,7 +690,7 @@ func connAddCmdFor(kind string) *cobra.Command {
 	c.Long = "Same as `komando conn add NAME URL`, for " + article(k.what) + " " + k.what + ".\n\nSaves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
 	c.Example = "  " + k.example
 	if kind == "cluster" {
-		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host ssh add`."
+		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--credential). A Docker Swarm manager is a server: `komando host ssh add`."
 	}
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {

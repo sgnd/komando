@@ -106,14 +106,14 @@ setup_hosts() {
   echo -n agentpass | $K secret set agent-pass >/dev/null
   if has_service bastion; then
     wait_port "$E2E_SSH_BASTION"
-    $K host ssh add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref secret:agent-pass -g lab >/dev/null
+    $K host ssh add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --credential secret:agent-pass -g lab >/dev/null
   fi
   if has_service direct; then
     wait_port "$E2E_SSH_DIRECT"
-    $K host ssh add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass -g lab -t test >/dev/null
+    $K host ssh add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential secret:agent-pass -g lab -t test >/dev/null
   fi
   if has_service target; then
-    $K host ssh add target agent@target --via bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
+    $K host ssh add target agent@target --via bastion --credential secret:agent-pass -g lab --protected >/dev/null
   fi
   sleep 1
 }
@@ -155,13 +155,13 @@ setup_maria_conn() {
 setup_vpns() {
   q $K vpn add lab socks --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
   q $K vpn add corp system --check 127.0.0.1:1
-  q $K host ssh add target-lab agent@target --via lab --password-ref secret:agent-pass
+  q $K host ssh add target-lab agent@target --via lab --credential secret:agent-pass
 }
 
 # +swarm: swarm1, a one-node Docker Swarm manager over SSH
 setup_swarm() {
   wait_port "$E2E_SSH_SWARM"
-  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref secret:agent-pass
+  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --credential secret:agent-pass
   for _ in $(seq 1 60); do $K host ssh exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
 }
 

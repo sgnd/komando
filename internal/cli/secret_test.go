@@ -114,7 +114,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	if e.Exit != out.ExitConflict || !strings.Contains(e.Hint, "--overwrite") {
 		t.Errorf("exists: %+v", e)
 	}
-	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.9", "--protected", "--password-ref", "secret:other")
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.9", "--protected", "--credential", "secret:other")
 	wantCode(t, "PROTECTED_TARGET", "secret", "mv", "new", "other", "--overwrite")
 	mustRun(t, "host", "ssh", "remove", "prod", "--yes")
 	mustRun(t, "secret", "mv", "new", "other", "--overwrite")

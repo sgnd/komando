@@ -109,6 +109,9 @@ func withWinRM(m map[string]formHint) map[string]formHint {
 	all := maps.Clone(m)
 	for _, v := range winrmVerbs {
 		if h, ok := m["host ssh "+v]; ok {
+			if v == "exec" { // a WinRM server has no sudo
+				h.flags = slices.DeleteFunc(slices.Clone(h.flags), func(f formFlag) bool { return f.name == "sudo" })
+			}
 			all["host winrm "+v] = h
 		}
 	}

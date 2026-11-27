@@ -52,7 +52,7 @@ never sends the password itself.
 
 ```bash
 komando host winrm add win2 winrm://Administrator@10.0.0.9 --ask-password
-komando host winrm add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref secret:win3-pass --via bastion
+komando host winrm add win3 'winrm://deploy@corp.local@win3.corp.local' --credential secret:win3-pass --via bastion
 komando host winrm edit win2 --address 'winrm://10.0.0.9?ca=secret:corp-ca'   # the server's certificate is from your own CA
 ```
 

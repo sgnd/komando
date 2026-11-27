@@ -54,7 +54,7 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	texts := loginWindow(t, pw, true, true)
 	// a server komando never met: the background process could show its
 	// key to nobody, so tunnel start does not ask
-	e := wantCode(t, "NEEDS_PERSON", "tunnel", "start", "web1", "-L", "0:localhost:80")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "tunnel", "start", "web1", "-L", "0:localhost:80")
 	if len(*texts) != 0 || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Fatalf("unknown key: %d windows, %+v", len(*texts), e)
 	}

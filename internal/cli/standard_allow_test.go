@@ -73,7 +73,6 @@ var (
 		"doctor",
 		"fs replace dry-run",
 		"fs stat",
-		"host show",
 		"job status",
 		"key list",
 		"net check",
@@ -85,7 +84,6 @@ var (
 		"queue groups",
 		"queue info",
 		"secret list",
-		"shell",
 		"ssh-gate",
 		"storage download",
 		"svc logs",
@@ -128,6 +126,5 @@ var (
 		"pkg upgradable",
 		"recipe run",
 		"secret run",
-		"shell",
 	}
 )

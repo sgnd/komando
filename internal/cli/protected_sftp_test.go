@@ -26,7 +26,7 @@ func TestProtectedSftpConnProtectsItsServer(t *testing.T) {
 		t.Error("user@address of the protected sftp conn's server is protected")
 	}
 	texts := windowText(t, true)
-	wantCode(t, "PROTECTED_TARGET", "exec", "fs", "--", "touch", "/tmp/x")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "exec", "fs", "--", "touch", "/tmp/x")
 	wantCode(t, "PROTECTED_TARGET", "fs", "mkdir", "fs", "/srv/data")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)

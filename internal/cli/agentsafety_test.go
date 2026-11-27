@@ -624,7 +624,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	} {
 		resetApproval()
 		texts = nil
-		tcl.args = []string{"komando", "exec", "web", "--allow-dangerous", "--", c.cmd}
+		tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--allow-dangerous", "--", c.cmd}
 		err := Guard(tcl, st, hosts, c.cmd, true)
 		if err == nil {
 			t.Errorf("%s: the person said no, but it passed", c.name)

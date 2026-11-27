@@ -8,7 +8,7 @@ check "status in text names it" 1 "$($K -o text status | grep -c '^tunnel ' || t
 check "status --short counts the tunnel" 1 "$($K status --short | grep -c 'tun:[1-9]' || true)"
 q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
 check "db through a SOCKS VPN" 1 "$($K db query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-q $K host ssh add target-lab agent@target --via lab --password-ref secret:agent-pass
+q $K host ssh add target-lab agent@target --via lab --credential secret:agent-pass
 # target-lab is the protected target under a second name, so it is protected too
 check "shell names the VPN on the way" 1 "$(ptyrun 'exit\n' env NO_COLOR=1 "$K" host ssh shell target-lab --yes | tr -d '\r' | grep -c '^komando: shell on target-lab (agent@target) via vpn lab · PROTECTED$' || true)"
 check "ssh through a SOCKS VPN" target "$($K host ssh exec target-lab --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"

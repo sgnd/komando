@@ -428,8 +428,8 @@ func TestNoAuthHints(t *testing.T) {
 		{"encrypted default key, no agent", true, "unset", []string{"start ssh-agent, then run `ssh-add ~/.ssh/id_ed25519`"}, nil},
 		{"encrypted default key, agent down", true, "down", []string{"`ssh-add ~/.ssh/id_ed25519`"}, []string{"start ssh-agent"}},
 		{"empty agent", false, "empty", []string{"run `ssh-add`"}, []string{"start ssh-agent"}},
-		{"no agent", false, "unset", []string{"save its password: `komando secret set web1-pass`, then `komando host ssh edit web1 --password-ref secret:web1-pass` (or --key KEY)", "start ssh-agent"}, nil},
-		{"agent down", false, "down", []string{"`komando host ssh edit web1 --password-ref secret:web1-pass`"}, []string{"start ssh-agent"}},
+		{"no agent", false, "unset", []string{"save its password: `komando secret set web1-pass`, then `komando host ssh edit web1 --credential secret:web1-pass` (or --key KEY)", "start ssh-agent"}, nil},
+		{"agent down", false, "down", []string{"`komando host ssh edit web1 --credential secret:web1-pass`"}, []string{"start ssh-agent"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -532,7 +532,7 @@ func TestHostKeyMismatchShowsTheFingerprint(t *testing.T) {
 
 func TestSudoHintNamesTheHost(t *testing.T) {
 	got := sudoHint(&store.Host{Name: "web1"})
-	if strings.Contains(got, "<") || !strings.Contains(got, "`komando secret set web1-sudo`, then run `komando host ssh edit web1 --sudo-ref secret:web1-sudo`") {
+	if strings.Contains(got, "<") || !strings.Contains(got, "`komando secret set web1-sudo`, then run `komando host ssh edit web1 --sudo-credential secret:web1-sudo`") {
 		t.Errorf("hint: %s", got)
 	}
 	if got := sudoHint(&store.Host{Name: "u@10.0.0.1"}); strings.Contains(got, "host edit") || strings.Contains(got, "<") {

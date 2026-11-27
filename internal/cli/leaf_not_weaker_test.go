@@ -16,9 +16,7 @@ import (
 // notWeakerExceptions are "leaf key | today ID" pairs with the reason the
 // leaf may stay below today's highest row.
 var notWeakerExceptions = map[string]string{
-	"host winrm add | host.add":  proxyOnlySSH,
-	"host telnet add | host.add": proxyOnlySSH,
-	"host serial add | host.add": proxyOnlySSH,
+	"host winrm add | host.add": proxyOnlySSH,
 }
 
 // proxyOnlySSH: host.add's rows are about --proxy-command, an OpenSSH

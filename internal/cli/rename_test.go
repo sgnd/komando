@@ -34,7 +34,7 @@ func shopInventory(t *testing.T) {
 	mustRun(t, "key", "gen", "shop-key")
 	mustRun(t, "host", "ssh", "add", "shop-data-01", "u@10.0.0.2", "--via", "shop-vpn,shop-bastion", "-g", "shop",
 		"--sudo-ref", "secret:shop-pass", "--key", "shop-key")
-	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--password-ref", "secret:other-pass")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.3", "--via", "shop-vpn,shop-bastion", "--env", "DB=secret:shop-pass", "--credential", "secret:other-pass")
 	mustRun(t, "conn", "add", "shop-db", "postgres://shop@10.0.0.5/shop", "--via", "shop-vpn,shop-bastion",
 		"--password-ref", "secret:shop-pass", "--protected", "-g", "shop")
 	mustRun(t, "conn", "add", "bucket", "s3://shop-admin@shop-prod?region=eu-west-1", "--password-ref", "secret:shop-pass")
@@ -505,7 +505,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
-	mustRun(t, "host", "ssh", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "secret:lab-pass", "--env", "P=secret:lab-pass")
+	mustRun(t, "host", "ssh", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--credential", "secret:lab-pass", "--env", "P=secret:lab-pass")
 	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "secret:lab-pass")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	d := mustRun(t, "rename", "--starts-with", "lab-", "test-")

@@ -177,14 +177,14 @@ func TestRiskPersonGains(t *testing.T) {
 		}
 	}
 	for _, line := range []string{
-		"svc stop web1 nginx", "sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
-		"host edit web1 --port 2222", "group rm web web1",
+		"svc stop web1 nginx", "sync ./site web1:/var/www", "host ssh exec web1 -- uptime", "pkg upgrade web1 --security",
+		"host ssh edit web1 --port 2222", "group rm web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {
 			t.Errorf("%s: typed name %q", line, r.what)
 		}
 	}
-	if r := riskOfLine(strings.Fields("host edit web1 --protected=false")); r.tier != tierSafety {
+	if r := riskOfLine(strings.Fields("host ssh edit web1 --protected=false")); r.tier != tierSafety {
 		t.Errorf("protection off: %s", r.tier)
 	}
 	if r := riskOfLine(strings.Fields("group rm big")); r.bulk == "" {

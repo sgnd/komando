@@ -26,7 +26,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
 	setGate(tcl, true, gateYes)
-	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--script", "./deploy.sh", "--yes"}
 
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n\tsystemctl restart app\nexport PGHOST=db1\n")

@@ -100,7 +100,7 @@ func TestEnvSecretNeedsAPerson(t *testing.T) {
 	if env, err := parseEnvTo(tcl, []string{"PLAIN=1"}, hosts); err != nil || env["PLAIN"] != "1" {
 		t.Fatalf("a plain value: %v %v", env, err)
 	}
-	wantCode(t, "SECRET_DESTINATION", "exec", "web1", "-e", "DB=secret:db-pass", "--", "true")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "exec", "web1", "-e", "DB=secret:db-pass", "--", "true")
 	if _, err := parseEnvTo(tcl, []string{"K=secret:" + approvalSecret}, hosts); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("reserved: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	// a script is not asked, but a reserved secret is refused
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
 	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.3")
-	wantCode(t, "RESERVED_SECRET", "host", "ssh", "add", "x", "u@10.0.0.9", "--password-ref", "secret:"+approvalSecret)
+	wantCode(t, "RESERVED_SECRET", "host", "ssh", "add", "x", "u@10.0.0.9", "--credential", "secret:"+approvalSecret)
 	wantCode(t, "RESERVED_SECRET", "conn", "edit", "shop", "--password-ref", "secret:"+approvalSecret)
 	if _, err := vault.Resolve("secret:" + approvalSecret); toErr(err).Code != "RESERVED_SECRET" {
 		t.Errorf("a reference never reads the approval code's key: %v", err)
@@ -131,7 +131,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--password-ref", "secret:db-pass")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--url", "postgres://app@evil.example/app")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--via", "jump")
-	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--password-ref", "env:GITHUB_TOKEN")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--credential", "env:GITHUB_TOKEN")
 	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--env", "TOKEN=secret:db-pass")
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
@@ -145,7 +145,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
 
-	mustRun(t, "host", "ssh", "edit", "web1", "--password-ref", "secret:db-pass", "--yes")
+	mustRun(t, "host", "ssh", "edit", "web1", "--credential", "secret:db-pass", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
 	}
@@ -163,7 +163,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	resetApproval()
 	mustRun(t, "host", "ssh", "add", "db1", "deploy@10.0.0.2", "--protected")
 	n := len(*texts)
-	mustRun(t, "host", "ssh", "edit", "db1", "--sudo-ref", "secret:db-pass", "--yes")
+	mustRun(t, "host", "ssh", "edit", "db1", "--sudo-credential", "secret:db-pass", "--yes")
 	if len(*texts) != n+1 || !strings.Contains((*texts)[n], "protected host: db1") || !strings.Contains((*texts)[n], "secret:db-pass to deploy@10.0.0.2:22 (server db1)") {
 		t.Errorf("one window for the protected server and the secret: %q", (*texts)[n:])
 	}
@@ -273,7 +273,7 @@ func TestAgentOtherHome(t *testing.T) {
 	}
 	wantCode(t, "NEEDS_PERSON", "host", "ssh", "add", "prod", "root@10.0.0.2")
 	// a synonym is typed like the command it names: the same stop
-	for _, syn := range [][]string{{"host", "ssh", "tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
+	for _, syn := range [][]string{{"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
 		wantCode(t, "NEEDS_PERSON", syn...)
 	}
 	// a background command too: an agent's own home would hold its own

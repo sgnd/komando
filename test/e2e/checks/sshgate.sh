@@ -79,7 +79,7 @@ check "a key without --shell-access gets no terminal" True "$(ktty gate-rw koman
 check "a key without --shell-access opens no shell" SSH_GATE_REFUSED "$(kssh gate-rw komando host ssh shell gx | code || true)"
 # a server the gate's komando reaches (the bastion, on the same network), its host key pinned by a person here
 echo -n agentpass | gx komando secret set gsh-pass -o json >/dev/null
-gx komando host ssh add gsh agent@bastion --password-ref secret:gsh-pass -o json >/dev/null
+gx komando host ssh add gsh agent@bastion --credential secret:gsh-pass -o json >/dev/null
 gx komando test gsh -o json >/dev/null
 # kshell KEY SERVER: komando host ssh shell SERVER through the gate, in a 24x80 terminal that
 # grows to 33x111 once the shell is up; then it types a line and exit. Prints the screen.

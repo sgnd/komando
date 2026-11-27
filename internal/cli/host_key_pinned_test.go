@@ -29,7 +29,7 @@ func TestPinnedKeyInOutput(t *testing.T) {
 	run := func() []any {
 		t.Helper()
 		srv.reply("up 1 day")
-		d, e := invRun(t, "--host-key-policy", "accept-new", "exec", "dev", "--read-only", "--", "uptime")
+		d, e := invRun(t, "--host-key-policy", "accept-new", "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 		if e != nil {
 			t.Fatal(e)
 		}

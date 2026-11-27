@@ -188,7 +188,7 @@ func useArgs(c *cobra.Command) []string {
 var showKinds = map[string]string{
 	"host ssh show": "", "conn show": "", "vpn show": "",
 	"group list": "group", "key show": "key", "job status": "job", "secret show": "secret", "config get": "setting",
-	"tunnel show": "tunnel", "recipe show": "recipe",
+	"recipe show": "recipe",
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the

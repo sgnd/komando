@@ -464,11 +464,11 @@ func loginWay(st *store.State, h *store.Host) string {
 	sec := secretName(h.Name, "pass")
 	switch {
 	case st.Hosts[h.Name] != nil:
-		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando host ssh edit %s --password-ref secret:%s` (or --key KEY)", sec, h.Name, sec)
+		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando host ssh edit %s --credential secret:%s` (or --key KEY)", sec, h.Name, sec)
 	case st.Conns[h.Name] != nil:
 		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando conn edit %s --password-ref secret:%s`", sec, h.Name, sec)
 	}
-	return "save the server with `komando host ssh add NAME " + h.Name + " --key KEY` (or --password-ref secret:NAME)"
+	return "save the server with `komando host ssh add NAME " + h.Name + " --key KEY` (or --credential secret:NAME)"
 }
 
 // adhoc reports a server that is not in the inventory: a user@address
@@ -495,7 +495,7 @@ func authFailedCheck(st *store.State, h *store.Host) string {
 	case h.AskLogin():
 		return fmt.Sprintf("check the user with `komando host ssh show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
 	case adhoc(st, h):
-		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host ssh add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
+		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host ssh add NAME " + name + " --key KEY` (or --credential) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
 		if sec, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok {
 			return fmt.Sprintf("check the user with `komando host ssh show %s`; if the password changed, store the new one with `komando secret set %s`", name, sec)

@@ -106,12 +106,12 @@ func TestStandardSynonyms(t *testing.T) {
 		args []string
 		id   string
 	}{
-		{[]string{"servers"}, "host"}, {[]string{"server", "list"}, "host.list"},
+		{[]string{"servers"}, "host"}, {[]string{"server", "ssh", "list"}, "host.ssh.list"},
 		{[]string{"databases", "query"}, "db.query"}, {[]string{"files", "cat"}, "fs.cat"},
-		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
+		{[]string{"policies", "list"}, "policy.list"},
 		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
 		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
-		{[]string{"host", "ssh", "tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
+		{[]string{"recipe", "show"}, "recipe.list"},
 		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"user", "create"}, "user.add"}, {[]string{"db", "user", "create"}, "db.user.add"},
@@ -139,7 +139,6 @@ func TestSynonymWrappers(t *testing.T) {
 		t.Errorf("recipe show disk: %v", d)
 	}
 	wantCode(t, "RECIPE_NOT_FOUND", "recipe", "show", "nope")
-	wantCode(t, "TUNNEL_NOT_FOUND", "tunnel", "show", "t-nope")
 	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.list"`) {
 		t.Errorf("group show: exit %d %s", code, text)
 	}

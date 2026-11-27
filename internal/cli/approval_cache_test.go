@@ -29,7 +29,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
 	setGate(tcl, true, gateYes, gateAllowDangerous, gateReveal)
-	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes", "--allow-dangerous", "--reveal"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--script", "./deploy.sh", "--yes", "--allow-dangerous", "--reveal"}
 
 	resetApproval()
 	if !tcl.revealOK() || len(texts) != 1 { // as the root command does before the command runs
@@ -76,7 +76,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	resetApproval()
 	texts = nil
 	setGate(tcl, false, gateReveal)
-	tcl.args = []string{"komando", "exec", "web", "--yes", "--allow-dangerous", "--", "rm", "-rf", "/srv/app"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--yes", "--allow-dangerous", "--", "rm", "-rf", "/srv/app"}
 	if err := Guard(tcl, st, hosts, "rm -rf /srv/app", true); err != nil || len(texts) != 1 {
 		t.Errorf("destructive on a protected server asks once: %v, %d windows", err, len(texts))
 	}
@@ -95,7 +95,7 @@ func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	if err := vault.Set(store.Save(), "web-pw", "old-value"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "ssh", "edit", "web", "--password-ref", "secret:web-pw", "--yes")
+	mustRun(t, "host", "ssh", "edit", "web", "--credential", "secret:web-pw", "--yes")
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
 	mustRun(t, "secret", "set", "web-pw", "--from-env", "V", "--yes", "--reveal")

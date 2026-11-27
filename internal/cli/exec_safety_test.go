@@ -380,7 +380,7 @@ func TestStreamRedactsSplitSecrets(t *testing.T) {
 		srv.reply(c.chunks...)
 		for _, format := range []string{"json", "text"} {
 			got := captureOutput(t, func() error {
-				return runRoot(t, "-o", format, "exec", "prod", "--read-only", "--stream", "--", "tail -f /var/log/app.log")
+				return runRoot(t, "-o", format, "host", "ssh", "exec", "prod", "--read-only", "--stream", "--", "tail -f /var/log/app.log")
 			})
 			for _, l := range c.leaks {
 				if strings.Contains(got, l) {

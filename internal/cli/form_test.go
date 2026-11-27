@@ -313,8 +313,8 @@ func TestFormAddCtrlC(t *testing.T) {
 // usage error, never questions.
 func TestFormAddAloneForAgents(t *testing.T) {
 	invHome(t)
-	for _, kind := range []string{"host", "conn", "vpn"} {
-		_, e := invRun(t, kind, "add")
+	for _, kind := range [][]string{{"host", "ssh"}, {"conn"}, {"vpn"}} {
+		_, e := invRun(t, append(slices.Clone(kind), "add")...)
 		if e == nil || e.Code != "USAGE" || !strings.Contains(e.Hint, "alone at a terminal") {
 			t.Errorf("%s add: %+v", kind, e)
 		}
@@ -323,7 +323,7 @@ func TestFormAddAloneForAgents(t *testing.T) {
 
 func TestFormDryRunBeforeDashes(t *testing.T) {
 	got := formDry([][]string{{"host", "ssh", "exec", "web1", "--", "systemctl restart nginx"}})
-	if strings.Join(got, "|") != "exec|web1|--dry-run|--|systemctl restart nginx" {
+	if strings.Join(got, "|") != "host|ssh|exec|web1|--dry-run|--|systemctl restart nginx" {
 		t.Errorf("exec dry run: %q", got)
 	}
 	got = formDry([][]string{{"secret", "set", "x-authkey"}, {"vpn", "add", "x", "tailscale"}})
@@ -510,12 +510,15 @@ func TestFormRequiredFlagsAreAsked(t *testing.T) {
 // formHides are the flags a hint keeps out of the menu, each with why. Any
 // other hide fails: the menu leaves nothing out without a reason.
 var formHides = map[string]string{
-	"host edit group":        "-g is --add-group, which is asked",
-	"host edit tag":          "-t is --add-tag, which is asked",
+	"host ssh edit group":    "-g is --add-group, which is asked",
+	"host winrm edit group":  "-g is --add-group, which is asked",
+	"host ssh edit tag":      "-t is --add-tag, which is asked",
+	"host winrm edit tag":    "-t is --add-tag, which is asked",
 	"conn edit group":        "-g is --add-group, which is asked",
 	"conn edit tag":          "-t is --add-tag, which is asked",
 	"job start cmd":          "the same as the command words, which are asked",
-	"exec cmd":               "the same as the command words, which are asked",
+	"host ssh exec cmd":      "the same as the command words, which are asked",
+	"host winrm exec cmd":    "the same as the command words, which are asked",
 	"guide install no-guard": "it turns off the guard that keeps AI agents away from secret files",
 	"rename starts-with":     "always added: the menu renames by the start of the names",
 }

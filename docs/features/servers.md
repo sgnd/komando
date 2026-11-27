@@ -155,8 +155,8 @@ To change many servers at once, give several names or a
 changes all of them or none:
 
 ```bash
-komando host ssh edit @web --sudo-ref secret:ubuntu-sudo --dry-run   # which servers would change
-komando host ssh edit @web --sudo-ref secret:ubuntu-sudo
+komando host ssh edit @web --sudo-credential secret:ubuntu-sudo --dry-run   # which servers would change
+komando host ssh edit @web --sudo-credential secret:ubuntu-sudo
 komando host ssh edit web1 web2 db1 --add-tag canary
 ```
 
@@ -459,7 +459,7 @@ in two steps, with a name you choose:
 
 ```bash
 komando secret set web1-pass
-komando host ssh edit web1 --password-ref secret:web1-pass
+komando host ssh edit web1 --credential secret:web1-pass
 ```
 
 A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
@@ -619,7 +619,7 @@ If `sudo` asks for a password on the server, store that too:
 
 ```bash
 komando secret set web1-sudo
-komando host ssh edit web1 --sudo-ref secret:web1-sudo
+komando host ssh edit web1 --sudo-credential secret:web1-sudo
 ```
 
 Everything else about the vault (listing, checking, renaming and removing

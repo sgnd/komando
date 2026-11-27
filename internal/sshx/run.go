@@ -621,8 +621,8 @@ func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io
 // sudoHint says how to give the server its sudo password.
 func sudoHint(h *store.Host) string {
 	if h == nil || h.Name == "" || strings.ContainsAny(h.Name, "@:") {
-		return "sudo needs a password; save the server with `komando host ssh add NAME ADDRESS --sudo-ref secret:NAME` to give it one"
+		return "sudo needs a password; save the server with `komando host ssh add NAME ADDRESS --sudo-credential secret:NAME` to give it one"
 	}
 	sec := secretName(h.Name, "sudo")
-	return fmt.Sprintf("sudo needs a password; store it with `komando secret set %s`, then run `komando host ssh edit %s --sudo-ref secret:%s`", sec, h.Name, sec)
+	return fmt.Sprintf("sudo needs a password; store it with `komando secret set %s`, then run `komando host ssh edit %s --sudo-credential secret:%s`", sec, h.Name, sec)
 }

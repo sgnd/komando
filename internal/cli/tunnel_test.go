@@ -142,7 +142,7 @@ func TestParseTunnelIPv6(t *testing.T) {
 func TestAllWithNames(t *testing.T) {
 	invHome(t)
 	wantCode(t, "USAGE", "vpn", "down", "nosuch", "--all")
-	wantCode(t, "USAGE", "tunnel", "stop", "t-nosuch", "--all")
+	wantCode(t, "USAGE", "host", "ssh", "tunnel", "stop", "t-nosuch", "--all")
 	wantCode(t, "USAGE", "logout", "web1", "--all")
 	mustRun(t, "vpn", "down", "--all")
 	mustRun(t, "host", "ssh", "tunnel", "stop", "--all")

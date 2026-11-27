@@ -83,7 +83,7 @@ not know? Set `KOMANDO_AGENT=1`.
      `CERT_PROBLEMS` when one expires within `--warn`, default 30d).
    - Docker disk space: `komando docker prune TARGET --dry-run` first; it
      lists what would be removed and how much space that frees.
-   - Your list in bulk: `komando host ssh edit TARGET --sudo-ref secret:NAME`
+   - Your list in bulk: `komando host ssh edit TARGET --sudo-credential secret:NAME`
      (one approval for every server), `komando host ssh rename OLD NEW` (updates
      every reference; `key rename` and `group rename` likewise),
      `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,

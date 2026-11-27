@@ -47,8 +47,8 @@ func TestHabitWordsSuggestTheCommand(t *testing.T) {
 func TestSynonymsPrintNothing(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
-	if note := stderrOf(t, func() { mustRun(t, "--dry-run", "x", "web1", "--", "uptime") }); note != "" {
-		t.Errorf("x printed %q", note)
+	if note := stderrOf(t, func() { mustRun(t, "host", "ssh", "ls") }); note != "" {
+		t.Errorf("ls printed %q", note)
 	}
 }
 

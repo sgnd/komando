@@ -29,7 +29,7 @@ func formCheckLine(t *testing.T, source string, line []string) {
 		if _, err := driver.Parse(cmd.Flags().Arg(1)); err != nil {
 			t.Errorf("%s: URL %q: %v", source, cmd.Flags().Arg(1), err)
 		}
-	case "host add":
+	case "host ssh add", "host winrm add":
 		if _, err := parseAddressArg(cmd.Flags().Arg(1)); err != nil {
 			t.Errorf("%s: address %q: %v", source, cmd.Flags().Arg(1), err)
 		}
@@ -102,13 +102,13 @@ func TestFormKindLines(t *testing.T) {
 	}{
 		{"Server", "Server", formAnswers{"name": "win1", "os": "windows", "transport": "ssh", "address": "10.0.0.9",
 			"user": "Administrator", "port": "22", "login": "password", "protected": "no"},
-			"host add win1 Administrator@10.0.0.9 --os windows --ask-password"},
+			"host ssh add win1 Administrator@10.0.0.9 --os windows --ask-password"},
 		{"Server", "Server", formAnswers{"name": "win2", "os": "windows", "transport": "winrm", "address": "10.0.0.9",
 			"user": "deploy@corp.local", "winrmtls": "", "winrmport": "5986", "protected": "yes"},
-			"host add win2 winrm://deploy@corp.local@10.0.0.9 --ask-password --protected"},
+			"host winrm add win2 winrm://deploy@corp.local@10.0.0.9 --ask-password --protected"},
 		{"Server", "Server", formAnswers{"name": "win3", "os": "windows", "transport": "winrm", "address": "win3.lan",
 			"user": "Administrator", "winrmtls": "off", "winrmport": "5985", "protected": "no"},
-			"host add win3 winrm://Administrator@win3.lan?tls=off --ask-password"},
+			"host winrm add win3 winrm://Administrator@win3.lan?tls=off --ask-password"},
 		{"Databases", "SQL Server", formAnswers{"name": "sales", "host": "db.internal", "port": "1433", "user": "app",
 			"database": "sales", "protected": "no", "tls": "nocheck"},
 			"conn add sales sqlserver://app@db.internal/sales?encrypt=true&tls=skip-verify --ask-password"},
@@ -253,11 +253,11 @@ func TestFormDestructive(t *testing.T) {
 	cases := map[string]bool{
 		"queue purge q1 orders": true, "cache rm c1 k": true, "storage rm s3 a": true,
 		"registry oci image prune r repo": true, "cluster scale k deployment/api 0": true,
-		"cluster scale k deployment/api 3": false, "host add web1 root@10.0.0.5": false,
+		"cluster scale k deployment/api 3": false, "host ssh add web1 root@10.0.0.5": false,
 		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
 		"user rm web1 bob --remove-home": true, "db user rm db1 bob": true, "db user list db1": false,
 		"secret rm db-pass": true, "key rm k1 --delete-file": true, "key rm k1": false,
-		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
+		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host ssh remove web1": false,
 	}
 	for line, want := range cases {
 		if got := riskOfLine(strings.Fields(line)).typedWhat() != ""; got != want {

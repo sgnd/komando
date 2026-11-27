@@ -315,7 +315,7 @@ func TestInvSecrets(t *testing.T) {
 	if e.Suggestion == "" || !strings.Contains(e.Hint, e.Suggestion) {
 		t.Errorf("no suggestion: %+v", e)
 	}
-	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.2", "--protected", "--password-ref", "secret:s1")
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.2", "--protected", "--credential", "secret:s1")
 	wantCode(t, "PROTECTED_TARGET", "secret", "set", "s1", "--from-env", "INV_S")
 	d = mustRun(t, "secret", "set", "s2", "--from-env", "INV_S")
 	if d["replaced"] != true {
@@ -483,7 +483,7 @@ func TestInvDoctorInventory(t *testing.T) {
 
 func TestInvRmSelector(t *testing.T) {
 	invHome(t)
-	if e := wantCode(t, "TARGET_EMPTY", "test", "all"); !strings.Contains(e.Hint, "host add") {
+	if e := wantCode(t, "TARGET_EMPTY", "test", "all"); !strings.Contains(e.Hint, "host ssh add") {
 		t.Errorf("empty inventory hint: %q", e.Hint)
 	}
 	mustRun(t, "host", "ssh", "add", "tmp-1", "u@10.0.0.1", "-g", "old")

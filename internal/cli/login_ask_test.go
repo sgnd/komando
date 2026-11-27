@@ -213,20 +213,20 @@ func TestLoginAskFlag(t *testing.T) {
 		}
 	}
 	wantCode(t, "USAGE", "host", "ssh", "edit", "web1", "--unset", "login") // --login says it: no second way
-	e := wantCode(t, "USAGE", "host", "ssh", "add", "win1", "winrm://Administrator@10.0.0.9", "--login", "agent")
+	e := wantCode(t, "USAGE", "host", "winrm", "add", "win1", "winrm://Administrator@10.0.0.9", "--login", "agent")
 	if !strings.Contains(e.Message, "WinRM") {
 		t.Errorf("winrm agent: %+v", e)
 	}
 
 	// the settings alone say it too
 	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2")
-	mustRun(t, "host", "ssh", "add", "web3", "u@10.0.0.3", "--password-ref", "env:WEB3_PASS")
+	mustRun(t, "host", "ssh", "add", "web3", "u@10.0.0.3", "--credential", "env:WEB3_PASS")
 	if l := loginOf(t); l["web1"] != "ask" || l["web2"] != "agent" || l["web3"] != "password" || l["h-key"] != "key" {
 		t.Errorf("host list logins: %v", l)
 	}
 
 	// edit: a stored password ends login ask; each word switches to itself
-	if d := mustRun(t, "host", "ssh", "edit", "web1", "--password-ref", "env:WEB1_PASS"); d["login"] != "password" {
+	if d := mustRun(t, "host", "ssh", "edit", "web1", "--credential", "env:WEB1_PASS"); d["login"] != "password" {
 		t.Errorf("edit --password-ref: %v", d)
 	}
 	mustRun(t, "host", "ssh", "edit", "web1", "--login", "ask")
@@ -235,7 +235,7 @@ func TestLoginAskFlag(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "host", "ssh", "edit", "web1", "--login", "key")      // it has no key
 	wantCode(t, "USAGE", "host", "ssh", "edit", "web1", "--login", "password") // nor a password
-	if d := mustRun(t, "host", "ssh", "edit", "web1", "--login", "key", "--identity", keyFile, "--password-ref", "env:WEB1_PASS"); d["login"] != "key" {
+	if d := mustRun(t, "host", "ssh", "edit", "web1", "--login", "key", "--identity", keyFile, "--credential", "env:WEB1_PASS"); d["login"] != "key" {
 		t.Errorf("edit --login key: %v", d)
 	}
 	if d := mustRun(t, "host", "ssh", "edit", "web1", "--login", "password"); d["login"] != "password" || d["identity"] != nil {
@@ -254,7 +254,7 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "s3cret-in-env")
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
-	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "secret:web1-pass")
 	for _, cmd := range [][]string{{"host", "ssh", "add"}, {"host", "ssh", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
 		if err != nil {
@@ -283,10 +283,10 @@ func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "shared-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "web4-pass", "--from-env", "PW")
-	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
-	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "ssh", "add", "web3", "u@10.0.0.3", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "ssh", "add", "web4", "u@10.0.0.4", "--password-ref", "secret:web4-pass")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "secret:web1-pass")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--credential", "secret:shared-pass")
+	mustRun(t, "host", "ssh", "add", "web3", "u@10.0.0.3", "--credential", "secret:shared-pass")
+	mustRun(t, "host", "ssh", "add", "web4", "u@10.0.0.4", "--credential", "secret:web4-pass")
 
 	d := mustRun(t, "host", "ssh", "edit", "web1", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["web1-pass"]` ||
@@ -319,7 +319,7 @@ func TestLoginAskDestinationNeedsPerson(t *testing.T) {
 	mustRun(t, "host", "ssh", "add", "other", "u@10.0.0.6")
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--login", "ask", "--via", "bastion")
 	t.Setenv("PW", "x")
-	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--password-ref", "env:PW")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "--credential", "env:PW")
 	setCallerEnv(t, "CLAUDECODE", "1")
 
 	needsPerson := func(want string, args ...string) {
@@ -483,7 +483,7 @@ func TestLoginAskScriptNeedsPerson(t *testing.T) {
 	port, tries, key := passwordSSHD(t, "pw-123456")
 	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
 	trustSSHD(t, "web1", port, key)
-	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Errorf("%+v", e)
 	}
@@ -503,7 +503,7 @@ func TestLoginAskFirstConnectionNeedsPerson(t *testing.T) {
 	texts := loginWindow(t, "pw", true, true)
 	wantCode(t, "NEEDS_PERSON", "test", "web1") // a look command logs in too
 	for range 2 {
-		e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
+		e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 		if !strings.Contains(e.Message, "has not met web1") || !strings.Contains(e.Hint, "`komando test web1`") || !strings.Contains(e.Message, "nothing was sent") {
 			t.Fatalf("%+v", e)
 		}
@@ -539,7 +539,7 @@ func TestLoginAskPinAloneNeedsPerson(t *testing.T) {
 		t.Fatalf("pins: %v", pins)
 	}
 	texts := loginWindow(t, pw, true, true)
-	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if !strings.Contains(e.Message, "nobody has logged in to web1") || len(*texts) != 0 || tries.Load() != 0 {
 		t.Fatalf("%+v; %d windows, %d passwords", e, len(*texts), tries.Load())
 	}
@@ -690,24 +690,24 @@ func TestLoginAskAgentStops(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 
 	loginWindow(t, "", false, false)
-	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if !strings.Contains(e.Hint, "`komando test web1`") || !strings.Contains(e.Hint, "never ask for the password in the chat") {
 		t.Errorf("no screen: %+v", e)
 	}
 	texts := loginWindow(t, "", false, true)
-	e = wantCode(t, "DECLINED", "exec", "web1", "--read-only", "--", "uptime")
+	e = wantCode(t, "DECLINED", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if e.Hint != "do not retry: ask the user to run `komando test web1` in their own terminal" {
 		t.Errorf("cancel: %+v", e)
 	}
 	// the cool-down: no second window, even for a look command
 	wantCode(t, "DECLINED", "test", "web1")
-	e = wantCode(t, "DECLINED", "exec", "web1", "--read-only", "--", "uptime")
+	e = wantCode(t, "DECLINED", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Errorf("cool-down: %d windows, %+v", len(*texts), e)
 	}
 	// a rename does not end it
 	mustRun(t, "host", "rename", "web1", "web9")
-	if e := wantCode(t, "DECLINED", "exec", "web9", "--read-only", "--", "uptime"); len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") {
+	if e := wantCode(t, "DECLINED", "host", "ssh", "exec", "web9", "--read-only", "--", "uptime"); len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") {
 		t.Errorf("after a rename: %d windows, %+v", len(*texts), e)
 	}
 	mustRun(t, "host", "rename", "web9", "web1")
@@ -724,7 +724,7 @@ func TestLoginAskAgentStops(t *testing.T) {
 		t.Fatal(err)
 	}
 	loginWindow(t, "wrong-password", true, true)
-	e = wantCode(t, "AUTH_FAILED", "exec", "web1", "--read-only", "--", "uptime")
+	e = wantCode(t, "AUTH_FAILED", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if strings.Contains(e.Message+e.Hint, "wrong-password") || !strings.Contains(e.Message, "refused the password typed") {
 		t.Errorf("wrong password: %+v", e)
 	}
@@ -741,7 +741,7 @@ func TestLoginAskGateNeedsPerson(t *testing.T) {
 	trustSSHD(t, "web1", port, key)
 	setCallerEnv(t, engine.GateEnv, "phone")
 	texts := loginWindow(t, "pw", true, true)
-	wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if len(*texts) != 0 {
 		t.Errorf("ssh-gate opened a window: %q", *texts)
 	}
@@ -844,7 +844,7 @@ func TestLoginAskTunnelHandoff(t *testing.T) {
 func TestLoginAskWindowText(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	cl := testCall()
-	cl.args = []string{"komando", "exec", "web1", "--read-only", "--", "uptime"}
+	cl.args = []string{"komando", "host", "ssh", "exec", "web1", "--read-only", "--", "uptime"}
 	q := sshx.LoginAsk{Host: &store.Host{Name: "web1", Address: "10.0.0.1", User: "deploy", Login: store.LoginAsk}, User: "deploy", Addr: "10.0.0.1:2222"}
 	text := loginWindowText(cl, hostTarget(q))
 	for _, want := range []string{"Claude Code wants komando to log in to web1 as deploy@10.0.0.1:2222 for:", "komando host ssh exec web1 --read-only -- uptime",
@@ -856,7 +856,7 @@ func TestLoginAskWindowText(t *testing.T) {
 	if strings.Contains(text, "WARNING") {
 		t.Errorf("a known server warned:\n%s", text)
 	}
-	cl.args = []string{"komando", "exec", "web1", "--", "echo", "a\u202eb"}
+	cl.args = []string{"komando", "host", "ssh", "exec", "web1", "--", "echo", "a\u202eb"}
 	k := sshx.NewHostKey{Host: "web1", Address: "10.0.0.1:2222", Type: "ssh-ed25519", Fingerprint: "SHA256:abc"}
 	q.NewKey = &k
 	text = loginWindowText(cl, hostTarget(q))

@@ -85,16 +85,14 @@ func gateEgress(c *cobra.Command, name string) string {
 	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "help" || top == "completion" {
 		return "" // first steps, help and shell completion scripts: printed
 	}
-	// a leaf that carries reads and a program of your choosing (host ssh exec)
-	// is in both tables: the reason it needs a network wins
-	if why := gateNetwork[name]; why != "" {
-		return why
-	}
 	if f, ok := gateNoNetwork[name]; ok {
 		if f != nil {
 			return f(c)
 		}
 		return ""
+	}
+	if why := gateNetwork[name]; why != "" {
+		return why
 	}
 	return "komando does not know that it stays on the servers and conns in your list"
 }

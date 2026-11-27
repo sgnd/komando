@@ -222,7 +222,7 @@ func TestPolicyEditOffReachesExec(t *testing.T) {
 		t.Errorf("off on @lab: want the connection error, got %+v", e)
 	}
 	wantCode(t, "POLICY_BLOCKED", append([]string{"host", "ssh", "exec", "web1,db1"}, line...)...)
-	wantCode(t, "POLICY_BLOCKED", "exec", "web1", "--", "rm -rf /")
+	wantCode(t, "POLICY_BLOCKED", "host", "ssh", "exec", "web1", "--", "rm -rf /")
 	mustRun(t, "host", "ssh", "add", "web9", addr, "--group", "lab")
 	wantCode(t, "POLICY_BLOCKED", append([]string{"host", "ssh", "exec", "web9"}, line...)...)
 	mustRun(t, "host", "ssh", "remove", "web1", "--yes")

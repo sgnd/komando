@@ -182,7 +182,17 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 				return fmt.Errorf("%s: %q is already a command's name or alias under %q", l.Key, w, parent.CommandPath())
 			}
 		}
-		parent.AddCommand(buildLeaf(l, h))
+		leaf := buildLeaf(l, h)
+		if l.Key.Type == "host" && l.Key.Verb == "exec" && !sessionsOn {
+			// exec's session flags are listed in the table, and hidden and
+			// refused (refuseOff) until the cut turns sessions on
+			for _, n := range sessionFlags {
+				if f := leaf.Flags().Lookup(n); f != nil {
+					f.Hidden = true
+				}
+			}
+		}
+		parent.AddCommand(leaf)
 	}
 	return nil
 }
@@ -767,6 +777,11 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 			for _, old := range append(own, rest...) {
 				tb.set(id, joinEntry(tb, id, old, carried[id][i][old]))
 			}
+		}
+		if _, needs := gateNetwork[id]; needs {
+			// a leaf that carries reads and a program of your choosing (host ssh
+			// exec) has both entries: the reason it needs a network is the one
+			delete(gateNoNetwork, id)
 		}
 		if l.LocalRead {
 			localReads[id] = true

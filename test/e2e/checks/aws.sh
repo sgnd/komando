@@ -15,7 +15,7 @@ printf '#!/bin/sh\nexit 0\n' > "$TMP/fakeaws/session-manager-plugin"
 chmod +x "$TMP/fakeaws/aws" "$TMP/fakeaws/session-manager-plugin"
 AWSK() { PATH="$TMP/fakeaws:$PATH" $K "$@"; }
 
-q $K host ssh add t-ssm agent@i-0abc123def --ssm --password-ref secret:agent-pass
+q $K host ssh add t-ssm agent@i-0abc123def --ssm --credential secret:agent-pass
 check "SSM: login and run a command through aws ssm start-session" direct \
   "$(AWSK exec t-ssm --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "SSM: files over the same path" True "$(AWSK fs ls t-ssm /tmp | jget 'd["ok"]')"

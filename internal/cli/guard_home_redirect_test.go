@@ -43,7 +43,7 @@ func TestAgentHomeRedirect(t *testing.T) {
 	if d := mustRun(t, "list"); d["count"] != float64(1) {
 		t.Fatalf("an agent with HOME=%s sees the person's servers: %v", fake, d)
 	}
-	wantCode(t, "PROTECTED_TARGET", "exec", "web2", "--", "touch", "/tmp/x")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "exec", "web2", "--", "touch", "/tmp/x")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -137,7 +137,7 @@ func TestAgentHomePairStops(t *testing.T) {
 	t.Setenv("USERPROFILE", fake)
 	t.Setenv("KOMANDO_HOME", filepath.Join(fake, ".komando"))
 	wantCode(t, "NEEDS_PERSON", "list")
-	wantCode(t, "NEEDS_PERSON", "exec", "web2", "--", "touch", "/tmp/x")
+	wantCode(t, "NEEDS_PERSON", "host", "ssh", "exec", "web2", "--", "touch", "/tmp/x")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}

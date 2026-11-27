@@ -197,7 +197,7 @@ func TestReadOnlyUnknownCommandRefused(t *testing.T) {
 		`curl https://example.com`, `wget -qO- https://example.com`, `nc -z host 80`)
 	invHome(t)
 	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.5")
-	wantCode(t, "READ_ONLY_VIOLATION", "exec", "web", "--read-only", "--", "mytool", "--status")
+	wantCode(t, "READ_ONLY_VIOLATION", "host", "ssh", "exec", "web", "--read-only", "--", "mytool", "--status")
 }
 
 // cli-guard 25: cobra takes the word after -o as its value, `--` too, so

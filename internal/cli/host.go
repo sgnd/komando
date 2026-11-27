@@ -143,6 +143,7 @@ func init() {
 		}
 	}
 	moveType("host")
+	providerIDs["tunnel"] = true // the hidden group of tunnel serve keeps its old key, which host ssh tunnel has too
 	groupShorts["host ssh"] = "SSH servers: save them, run commands on them, tunnel through them"
 	groupShorts["host winrm"] = "Windows servers over WinRM: save them and run commands on them"
 	groupShorts["host ssh tunnel"] = "Background tunnels through a server: start, list, stop"
@@ -422,10 +423,10 @@ selector (@group, tag:prod, 'web-*') to change many servers at once. Try
 and an AI agent needs your yes in a window. Changing the login of a
 production server, or turning its protection off, asks the same way; one yes
 covers every server in the command.`,
-		Example: `  komando host ssh edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
+		Example: `  komando host ssh edit web1 --add-tag canary --label env=prod --sudo-credential secret:web1-sudo
   komando host ssh edit web1 -g web -t prod          # -g/-t add a group/tag
   komando host ssh edit db1 --protected              # production: ask before changes
-  komando host ssh edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
+  komando host ssh edit @ubuntu --sudo-credential secret:ubuntu-sudo --dry-run
   komando host ssh edit web1 web2 web3 --user deploy
   komando host ssh edit vps1 --ask-password          # type a new password (hidden)
   komando host ssh edit web2 --login ask             # never store its password; type it at every connect

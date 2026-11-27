@@ -51,7 +51,7 @@ func TestAskPassword(t *testing.T) {
 	if v, err := vault.Get("vps1-pass"); err != nil || v != "Typed-Pass-1" {
 		t.Errorf("vault: %q %v", v, err)
 	}
-	wantCode(t, "USAGE", "host", "ssh", "edit", "vps1", "--ask-password", "--password-ref", "env:X")
+	wantCode(t, "USAGE", "host", "ssh", "edit", "vps1", "--ask-password", "--credential", "env:X")
 	// a new password for the same server replaces its own secret
 	readPassword = func(*call, string) (string, error) { return "Typed-Pass-2", nil }
 	mustRun(t, "host", "ssh", "edit", "vps1", "--ask-password")
@@ -59,7 +59,7 @@ func TestAskPassword(t *testing.T) {
 		t.Errorf("edit did not store the new password: %q", v)
 	}
 	// a secret of that name that another server uses is never replaced
-	mustRun(t, "host", "ssh", "add", "other", "root@10.0.0.21", "--password-ref", "secret:web9-pass")
+	mustRun(t, "host", "ssh", "add", "other", "root@10.0.0.21", "--credential", "secret:web9-pass")
 	setSecret(t, "web9-pass", "keep-me")
 	if e := wantCode(t, "SECRET_EXISTS", "host", "ssh", "add", "web9", "root@10.0.0.22", "--ask-password"); !strings.Contains(e.Message, "host other") {
 		t.Errorf("collision: %+v", e)
@@ -92,7 +92,7 @@ func TestAskPassword(t *testing.T) {
 // made, and add says what to run next.
 func TestAddWarnsAndSaysNext(t *testing.T) {
 	invHome(t)
-	d := mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pas")
+	d := mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "secret:web1-pas")
 	if !strings.Contains(fmtAny(d["warnings"]), "secret web1-pas is not in the vault yet: store it with `komando secret set web1-pas`") {
 		t.Errorf("host add: %v", d)
 	}
@@ -117,7 +117,7 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 	setSecret(t, "shared-pass", "y")
 	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
 	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", "secret:shared-pass")
-	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:shared-pass")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "secret:shared-pass")
 	d := mustRun(t, "conn", "rm", "db1", "db2")
 	if fmtAny(d["secrets_unused"]) != "[db-pass]" {
 		t.Errorf("only db-pass is left unused: %v", d)

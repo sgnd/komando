@@ -29,7 +29,7 @@ func windowText(t *testing.T, allow bool) *[]string {
 
 func TestHostMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-ref", "secret:j")
+	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-credential", "secret:j")
 	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.2", "--via", "jump")
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--via", "jump")
 	if err := store.Update(store.Save(), func(s *store.State) error {
@@ -138,8 +138,8 @@ func TestHostEditMany(t *testing.T) {
 	mustRun(t, "host", "ssh", "add", "c", "u@10.0.0.3", "-g", "ubuntu", "--protected")
 	mustRun(t, "host", "ssh", "add", "d", "u@10.0.0.4")
 
-	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
-	d := mustRun(t, "host", "ssh", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--dry-run")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "edit", "@ubuntu", "--sudo-credential", "secret:ubuntu-sudo")
+	d := mustRun(t, "host", "ssh", "edit", "@ubuntu", "--sudo-credential", "secret:ubuntu-sudo", "--dry-run")
 	if len(d["changed"].([]any)) != 3 || len(d["protected"].([]any)) != 2 || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run lists every server and the stop: %v", d)
 	}
@@ -150,7 +150,7 @@ func TestHostEditMany(t *testing.T) {
 
 	// an AI agent: one window that names every server
 	texts := windowText(t, true)
-	mustRun(t, "host", "ssh", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--yes")
+	mustRun(t, "host", "ssh", "edit", "@ubuntu", "--sudo-credential", "secret:ubuntu-sudo", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("one window for the whole command, got %d", len(*texts))
 	}

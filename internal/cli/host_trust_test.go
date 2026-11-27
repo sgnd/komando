@@ -350,7 +350,7 @@ func TestHostRmKeepsThePin(t *testing.T) {
 	mustRun(t, "host", "ssh", "add", "alias1", "root@"+addrs[0]) // same address as node1
 
 	d := mustRun(t, "host", "ssh", "remove", "node1", "node2")
-	if kept := d["host_keys_kept"].([]any); len(kept) != 1 || kept[0] != "node2" || !strings.Contains(d["note"].(string), "host trust NAME --reset") {
+	if kept := d["host_keys_kept"].([]any); len(kept) != 1 || kept[0] != "node2" || !strings.Contains(d["note"].(string), "host ssh trust NAME --reset") {
 		t.Errorf("rm: %v (node1's address is still used by alias1)", d)
 	}
 	s := trustSigner(t)

@@ -19,9 +19,9 @@ func TestRiskOfLineTable(t *testing.T) {
 		tier tier
 		note string // the row's wording: what, dynamic, bulk or typed
 	}{
-		{"exec is rated by the command it runs", "exec web1 -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
+		{"host ssh exec is rated by the command it runs", "host ssh exec web1 -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
 		// pins today; C353 may lower it with Audit
-		{"a bool flag before a positional", "exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a bool flag before a positional", "host ssh exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
 		{"fs rm", "fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
 		{"cache rm", "cache rm c1 k", nil, tierDangerous, "deletes the keys"},
 		{"cluster scale to 0", "cluster scale prod deploy/app 0", nil, tierDangerous, "stops every copy of the app"},
@@ -43,13 +43,13 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"--off in another spelling", "policy edit r --off=true --add-server web1", nil, tierSafety, "switches a rule off"},
 		{"--off=false, then the last value off", "policy edit r --off=false --off", nil, tierSafety, "switches a rule off"},
 		{"a line that does not parse is rated by its words", "policy edit r --off=false --off --bogus", nil, tierSafety, "switches a rule off"},
-		{"a shell is for a person", "shell web1", nil, tierPerson, ""},
+		{"a shell is for a person", "host ssh shell web1", nil, tierPerson, ""},
 		{"a host key reset is for a person", "host trust web1 --reset", nil, tierPerson, "replaces a pinned host key"},
 		{"a line that names no command is for a person (cut PR B2)", "nosuchcommand", nil, tierPerson, ""},
 		{"a global flag before the command", "-o json fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
 		{"a proxy command on a host", "", []string{"host", "ssh", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
-		{"a group selector", "exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
-		{"a sudo flag before --", "exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a group selector", "host ssh exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
+		{"a sudo flag before --", "host ssh exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
 		{"--reveal is not a tier of its own", "secret show token --reveal", nil, tierRead, ""},
 	}
 	if len(tests) != 31 {

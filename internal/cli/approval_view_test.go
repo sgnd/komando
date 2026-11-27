@@ -300,7 +300,7 @@ func TestMacPanelHangingIndent(t *testing.T) {
 func TestApprovalViewText(t *testing.T) {
 	v := approvalView{Agent: "Claude Code", Head: "wants to change web", Targets: []string{"web"}, Line: "komando host ssh exec web -- id",
 		Reasons: []string{"a change on protected host web"}, Flags: []string{"--yes"}}
-	want := "Claude Code wants to change web:\n\nkomando exec web -- id\n\nAllow this once?\n\nWhy komando asks: a change on protected host web\n--yes skips one of komando's safety stops (" + flagMeaning["--yes"] + ")."
+	want := "Claude Code wants to change web:\n\nkomando host ssh exec web -- id\n\nAllow this once?\n\nWhy komando asks: a change on protected host web\n--yes skips one of komando's safety stops (" + flagMeaning["--yes"] + ")."
 	if got := v.text(); got != want {
 		t.Errorf("text:\n%s\nwant:\n%s", got, want)
 	}

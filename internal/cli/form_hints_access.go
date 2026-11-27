@@ -152,7 +152,7 @@ func init() {
 		"host ssh tunnel start": {next: []string{"host ssh tunnel list", "host ssh tunnel stop TUNNEL"}},
 		"host ssh tunnel stop":  {next: []string{"host ssh tunnel list"}},
 		"login aws":             {next: []string{"test TARGET", "storage list CONN", "import aws"}},
-		"secret set": {next: []string{"host ssh edit TARGET --credential {}", "conn edit NAME --password-ref secret:{}",
+		"secret set": {next: []string{"host ssh edit TARGET --credential {}", "conn edit NAME --credential secret:{}",
 			"secret list"}},
 		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
 		"secret rename":     {next: []string{"secret list", "test TARGET"}},

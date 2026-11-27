@@ -61,7 +61,6 @@ func TestPassthroughDocumentedForms(t *testing.T) {
 		{"--dry-run", "host", "ssh", "exec", "web1", "--", "apt-get", "install", "-y", "nginx"},
 		{"host", "ssh", "exec", "web1", "--dry-run", "-P", "2", "--read-only", "--", "df", "-h"},
 		{"--dry-run", "host", "ssh", "exec", "web1", "-c", "uptime"},
-		{"--dry-run", "x", "web1", "--", "uptime"},
 		{"--dry-run", "job", "start", "web1", "--", "sleep", "1"},
 	} {
 		mustRun(t, args...)
