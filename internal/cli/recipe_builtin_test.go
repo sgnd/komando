@@ -1138,22 +1138,34 @@ func TestBuiltinsThatRaiseThemselvesRefuseNoSudo(t *testing.T) {
 	}
 }
 
-// The design counts 34 shaped built-in snippets (19 host, 5 database, 5
-// cache, 5 cluster) and 24 text built-ins that stay saved-command recipes.
-// The number is the contract with the apps and the docs: a snippet added
-// or taken out changes this test and the design in the same change.
+// notBuiltSnippets are the shaped built-ins the design counts (34: 19 host,
+// 5 database, 5 cache, 5 cluster) that no part has built yet (row of
+// 2026-11-28; the v2.8 tab: "34 to be proven at the cut").
+var notBuiltSnippets = []string{
+	"fs-list", "fs-cat", "fs-write", "fs-write-preview", "security-upgrade", "pkg-upgrade-all",
+	"db-info", "db-sizes", "db-activity", "db-locks", "db-schema",
+	"cache-get", "cache-keys", "cache-info", "cache-set", "cache-rm",
+	"cluster-status", "cluster-list", "cluster-events", "cluster-describe", "cluster-logs",
+}
+
+// The shaped built-in snippets komando has (13 host) and the 24 text
+// built-ins that stay saved-command recipes. The number is the contract
+// with the apps and the docs: a snippet added or taken out changes this
+// test and the design in the same change.
 func TestShapedSnippetCounts(t *testing.T) {
 	byType := map[string]int{}
 	for _, name := range builtinSnippets.Names() {
 		b, _ := builtinSnippets.Lookup(name)
 		byType[b.Type]++
 	}
-	want := map[string]int{"host": 19, "database": 5, "cache": 5, "cluster": 5}
+	want := map[string]int{"host": 13}
 	if !maps.Equal(byType, want) {
-		t.Errorf("shaped snippets by type: %v, want %v", byType, want)
+		t.Errorf("shaped snippets by type: %v, want %v; the design's other %d are not built: %v", byType, want, len(notBuiltSnippets), notBuiltSnippets)
 	}
-	if n := len(builtinSnippets.Names()); n != 34 {
-		t.Errorf("%d shaped snippets, want 34", n)
+	for _, n := range notBuiltSnippets {
+		if _, ok := builtinSnippets.Lookup(n); ok {
+			t.Errorf("%s is built now: take it out of notBuiltSnippets and raise the count", n)
+		}
 	}
 	if n := len(recipes); n != 24 {
 		t.Errorf("%d text built-ins, want 24", n)
