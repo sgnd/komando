@@ -22,8 +22,6 @@ This page is made from the code (`komando schema` lists the same under
 | `BACKUP_NOT_FOUND` | 3 | no backup of … found (looked for ….bak) | komando keeps a backup only when you edit with --backup; give another copy with --copy PATH |
 | `BAD_CA` | 2 | registry CA …: … | store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt` |
 | `BAD_FILE` | 2 | not a backup komando can read: … | give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc) |
-| `BAD_KIND` | 2 | …: kind … has no type | pick a kind komando knows: `komando conn add --help` lists them |
-| `BAD_REFERENCE` | 2 | … names an outside store; it takes credential:NAME | save the value with `komando secret set NAME`, then name it: credential:NAME |
 | `BAD_RELEASE` | 1 | … is … bytes, more than komando accepts; nothing was changed | report it at …/issues |
 | `BAD_SECRET` | 2 | the password for … contains a line break | store the password again without line breaks (`komando secret set NAME`) |
 | `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando download … …` |
@@ -52,7 +50,7 @@ This page is made from the code (`komando schema` lists the same under
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME` |
 | `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue groups CONN` |
 | `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER |
-| `CREDENTIAL_SHARED` | 2 | …: changing … would change credential …, which these entries use: …; nothing was changed | give this entry its own: `komando secret cp … NEW`, then pass credential:NEW |
+| `CREDENTIAL_IN_USE` | 8 | …: changing … would change credential …, which these entries use: …; nothing was changed | give this entry its own: `komando secret cp … NEW`, then pass credential:NEW |
 | `CRONTAB_UNREADABLE` | 5 | cannot read the crontab (exit …) | check the user name; reading another user's crontab needs sudo |
 | `DB_AUTH` | 4 | bigquery: the stored key is not a service account key: … | the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login |
 | `DB_BYTES_LIMIT` | 6 | the query would read …, more than --max-bytes …, so it did not run | BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes |
@@ -129,6 +127,7 @@ This page is made from the code (`komando schema` lists the same under
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands) |
 | `KEY_UNREADABLE` | 4 | cannot read key …: … | check the key path (`komando key list` shows the keys komando knows) |
 | `KILL_FAILED` | 5 | the server did not stop session … | you may lack the right to stop another user's session |
+| `KIND_UNSUPPORTED` | 2 | …: kind … has no type | pick a kind komando knows: `komando conn add --help` lists them |
 | `KUBECONFIG` | 2 | conn …: … | import it again with `komando import kubeconfig` |
 | `LOGIN_FAILED` | 4 | the login to … ended early (…) | a person reads the whole log in … |
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
@@ -193,6 +192,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RECIPE_CHANGED` | 8 | recipe … changed while komando was starting | run it again |
 | `RECIPE_EXISTS` | 8 | recipe … exists | see it with `komando recipe show NAME`, or pass --overwrite to replace it |
 | `RECIPE_NOT_FOUND` | 3 | no recipe named … | see them with `komando recipe list` |
+| `REFERENCE_UNSUPPORTED` | 2 | … names an outside store; it takes credential:NAME | save the value with `komando secret set NAME`, then name it: credential:NAME |
 | `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref |
 | `REGISTRY_ERROR` | 5 | the registry did not say the image's digest | run it again; if it keeps failing, the registry may not support this image format |
 | `REGISTRY_RATE_LIMIT` | 5 | the registry turned the request down: too many requests (Docker Hub's pull limit) | the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again |

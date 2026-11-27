@@ -38,7 +38,7 @@ func TestOldSecretMarkerRefused(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rs := startReplayServerWith(t, map[string]string{"/etc/": "", "/etc/app.env": "OLD\n"})
-			e := wantCode(t, "BAD_REFERENCE", tc.args...)
+			e := wantCode(t, "REFERENCE_UNSUPPORTED", tc.args...)
 			if !strings.Contains(e.Hint, "{{credential:db-pass}}") {
 				t.Fatalf("hint %q does not name {{credential:db-pass}}", e.Hint)
 			}

@@ -5,18 +5,15 @@
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/dev/null && break; sleep 1; done
 # a database always needs its password, so the secret manager's answer counts
 curl -sf -H "X-Vault-Token: e2e-root" -d '{"data":{"pgpass":"apppass"}}' "http://127.0.0.1:$E2E_BAO/v1/secret/data/pg" >/dev/null
-q $K conn add pg-bao 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'vault:secret/pg#pgpass'
-check "db password from OpenBao" 1 "$("${BAOENV[@]}" $K db query pg-bao 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
-check "wrong OpenBao token is named" True "$(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=bad $K db query pg-bao 'select 1' | jget '"permission denied" in json.dumps(d)' || true)"
-q $K conn rm pg-bao
+# E1 (format 3): a conn keeps its password as credential:NAME only; an outside
+# store on the field is refused. The logins through OpenBao and Vaultwarden
+# come back with C485 (`komando credential`), which adds store items.
+check "a conn's password in OpenBao is refused" REFERENCE_UNSUPPORTED "$($K conn add pg-bao 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'vault:secret/pg#pgpass' 2>&1 | jget 'd["error"]["code"]' || true)"
+check "the refusal wrote no conn" False "$($K conn list | jget '"pg-bao" in json.dumps(d)')"
 # Bitwarden (Vaultwarden): an account made the way a Bitwarden client makes it, read by komando
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_VW/alive" >/dev/null && break; sleep 1; done
 (cd "$ROOT" && go run ./test/e2e/bwseed "http://127.0.0.1:$E2E_VW" e2e@example.com 'e2e master pw' shop-pg apppass) >/dev/null
-BWENV=(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD='e2e master pw')
-q $K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'bw://shop-pg/password'
-check "db password from Vaultwarden (bw://)" 1 "$("${BWENV[@]}" $K db query pg-bw 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
-check "wrong Bitwarden master password is named" True "$(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD=nope $K db query pg-bw 'select 1' | jget '"bitwarden" in json.dumps(d)' || true)"
-q $K conn rm pg-bw
+check "a conn's password in Vaultwarden is refused" REFERENCE_UNSUPPORTED "$($K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'bw://shop-pg/password' 2>&1 | jget 'd["error"]["code"]' || true)"
 # db shell is komando's own SQL shell: no psql or mysql on PATH
 check "db shell on PostgreSQL" 42 "$(ptyrun 'select 41 + 1 as answer;\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | tr -d '\r' | grep -E '^ *42 *$' | tr -d ' ' | head -1 || true)"
 check "db shell is read-only" True "$(ptyrun 'create table nope(x int);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'the shell is read-only' && echo True)"

@@ -11068,18 +11068,6 @@
         "hint": "give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc)"
       },
       {
-        "code": "BAD_KIND",
-        "exit": 2,
-        "example": "…: kind … has no type",
-        "hint": "pick a kind komando knows: `komando conn add --help` lists them"
-      },
-      {
-        "code": "BAD_REFERENCE",
-        "exit": 2,
-        "example": "… names an outside store; it takes credential:NAME",
-        "hint": "save the value with `komando secret set NAME`, then name it: credential:NAME"
-      },
-      {
         "code": "BAD_RELEASE",
         "exit": 1,
         "example": "… is … bytes, more than komando accepts; nothing was changed",
@@ -11248,8 +11236,8 @@
         "hint": "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"
       },
       {
-        "code": "CREDENTIAL_SHARED",
-        "exit": 2,
+        "code": "CREDENTIAL_IN_USE",
+        "exit": 8,
         "example": "…: changing … would change credential …, which these entries use: …; nothing was changed",
         "hint": "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"
       },
@@ -11708,6 +11696,12 @@
         "hint": "you may lack the right to stop another user's session"
       },
       {
+        "code": "KIND_UNSUPPORTED",
+        "exit": 2,
+        "example": "…: kind … has no type",
+        "hint": "pick a kind komando knows: `komando conn add --help` lists them"
+      },
+      {
         "code": "KUBECONFIG",
         "exit": 2,
         "example": "conn …: …",
@@ -12090,6 +12084,12 @@
         "exit": 3,
         "example": "no recipe named …",
         "hint": "see them with `komando recipe list`"
+      },
+      {
+        "code": "REFERENCE_UNSUPPORTED",
+        "exit": 2,
+        "example": "… names an outside store; it takes credential:NAME",
+        "hint": "save the value with `komando secret set NAME`, then name it: credential:NAME"
       },
       {
         "code": "REGISTRY_AUTH",

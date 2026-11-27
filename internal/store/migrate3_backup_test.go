@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestMigrate3BackupPartial(t *testing.T) {
 		t.Fatalf("the report names a partial file: %s", res.report.Backup)
 	}
 	fi, err := os.Stat(res.report.Backup)
-	if err != nil || fi.Mode().Perm() != 0o600 {
+	if err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 { // Windows has no mode bits
 		t.Fatalf("backup %s: %v %v", res.report.Backup, fi, err)
 	}
 	if _, err := os.Stat(res.report.Backup + ".partial"); !os.IsNotExist(err) {

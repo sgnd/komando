@@ -60,7 +60,7 @@ func CredentialRef(what, ref string) error {
 		return OldRefError(what, ref)
 	}
 	if p, _ := parseRef(ref); p != "" && p != "secret" {
-		return out.Errf(out.ExitUsage, "BAD_REFERENCE",
+		return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
 			"save the value with `komando secret set NAME`, then name it: credential:NAME",
 			"%s names an outside store; it takes credential:NAME", what)
 	}

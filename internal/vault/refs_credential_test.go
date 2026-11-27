@@ -99,8 +99,8 @@ func TestResolveRefusesOldSpelling(t *testing.T) {
 	}
 	v, err := Resolve("secret:db")
 	var oe *out.Error
-	if !errors.As(err, &oe) || oe.Code != "BAD_REFERENCE" || !strings.Contains(oe.Hint, "credential:db") || v != "" {
-		t.Fatalf("got %q %v, want BAD_REFERENCE naming credential:db", v, err)
+	if !errors.As(err, &oe) || oe.Code != "REFERENCE_UNSUPPORTED" || !strings.Contains(oe.Hint, "credential:db") || v != "" {
+		t.Fatalf("got %q %v, want REFERENCE_UNSUPPORTED naming credential:db", v, err)
 	}
 	if ValidRef("secret:db") {
 		t.Fatal("ValidRef takes the old spelling")

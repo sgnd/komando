@@ -57,8 +57,8 @@ func TestFormat3OutsideRefRefused(t *testing.T) {
 			fakeKeys(t)
 			err := Update(Save(), func(s *State) error { tc.set(s); return nil })
 			var oe *out.Error
-			if !errorsAs(err, &oe) || oe.Code != "BAD_REFERENCE" || oe.Exit != out.ExitUsage || !strings.Contains(oe.Hint, "credential:NAME") {
-				t.Fatalf("got %v, want BAD_REFERENCE naming credential:NAME", err)
+			if !errorsAs(err, &oe) || oe.Code != "REFERENCE_UNSUPPORTED" || oe.Exit != out.ExitUsage || !strings.Contains(oe.Hint, "credential:NAME") {
+				t.Fatalf("got %v, want REFERENCE_UNSUPPORTED naming credential:NAME", err)
 			}
 			s, err := Load()
 			if err != nil || len(s.Hosts)+len(s.Conns)+len(s.Vpns) != 0 {
@@ -99,8 +99,8 @@ func TestFormat3OldSpellingRefused(t *testing.T) {
 			fakeKeys(t)
 			err := Update(Save(), func(s *State) error { tc.set(s); return nil })
 			var oe *out.Error
-			if !errorsAs(err, &oe) || oe.Code != "BAD_REFERENCE" || !strings.Contains(oe.Hint, "credential:db-pw") {
-				t.Fatalf("got %v, want BAD_REFERENCE naming credential:db-pw", err)
+			if !errorsAs(err, &oe) || oe.Code != "REFERENCE_UNSUPPORTED" || !strings.Contains(oe.Hint, "credential:db-pw") {
+				t.Fatalf("got %v, want REFERENCE_UNSUPPORTED naming credential:db-pw", err)
 			}
 			s, err := Load()
 			if err != nil || len(s.Hosts)+len(s.Conns)+len(s.Vpns) != 0 {
@@ -134,7 +134,7 @@ func TestOldReference(t *testing.T) {
 
 // CredentialRef is the one check of a reference to a credential, shared by
 // the store's writer and the CLI's flags: empty and credential:NAME pass,
-// the old spelling and an outside store stop with BAD_REFERENCE. Anything
+// the old spelling and an outside store stop with REFERENCE_UNSUPPORTED. Anything
 // else is not a reference; the caller says what it wants instead.
 func TestCredentialRef(t *testing.T) {
 	for _, tc := range []struct {
@@ -159,9 +159,9 @@ func TestCredentialRef(t *testing.T) {
 				return
 			}
 			var oe *out.Error
-			if !errorsAs(err, &oe) || oe.Code != "BAD_REFERENCE" || oe.Exit != out.ExitUsage ||
+			if !errorsAs(err, &oe) || oe.Code != "REFERENCE_UNSUPPORTED" || oe.Exit != out.ExitUsage ||
 				!strings.Contains(oe.Hint, tc.hint) || !strings.Contains(oe.Message, "--password-ref") {
-				t.Fatalf("got %v, want BAD_REFERENCE on --password-ref naming %s", err, tc.hint)
+				t.Fatalf("got %v, want REFERENCE_UNSUPPORTED on --password-ref naming %s", err, tc.hint)
 			}
 			if strings.Contains(oe.Message+oe.Hint, tc.ref) && tc.ref != "secret:db-pw" {
 				t.Fatalf("the message repeats the reference: %v", err)

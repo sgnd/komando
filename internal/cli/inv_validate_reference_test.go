@@ -19,7 +19,7 @@ func TestOldReferenceSpellingRefused(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
-			e := wantCode(t, "BAD_REFERENCE", tc.args...)
+			e := wantCode(t, "REFERENCE_UNSUPPORTED", tc.args...)
 			if !strings.Contains(e.Hint, "credential:web1-pass") {
 				t.Fatalf("hint %q does not name credential:web1-pass", e.Hint)
 			}
@@ -45,7 +45,7 @@ func TestOutsideStoreOnCredentialFlagRefused(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
-			e := wantCode(t, "BAD_REFERENCE", tc.args...)
+			e := wantCode(t, "REFERENCE_UNSUPPORTED", tc.args...)
 			if !strings.Contains(e.Hint, "credential:NAME") {
 				t.Fatalf("hint %q does not name credential:NAME", e.Hint)
 			}

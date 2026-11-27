@@ -95,12 +95,12 @@ curl -sf -H "X-Vault-Token: e2e-root" -d '{"data":{"agentpass":"agentpass"}}' "h
 curl -sf -H 'X-Amz-Target: secretsmanager.CreateSecret' -H 'Content-Type: application/x-amz-json-1.1' \
   -H 'Authorization: AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/secretsmanager/aws4_request, SignedHeaders=host, Signature=0' \
   -d '{"Name":"e2e/agent","SecretString":"{\"password\":\"agentpass\"}"}' "http://127.0.0.1:$E2E_MOTO/" >/dev/null
-SMENV=(env PATH=/usr/bin:/bin AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
-$K host add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'vault:secret/e2e#agentpass' >/dev/null
-$K host add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'aws-sm:e2e/agent#password' >/dev/null
-check "password from OpenBao" agent "$("${BAOENV[@]}" $K exec direct-bao --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
-check "password from AWS Secrets Manager" agent "$("${SMENV[@]}" $K exec direct-sm --read-only -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
-$K host rm direct-bao direct-sm >/dev/null
+# E1 (format 3): a server keeps its password as credential:NAME only; an outside
+# store on the field is refused. The logins through OpenBao and AWS Secrets
+# Manager come back with C485 (`komando credential`), which adds store items.
+check "a server's password in OpenBao is refused" REFERENCE_UNSUPPORTED "$($K host add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'vault:secret/e2e#agentpass' 2>&1 | jget 'd["error"]["code"]' || true)"
+check "a server's password in AWS Secrets Manager is refused" REFERENCE_UNSUPPORTED "$($K host add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref 'aws-sm:e2e/agent#password' 2>&1 | jget 'd["error"]["code"]' || true)"
+check "the refusals wrote no server" False "$($K host list | jget '"direct-bao" in json.dumps(d) or "direct-sm" in json.dumps(d)')"
 (cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestSSMKMSMoto$' ./internal/cloud/ >"$KOMANDO_HOME/ssm-kms.log" 2>&1) || true
 check "SSM session key from KMS (moto)" ok "$(grep -q -- '--- PASS: TestSSMKMSMoto' "$KOMANDO_HOME/ssm-kms.log" && echo ok)"
 (cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestImportAWS$' ./internal/cli/ >"$KOMANDO_HOME/import-aws.log" 2>&1) || true

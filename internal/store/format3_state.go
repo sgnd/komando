@@ -37,7 +37,7 @@ func credOfRef(entry, field, ref string) (string, error) {
 	if n, ok := strings.CutPrefix(ref, "credential:"); ok && n != "" {
 		return n, nil
 	}
-	return "", out.Errf(out.ExitUsage, "BAD_REFERENCE",
+	return "", out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
 		"save the value as a credential and name it: credential:NAME",
 		"%s: field %s takes a credential (credential:NAME)", entry, field)
 }
@@ -321,7 +321,7 @@ func (w *writer3) put(typ, id string, v any) (string, error) {
 // sharedRefusal is Audit E1-2: a change through one entry to a
 // credential that others use too.
 func (w *writer3) sharedRefusal(entry, what, cred string) error {
-	return out.Errf(out.ExitUsage, "CREDENTIAL_SHARED",
+	return out.Errf(out.ExitConflict, "CREDENTIAL_IN_USE",
 		"give this entry its own: `komando secret cp "+cred+" NEW`, then pass credential:NEW",
 		"%s: changing %s would change credential %s, which these entries use: %s; nothing was changed",
 		entry, what, cred, strings.Join(w.st.users(cred), ", "))
@@ -476,7 +476,7 @@ func (w *writer3) conn(c *Conn) error {
 	}
 	e := "service " + c.Name
 	if !ok {
-		return out.Errf(out.ExitUsage, "BAD_KIND", "pick a kind komando knows: `komando conn add --help` lists them", "%s: kind %q has no type", e, c.Kind)
+		return out.Errf(out.ExitUsage, "KIND_UNSUPPORTED", "pick a kind komando knows: `komando conn add --help` lists them", "%s: kind %q has no type", e, c.Kind)
 	}
 	v := w.st.conns[c.Rec.ID]
 	if v == nil {

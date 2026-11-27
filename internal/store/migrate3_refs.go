@@ -196,7 +196,7 @@ func OldReference(s string) (string, bool) {
 // format 2: it names the spelling that replaced it, never a value.
 func OldRefError(what, ref string) error {
 	n, _ := OldReference(ref)
-	return out.Errf(out.ExitUsage, "BAD_REFERENCE",
+	return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
 		"write "+n+": komando reads a reference only as credential:NAME",
 		"%s uses the old reference spelling, which komando no longer reads", what)
 }

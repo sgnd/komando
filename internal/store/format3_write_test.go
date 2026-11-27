@@ -133,20 +133,24 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 		code   string
 		names  []string
 	}{
-		{"the user, through a service's URL", func(s *State) { s.Conns["pg2"].URL = "postgres://other@10.0.0.31:5432/app" }, "CREDENTIAL_SHARED", []string{"database pg", "database pg2"}},
-		{"the value, through a host's password reference", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER" }, "BAD_REFERENCE", nil},
-		{"the value, through a host's password reference in the old spelling", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "secret:pg-pass" }, "BAD_REFERENCE", nil},
+		{"the user, through a service's URL", func(s *State) { s.Conns["pg2"].URL = "postgres://other@10.0.0.31:5432/app" }, "CREDENTIAL_IN_USE", []string{"database pg", "database pg2"}},
+		{"the value, through a host's password reference", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "env:OTHER" }, "REFERENCE_UNSUPPORTED", nil},
+		{"the value, through a host's password reference in the old spelling", func(s *State) { s.Hosts["web3"].Key, s.Hosts["web3"].PasswordRef = "", "secret:pg-pass" }, "REFERENCE_UNSUPPORTED", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			before := rawRecords(t)
 			err := Update(Save(), func(s *State) error { c.change(s); return nil })
 			var oe *out.Error
-			if !errorsAs(err, &oe) || oe.Code != c.code || oe.Exit != out.ExitUsage {
+			wantExit := out.ExitUsage
+			if c.code == "CREDENTIAL_IN_USE" {
+				wantExit = out.ExitConflict // S-8.2: _IN_USE is exit 8
+			}
+			if !errorsAs(err, &oe) || oe.Code != c.code || oe.Exit != wantExit {
 				t.Fatalf("got %v", err)
 			}
 			// the way out must exist today (`komando credential` is C485's)
-			if oe.Code == "CREDENTIAL_SHARED" && (!strings.Contains(oe.Hint, "komando secret cp") || strings.Contains(oe.Hint, "komando credential")) {
+			if oe.Code == "CREDENTIAL_IN_USE" && (!strings.Contains(oe.Hint, "komando secret cp") || strings.Contains(oe.Hint, "komando credential")) {
 				t.Errorf("hint %q", oe.Hint)
 			}
 			for _, n := range c.names {

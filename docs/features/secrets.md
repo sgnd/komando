@@ -78,7 +78,7 @@ komando fs replace web1 /srv/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PAS
 A flag that komando keeps with a server, a service, a VPN or a key
 (`--password-ref`, `--sudo-ref`, `--psk-ref`, `--passphrase-ref`) takes
 `credential:NAME` only; another store there is refused with
-`BAD_REFERENCE`. For one command (`--env`, and `db user add` and `passwd`),
+`REFERENCE_UNSUPPORTED`. For one command (`--env`, and `db user add` and `passwd`),
 a reference can also read a password your team keeps elsewhere: `env:VAR`,
 `file:PATH`, HashiCorp Vault or OpenBao (`vault:PATH#FIELD`), AWS, Google
 and Azure secret managers (`aws-sm:`, `gcp-sm:`, `azure-kv:`), 1Password

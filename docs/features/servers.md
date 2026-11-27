@@ -638,7 +638,7 @@ A password komando keeps for a server, a service or a VPN (`--password-ref`,
 `--sudo-ref`, `--psk-ref`, `--passphrase-ref`) is a credential:
 `credential:NAME`, saved with `komando secret set NAME`. A reference to
 another store on such a flag (`env:VAR`, `op://...`) is refused with
-`BAD_REFERENCE`. The ones a store held before the move to format 3 became
+`REFERENCE_UNSUPPORTED`. The ones a store held before the move to format 3 became
 credentials then, and keep working.
 
 Where komando reads a value for one command only (`--env` of `exec` and
