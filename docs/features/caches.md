@@ -230,7 +230,7 @@ which you can then fetch from its server:
 
 ```bash
 komando cache redis raw prod-redis --write -- BGSAVE
-komando download web1 /var/lib/redis/dump.rdb --sudo --to ./
+komando copy web1:/var/lib/redis/dump.rdb ./ --sudo
 ```
 
 ## memcached

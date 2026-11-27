@@ -388,7 +388,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
   repositories without security notices: komando cannot pick only the
   security updates there.
 - `pkg` takes exact package names only; for a local `.deb` or `.rpm`, use
-  `upload` and `exec`.
+  `copy` and `exec`.
 - komando never reboots as part of a patch round.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
   package (`useradd`, `usermod`, `userdel`).

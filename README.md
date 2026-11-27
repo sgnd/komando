@@ -120,7 +120,7 @@ you a window to allow it once. The agent never sees your passwords.
 | Keep your list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
 | Run commands on one or many servers | `exec`, `job`, `shell` |
-| Read, edit and copy files | `fs`, `upload`, `download`, `cp`, `sync` |
+| Read, edit and copy files | `fs`, `copy` |
 | Check health and certificates | `facts`, `recipe`, `cert` |
 | Services, logs, Docker, packages, users, schedules, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |

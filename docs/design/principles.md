@@ -54,7 +54,7 @@ risk     = read | write | destructive  ->  the same guard for all
 
 | Command | Family |
 |---|---|
-| `exec`, `fs`, `cp`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
+| `exec`, `fs`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
 | `db` | sql and document databases |
 | `cache` | key-value |
 | `queue` | message queues |
@@ -69,7 +69,7 @@ risk     = read | write | destructive  ->  the same guard for all
 ```
 komando <noun> <verb> [ITEM] [TARGET] [args] [flags]
 komando db query prod-db "select 1"
-komando storage upload backups ./dump.sql.gz
+komando copy ./dump.sql.gz backups:
 ```
 
 - **There is one interface.** `komando` alone prints the commands by group.
@@ -80,8 +80,8 @@ komando storage upload backups ./dump.sql.gz
 - **A verb has one meaning everywhere.** `list` lists, `show` shows one
   item, `rename` renames, `rm` removes. Words an area's own tool uses
   stay (`scale`, `apply`, `peek`, `purge`), from a fixed list.
-- **A few shortcuts live at the top level** (`exec`, `logs`, `cp`, `list`,
-  `test`, `upload`, `download`), with the same shape as the long form.
+- **A few shortcuts live at the top level** (`exec`, `logs`, `copy`, `list`,
+  `test`), with the same shape as the long form.
 - **Words for a server go after `--`** on every command that passes them
   on (`exec web1 -- uptime`), so komando never reads them as its own flags.
 - **One cluster command.** Verbs every engine has sit under `cluster` and
@@ -307,8 +307,8 @@ If so, extend that one.
   code.
 
 Examples in place: `test` (`host test` and `conn test` call it), `list`,
-`logs` (`svc logs` and `docker logs` call it), `recipe`, `upload` /
-`download`, `exec --script`, `import` / `export`, `status --short`.
+`logs` (`svc logs` and `docker logs` call it), `recipe`, `copy`,
+`exec --script`, `import` / `export`, `status --short`.
 
 ## 13. Everything the native tool can do
 
@@ -475,7 +475,7 @@ Use this list for every feature and every review.
 **Files and transfer**
 - The destination exists: not replaced without `--overwrite`
 - An interrupted download: write to a temporary file, then rename
-- A trailing slash (`dir` vs `dir/`): its meaning is in `--help`, the same for `cp` and `storage`
+- A trailing slash (`dir` vs `dir/`): its meaning is in `--help`, the same for `copy` and `storage`
 - `~` in local and remote paths, spaces and unicode in names, symlinks, very large files (progress on stderr)
 
 **Processes**
