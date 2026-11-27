@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -66,7 +67,7 @@ func TestSwarmServiceProtectedThroughManager(t *testing.T) {
 	invHome(t)
 	addSwarm(t, "swarm1", "--protected")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	d, e := sameThroughManager(t, "swarm1", "cluster", "run", "TARGET", "--write", "--dry-run", "--", "service", "scale", "web=3")
+	d, e := sameThroughManager(t, "swarm1", "cluster", "swarm", "raw", "TARGET", "--write", "--dry-run", "--", "service", "scale", "web=3")
 	if !strings.Contains(asJSON(d)+codeOf(e), "protected") {
 		t.Fatalf("a change through a protected manager: %s %+v", asJSON(d), e)
 	}
@@ -83,7 +84,7 @@ func TestSwarmServicePersonalThroughManager(t *testing.T) {
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	for target, want := range map[string]bool{"swarm1-swarm": true, "swarm1": true, "swarm2-swarm": false} {
 		resetApproval()
-		if _, e := invRun(t, "cluster", "run", target, "--dry-run", "--", "service", "ls"); e != nil || tcl.out.Personal != want {
+		if _, e := invRun(t, "cluster", "swarm", "raw", target, "--dry-run", "--", "service", "ls"); e != nil || tcl.out.Personal != want {
 			t.Errorf("%s: personal data hidden %v, want %v (%+v)", target, tcl.out.Personal, want, e)
 		}
 	}
@@ -95,8 +96,8 @@ func TestSwarmServiceTierThroughManager(t *testing.T) {
 	invHome(t)
 	addSwarm(t, "swarm1")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	sameThroughManager(t, "swarm1", "cluster", "run", "TARGET", "--dry-run", "--", "service", "ls")
-	d, e := sameThroughManager(t, "swarm1", "cluster", "run", "TARGET", "--write", "--dry-run", "--", "service", "rm", "web")
+	sameThroughManager(t, "swarm1", "cluster", "swarm", "raw", "TARGET", "--dry-run", "--", "service", "ls")
+	d, e := sameThroughManager(t, "swarm1", "cluster", "swarm", "raw", "TARGET", "--write", "--dry-run", "--", "service", "rm", "web")
 	if e == nil && !strings.Contains(asJSON(d), "would_") {
 		t.Fatalf("a change through the manager names nothing it would need: %s", asJSON(d))
 	}
@@ -135,19 +136,19 @@ func TestSwarmServiceManagerGone(t *testing.T) {
 	if err := store.Update(store.Save(), func(s *store.State) error { delete(s.Hosts, "swarm1"); return nil }); err != nil {
 		t.Fatal(err)
 	}
-	e := wantCode(t, "SWARM_MANAGER_NOT_FOUND", "cluster", "run", "swarm1-swarm", "--dry-run", "--", "service", "ls")
+	e := wantCode(t, "SWARM_MANAGER_NOT_FOUND", "cluster", "swarm", "raw", "swarm1-swarm", "--dry-run", "--", "service", "ls")
 	if !strings.Contains(e.Message, "swarm1") {
 		t.Fatalf("message %q does not name the manager", e.Message)
 	}
 }
 
-// The C cluster row gives a swarm its own add path (moveType("cluster")).
-// That row removes the conversion of the swarm tag in the store
+// The head of row C483 that builds `cluster swarm add` gives a swarm its
+// own add path. It removes the conversion of the swarm tag in the store
 // (store/format3_swarm.go) and the --tag swarm line of swarmForm.
 func TestSwarmTagGoesWithClusterRow(t *testing.T) {
 	newRoot(tcl)
-	if !slices.Contains(movedTypes, "cluster") {
-		return // the C cluster row has not landed
+	if l, ok := capability.Find(capability.Key{Type: "cluster", Provider: "swarm", Verb: "add"}); !ok || l.State != capability.Built {
+		return // swarm has only raw (capability/cluster.go)
 	}
 	invHome(t)
 	for _, cmd := range swarmForm(tcl).build(nil, formAnswers{"name": "s1", "address": "10.0.0.1", "user": "root"}) {
