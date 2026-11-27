@@ -344,7 +344,11 @@ func agentVarIn(w string) (string, bool) {
 		}
 		return agentVars[0].env + " (or another agent variable)", true
 	}
-	for _, x := range expandBraces(w, 0) {
+	xs, whole := expandBraces(w)
+	if !whole {
+		return agentVars[0].env + " (or another agent variable)", true
+	}
+	for _, x := range xs {
 		elem := x
 		if i := strings.IndexByte(x, '['); i > 0 && strings.HasSuffix(x, "]") {
 			elem = x[:i] // NAME[i]: an element of the variable NAME

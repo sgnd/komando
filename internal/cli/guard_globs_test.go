@@ -1,6 +1,10 @@
 package cli
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 // A glob that names a written file is checked against the guard files: the
 // files it matches now, and an agent folder, a hook file or a program named
@@ -94,5 +98,33 @@ func TestGuardGlobFormsInAHeredocCommandAreRefused(t *testing.T) {
 		"cat >f <<EOF\n$(date)\n[!NOTE] see *(D)\nEOF",
 		"cat >f <<'EOF'\n$(cat x[!y])\nEOF",
 		"cat >f <<EOF\n\\$(cat x[!y])\nEOF",
+	}, false)
+}
+
+// A brace list gives the guard at most 64 names: a word with more is
+// refused wherever it is checked, so no name past the limit goes unread. A
+// { that starts no list leaves the lists after it to be read.
+func TestGuardBraceListPastTheLimitIsRefused(t *testing.T) {
+	home, repo := guardLineHome(t)
+	many := func(last string) string { // 64 names, then last
+		var b strings.Builder
+		for i := 1; i <= 64; i++ {
+			fmt.Fprintf(&b, "%d,", i)
+		}
+		return "{" + b.String() + last + "}"
+	}
+	checkLines(t, home, home, []string{
+		"rm -rf " + many("~"),
+		"mv " + many("~/.ssh") + " /tmp/k",
+		"rm -rf " + strings.Repeat("{,}", 11) + "~/.ssh",
+		"cat " + many("~/.komando/state.json"),
+		"echo x > " + many("~/.claude/settings.json"),
+		"unset " + many("CLAUDECODE"),
+		"mv {x{/../.ssh,} /tmp/k",
+	}, true)
+	checkLines(t, home, repo, []string{
+		"rm -rf {build,dist}",
+		"touch " + strings.Repeat("{a,b}", 6) + ".txt",
+		"touch {x}{a,b}.txt",
 	}, false)
 }

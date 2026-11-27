@@ -254,7 +254,11 @@ func wordHasGlob(w string) bool { return strings.ContainsAny(w, "*?[{") }
 // it could name a protected folder or something in it: `~/.komand?`,
 // `~/.ss?/id_*` and `.komando/keys/*` (from the home folder) all count.
 func secretGlob(cl *call, w, home, cwd string) string {
-	for _, pat := range expandBraces(w, 0) {
+	pats, whole := expandBraces(w)
+	if !whole {
+		return braceLimitWhy
+	}
+	for _, pat := range pats {
 		p := guardPathAt(cl, pat, home, cwd)
 		if last := filepath.Base(p); strings.HasPrefix(last, ".") {
 			for _, n := range []string{".env", ".env.local", ".env.production", ".pgpass", ".my.cnf", ".netrc", ".git-credentials", ".htpasswd", ".npmrc", ".pypirc"} {
@@ -350,46 +354,76 @@ func globUnder(p, dir, home string) (string, bool) {
 	return filepath.Join(append([]string{dir}, pc[len(dc):]...)...), true
 }
 
-// expandBraces turns a{b,c}d into abd and acd, as the shell does.
-func expandBraces(w string, depth int) []string {
-	open := strings.IndexByte(w, '{')
-	if open < 0 || depth > 4 {
-		return []string{w}
+// maxBraceNames is the most names the guard reads from the brace lists of
+// one word.
+const maxBraceNames = 64
+
+// braceLimitWhy is why a word whose brace lists give more names is
+// refused: the names past the limit would go unread.
+var braceLimitWhy = fmt.Sprintf("a brace list of more than %d names, more than komando's guard reads", maxBraceNames)
+
+// expandBraces turns a{b,c}d into abd and acd, as the shell does. whole is
+// false when w gives more than maxBraceNames names: names then holds only
+// some of them, and the caller refuses w.
+func expandBraces(w string) (names []string, whole bool) {
+	whole = braceNames(w, 0, &names)
+	return names, whole
+}
+
+// braceNames adds the names w gives to names, list by list from the left,
+// and says whether they stay within maxBraceNames. Each list on the way
+// gives a name of its own, so depth lists give more than depth names.
+func braceNames(w string, depth int, names *[]string) bool {
+	open, end, cuts := braceList(w)
+	switch {
+	case open < 0 && len(*names) == maxBraceNames, open >= 0 && depth == maxBraceNames:
+		return false
+	case open < 0:
+		*names = append(*names, w)
+		return true
 	}
-	level, end := 0, -1
-	var cuts []int
-	for i := open; i < len(w) && end < 0; i++ {
-		switch w[i] {
-		case '{':
-			level++
-		case '}':
-			if level--; level == 0 {
-				end = i
-			}
-		case ',':
-			if level == 1 {
-				cuts = append(cuts, i)
-			}
-		}
-	}
-	if end < 0 || len(cuts) == 0 {
-		return []string{w}
-	}
-	var alts []string
 	start := open + 1
 	for _, c := range append(cuts, end) {
-		alts = append(alts, w[start:c])
+		if !braceNames(w[:open]+w[start:c]+w[end+1:], depth+1, names) {
+			return false
+		}
 		start = c + 1
 	}
-	var all []string
-	for _, a := range alts {
-		for _, x := range expandBraces(w[:open]+a+w[end+1:], depth+1) {
-			if len(all) < 64 {
-				all = append(all, x)
+	return true
+}
+
+// braceList finds the list the shell expands first in w: the leftmost {
+// whose matching } holds a comma at its own level. cuts are those commas;
+// open is -1 when w has no list. A { that pairs with no } is a letter, and
+// so is a pair without a comma: {x}{a,b} gives {x}a and {x}b.
+func braceList(w string) (open, end int, cuts []int) {
+	type frame struct {
+		open int
+		cuts []int
+	}
+	var stack []frame
+	open = -1
+	for i := 0; i < len(w); i++ {
+		switch w[i] {
+		case '{':
+			stack = append(stack, frame{open: i})
+		case ',':
+			if n := len(stack); n > 0 {
+				stack[n-1].cuts = append(stack[n-1].cuts, i)
+			}
+		case '}':
+			n := len(stack)
+			if n == 0 {
+				continue
+			}
+			f := stack[n-1]
+			stack = stack[:n-1]
+			if len(f.cuts) > 0 && (open < 0 || f.open < open) {
+				open, end, cuts = f.open, i, f.cuts
 			}
 		}
 	}
-	return all
+	return open, end, cuts
 }
 
 func guardPath(cl *call, p, home string) string {
@@ -447,7 +481,11 @@ func userHome(name, home string) string {
 // it matches now, or a guard file it could match by name, may not be
 // changed by an AI agent, or "".
 func guardGlobWhy(cl *call, w, home, cwd string) string {
-	for _, pat := range expandBraces(w, 0) {
+	pats, whole := expandBraces(w)
+	if !whole {
+		return braceLimitWhy
+	}
+	for _, pat := range pats {
 		p := guardPathAt(cl, pat, home, cwd)
 		if why := guardSelfWhy(p); why != "" {
 			return why // a brace list leaves plain names
@@ -505,7 +543,11 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 	case anyProgram:
 		verb = "may remove or move"
 	}
-	for _, line := range treeLines(cl, args, globs, vars, home, cwd) {
+	lines, whole := treeLines(cl, args, globs, vars, home, cwd)
+	if !whole {
+		return deny("the line has %s; name the folders plainly", braceLimitWhy)
+	}
+	for _, line := range lines {
 		words := make([]string, len(line))
 		for i, w := range line {
 			words[i] = w.w

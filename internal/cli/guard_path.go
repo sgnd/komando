@@ -401,7 +401,11 @@ func protectedName(cl *call, name, home string) bool {
 		}
 		return s
 	}
-	for _, pat := range expandBraces(name, 0) {
+	pats, whole := expandBraces(name)
+	if !whole {
+		return true // the names past the limit are not read
+	}
+	for _, pat := range pats {
 		glob := wordHasGlob(pat)
 		if !glob && sensitiveName(pat) {
 			return true

@@ -513,8 +513,9 @@ type treeWord struct {
 // treeLines are the argument lists the program may get, so `rm {-rf,~}` and
 // `f=-rf; rm $f ~` give their options: one list for each choice among the
 // values the guard knows a word may have, each value split at blanks and
-// brace lists expanded. Past 64 choices one list holds every value.
-func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) [][]treeWord {
+// brace lists expanded. Past 64 choices one list holds every value. whole
+// is false when a brace list gives more names than the guard reads.
+func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) (lines [][]treeWord, whole bool) {
 	lines, all := [][]treeWord{nil}, []treeWord(nil)
 	for i, a := range args {
 		vals, _ := vars.expand(cl, a, home, cwd)
@@ -529,7 +530,9 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 				glob := globs[i] || v != a && wordHasGlob(f)
 				pats := []string{f}
 				if glob && strings.Contains(f, "{") {
-					pats = expandBraces(f, 0)
+					if pats, whole = expandBraces(f); !whole {
+						return nil, false
+					}
 				}
 				for _, p := range pats {
 					seq = append(seq, treeWord{p, glob && wordHasGlob(p)})
@@ -550,35 +553,31 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 		lines = next
 	}
 	if lines == nil {
-		return [][]treeWord{all}
+		return [][]treeWord{all}, true
 	}
-	return lines
+	return lines, true
 }
 
-// treeTargets are the paths the word v names: a brace list's names, and a
-// glob's names as they are now; past 500 of them, the folder the glob
-// starts in stands for the rest.
+// treeTargets are the paths the word v, its brace lists expanded
+// (treeLines), names: a glob's names as they are now; past 500 of them,
+// the folder the glob starts in stands for the rest.
 func treeTargets(cl *call, v string, glob bool, home, cwd string) []string {
+	p := guardPathAt(cl, v, home, cwd)
+	out := []string{p}
 	if !glob {
-		return []string{guardPathAt(cl, v, home, cwd)}
+		return out
 	}
-	var out []string
-	for _, pat := range expandBraces(v, 0) {
-		p := guardPathAt(cl, pat, home, cwd)
-		out = append(out, p)
-		m, _ := filepath.Glob(p)
-		for i, f := range m {
-			if i == 500 {
-				dir := p
-				for wordHasGlob(dir) && dir != filepath.Dir(dir) {
-					dir = filepath.Dir(dir)
-				}
-				out = append(out, dir)
-				break
+	m, _ := filepath.Glob(p)
+	for i, f := range m {
+		if i == 500 {
+			dir := p
+			for wordHasGlob(dir) && dir != filepath.Dir(dir) {
+				dir = filepath.Dir(dir)
 			}
-			if shellGlobMatches(p, f) {
-				out = append(out, f)
-			}
+			return append(out, dir)
+		}
+		if shellGlobMatches(p, f) {
+			out = append(out, f)
 		}
 	}
 	return out
