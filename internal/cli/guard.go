@@ -502,6 +502,8 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 		verb = "removes"
 	case "mv", "trash":
 		verb = "moves"
+	case anyProgram:
+		verb = "may remove or move"
 	}
 	for _, i := range treeOperands(base, args) {
 		vals, _ := vars.expand(cl, args[i], home, cwd)
@@ -519,11 +521,16 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 	return allow()
 }
 
+// anyProgram stands for a program the guard cannot name before the line
+// runs (a value, command output, an alias): it may remove or move any of
+// its operands.
+const anyProgram = "a program komando's guard cannot name"
+
 // treeOperands are the indexes of the arguments base removes, moves or
 // changes with everything under them: rm -r's operands, mv's sources,
-// trash's operands (macOS moves them to the Trash), and the operands of
-// chmod, chown or chgrp -R (the mode or owner among them names nothing that
-// matters).
+// trash's operands (macOS moves them to the Trash), every operand of
+// anyProgram, and the operands of chmod, chown or chgrp -R (the mode or
+// owner among them names nothing that matters).
 func treeOperands(base string, args []string) []int {
 	var ops []int
 	recursive, target, opts := false, false, true
@@ -555,7 +562,7 @@ func treeOperands(base string, args []string) []int {
 		}
 	}
 	switch {
-	case recursive && (base == "rm" || base == "chmod" || base == "chown" || base == "chgrp"), base == "mv" && target, base == "trash":
+	case recursive && (base == "rm" || base == "chmod" || base == "chown" || base == "chgrp"), base == "mv" && target, base == "trash", base == anyProgram:
 		return ops
 	case base == "mv" && len(ops) > 1:
 		return ops[:len(ops)-1]

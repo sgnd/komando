@@ -426,8 +426,17 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 			return d
 		}
 	}
-	if d := checkTreeChange(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd); d.Deny {
-		return d
+	bases := []string{anyProgram}
+	if known && !aliased {
+		bases = bases[:0]
+		for _, p := range progs {
+			bases = append(bases, filepath.Base(p))
+		}
+	}
+	for _, b := range bases {
+		if d := checkTreeChange(cl, b, words[first:], globs[first:], vars, home, cwd); d.Deny {
+			return d
+		}
 	}
 	if b := filepath.Base(prog); copyPrograms[b] {
 		return checkCopyInto(cl, b, args, globs[first:], vars, home, cwd)
