@@ -162,6 +162,9 @@ func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
 		`R="rm -rf"; $R ~`,
 		`R="rm -rf $HOME/.ssh"; $R`,
 		`IFS=,; R="rm,-rf"; $R ~`,
+		// a literal or a quoted value is one program name, blanks and all
+		`"/tmp/a b/rm" -rf ~`,
+		`R="/tmp/a b/rm"; "$R" -rf ~`,
 	}, treeRefusal)
 	checkLines(t, home, repo, []string{
 		`R=rm; $R -rf ./build`,
