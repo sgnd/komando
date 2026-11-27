@@ -7,6 +7,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.17.5] - 2026-11-28
+
+### Security
+
+- Hardening of the agent guard (`komando guide guard`). Update every computer where an AI agent works with komando. The guard may now refuse a few command lines it let through before; run such a line in your own terminal.
+
+### Fixed
+
+- The agent guard no longer refuses lines that only name komando: an Orca worktree of the komando repo (`--repo komando`), `2>&1` or `>&2` on a line with `gh -R sgnd/komando`, a komando run or a reader printing to the screen next to another command on a plain line (`python3 -c ...; komando version`, `sleep 5; komando list`). A line is plain when it holds no `$`, backtick, `!`, parenthesis outside quotes, heredoc, file redirect, group, loop, background job or `BASH_COMMAND`, and no word that runs code, reads the line back, changes the folder or changes what a program name runs (`eval`, `trap`, `source`, `.`, a shell, `exec`, `command`, `builtin`, `declare`, `export`, `alias`, `hash`, `set`, `history`, `cd` and the like). Any other line, and a reader whose output goes on through a pipe or that sets a variable (`printf -v`, `read`), is checked whole, as before.
+
 ## [0.17.4] - 2026-11-26
 
 ### Fixed
