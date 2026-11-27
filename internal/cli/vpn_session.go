@@ -410,7 +410,7 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
-		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn KIND test "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `"+vpnPath(vpnKindWord(name), "test")+" "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
 }
@@ -590,7 +590,7 @@ func vpnDownCmd() *cobra.Command {
 					if keep := leaveSharedSession(st, n, names); len(keep) > 0 {
 						notes = append(notes, keptNote(n, keep))
 					} else if err := netx.StopSession(s); err != nil {
-						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn "+v.Kind+" stop "+n+"` again; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
+						return out.Errf(out.ExitError, "VPN_STOP_FAILED", vpnStopAgain(v.Kind, n)+"; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
 							"could not disconnect %s: %v", n, err)
 					}
 					down = append(down, n)

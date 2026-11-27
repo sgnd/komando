@@ -129,6 +129,7 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 		add,
 		{"vpn", "socks", "add", "lab", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--credential", "env:GITHUB_TOKEN"},
 		{"vpn", "tailscale", "add", "tailnet", "--credential", "file:/etc/ssl/private/site.key"},
+		{"vpn", "socks", "add", "lab-op", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--credential", "op://vault/item/password"},
 		{"vpn", "openvpn", "edit", "office", "--credential", "other"},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SECRET_DESTINATION" {

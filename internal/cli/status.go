@@ -53,7 +53,7 @@ func statusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "What komando left running: VPNs, logins, tunnels, jobs",
 		Long: `Lists what still runs after the command that started it ended: VPN
-sessions (from vpn up, or started by a command), server logins kept by
+sessions (from vpn KIND start, or started by a command), server logins kept by
 ` + "`komando login SERVER`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
 ~/.aws/config and when they end, tunnels, and the jobs started on servers. Nothing is contacted, so it is quick and works offline.
 A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on

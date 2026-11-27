@@ -95,8 +95,12 @@ func TestVpnTypedLoginMoveNeedsAPerson(t *testing.T) {
 		{"vpn", "globalprotect", "edit", "corp", "--portal", "vpn.attacker.example"},
 		{"vpn", "ikev2", "edit", "cloud", "--server", "vpn.attacker.example"},
 	} {
-		if e := wantCode(t, "NEEDS_PERSON", args...); e.Exit != 6 {
+		e := wantCode(t, "NEEDS_PERSON", args...)
+		if e.Exit != 6 {
 			t.Fatalf("%v: exit %d", args, e.Exit)
+		}
+		if want := "komando vpn " + args[1] + " edit"; !strings.Contains(e.Hint, want) || !strings.Contains(e.Message, "vpn "+args[1]+" start") {
+			t.Errorf("%v: the hint names %q and the message the start of that kind: %q, %q", args, want, e.Hint, e.Message)
 		}
 	}
 	if len(*texts) != 0 {
@@ -162,4 +166,45 @@ func TestImportMovesNoTypedLogin(t *testing.T) {
 	if st, _ := store.Load(); st.Vpns["corp"].Portal != "vpn.corp.example" {
 		t.Fatalf("the portal moved to %q", st.Vpns["corp"].Portal)
 	}
+}
+
+// The hints of VPN_DOWN, VPN_STOP_FAILED and NEEDS_PERSON name the path of
+// the VPN's own kind. A session left from a removed VPN has no kind, and its
+// stop hint names no path.
+func TestVpnHintsNameTheKindsPath(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "socks", "add", "office", "--proxy-address", "127.0.0.1:1")
+	if got := vpnKindWord("office"); got != "socks" {
+		t.Errorf("the kind of office is %q, want socks", got)
+	}
+	if got := vpnKindWord("gone"); got != "KIND" {
+		t.Errorf("a VPN not saved gives %q, want the word KIND", got)
+	}
+	if got, want := vpnStopAgain("socks", "office"), "run `komando vpn socks stop office` again"; got != want {
+		t.Errorf("stop hint: %q, want %q", got, want)
+	}
+	if got := vpnStopAgain("", "gone"); strings.Contains(got, "vpn  ") || strings.Contains(got, "KIND") || !strings.Contains(got, "stop again") {
+		t.Errorf("a session of a removed VPN gets a hint with no path: %q", got)
+	}
+}
+
+// A VPN is run by the path of its own kind. A selector that picks VPNs of
+// two kinds is refused at the first one of another kind, and `add
+// --overwrite` replaces a VPN of its own kind only (a VPN of another kind
+// under that name is WRONG_KIND with the path that fits).
+func TestVpnWrongKindOfSelectorAndOverwrite(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1", "--tag", "mixed")
+	mustRun(t, "vpn", "ikev2", "add", "cloud", "--server", "vpn.corp.example", "--user", "alice", "--tag", "mixed")
+	if e := wantCode(t, "WRONG_KIND", "vpn", "socks", "remove", "tag:mixed", "--dry-run"); !strings.Contains(e.Hint, "komando vpn ikev2 remove cloud") {
+		t.Errorf("a selector over two kinds: the hint names the path that fits: %q", e.Hint)
+	}
+	e := wantCode(t, "WRONG_KIND", "vpn", "ikev2", "add", "lab", "--server", "vpn.corp.example", "--user", "alice", "--overwrite", "--dry-run")
+	if !strings.Contains(e.Hint, "komando vpn socks add lab") {
+		t.Errorf("--overwrite of another kind: the hint names the path that fits: %q", e.Hint)
+	}
+	if st, _ := store.Load(); st.Vpns["lab"].Kind != "socks" {
+		t.Errorf("the refused overwrite changed lab to %s", st.Vpns["lab"].Kind)
+	}
+	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:2", "--overwrite")
 }
