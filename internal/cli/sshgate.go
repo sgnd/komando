@@ -369,8 +369,14 @@ func gateWords(s string) ([]string, error) {
 // its flags as komando will, so `--reveal` after `--` (an argument for the
 // server) is not mistaken for komando's.
 func gateCheck(args []string, key gateKey) (name, output string, refused *out.Error) {
-	// a command tree of its own: the key's flags are read here, apart
-	// from the gate's
+	sc, root := gateTree()
+	return gateCheckIn(sc, root, args, key)
+}
+
+// gateTree is a command tree of its own, with its call: the key's flags
+// are read here, apart from the gate's. A test that asks the gate many
+// lines builds it once and gives it to gateCheckIn.
+func gateTree() (*call, *cobra.Command) {
 	sc := treeCall()
 	root := newRoot(sc)
 	// cobra adds its completion helper only as it runs, and finds it the
@@ -379,6 +385,11 @@ func gateCheck(args []string, key gateKey) (name, output string, refused *out.Er
 	// sees what komando would run
 	root.AddCommand(&cobra.Command{Use: cobra.ShellCompRequestCmd, Aliases: []string{cobra.ShellCompNoDescRequestCmd},
 		DisableFlagParsing: true, Run: func(*cobra.Command, []string) {}})
+	return sc, root
+}
+
+// gateCheckIn is gateCheck on the tree gateTree made.
+func gateCheckIn(sc *call, root *cobra.Command, args []string, key gateKey) (name, output string, refused *out.Error) {
 	c, rest, err := root.Find(args)
 	if err != nil {
 		return "", "", gateUnknownLine(args)

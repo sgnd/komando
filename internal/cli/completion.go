@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
@@ -29,9 +30,10 @@ func addCompletion(c *cobra.Command) {
 	if c.Name() == "completion" && c.HasParent() && !c.Parent().HasParent() {
 		completionScripts(c)
 	}
-	flagCompletion(c, "key", func(string) []string { return completionNames("key") })
-	flagCompletion(c, "via", func(prefix string) []string { return listPrefixed(prefix, completionNames("via")) })
-	flagCompletion(c, "target", func(prefix string) []string { return targetCompletions(prefix) })
+	local := c.LocalFlags() // once for the three flags: each call copies the flag set
+	flagCompletion(c, local, "key", func(string) []string { return completionNames("key") })
+	flagCompletion(c, local, "via", func(prefix string) []string { return listPrefixed(prefix, completionNames("via")) })
+	flagCompletion(c, local, "target", func(prefix string) []string { return targetCompletions(prefix) })
 	if c.ValidArgsFunction != nil || !c.Runnable() {
 		return
 	}
@@ -140,8 +142,8 @@ func connsOfFamily(names []string, family string) []string {
 	return keep
 }
 
-func flagCompletion(c *cobra.Command, flag string, f func(prefix string) []string) {
-	if c.LocalFlags().Lookup(flag) == nil {
+func flagCompletion(c *cobra.Command, local *pflag.FlagSet, flag string, f func(prefix string) []string) {
+	if local.Lookup(flag) == nil {
 		return
 	}
 	_ = c.RegisterFlagCompletionFunc(flag, func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
