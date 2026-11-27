@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/spf13/cobra"
 )
 
 // TestGateAnswersPinned pins the ssh gate's answer to every command of
@@ -24,12 +22,13 @@ import (
 func TestGateAnswersPinned(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	type probe struct {
-		words []string
-		name  string
-		key   gateKey
+	type probeKey struct {
+		name string
+		key  gateKey
 	}
-	var probes []probe
+	keys := []probeKey{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}}
+	var ids []string
+	paths := map[string][]string{}
 	seen := map[string]bool{}
 	for _, c := range allCommands(newRoot(tcl)) {
 		id := cmdID(c)
@@ -37,16 +36,8 @@ func TestGateAnswersPinned(t *testing.T) {
 			continue
 		}
 		seen[id] = true
-		path := strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando"))
-		for _, extra := range gateProbeFlags(id) {
-			words := slices.Concat(path, extra)
-			for _, k := range []struct {
-				name string
-				key  gateKey
-			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}} {
-				probes = append(probes, probe{words, k.name, k.key})
-			}
-		}
+		ids = append(ids, id)
+		paths[id] = strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando"))
 	}
 	// no leaf of the vpn type is left out of the probes
 	for _, l := range capability.All() {
@@ -54,34 +45,35 @@ func TestGateAnswersPinned(t *testing.T) {
 			t.Errorf("%s: the tree has no command with this ID, so nothing probed it", strings.Join(l.Key.Path(), " "))
 		}
 	}
-	// Every probe builds a command tree of its own (gateCheck) and reads
-	// the stored inventory only, so the probes run on all cores; the answers
-	// land at the probe's index and the lines are sorted below.
-	lines := make([]string, len(probes))
-	var next atomic.Int64
-	var wg sync.WaitGroup
-	for range min(runtime.NumCPU(), 8) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				i := int(next.Add(1)) - 1
-				if i >= len(probes) {
-					return
-				}
-				p := probes[i]
-				name, _, e := gateCheck(slices.Clone(p.words), p.key)
+	// the answers there must be: one per command, probe and key, counted
+	// before any is asked
+	probes := 0
+	for _, id := range ids {
+		probes += len(gateProbeFlags(id)) * len(keys)
+	}
+	// one tree for every question: gateCheck builds a tree of its own per
+	// question, which is most of this test's time; the flags a probe sets
+	// are put back after each answer
+	sc, root := gateTree()
+	answers := 0
+	var lines []string
+	for _, id := range ids {
+		for _, extra := range gateProbeFlags(id) {
+			words := slices.Concat(paths[id], extra)
+			for _, k := range keys {
+				name, _, e := gateCheckIn(sc, root, slices.Clone(words), k.key)
+				answers++
 				answer := "runs"
 				if e != nil {
 					answer = e.Code + "|" + e.Message
 				}
-				lines[i] = fmt.Sprintf("%q\t%s\t%s\t%s", strings.Join(p.words, " "), p.name, name, answer)
+				lines = append(lines, fmt.Sprintf("%q\t%s\t%s\t%s", strings.Join(words, " "), k.name, name, answer))
 			}
-		}()
+			resetProbeFlags(root, words)
+		}
 	}
-	wg.Wait()
-	if n := len(slices.DeleteFunc(slices.Clone(lines), func(l string) bool { return l == "" })); n != len(probes) {
-		t.Fatalf("%d answers for %d probes: a probe was skipped", n, len(probes))
+	if err := pinCount("gate answer", answers, probes); err != nil {
+		t.Error(err)
 	}
 	slices.Sort(lines)
 	got := strings.Join(lines, "\n") + "\n"
@@ -97,21 +89,39 @@ func TestGateAnswersPinned(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
-	inWant, inGot := make(map[string]bool, len(want)), make(map[string]bool, len(lines))
+	wantSet := map[string]bool{}
 	for _, l := range want {
-		inWant[l] = true
+		wantSet[l] = true
 	}
+	gotSet := map[string]bool{}
 	for _, l := range lines {
-		inGot[l] = true
-	}
-	for _, l := range lines {
-		if !inWant[l] {
+		gotSet[l] = true
+		if !wantSet[l] {
 			t.Errorf("changed or new: %s", l)
 		}
 	}
 	for _, l := range want {
-		if !inGot[l] {
+		if !gotSet[l] {
 			t.Errorf("gone: %s", l)
+		}
+	}
+}
+
+// probeFlagNames are the flags gateProbeFlags sets after a command's path.
+var probeFlagNames = []string{"help", "read-only", "write", "analyze", "refresh", "to"}
+
+// resetProbeFlags puts the flags a probe set on the command words name back
+// to their defaults, so the next question on the same tree reads none of
+// them.
+func resetProbeFlags(root *cobra.Command, words []string) {
+	c, _, err := root.Find(words)
+	if err != nil {
+		return
+	}
+	for _, n := range probeFlagNames {
+		if f := c.Flags().Lookup(n); f != nil && f.Changed {
+			_ = f.Value.Set(f.DefValue)
+			f.Changed = false
 		}
 	}
 }
