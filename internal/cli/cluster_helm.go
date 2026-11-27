@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,10 +19,12 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/snippet"
 )
 
 // Helm keeps each revision of a release in the cluster itself, as a
@@ -464,4 +467,80 @@ kubeconfig's user needs to list Secrets where the releases are.`,
 	}
 	c.AddCommand(helmLsCmd(), helmStatusCmd(), helmHistoryCmd(), helmValuesCmd())
 	return c
+}
+
+// helmSnippets are the ready-made snippets that keep the Helm reads when
+// `cluster helm` goes (row C631): a client call on the Kubernetes API, no
+// helm program, nothing changed.
+func helmSnippets() []snippet.Builtin {
+	name := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	longName := strings.Repeat("a", 63)
+	namespace := snippet.Var{Name: "namespace", Channel: snippet.KubeName, Pattern: name, MaxLen: 63, Longest: longName}
+	checks := []string{"TestHelmSnippets", "TestHelmSnippetForbidden"}
+	return []snippet.Builtin{
+		{
+			Name: "helm-list", Type: "cluster", Replaces: "cluster helm list", Reader: "agent: the Helm releases of a cluster without the helm program (row C631)",
+			Tier: capability.Read, Shape: "helm-list/1", Checks: checks,
+			Vars: []snippet.Var{namespace},
+			Run: func(ctx context.Context, c snippet.Client, v snippet.Values) (any, error) {
+				k := c.(*clusterClient).kube
+				items, err := helmItems(ctx, k, v["namespace"], "")
+				if err != nil {
+					return nil, err
+				}
+				rels := []map[string]any{}
+				for _, it := range latest(items) {
+					row := map[string]any{"name": it.name, "namespace": it.namespace, "revision": it.version, "status": it.status}
+					if r, err := it.decode(); err == nil {
+						row["chart"], row["app_version"], row["updated"] = r.chart(), r.Chart.Metadata.AppVersion, r.Info.LastDeployed
+					} else {
+						row["error"] = "cannot read the stored release: " + err.Error()
+					}
+					rels = append(rels, row)
+				}
+				res := map[string]any{"count": len(rels), "releases": rels}
+				if v["namespace"] != "" {
+					res["namespace"] = v["namespace"]
+				}
+				return res, nil
+			},
+		},
+		{
+			Name: "helm-release", Type: "cluster", Replaces: "cluster helm status", Reader: "agent: one Helm release, its history and values, without the helm program (row C631)",
+			Tier: capability.Read, Shape: "helm-release/1", Checks: checks,
+			Vars: []snippet.Var{
+				{Name: "release", Channel: snippet.KubeName, Pattern: name, MaxLen: 63, Longest: longName, Required: true},
+				namespace,
+				{Name: "revision", Channel: snippet.Number, Pattern: regexp.MustCompile(`^[0-9]{1,9}$`), MaxLen: 9, Longest: "999999999", Default: "0"},
+			},
+			Run: func(ctx context.Context, c snippet.Client, v snippet.Values) (any, error) {
+				k := c.(*clusterClient).kube
+				n, err := strconv.Atoi(v["revision"])
+				if err != nil {
+					return nil, out.Usage("--var revision is a revision number from 1; leave it out for the newest")
+				}
+				revs, err := helmRevisions(ctx, k, cmp.Or(v["namespace"], k.Namespace), v["release"])
+				if err != nil {
+					return nil, err
+				}
+				r, err := pickRevision(revs, n)
+				if err != nil {
+					return nil, err
+				}
+				history := make([]map[string]any, len(revs))
+				for i, h := range revs {
+					history[i] = map[string]any{"revision": h.Version, "updated": h.Info.LastDeployed, "status": h.Info.Status,
+						"chart": h.chart(), "app_version": h.Chart.Metadata.AppVersion, "description": h.Info.Description}
+				}
+				vals := r.Config
+				if vals == nil {
+					vals = map[string]any{}
+				}
+				return map[string]any{"name": r.Name, "namespace": r.Namespace, "revision": r.Version, "status": r.Info.Status,
+					"chart": r.chart(), "app_version": r.Chart.Metadata.AppVersion, "first_deployed": r.Info.FirstDeployed,
+					"last_deployed": r.Info.LastDeployed, "description": r.Info.Description, "notes": r.Info.Notes,
+					"values": vals, "values_all": mergeValues(r.Chart.Values, r.Config), "history": history}, nil
+			},
+		},
+	}
 }

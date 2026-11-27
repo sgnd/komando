@@ -181,3 +181,89 @@ func TestClusterManyText(t *testing.T) {
 		}
 	}
 }
+
+// helmResult runs a helm snippet through `recipe run` and returns its result.
+func helmResult(t *testing.T, args ...string) (map[string]any, *out.Error) {
+	t.Helper()
+	raw, e := snippetData(t, args...)
+	var d struct {
+		Result map[string]any `json:"result"`
+	}
+	_ = json.Unmarshal(raw, &d)
+	return d.Result, e
+}
+
+// The helm reads stay after `cluster helm` goes: two snippets decode the
+// release Secrets (row C631).
+func TestHelmSnippets(t *testing.T) {
+	invHome(t)
+	withSnippets(t, helmSnippets()...)
+	cfg := map[string]any{"replicas": 3, "image": map[string]any{"tag": "v2"}, "db": map[string]any{"password": "s3cret-pw"}}
+	helmLab(t, "prod", http.StatusOK,
+		helmSecret(t, "shop", "api", 1, "superseded", "api", "1.0.0", "1.0", map[string]any{"replicas": 2}),
+		helmSecret(t, "shop", "api", 2, "deployed", "api", "1.1.0", "1.1", cfg),
+		helmSecret(t, "ops", "grafana", 1, "deployed", "grafana", "8.5.0", "11.3.0", nil))
+
+	d, e := helmResult(t, "helm-list", "prod")
+	if e != nil {
+		t.Fatalf("helm-list: %v", e)
+	}
+	rels := d["releases"].([]any)
+	if len(rels) != 2 || d["count"].(float64) != 2 {
+		t.Fatalf("every namespace by default: %v", d)
+	}
+	api := rels[1].(map[string]any) // ops/grafana sorts first
+	if api["name"] != "api" || api["revision"].(float64) != 2 || api["status"] != "deployed" || api["chart"] != "api-1.1.0" || api["app_version"] != "1.1" {
+		t.Errorf("newest revision of api: %v", api)
+	}
+	if d, _ := helmResult(t, "helm-list", "prod", "--var", "namespace=shop"); d["count"].(float64) != 1 || d["namespace"] != "shop" {
+		t.Errorf("one namespace: %v", d)
+	}
+
+	r, e := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop")
+	if e != nil {
+		t.Fatalf("helm-release: %v", e)
+	}
+	if r["revision"].(float64) != 2 || r["notes"] != "visit https://api.example.com" || r["chart"] != "api-1.1.0" || r["status"] != "deployed" {
+		t.Errorf("the newest revision: %v", r)
+	}
+	if revs := r["history"].([]any); len(revs) != 2 || revs[0].(map[string]any)["revision"].(float64) != 1 {
+		t.Errorf("history, oldest first: %v", r["history"])
+	}
+	v := r["values"].(map[string]any)
+	if v["replicas"].(float64) != 3 || v["image"].(map[string]any)["pullPolicy"] != nil {
+		t.Errorf("values are the user's only: %v", v)
+	}
+	if img := r["values_all"].(map[string]any)["image"].(map[string]any); img["tag"] != "v2" || img["pullPolicy"] != "IfNotPresent" {
+		t.Errorf("values_all merges the chart's defaults under them: %v", r["values_all"])
+	}
+	if r, _ := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop", "--var", "revision=1"); r["status"] != "superseded" {
+		t.Errorf("revision 1: %v", r)
+	}
+	if _, e := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop", "--var", "revision=9"); e == nil || e.Code != "HELM_REVISION_NOT_FOUND" {
+		t.Errorf("revision 9: %v", e)
+	}
+	if _, e := helmResult(t, "helm-release", "prod", "--var", "release=nope", "--var", "namespace=shop"); e == nil || e.Code != "HELM_RELEASE_NOT_FOUND" {
+		t.Errorf("no such release: %v", e)
+	}
+	// a name that is not a Kubernetes name never reaches the label selector
+	if _, e := helmResult(t, "helm-release", "prod", "--var", "release=api,owner!=helm"); e == nil || e.Code == "HELM_RELEASE_NOT_FOUND" {
+		t.Errorf("a release value that is a selector: %v", e)
+	}
+
+	setCallerEnv(t, "KOMANDO_AGENT", "1") // an agent does not see a password in values
+	raw, _ := snippetData(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop")
+	if strings.Contains(string(raw), "s3cret-pw") {
+		t.Errorf("values show a password to an agent: %s", raw)
+	}
+}
+
+// A Forbidden answer names the Secrets the kubeconfig's user may not list.
+func TestHelmSnippetForbidden(t *testing.T) {
+	invHome(t)
+	withSnippets(t, helmSnippets()...)
+	helmLab(t, "ap", http.StatusForbidden)
+	if _, e := helmResult(t, "helm-list", "ap"); e == nil || e.Code != "K8S_FORBIDDEN" {
+		t.Errorf("a refused list: %v", e)
+	}
+}
