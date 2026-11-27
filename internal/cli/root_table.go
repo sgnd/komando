@@ -270,6 +270,9 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 			addOption(c.Flags(), o, vals)
 		}
 	}
+	if l.Provider != "" && l.Area == "" && len(l.Args) > 0 && l.Args[0].Name == "NAME" && slices.Contains(movedTypes, l.Type) {
+		c.ValidArgsFunction = entryCompletion(familyOfType(l.Type))
+	}
 	if extra := leafExtras[safetyKey{l.Type, l.Area, l.Verb}]; extra != nil {
 		extra(c)
 	}
