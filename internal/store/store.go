@@ -425,11 +425,16 @@ func ensureHome() error {
 			return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", d, err)
 		}
 	}
-	if len(made) == 0 {
+	if len(made) == 0 && (KeepHomeMode == nil || !KeepHomeMode()) {
 		tightenHome(h)
 	}
 	return nil
 }
+
+// KeepHomeMode, set by the cli, says whether a komando folder that others
+// may read keeps its mode for now: a dry run writes nothing, not even the
+// folder's mode (Audit E1); doctor reports the folder.
+var KeepHomeMode func() bool
 
 // makePrivate is privateHome; tests replace it.
 var makePrivate = privateHome

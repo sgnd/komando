@@ -71,6 +71,18 @@ func runningCalls() []*call {
 	return calls
 }
 
+// onlyDryRuns reports whether calls are running and every one is a dry
+// run, which writes nothing (store.KeepHomeMode).
+func onlyDryRuns() bool {
+	calls := runningCalls()
+	for _, cl := range calls {
+		if !cl.dryRun() {
+			return false
+		}
+	}
+	return len(calls) > 0
+}
+
 // soleCall is the call running now when it is the only one, else nil.
 func soleCall() *call {
 	if calls := runningCalls(); len(calls) == 1 {
@@ -107,6 +119,7 @@ func init() {
 	vault.AgentCall = agentCallRunning
 	store.OldCopyOK = oldCopyAllowed
 	store.MigrateCaller = migrateCaller
+	store.KeepHomeMode = onlyDryRuns
 	// a server's env values from the vault go along only when every
 	// running call may send them
 	sshx.HostSecretEnv = func(c *sshx.Client) bool {
