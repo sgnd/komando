@@ -20,6 +20,17 @@ var queueProviders = []queueProvider{
 	{provider: provider{name: "pubsub", connect: []Option{credentialOpt}, entry: "prod-pubsub", url: "pubsub://my-project"}, consumers: []string{"list"}, topic: "orders"},
 }
 
+// QueueExample is a broker's sample conn name, address and topic, for the
+// examples and the help of the queue commands.
+func QueueExample(provider string) (entry, url, topic string, ok bool) {
+	for _, p := range queueProviders {
+		if p.name == provider {
+			return p.entry, p.url, p.topic, true
+		}
+	}
+	return "", "", "", false
+}
+
 // areaVerb is one verb of an area, with the command of today it was.
 type areaVerb struct{ area, verb, today string }
 

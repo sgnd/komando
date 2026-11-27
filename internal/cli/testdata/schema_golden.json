@@ -8379,7 +8379,7 @@
         "path": "komando queue pubsub consumer",
         "usage": "komando queue pubsub consumer [flags]",
         "short": "Consumer groups, consumers or subscriptions: list, show",
-        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20\n  komando queue pubsub consumer show prod-pubsub billing",
+        "example": "  komando queue pubsub consumer list prod-pubsub\n  komando queue pubsub consumer list prod-pubsub -n 20",
         "runnable": true,
         "kind": "read",
         "confirm": [

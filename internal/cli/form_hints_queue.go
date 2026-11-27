@@ -17,28 +17,25 @@ func init() {
 		for _, k := range []string{"topic list", "topic show", "topic create", "topic delete", "message list", "message create", "message delete"} {
 			hints["queue "+p.word+" "+k] = queueHints[k]
 		}
-		if p.consumers {
+		if queueHasConsumer(p.word, "list") {
 			hints["queue "+p.word+" consumer"] = formHint{}
 			hints["queue "+p.word+" consumer list"] = queueHints["consumer list"]
-			if p.word != "pubsub" {
+			if queueHasConsumer(p.word, "show") {
 				hints["queue "+p.word+" consumer show"] = queueHints["consumer show"]
 			}
 		}
-		for k, h := range queueNext(p.word, p.consumers) {
+		for k, h := range queueNext(p.word) {
 			hints["queue "+p.word+" "+k] = h
 		}
 	}
 	addFormHints(hints)
 }
 
-// queueFormProviders are the providers of the table: the word in the path,
-// the kind the Add form asks for, and whether the broker has consumers.
-var queueFormProviders = []struct {
-	word, kind string
-	consumers  bool
-}{
-	{"kafka", "Apache Kafka", true}, {"rabbitmq", "RabbitMQ", false}, {"nats", "NATS JetStream", true},
-	{"sqs", "Amazon SQS", false}, {"pubsub", "Google Cloud Pub/Sub", true},
+// queueFormProviders are the providers of the table: the word in the path
+// and the kind the Add form asks for.
+var queueFormProviders = []struct{ word, kind string }{
+	{"kafka", "Apache Kafka"}, {"rabbitmq", "RabbitMQ"}, {"nats", "NATS JetStream"},
+	{"sqs", "Amazon SQS"}, {"pubsub", "Google Cloud Pub/Sub"},
 }
 
 var queueConn = formArg{ask: "Which message queue?", pick: "queue",
@@ -88,7 +85,7 @@ var queueHints = map[string]formHint{
 }
 
 // queueNext are the Next: lines of one provider's queue commands.
-func queueNext(p string, consumers bool) map[string]formHint {
+func queueNext(p string) map[string]formHint {
 	c := "queue " + p + " "
 	out := map[string]formHint{
 		"topic list":     {next: []string{c + "topic show {} TOPIC", c + "message list {} TOPIC"}},
@@ -99,9 +96,9 @@ func queueNext(p string, consumers bool) map[string]formHint {
 		"message delete": {next: []string{c + "topic list {}"}},
 		"topic delete":   {next: []string{c + "topic list {}"}},
 	}
-	if consumers {
+	if queueHasConsumer(p, "list") {
 		out["topic list"] = formHint{next: append(out["topic list"].next, c+"consumer list {}")}
-		if p != "pubsub" {
+		if queueHasConsumer(p, "show") {
 			out["topic show"] = formHint{next: append(out["topic show"].next, c+"consumer show {} CONSUMER")}
 			out["consumer list"] = formHint{next: []string{c + "consumer show {} CONSUMER"}}
 		}

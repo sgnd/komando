@@ -392,44 +392,37 @@ var queueGroupShort = map[string]string{
 // queueGroupExamples are the examples of a provider's groups (3 to 5
 // lines each, with a --dry-run line for a change).
 func queueGroupExamples(p string) {
-	e := queueExample[p]
+	entry, url, topic, _ := capability.QueueExample(p)
 	c := "  komando queue " + p + " "
-	examples["komando queue "+p] = c + "add " + e.entry + " " + e.url + " --via web1 --dry-run\n" +
-		c + "add " + e.entry + " " + e.url + " --via web1\n" +
-		c + "test " + e.entry + "\n" +
-		c + "topic list " + e.entry + "\n" +
-		c + "message list " + e.entry + " " + e.topic + " -n 5"
-	examples["komando queue "+p+" topic"] = c + "topic list " + e.entry + "\n" +
-		c + "topic show " + e.entry + " " + e.topic + "\n" +
-		c + "topic create " + e.entry + " " + e.topic + " --dry-run\n" +
-		c + "topic delete " + e.entry + " old-" + e.topic + " --dry-run"
-	examples["komando queue "+p+" message"] = c + "message list " + e.entry + " " + e.topic + "\n" +
-		c + "message list " + e.entry + " " + e.topic + " --oldest -n 5\n" +
-		c + "message create " + e.entry + " " + e.topic + " --value test --dry-run\n" +
-		c + "message delete " + e.entry + " " + e.topic + "-retry --all --dry-run"
-	examples["komando queue "+p+" consumer"] = c + "consumer list " + e.entry + "\n" +
-		c + "consumer list " + e.entry + " -n 20\n" +
-		c + "consumer show " + e.entry + " billing"
-}
-
-var queueExample = map[string]struct{ entry, url, topic string }{
-	"kafka":    {"prod-kafka", "kafka://10.0.0.8:9092", "orders"},
-	"rabbitmq": {"prod-rabbit", "amqps://app@10.0.0.9/", "emails"},
-	"nats":     {"prod-nats", "nats://app@10.0.0.10:4222", "ORDERS"},
-	"sqs":      {"prod-sqs", "sqs://eu-west-1", "orders"},
-	"pubsub":   {"prod-pubsub", "pubsub://my-project", "orders"},
-}
-
-// queueHasConsumer says whether a broker has the consumer verb: Kafka and
-// NATS list and show, Pub/Sub lists, RabbitMQ and SQS have none.
-func queueHasConsumer(provider, verb string) bool {
-	switch provider {
-	case "kafka", "nats":
-		return true
-	case "pubsub":
-		return verb == "list"
+	examples["komando queue "+p] = c + "add " + entry + " " + url + " --via web1 --dry-run\n" +
+		c + "add " + entry + " " + url + " --via web1\n" +
+		c + "test " + entry + "\n" +
+		c + "topic list " + entry + "\n" +
+		c + "message list " + entry + " " + topic + " -n 5"
+	examples["komando queue "+p+" topic"] = c + "topic list " + entry + "\n" +
+		c + "topic show " + entry + " " + topic + "\n" +
+		c + "topic create " + entry + " " + topic + " --dry-run\n" +
+		c + "topic delete " + entry + " old-" + topic + " --dry-run"
+	examples["komando queue "+p+" message"] = c + "message list " + entry + " " + topic + "\n" +
+		c + "message list " + entry + " " + topic + " --oldest -n 5\n" +
+		c + "message create " + entry + " " + topic + " --value test --dry-run\n" +
+		c + "message delete " + entry + " " + topic + "-retry --all --dry-run"
+	if !queueHasConsumer(p, "list") {
+		return
 	}
-	return false
+	examples["komando queue "+p+" consumer"] = c + "consumer list " + entry + "\n" +
+		c + "consumer list " + entry + " -n 20"
+	if queueHasConsumer(p, "show") {
+		examples["komando queue "+p+" consumer"] += "\n" + c + "consumer show " + entry + " billing"
+	}
+}
+
+// queueHasConsumer says whether a broker has the consumer verb: the table
+// has the leaf (Kafka and NATS list and show, Pub/Sub lists, RabbitMQ and
+// SQS have none).
+func queueHasConsumer(provider, verb string) bool {
+	l, ok := capability.Find(capability.Key{Type: "queue", Provider: provider, Area: "consumer", Verb: verb})
+	return ok && l.State == capability.Built
 }
 
 // queueBodies are today's commands that the queue leaves run (runBody), by area and verb;

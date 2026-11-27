@@ -106,7 +106,7 @@ func nearLimit(res *queuex.PeekResult, limit int64) error {
 // refuses before it takes a message.
 func (r *Rabbit) deliveryLimit(ctx context.Context, name string) (bool, int64, error) {
 	if r.t.Management == "" {
-		return false, 0, queuex.NotSupported("queue peek without the management API", "rabbitmq",
+		return false, 0, queuex.NotSupported("message list without the management API", "rabbitmq",
 			"every peek counts as a delivery on a quorum queue, and only the management API tells the queue's type and delivery limit: add its port to the conn's URL (`komando conn edit NAME --url 'amqp://...?management=15672'`), or read the messages with the queue's own consumer")
 	}
 	var q mgmtQueue
@@ -142,8 +142,8 @@ func (r *Rabbit) deliveryLimit(ctx context.Context, name string) (bool, int64, e
 func streamErr(err error) error {
 	var ae *amqp.Error
 	if errors.As(err, &ae) && (ae.Code == amqp.NotImplemented || strings.Contains(strings.ToLower(ae.Reason), "stream")) {
-		return queuex.NotSupported("queue peek on a stream queue", "rabbitmq",
-			"a stream queue is read by consumers that give an offset, not by basic.get; peek works on classic and quorum queues")
+		return queuex.NotSupported("message list on a stream queue", "rabbitmq",
+			"a stream queue is read by consumers that give an offset, not by basic.get; message list works on classic and quorum queues")
 	}
 	return err
 }
