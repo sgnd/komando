@@ -321,8 +321,16 @@ func TestGuardFolderRuleReadsTheRestOfAnUnknownWord(t *testing.T) {
 		`cd "$(cat /tmp/n)" && rm -rf ` + up,
 		`cd "$(cat /tmp/n)" && chmod -R 777 src`,
 		`read d < /tmp/n; rm -rf "$d/` + up[:1] + `${d}` + up[1:] + `"`,
+		// a brace list gives each of its names, after the part or around it
+		`read d < /tmp/n; rm -rf "$d"/{` + filepath.Base(home) + `,x}`,
+		`cd "$(cat /tmp/n)" && rm -rf {` + filepath.Base(home) + `,x}`,
+		`read d < /tmp/n; rm -rf {"$d",x}/` + filepath.Base(home),
+		`read d < /tmp/n; mv "$d"/{` + up + `,x} /tmp/k`,
 	}, treeRefusal)
 	checkLines(t, home, repo, []string{
+		`read d < /tmp/n; rm -rf "$d"/{build,dist}`,
+		`cd "$(cat /tmp/n)" && rm -rf {build,dist}`,
+		`read d < /tmp/n; rm -rf "$d/{` + filepath.Base(home) + `,x}"`, // quoted: no list
 		`read d < /tmp/n; rm -rf "$d/build"`,
 		`read d < /tmp/n; mv "$d/out.txt" /tmp/`,
 		`cd "$(cat /tmp/n)" && rm -rf build`,

@@ -644,23 +644,31 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 	return lines, false, true
 }
 
-// unknownShapes are the shapes of the word a (vars.shapes) with a part the
-// guard cannot know before the line runs: an unknown value, or a relative
-// name after a cd it could not follow (lostDir).
-func unknownShapes(cl *call, a string, vars lineVars, home, cwd string) []string {
-	vals, known := vars.expand(cl, a, home, cwd)
-	var out []string
-	if !known {
-		shapes, ok := vars.shapes(cl, a, home, cwd)
-		if !ok {
-			return []string{unknownOutput}
-		}
-		out = shapes
+// unknownShapes are the shapes of the word a (vars.shapes), its brace
+// lists expanded when the shell expands them (glob), with a part the guard
+// cannot know before the line runs: an unknown value, or a relative name
+// after a cd it could not follow (lostDir). treeLines refused a word with
+// more names than the guard reads.
+func unknownShapes(cl *call, a string, glob bool, vars lineVars, home, cwd string) []string {
+	names := []string{a}
+	if glob && strings.Contains(a, "{") {
+		names, _ = expandBraces(a)
 	}
-	if cwd == lostDir {
-		for _, v := range vals {
-			if v != "" && !strings.HasPrefix(v, "-") && !filepath.IsAbs(guardPath(cl, v, home)) {
-				out = append(out, unknownOutput+"/"+v)
+	var out []string
+	for _, n := range names {
+		vals, known := vars.expand(cl, n, home, cwd)
+		if !known {
+			shapes, ok := vars.shapes(cl, n, home, cwd)
+			if !ok {
+				return []string{unknownOutput}
+			}
+			out = append(out, shapes...)
+		}
+		if cwd == lostDir {
+			for _, v := range vals {
+				if v != "" && !strings.HasPrefix(v, "-") && !filepath.IsAbs(guardPath(cl, v, home)) {
+					out = append(out, unknownOutput+"/"+v)
+				}
 			}
 		}
 	}
