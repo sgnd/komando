@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sgnd/komando/internal/flock"
@@ -567,7 +569,7 @@ func tryLock(name string) (unlock func(), ok bool, err error) {
 		lf.Close()
 		return nil, false, err
 	}
-	return func() { _ = flock.Unlock(lf); lf.Close() }, true, nil
+	return heldUnlock(name, lf), true, nil
 }
 
 // Lock takes an exclusive lock on the file name in the state directory
@@ -585,7 +587,24 @@ func Lock(name string) (unlock func(), err error) {
 		lf.Close()
 		return nil, err
 	}
-	return func() { _ = flock.Unlock(lf); lf.Close() }, nil
+	return heldUnlock(name, lf), nil
+}
+
+// storeLockHeld counts this process's holds of the store lock, so that a
+// step that needs it (peekStore) does not wait for its own process.
+var storeLockHeld atomic.Int32
+
+// heldUnlock counts a hold of the store lock and returns the function
+// that releases lf.
+func heldUnlock(name string, lf *os.File) func() {
+	if name != storeLock {
+		return func() { _ = flock.Unlock(lf); lf.Close() }
+	}
+	storeLockHeld.Add(1)
+	var once sync.Once
+	return func() {
+		once.Do(func() { storeLockHeld.Add(-1); _ = flock.Unlock(lf); lf.Close() })
+	}
 }
 
 // WriteFileAtomic replaces path with b: a temporary file next to it is

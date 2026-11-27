@@ -33,7 +33,7 @@ func (r migration3Report) text() string {
 	if r.BackupNote != "" {
 		b.WriteString("  " + r.BackupNote + "\n")
 	}
-	b.WriteString("It opens only with komando v0.17.0 and holds every secret as it was: remove it once this komando works for you.")
+	b.WriteString("It opens only with komando " + LastFormat2Release + " and holds every secret as it was: remove it once this komando works for you.")
 	return b.String()
 }
 

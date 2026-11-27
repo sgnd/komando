@@ -93,7 +93,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 			commonSecretsCheck(add)
 		}
 		oldCopyCheck(add)
-		backupsCheck(add)
+		backupsCheck(cl, add)
 	}
 	vaultKeyChecks(add)
 	hostCAChecks(cl, st, add)
@@ -415,9 +415,16 @@ func commonSecretsCheck(add func(name string, ok, warn bool, detail string, fix 
 
 // backupsCheck names each backup the store migration left, with its age
 // (migration note M9), and removes the .partial file of a backup a
-// stopped migration never finished: it was never a backup.
-func backupsCheck(add func(name string, ok, warn bool, detail string, fix ...string)) {
-	if gone, err := store.RemoveBackupParts(); err != nil {
+// stopped migration never finished: it was never a backup. A dry run
+// removes nothing and says what doctor would remove.
+func backupsCheck(cl *call, add func(name string, ok, warn bool, detail string, fix ...string)) {
+	if cl.dryRun() {
+		if parts, err := store.BackupParts(); err != nil {
+			add("backups", false, true, "the backups could not be listed: "+err.Error())
+		} else if len(parts) > 0 {
+			add("backups", true, false, "would remove "+strconv.Itoa(len(parts))+" half-written backup file(s) a stopped store migration left; nothing was removed")
+		}
+	} else if gone, err := store.RemoveBackupParts(); err != nil {
 		add("backups", false, true, "a half-written backup could not be removed: "+err.Error())
 	} else if len(gone) > 0 {
 		add("backups", true, false, "removed "+strconv.Itoa(len(gone))+" half-written backup file(s) a stopped store migration left")
@@ -429,6 +436,6 @@ func backupsCheck(add func(name string, ok, warn bool, detail string, fix ...str
 	}
 	for _, b := range bs {
 		days := int(time.Since(b.Modified).Hours() / 24)
-		add("backups", false, true, b.Name+" ("+strconv.Itoa(days)+" days old) holds every secret as it was before komando moved its store to format 3, and opens only with komando v0.17.0: remove it once this komando works for you")
+		add("backups", false, true, b.Name+" ("+strconv.Itoa(days)+" days old) holds every secret as it was before komando moved its store to format 3, and opens only with komando "+store.LastFormat2Release+": remove it once this komando works for you")
 	}
 }

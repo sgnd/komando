@@ -141,8 +141,9 @@ func TestURLPassword(t *testing.T) {
 // Condition 1 of C547: a format-2 store with a login that names an outside
 // store (a host on vault: and on env:, a conn on bw://, a sudo password, a
 // VPN shared key and a key passphrase) does not move. The move stops before
-// it changes the store (store.db byte for byte, still format 2), says so
-// and names the backup, names each entry by kind, name and field and never
+// it changes the store (store.db byte for byte, still format 2) and before
+// it makes a backup (the plan comes first, Audit E1 M1), says so, names
+// each entry by kind, name and field and never
 // the reference, and gives the steps of the fix (C558): the last release
 // that opens the store with its install line, the two commands, update
 // again. `komando doctor --dry-run` (PreviewMigration) lists the same
@@ -171,9 +172,11 @@ func TestMigrate3StopsOnOutsideLogin(t *testing.T) {
 		t.Fatalf("format %s after the stopped move", f)
 	}
 	fix := "which a login no longer reads"
-	bs, err := Backups()
-	if err != nil || len(bs) != 1 || !strings.Contains(e.Message, "so nothing was changed; the backup is at ") || !strings.Contains(e.Message, bs[0].Name) {
-		t.Errorf("the move does not say that nothing was changed and where the backup is (%v %v):\n%s", bs, err, e.Message)
+	if bs, err := Backups(); err != nil || len(bs) != 0 {
+		t.Errorf("the stopped move made a backup: %v %v", bs, err)
+	}
+	if !strings.HasPrefix(e.Message, "the store cannot move to format 3, so nothing was written and no backup was made: ") || strings.Contains(e.Message, "backup is at") {
+		t.Errorf("the move does not say that nothing was written:\n%s", e.Message)
 	}
 	r := LastFormat2Release
 	steps := []string{

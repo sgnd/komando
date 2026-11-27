@@ -34,6 +34,9 @@ jobs:
       - run: make lint
       # the e2e lab's own build (internal/store/home_lab.go), which make lint never compiles
       - run: go vet -tags e2elab ./internal/store/ ./cmd/komando && go test -tags e2elab -run TestLabAccountHome ./internal/store/
+      # the move to format 3 killed at each of its steps (internal/store/migrate3_hook.go),
+      # which only a build with the migratehook tag has (Audit E1 M3)
+      - run: go test -tags migratehook -run '^(TestMigrate3CrashAtEachStep|TestMigrate3KilledBeforeCommit)$' ./internal/store/
       - run: make cover # unit tests + coverage floors
       - run: make test-sync # the sync library in sync/: its own go.mod, so make cover skips it
       - run: make build

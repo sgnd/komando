@@ -21,6 +21,11 @@ func TestMaskSecretsText(t *testing.T) {
 		{"-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaA\n-----END OPENSSH PRIVATE KEY-----\nnext", "[hidden: private key]\nnext"},
 		// left alone: references, booleans, ordinary words
 		{"password_ref: credential:db", "password_ref: credential:db"},
+		{"secret=[credential:db]", "secret=[credential:db]"},
+		// only a well-formed name after credential: is a reference
+		{"password: credential:hunter2!#x", "password: [hidden]"},
+		{"Credential:Hunt3r!#x", "Credential:[hidden]"},
+		{"secret=[credential:a!b]", "secret=[hidden]"},
 		{"PASSWORD=${DB_PASS}", "PASSWORD=${DB_PASS}"},
 		{"require_password: true", "require_password: true"},
 		{"host: web1 user: deploy", "host: web1 user: deploy"},

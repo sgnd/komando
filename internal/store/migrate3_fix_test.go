@@ -37,7 +37,9 @@ func TestLastFormat2ReleaseSpelledOnce(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if bytes.Contains(b, needle) {
+		// a built program (komando.exe of the Windows job) holds the
+		// constant itself; only text spells it
+		if bytes.Contains(b, needle) && !bytes.Contains(b[:min(len(b), 8000)], []byte{0}) {
 			found = append(found, p)
 		}
 		return nil

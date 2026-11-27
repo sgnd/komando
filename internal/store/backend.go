@@ -258,7 +258,7 @@ func cachedDB(create, oldOK, format2 bool) (openStore, error) {
 		return openStore{}, errors.New("store: no key source (the vault package is not linked)")
 	}
 	ctx := context.Background()
-	meta, err := sealdb.Peek(ctx, path)
+	meta, err := peekStore(ctx, path)
 	if err == nil && meta["format"] == "2" && !format2 {
 		return openStore{}, errFormat2
 	}
@@ -289,6 +289,30 @@ func cachedDB(create, oldOK, format2 bool) (openStore, error) {
 		return openStore{}, err
 	}
 	return openStore{}, ErrNoStore
+}
+
+// peekStore is sealdb.Peek after a crash too. A crash while a write step
+// commits leaves store.db-journal, and the read-only open of Peek fails on
+// it with every komando version (Audit E1 M2): then the store is opened
+// read-write once, under the store lock, which rolls the cut-off step
+// back, and read again. A process that holds the store lock already (the
+// move to format 3) does not wait for itself.
+func peekStore(ctx context.Context, path string) (map[string]string, error) {
+	meta, err := sealdb.Peek(ctx, path)
+	if err == nil || errors.Is(err, os.ErrNotExist) || !sealdb.JournalLeft(path) {
+		return meta, err
+	}
+	if storeLockHeld.Load() == 0 {
+		unlock, lerr := Lock(storeLock)
+		if lerr != nil {
+			return nil, lerr
+		}
+		defer unlock()
+	}
+	if rerr := sealdb.RollBack(ctx, path); rerr != nil {
+		return nil, fmt.Errorf("%w; rolling back the write step a crash cut off failed too: %w", err, rerr)
+	}
+	return sealdb.Peek(ctx, path)
 }
 
 // errStoreGone: store.db was removed between Peek and Open.

@@ -100,7 +100,11 @@ func PreviewMigration(ctx context.Context, refGuard func(kind, name string) erro
 	pv.KeyAndPassword, pv.SnippetsWithOldRef, pv.MergedGroups = len(r.KeyAndPassword), len(r.SnippetsWithOldRef), len(r.MergedGroups)
 	pv.WouldMove = len(pv.WouldRefuse) == 0
 	if pv.WouldMove {
-		pv.Backup = filepath.Base(backupName(time.Now()))
+		b, err := backupName(time.Now())
+		if err != nil {
+			return pv, err
+		}
+		pv.Backup = filepath.Base(b)
 	}
 	pv.NotChecked = []string{
 		"VPN connections, logins and tunnels that are running (the move waits until they end)",

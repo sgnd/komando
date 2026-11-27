@@ -351,6 +351,39 @@ func Peek(ctx context.Context, path string) (map[string]string, error) {
 	return m, rows.Err()
 }
 
+// JournalLeft reports whether store.db-journal is next to the store at
+// path: a write step at work, or one that a crash cut off (a hot
+// journal), which only a read-write open rolls back.
+func JournalLeft(path string) bool {
+	fi, err := os.Stat(path + "-journal")
+	return err == nil && fi.Size() > 0
+}
+
+// RollBack opens the store at path read-write once and reads its header,
+// which makes SQLite roll back a write step that a crash cut off; the
+// read-only opens (Peek, OpenReadOnly) cannot, and fail on it. It needs no
+// key, reads no record and never makes the file. The caller holds the
+// store lock.
+func RollBack(ctx context.Context, path string) error {
+	if _, err := os.Stat(path); err != nil {
+		return err
+	}
+	q := url.Values{}
+	q.Set("mode", "rw")
+	q.Add("_pragma", "busy_timeout("+strconv.Itoa(int(busyTimeout/time.Millisecond))+")")
+	dsn, err := fileURI(path, q)
+	if err != nil {
+		return err
+	}
+	sdb, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return err
+	}
+	defer sdb.Close()
+	var n int
+	return sdb.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master`).Scan(&n)
+}
+
 // View runs fn in a read step: it sees one consistent store.
 func (d *DB) View(ctx context.Context, fn func(*Tx) error) error {
 	return d.run(ctx, false, fn)

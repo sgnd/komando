@@ -161,16 +161,16 @@ v0.18.0 moves the store to a new format (format 3) the first time you use
 it. A store that holds something the move cannot take stops it, and the fix
 for that is made with the last v0.17 release. So look first:
 
-1. Run the dry run of the new version, installed beside the one you have.
-   It reads the store and changes nothing:
+1. Run the dry run of the new version beside the one you have. It reads
+   the store and changes nothing. Download the archive of v0.18.0 for your
+   computer from [Releases](https://github.com/sgnd/komando/releases),
+   unpack it into a new folder `komando-v0-18-0` and run there:
 
    ```bash
-   curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.18.0/install.sh | KOMANDO_INSTALL_DIR="$HOME/komando-v0-18-0" KOMANDO_VERSION=v0.18.0 sh
-   "$HOME/komando-v0-18-0/komando" doctor --dry-run
+   ./komando doctor --dry-run
    ```
 
-   On Windows, unpack `komando.exe` of v0.18.0 into a new folder and run
-   `.\komando.exe doctor --dry-run` there.
+   On Windows: `.\komando.exe doctor --dry-run`.
 2. It says `the move to format 3 would go ahead`: update with
    `komando update`. The first command you run then makes a backup and
    moves the store.
@@ -182,8 +182,8 @@ for that is made with the last v0.17 release. So look first:
 
 Updated already? Run `komando doctor --dry-run` before any other command:
 the store moves only at the first command that opens it, and the dry run
-does not open it for writing. If the move stops, it changes nothing, names
-the backup it made and gives the same steps.
+does not open it for writing. If the move stops, it writes nothing, makes
+no backup and gives the same steps.
 
 ## Tab completion
 

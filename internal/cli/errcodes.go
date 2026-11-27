@@ -189,7 +189,7 @@ var errorCodes = []errorCode{
 	{"RECIPE_CHANGED", 8, "recipe … changed while komando was starting", "run it again"},
 	{"RECIPE_EXISTS", 8, "recipe … exists", "see it with `komando recipe show NAME`, or pass --overwrite to replace it"},
 	{"RECIPE_NOT_FOUND", 3, "no recipe named …", "see them with `komando recipe list`"},
-	{"REFERENCE_UNSUPPORTED", 2, "… holds the old marker of a secret, which komando no longer reads; nothing was written", "write …: komando puts a credential's value into a file only for {{credential:NAME}}"},
+	{"REFERENCE_UNSUPPORTED", 2, "… holds the old marker of a secret, which komando no longer reads; nothing was written", "save the value with `komando secret set NAME`, then write {{credential:NAME}} in place of …"},
 	{"REGISTRY_AUTH", 4, "the registry refused to list its repositories: …", "the login may read images but not list every repository: name one with `komando registry oci image list NAME REPO`; else check the user in the conn URL and its --password-ref"},
 	{"REGISTRY_ERROR", 5, "the registry did not say the image's digest", "run it again; if it keeps failing, the registry may not support this image format"},
 	{"REGISTRY_RATE_LIMIT", 5, "the registry turned the request down: too many requests (Docker Hub's pull limit)", "the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again"},

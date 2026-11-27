@@ -20,6 +20,7 @@ import (
 // with no scheme (github.com/sgnd/komando) counts as https.
 var releaseSites = []struct{ prefix, why string }{
 	{"https://github.com/sgnd/komando", "the release site: `komando update` reads releases here, and hints link to the install steps and docs of the same repo"},
+	{"https://raw.githubusercontent.com/sgnd/komando", "the installer of a release of the same repo: the move to format 3 prints the install line of the last release that opens a format-2 store (store.LastFormat2Release); komando never fetches it"},
 }
 
 // projectOwner is the GitHub account komando's repositories live under.

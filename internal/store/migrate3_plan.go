@@ -138,13 +138,13 @@ type outsideUse struct {
 }
 
 // planFormat3 is the plan for snap, or STORE_MIGRATION_FAILED naming every
-// record and field it cannot move, the backup already made, and the steps
-// of the fix.
-func planFormat3(snap *snapshot2, refGuard func(kind, name string) error, backup string) (*plan3, error) {
+// record and field it cannot move and the steps of the fix. It runs before
+// the backup, so a refusal has written nothing.
+func planFormat3(snap *snapshot2, refGuard func(kind, name string) error) (*plan3, error) {
 	p := buildPlan3(snap, refGuard)
 	if len(p.problems) > 0 {
 		return nil, out.Errf(out.ExitError, "STORE_MIGRATION_FAILED", numbered(p.fix()),
-			"the store cannot move to format 3, so nothing was changed; the backup is at %s: %s", backup, strings.Join(p.problems, "; "))
+			"the store cannot move to format 3, so nothing was written and no backup was made: %s", strings.Join(p.problems, "; "))
 	}
 	return p, nil
 }

@@ -345,3 +345,26 @@ func editRecord(tx *sealdb.Tx, typ, name string, fn func(map[string]any)) error 
 	}
 	return fmt.Errorf("no %s record named %s", typ, name)
 }
+
+// Audit E1 (low): the counts the plan was made from are compared again at
+// the start of the write step, not only the counts after it. A record
+// written by another process between the plan and the write stops the
+// move: STORE_IN_USE, still format 2, the record kept.
+func TestMigrate3StopsWhenStoreChangedAfterPlan(t *testing.T) {
+	format2Store(t)
+	Close()
+	o := personOpts()
+	o.afterPlan = func() {
+		format2Edit(t, func(s *State) {
+			s.Hosts["late"] = &Host{Name: "late", Address: "10.0.9.9", User: "root"}
+		})
+	}
+	_, err := migrateFormat3(context.Background(), o)
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "STORE_IN_USE" || !strings.Contains(e.Message, "nothing was changed") {
+		t.Fatalf("want STORE_IN_USE, got %v", err)
+	}
+	if f := formatNow(t); f != "2" {
+		t.Fatalf("format %s after the stopped move", f)
+	}
+}

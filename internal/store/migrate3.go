@@ -34,6 +34,9 @@ type migrate3Opts struct {
 	// beforeLock runs between the first look at the format and the lock
 	// (tests: another migration finishes meanwhile)
 	beforeLock func()
+	// afterPlan runs between the plan and the write step (tests: another
+	// process writes meanwhile)
+	afterPlan func()
 }
 
 // migrate3Result is the report for the person, and what the step read
@@ -46,7 +49,7 @@ type migrate3Result struct {
 
 func migrationFailed(format string, a ...any) error {
 	return out.Errf(out.ExitError, "STORE_MIGRATION_FAILED",
-		"fix it with komando v0.17.0, then run `komando doctor` again",
+		"fix it with komando "+LastFormat2Release+", then run `komando doctor` again",
 		format+"; nothing was changed", a...)
 }
 
@@ -90,12 +93,8 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 		return res, err
 	}
 	defer clear(master)
-	// 7. the backup
-	backup, err := backupFormat2(ctx, d, master, o.now())
-	if err != nil {
-		return res, err
-	}
-	// 8. the plan
+	// 8. the plan, before the backup: a store the plan cannot move gets
+	// no backup, since nothing is written (Audit E1 M1)
 	var snap *snapshot2
 	if err := d.View(ctx, func(tx *sealdb.Tx) error {
 		var err error
@@ -104,7 +103,12 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	}); err != nil {
 		return res, err
 	}
-	p, err := planFormat3(snap, o.refGuard, backup)
+	p, err := planFormat3(snap, o.refGuard)
+	if err != nil {
+		return res, err
+	}
+	// 7. the backup
+	backup, err := backupFormat2(ctx, d, master, o.now())
 	if err != nil {
 		return res, err
 	}
@@ -115,6 +119,9 @@ func migrateFormat3(ctx context.Context, o migrate3Opts) (migrate3Result, error)
 	if shown != nil && shown.backup != backup {
 		p.report.BackupNote = fmt.Sprintf("the backup is %s: the name the window showed, %s, was taken by then",
 			filepath.Base(backup), filepath.Base(shown.backup))
+	}
+	if o.afterPlan != nil {
+		o.afterPlan()
 	}
 	return writeMove(ctx, o, d, master, vc, p, snap, carried, backup)
 }
@@ -209,12 +216,21 @@ func writeMove(ctx context.Context, o migrate3Opts, d *sealdb.DB, master []byte,
 	var mark string
 	err = d.Migrate(ctx, 2, Format3, ks.row, ks.policy,
 		func(tx *sealdb.Tx) error {
+			// the counts the plan was made from, again under the write
+			// lock: a process that wrote since then stops the move
+			now, err := countTypes(tx)
+			if err != nil {
+				return err
+			}
+			if !maps.Equal(snap.counts, now) {
+				return out.Errf(out.ExitConflict, "STORE_IN_USE", "run `komando doctor` again",
+					"%s changed after the move was planned; nothing was changed", Path(StoreFile))
+			}
 			if err := writeFormat3(tx, p, snap, vc, entry); err != nil {
 				return err
 			}
 			// Q7: the runtime records that outlive the migration go into
 			// the same step, under a new mark
-			var err error
 			if mark, err = putRuntimeCopy(tx, carried); err != nil {
 				return err
 			}
@@ -272,7 +288,7 @@ func needsMigration3(ctx context.Context) (bool, error) {
 	case "3":
 		return false, nil
 	case "1":
-		return false, migrationFailed("%s is of format 1; open it once with komando v0.17.0 first", Path(StoreFile))
+		return false, migrationFailed("%s is of format 1; open it once with komando %s first", Path(StoreFile), LastFormat2Release)
 	}
 	return false, migrationFailed("%s is of format %q", Path(StoreFile), meta["format"])
 }
@@ -312,7 +328,11 @@ func migrateGate(ctx context.Context, o migrate3Opts) (*shownWindow, error) {
 		return nil, err
 	}
 	clear(master)
-	w := &shownWindow{backup: backupName(o.now())}
+	backup, err := backupName(o.now())
+	if err != nil {
+		return nil, migrationFailed("no name for the backup (%v)", err)
+	}
+	w := &shownWindow{backup: backup}
 	if err := d.View(ctx, func(tx *sealdb.Tx) error { w.counts, err = countTypes(tx); return err }); err != nil {
 		return nil, err
 	}
@@ -394,15 +414,21 @@ func countTypes(tx *sealdb.Tx) (map[string]int, error) {
 const backupPrefix = "store-v0-17-backup-"
 
 // backupName is the first free backup name at now: neither the backup
-// nor its .partial file exists.
-func backupName(now time.Time) string {
+// nor its .partial file exists. Any other error of a look stops it.
+func backupName(now time.Time) (string, error) {
 	base := backupPrefix + now.Format("2006-01-02-150405")
 	path := Path(base + ".db")
 	for i := 2; ; i++ {
-		_, e1 := os.Lstat(path)
-		_, e2 := os.Lstat(path + ".partial")
-		if errors.Is(e1, os.ErrNotExist) && errors.Is(e2, os.ErrNotExist) {
-			return path
+		free := true
+		for _, p := range []string{path, path + ".partial"} {
+			if _, err := os.Lstat(p); err == nil {
+				free = false
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return "", err
+			}
+		}
+		if free {
+			return path, nil
 		}
 		path = Path(fmt.Sprintf("%s-%d.db", base, i)) // never over an earlier backup
 	}
@@ -412,7 +438,10 @@ func backupName(now time.Time) string {
 // changes: under a .partial name first, opened and counted, then renamed
 // (Audit E1-6), so a backup under its final name is always whole.
 func backupFormat2(ctx context.Context, d *sealdb.DB, master []byte, now time.Time) (string, error) {
-	path := backupName(now)
+	path, err := backupName(now)
+	if err != nil {
+		return "", migrationFailed("no name for the backup (%v)", err)
+	}
 	part := path + ".partial"
 	if err := d.Backup(ctx, part); err != nil {
 		return "", migrationFailed("the backup %s could not be made (%v)", path, err)
@@ -452,10 +481,10 @@ func backupFormat2(ctx context.Context, d *sealdb.DB, master []byte, now time.Ti
 	return path, nil
 }
 
-// RemoveBackupParts removes the .partial files of backups that a stopped
-// migration left (doctor); it never touches a backup under its final
-// name. It returns the names removed.
-func RemoveBackupParts() ([]string, error) {
+// BackupParts names the .partial files of backups that a stopped
+// migration left, never a backup under its final name. It changes
+// nothing (doctor --dry-run).
+func BackupParts() ([]string, error) {
 	es, err := os.ReadDir(Home())
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -463,12 +492,30 @@ func RemoveBackupParts() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var removed []string
+	var parts []string
 	for _, e := range es {
-		n := e.Name()
-		if !e.Type().IsRegular() || !strings.HasPrefix(n, backupPrefix) || !strings.HasSuffix(n, ".db.partial") {
-			continue
+		if n := e.Name(); e.Type().IsRegular() && strings.HasPrefix(n, backupPrefix) && strings.HasSuffix(n, ".db.partial") {
+			parts = append(parts, n)
 		}
+	}
+	return parts, nil
+}
+
+// RemoveBackupParts removes the files BackupParts names (doctor), under
+// the store lock: a move at work writes its backup under a .partial name
+// while it holds the lock. It returns the names removed.
+func RemoveBackupParts() ([]string, error) {
+	unlock, err := Lock(storeLock)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	parts, err := BackupParts()
+	if err != nil {
+		return nil, err
+	}
+	var removed []string
+	for _, n := range parts {
 		if err := os.Remove(Path(n)); err != nil {
 			return removed, err
 		}

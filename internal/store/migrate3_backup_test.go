@@ -82,3 +82,27 @@ func TestMigrate3BackupNameDiffersFromWindow(t *testing.T) {
 		t.Errorf("audit entry %s", res.auditEntry)
 	}
 }
+
+// backupName stops on an error that is not "missing" (a home that is a
+// file, a folder it may not read) instead of trying names for ever
+// (Audit E1, low).
+func TestBackupNameStopsOnError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a path under a file is missing there, not an error")
+	}
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.WriteFile(home, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KOMANDO_HOME", home)
+	done := make(chan error, 1)
+	go func() { _, err := backupName(time.Now()); done <- err }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("a backup name under a file")
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("backupName loops on an error")
+	}
+}

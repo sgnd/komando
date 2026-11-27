@@ -12089,7 +12089,7 @@
         "code": "REFERENCE_UNSUPPORTED",
         "exit": 2,
         "example": "… holds the old marker of a secret, which komando no longer reads; nothing was written",
-        "hint": "write …: komando puts a credential's value into a file only for {{credential:NAME}}"
+        "hint": "save the value with `komando secret set NAME`, then write {{credential:NAME}} in place of …"
       },
       {
         "code": "REGISTRY_AUTH",

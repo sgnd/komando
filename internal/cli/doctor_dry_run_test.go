@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -69,8 +70,20 @@ func filesOf(tree map[string]fileState) map[string]fileState {
 // The person's dry run before the move to format 3 (owner, 2026-11-27):
 // `komando doctor --dry-run` on a store of format 2 says what the move
 // would do, in counts, and writes nothing: every file of the home is
-// byte-equal with the same mode and time, and no file is new.
+// byte-equal with the same mode and time, and no file is new. A home that
+// others may read (0755: a copy, an unzip) keeps its mode too: the dry
+// run does not tighten it (Audit E1, low).
 func TestDoctorDryRunPreviewsTheMove(t *testing.T) {
+	modes := []os.FileMode{0o700, 0o755}
+	if runtime.GOOS == "windows" {
+		modes = modes[:1] // no mode bits: the access list keeps the home private
+	}
+	for _, mode := range modes {
+		t.Run(mode.String(), func(t *testing.T) { dryRunPreviewsTheMove(t, mode) })
+	}
+}
+
+func dryRunPreviewsTheMove(t *testing.T, mode os.FileMode) {
 	invHome(t)
 	sealdb.CreateFormat = 2
 	t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
@@ -79,8 +92,7 @@ func TestDoctorDryRunPreviewsTheMove(t *testing.T) {
 	}
 	store.Close()
 	sealdb.CreateFormat = sealdb.Format
-	// a real komando home is 0700; komando tightens a wider one at start
-	if err := os.Chmod(store.Home(), 0o700); err != nil {
+	if err := os.Chmod(store.Home(), mode); err != nil {
 		t.Fatal(err)
 	}
 	// komando's other folders: the files in them (the test binary shares
@@ -130,5 +142,33 @@ func TestDoctorDryRunTextGivesTheFix(t *testing.T) {
 	want := "the move to format 3 would stop:\n  ✗ " + pv.WouldRefuse[0] + "\nto fix it:\n  1. " + pv.Fix[0] + "\n  2. " + pv.Fix[1] + "\n  3. " + pv.Fix[2] + "\n"
 	if !strings.Contains(s, want) {
 		t.Fatalf("text\n%s\nlacks\n%s", s, want)
+	}
+}
+
+// doctor --dry-run on a moved store deletes nothing (Audit E1, low): the
+// .partial file a stopped move left stays, and the check says what doctor
+// would remove. doctor itself removes it, under the store lock.
+func TestDoctorDryRunKeepsBackupParts(t *testing.T) {
+	invHome(t)
+	if _, err := store.DB(true); err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+	part := store.Path("store-v0-17-backup-2026-11-25-093000.db.partial")
+	if err := os.WriteFile(part, []byte("half a copy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d, _ := invRun(t, "doctor", "--dry-run")
+	if b, err := os.ReadFile(part); err != nil || string(b) != "half a copy" {
+		t.Fatalf("the dry run removed or changed the .partial file: %v", err)
+	}
+	if s := asJSON(d); !strings.Contains(s, "would remove 1 half-written backup file") {
+		t.Fatalf("the dry run does not say what doctor would remove:\n%s", s)
+	}
+	if d, _ = invRun(t, "doctor"); !strings.Contains(asJSON(d), "removed 1 half-written backup file") {
+		t.Fatalf("doctor did not remove it:\n%s", asJSON(d))
+	}
+	if _, err := os.Stat(part); !os.IsNotExist(err) {
+		t.Fatalf("the .partial file is still there: %v", err)
 	}
 }

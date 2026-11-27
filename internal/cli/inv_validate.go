@@ -408,7 +408,7 @@ func oldEnvRefs(env map[string]string) error {
 func oldMarker(what, text string) error {
 	if m, old := store.OldMarker(text); old {
 		return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
-			"write "+m+": komando puts a credential's value into a file only for {{credential:NAME}}",
+			"save the value with `komando secret set NAME`, then write {{credential:NAME}} in place of "+m,
 			"%s holds the old marker of a secret, which komando no longer reads; nothing was written", what)
 	}
 	return nil
