@@ -212,6 +212,11 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 	keyGroups(typ, gone, tables)
 }
 
+// connVerbsUntilStepD are today's conn commands, which every moved conn type
+// carries: they stay in the tree until cut step D moves their callers (hints,
+// tests, e2e) to the per-type paths (row C488).
+var connVerbsUntilStepD = []string{"conn.add", "conn.edit", "conn.list", "conn.rename", "conn.rm", "conn.show", "conn.test"}
+
 // carriedByMoved says whether every built leaf that carries id is of a moved
 // type (hideCarried then takes the command out of the tree).
 func carriedByMoved(id string) bool { return carriedByMovedIn(capability.All())(id) }
@@ -233,6 +238,9 @@ func carriedByMovedIn(leaves []capability.Leaf) func(id string) bool {
 	}
 	for _, r := range capability.Replacements() {
 		waits[r.Today] = true // exec, query or raw replaces it: it stays until cut step D
+	}
+	for _, id := range connVerbsUntilStepD {
+		waits[id] = true
 	}
 	return func(id string) bool { return carried[id] && !waits[id] }
 }

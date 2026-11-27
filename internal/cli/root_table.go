@@ -117,6 +117,9 @@ func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 	for _, r := range capability.Replacements() {
 		delete(carriers, r.Today)
 	}
+	for _, id := range connVerbsUntilStepD {
+		delete(carriers, id)
+	}
 	hide := map[string]bool{}
 	for id, keys := range carriers {
 		hide[id] = !slices.ContainsFunc(keys, func(k capability.Key) bool { return hs[k] == nil })
