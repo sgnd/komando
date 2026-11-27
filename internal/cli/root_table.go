@@ -269,6 +269,9 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 			addOption(c.Flags(), o, vals)
 		}
 	}
+	if extra := leafExtras[safetyKey{l.Type, l.Area, l.Verb}]; extra != nil {
+		extra(c)
+	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		in := leafInput{Args: args, ID: strings.Join(l.Key.Path(), "."), Dash: cmd.ArgsLenAtDash(), vals: vals, changed: func(n string) bool { return cmd.Flags().Changed(n) }}
 		if err := checkOptions(l, in); err != nil {
@@ -277,6 +280,20 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		return h(callOf(cmd), cmd.Context(), in)
 	}
 	return c
+}
+
+// leafExtras give the leaves of a key what cobra keeps outside the table:
+// the annotations their help and output read (tableOutput, helpNotes,
+// timeoutHelp) and their own flag error. Keyed by (type, area, verb), so
+// every provider of a verb gets the same.
+var leafExtras = map[safetyKey]func(c *cobra.Command){
+	{"database", "", "query"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{tableOutput: "yes", helpNotes: queryNotes, timeoutHelp: queryTimeout}
+		c.SetFlagErrorFunc(sqlFlagError)
+	},
+	{"database", "", "shell"}: func(c *cobra.Command) {
+		c.Annotations = map[string]string{timeoutHelp: queryTimeout}
+	},
 }
 
 // addOption declares o on fs and keeps where its value lands in vals.
@@ -690,6 +707,15 @@ func moveType(typ string) { moveLeaves(typ, capability.All()) }
 func moveLeaves(typ string, leaves []capability.Leaf) {
 	movedTypes = append(movedTypes, typ)
 	providerIDs[typ] = true // the type's own group shares its key with the provider groups
+	if old := familyOfType(typ); old != typ {
+		// the type's group had another word today (db): the new group gets
+		// its key and its gate entry; the old group keeps them while it
+		// still holds commands
+		cmdKeys[typ] = safetyKey{typ: typ}
+		if v, ok := gateNoNetwork[old]; ok {
+			gateNoNetwork[typ] = v
+		}
+	}
 	tables := idTables()
 	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
 	var built []capability.Leaf
@@ -734,7 +760,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 				gkey.area = words[2]
 			}
 			cmdKeys[gid], providerIDs[gid] = gkey, true
-			if _, ok := gateNoNetwork[typ]; ok {
+			if _, ok := gateNoNetwork[typ]; ok { // set above when today's word differs
 				gateNoNetwork[gid] = nil
 			}
 		}
