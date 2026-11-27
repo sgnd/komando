@@ -136,6 +136,7 @@ func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 // It refuses a handler for a leaf that is not built, a leaf with no text,
 // a group with no text, and words today's tree already uses.
 func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capability.Key]handler, groups map[string]string) error {
+	ids := idsInTree(root) // read once: a walk for each leaf would cost every command a run
 	for _, l := range leaves {
 		h := hs[l.Key]
 		switch {
@@ -153,9 +154,10 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 			}
 		}
 		id := strings.Join(l.Key.Path(), ".")
-		if commandWithID(root, id) != nil {
+		if ids[id] {
 			return fmt.Errorf("%s: the ID %s is already in the tree", l.Key, id)
 		}
+		ids[id] = true
 		words := l.Key.Path()
 		parent := root
 		for i, w := range words[:len(words)-1] {
@@ -171,6 +173,7 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 				}
 				next = &cobra.Command{Use: w, Short: text}
 				parent.AddCommand(next)
+				ids[strings.Join(words[:i+1], ".")] = true
 			}
 			parent = next
 		}
@@ -182,6 +185,20 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 		parent.AddCommand(buildLeaf(l, h))
 	}
 	return nil
+}
+
+// idsInTree is the set of the IDs of the commands under c.
+func idsInTree(c *cobra.Command) map[string]bool {
+	ids := map[string]bool{}
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			ids[cmdID(s)] = true
+			walk(s)
+		}
+	}
+	walk(c)
+	return ids
 }
 
 // commandWithID is the command under c whose ID is id, or nil.
