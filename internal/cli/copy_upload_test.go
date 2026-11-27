@@ -45,6 +45,7 @@ func TestCopyOptionRules(t *testing.T) {
 	invHome(t)
 	for _, args := range [][]string{
 		{"copy", "./a", "web1:/b", "--delete"},
+		{"copy", "./a", "web1:/b", "--sync=false", "--delete"},
 		{"copy", "./a", "web1:/b", "--exclude", ".git"},
 		{"copy", "./a", "web1:/b", "--emptied", "x"},
 		{"copy", "./a", "web1:/b", "--sync", "-r"},

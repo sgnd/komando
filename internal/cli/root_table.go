@@ -378,7 +378,7 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 			}
 		}
 		for _, n := range o.Needs {
-			if !in.Changed(n) {
+			if b, isBool := in.vals[n].(*bool); !in.Changed(n) || (isBool && !*b) { // --sync=false is not --sync
 				return out.Usage("--%s works only with --%s", o.Name, n)
 			}
 		}

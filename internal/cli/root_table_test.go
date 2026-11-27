@@ -950,3 +950,38 @@ func TestBodyDefaultsMatchTable(t *testing.T) {
 		t.Fatal("no option checked")
 	}
 }
+
+// An option that works only with a bool option needs it TRUE: --sync=false
+// --delete is refused by the table, before any window can ask a person.
+func TestCheckOptionsNeedsATrueBool(t *testing.T) {
+	l := capability.Leaf{Options: []capability.Option{
+		{Name: "sync", Kind: capability.Bool},
+		{Name: "delete", Kind: capability.Bool, Needs: []string{"sync"}},
+		{Name: "exclude", Kind: capability.String, Needs: []string{"sync"}},
+	}}
+	typed := func(names ...string) func(string) bool {
+		return func(n string) bool { return slices.Contains(names, n) }
+	}
+	input := func(sync bool, changed ...string) leafInput {
+		yes, no, s := sync, false, ""
+		return leafInput{
+			vals:    map[string]any{"sync": &yes, "delete": &no, "exclude": &s},
+			changed: typed(changed...),
+		}
+	}
+	for _, c := range []struct {
+		name string
+		in   leafInput
+		ok   bool
+	}{
+		{"--sync --delete", input(true, "sync", "delete"), true},
+		{"--sync=false --delete", input(false, "sync", "delete"), false},
+		{"--delete alone", input(false, "delete"), false},
+		{"--sync=false --exclude", input(false, "sync", "exclude"), false},
+		{"--sync --exclude", input(true, "sync", "exclude"), true},
+	} {
+		if err := checkOptions(l, c.in); (err == nil) != c.ok {
+			t.Errorf("%s: %v, want ok=%v", c.name, err, c.ok)
+		}
+	}
+}
