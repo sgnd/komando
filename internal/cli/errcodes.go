@@ -108,7 +108,7 @@ var errorCodes = []errorCode{
 	{"K8S_CONFLICT", 8, "the object changed or exists already (the cluster's words follow)", "the object changed meanwhile or exists already: look at it with `komando cluster kubernetes raw NAME -- get TYPE/NAME -o yaml`, then run it again"},
 	{"K8S_CONTAINER_NOT_FOUND", 3, "", "see the pod's containers with `komando cluster kubernetes raw NAME -- describe pod NAME`"},
 	{"K8S_ERROR", 5, "the Kubernetes API answered with an error (its words follow)", "read the cluster's words; `komando cluster kubernetes raw NAME -- get events` shows what went wrong lately"},
-	{"K8S_FORBIDDEN", 4, "listing Helm releases: …", "Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets there (or name one namespace with --namespace)"},
+	{"K8S_FORBIDDEN", 4, "listing Helm releases: …", "Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets in the namespace (name it with --var namespace=NAME)"},
 	{"K8S_INVALID", 2, "the cluster refused the request as written (its words follow)", "the cluster refused it as written: check the label selector (-l) or the object's YAML"},
 	{"K8S_NOT_FOUND", 3, "", "list what exists with `komando cluster kubernetes raw NAME -- get pods` (or deployments, services ...)"},
 	{"K8S_POD_NOT_FOUND", 3, "… has no running pod", "check them with `komando cluster kubernetes raw NAME -- get pods`"},

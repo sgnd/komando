@@ -91,7 +91,7 @@ func helmItems(ctx context.Context, k *kube.Client, ns, release string) ([]helmI
 			}
 			if errors.As(err, &ae) && (ae.Code == 403 || ae.Code == 401) {
 				return nil, out.Errf(out.ExitConnect, "K8S_FORBIDDEN",
-					"Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets there (or name one namespace with --namespace)",
+					"Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets in the namespace (name it with --var namespace=NAME)",
 					"listing Helm releases: %v", ae.Message)
 			}
 			return nil, err
@@ -220,15 +220,25 @@ func helmSnippets() []snippet.Builtin {
 	name := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 	longName := strings.Repeat("a", 63)
 	namespace := snippet.Var{Name: "namespace", Channel: snippet.KubeName, Pattern: name, MaxLen: 63, Longest: longName}
-	checks := []string{"TestHelmSnippets", "TestHelmSnippetForbidden"}
+	checks := []string{"TestHelmSnippets", "TestHelmSnippetForbidden", "TestHelmListScopedAccount"}
 	return []snippet.Builtin{
 		{
 			Name: "helm-list", Type: "cluster", Replaces: "cluster helm list", Reader: "agent: the Helm releases of a cluster without the helm program (row C631)",
 			Tier: capability.Read, Shape: "helm-list/1", Checks: checks,
-			Vars: []snippet.Var{namespace},
+			Vars: []snippet.Var{namespace, {Name: "all-namespaces", Channel: snippet.Number, Pattern: regexp.MustCompile(`^[01]$`), MaxLen: 1, Longest: "1", Default: "0"}},
 			Run: func(ctx context.Context, c snippet.Client, v snippet.Values) (any, error) {
 				k := c.(*clusterClient).kube
-				items, err := helmItems(ctx, k, v["namespace"], "")
+				all := v["all-namespaces"] == "1"
+				if all && v["namespace"] != "" {
+					return nil, out.Usage("give --var namespace=NAME or --var all-namespaces=1, not both")
+				}
+				// the conn's namespace by default, as the removed `cluster helm list` read: an
+				// account scoped to one namespace is not refused for a read it never asked for
+				space := ""
+				if !all {
+					space = cmp.Or(v["namespace"], k.Namespace)
+				}
+				items, err := helmItems(ctx, k, space, "")
 				if err != nil {
 					return nil, err
 				}
@@ -243,8 +253,8 @@ func helmSnippets() []snippet.Builtin {
 					rels = append(rels, row)
 				}
 				res := map[string]any{"count": len(rels), "releases": rels}
-				if v["namespace"] != "" {
-					res["namespace"] = v["namespace"]
+				if space != "" {
+					res["namespace"] = space
 				}
 				return res, nil
 			},

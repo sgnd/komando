@@ -38,12 +38,23 @@ func helmSecret(t *testing.T, ns, name string, rev int, status, chart, chartVer,
 }
 
 // helmLab is a cluster API that holds Helm release Secrets; status other
-// than 200 refuses every request with it.
+// than 200 refuses every request with it. Any request that is not a GET
+// fails the test: the helm snippets only read.
 func helmLab(t *testing.T, ctxName string, status int, secrets ...map[string]any) string {
+	t.Helper()
+	return helmLabDeny(t, ctxName, func(*http.Request) int { return status }, secrets...)
+}
+
+// helmLabDeny is helmLab where deny gives each request's status, so an
+// account scoped to one namespace can be refused the cluster-wide list only.
+func helmLabDeny(t *testing.T, ctxName string, deny func(*http.Request) int, secrets ...map[string]any) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if status != http.StatusOK {
+		if r.Method != http.MethodGet {
+			t.Errorf("a helm snippet sent %s %s: they only read", r.Method, r.URL)
+		}
+		if status := deny(r); status != http.StatusOK {
 			w.WriteHeader(status)
 			io.WriteString(w, `{"reason":"Forbidden","message":"secrets is forbidden"}`)
 			return
@@ -92,7 +103,9 @@ func helmResult(t *testing.T, args ...string) (map[string]any, *out.Error) {
 func TestHelmSnippets(t *testing.T) {
 	invHome(t)
 	withSnippets(t, helmSnippets()...)
-	cfg := map[string]any{"replicas": 3, "image": map[string]any{"tag": "v2"}, "db": map[string]any{"password": "s3cret-pw"}}
+	cfg := map[string]any{"replicas": 3, "image": map[string]any{"tag": "v2"}, "db": map[string]any{"password": "s3cret-pw"},
+		"apiKey": "k-s3cret-1", "authToken": "k-s3cret-2", "clientSecret": "k-s3cret-3", "private_key": "k-s3cret-4",
+		"smtp": map[string]any{"adminPassword": "k-s3cret-5"}, "dsn": "postgres://app:k-s3cret-6@db/app"}
 	helmLab(t, "prod", http.StatusOK,
 		helmSecret(t, "shop", "api", 1, "superseded", "api", "1.0.0", "1.0", map[string]any{"replicas": 2}),
 		helmSecret(t, "shop", "api", 2, "deployed", "api", "1.1.0", "1.1", cfg),
@@ -103,15 +116,21 @@ func TestHelmSnippets(t *testing.T) {
 		t.Fatalf("helm-list: %v", e)
 	}
 	rels := d["releases"].([]any)
-	if len(rels) != 2 || d["count"].(float64) != 2 {
-		t.Fatalf("every namespace by default: %v", d)
+	if len(rels) != 1 || d["count"].(float64) != 1 || d["namespace"] != "shop" {
+		t.Fatalf("the conn's namespace (shop) by default: %v", d)
 	}
-	api := rels[1].(map[string]any) // ops/grafana sorts first
+	api := rels[0].(map[string]any)
 	if api["name"] != "api" || api["revision"].(float64) != 2 || api["status"] != "deployed" || api["chart"] != "api-1.1.0" || api["app_version"] != "1.1" {
 		t.Errorf("newest revision of api: %v", api)
 	}
-	if d, _ := helmResult(t, "helm-list", "prod", "--var", "namespace=shop"); d["count"].(float64) != 1 || d["namespace"] != "shop" {
-		t.Errorf("one namespace: %v", d)
+	if d, _ := helmResult(t, "helm-list", "prod", "--var", "namespace=ops"); d["count"].(float64) != 1 || d["namespace"] != "ops" {
+		t.Errorf("another namespace: %v", d)
+	}
+	if d, _ := helmResult(t, "helm-list", "prod", "--var", "all-namespaces=1"); d["count"].(float64) != 2 || d["namespace"] != nil {
+		t.Errorf("every namespace when asked: %v", d)
+	}
+	if _, e := helmResult(t, "helm-list", "prod", "--var", "all-namespaces=1", "--var", "namespace=shop"); e == nil || e.Code != "USAGE" {
+		t.Errorf("a namespace and all namespaces together: %v", e)
 	}
 
 	r, e := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop")
@@ -149,6 +168,36 @@ func TestHelmSnippets(t *testing.T) {
 	raw, _ := snippetData(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop")
 	if strings.Contains(string(raw), "s3cret-pw") {
 		t.Errorf("values show a password to an agent: %s", raw)
+	}
+	// the mask goes by the key's name and the value's shape, not by "password" alone
+	for i := 1; i <= 6; i++ {
+		if leak := "k-s3cret-" + string(rune('0'+i)); strings.Contains(string(raw), leak) {
+			t.Errorf("values show %s to an agent: %s", leak, raw)
+		}
+	}
+	if !strings.Contains(string(raw), `"replicas"`) {
+		t.Errorf("the masking left no values: %s", raw)
+	}
+}
+
+// An account scoped to one namespace reads its releases by default: the
+// removed `cluster helm list` read the conn's namespace, not the cluster.
+// Asking for every namespace is refused with K8S_FORBIDDEN.
+func TestHelmListScopedAccount(t *testing.T) {
+	invHome(t)
+	withSnippets(t, helmSnippets()...)
+	helmLabDeny(t, "scoped", func(r *http.Request) int {
+		if strings.Contains(r.URL.Path, "/namespaces/shop/") {
+			return http.StatusOK
+		}
+		return http.StatusForbidden
+	}, helmSecret(t, "shop", "api", 1, "deployed", "api", "1.0.0", "1.0", nil))
+	d, e := helmResult(t, "helm-list", "scoped")
+	if e != nil || d["count"].(float64) != 1 {
+		t.Fatalf("a namespace-scoped account by default: %v %v", d, e)
+	}
+	if _, e := helmResult(t, "helm-list", "scoped", "--var", "all-namespaces=1"); e == nil || e.Code != "K8S_FORBIDDEN" || !strings.Contains(e.Hint, "--var namespace=NAME") {
+		t.Errorf("every namespace is refused with K8S_FORBIDDEN and a hint that names the variable: %v", e)
 	}
 }
 

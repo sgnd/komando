@@ -153,7 +153,7 @@ built-in snippets decode them instead, without the helm program:
 
 | Snippet | What it gives |
 |---------|---------------|
-| `helm-list` | every release (the newest revision of each): name, namespace, revision, status, chart, app version. `--var namespace=NAME` narrows it |
+| `helm-list` | the releases of the conn's namespace (the newest revision of each): name, namespace, revision, status, chart, app version. `--var namespace=NAME` names another one, `--var all-namespaces=1` reads every namespace |
 | `helm-release` | one release (`--var release=NAME`, `--var namespace=NAME`, `--var revision=N`): status, notes, history of revisions and the values it was installed with (`values`, and `values_all` with the chart's defaults) |
 
 Both only read; install, upgrade and rollback stay with `helm`. The

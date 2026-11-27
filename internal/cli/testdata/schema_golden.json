@@ -19222,7 +19222,7 @@
         "code": "K8S_FORBIDDEN",
         "exit": 4,
         "example": "listing Helm releases: …",
-        "hint": "Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets there (or name one namespace with --namespace)"
+        "hint": "Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets in the namespace (name it with --var namespace=NAME)"
       },
       {
         "code": "K8S_INVALID",
