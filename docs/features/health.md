@@ -210,13 +210,6 @@ komando net dns web1 api.example.com
 komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (with or without dig on the server)
 ```
 
-| Command | Fails when | Exit code |
-|---------|-----------|-----------|
-| `net check` | a port does not answer (`PORT_CLOSED`); the result says why: `refused`, `timeout` (after 5 seconds), `dns` or `unreachable` | 5 |
-| `net http` | nothing answers (`NO_RESPONSE`, within 15 seconds, or `--timeout`) | 4 |
-| `net http --expect 2xx` | the status is another one (`UNEXPECTED_STATUS`); `--expect 200` names one status | 5 |
-| `net dns` | the name does not resolve (`NXDOMAIN`) or has no records of that type (`NO_RECORDS`) | 3 |
-
 - `net ports` uses `ss`, or `netstat` on small systems such as busybox. Add
   `--sudo` to see the process names.
 - `net dns` without `--type` shows the addresses the server would connect
@@ -255,9 +248,3 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (
 | `RECIPE_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando recipe list`; some checks are commands (table above) |
 | `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando recipe list` |
 | `CERT_PROBLEMS` | a certificate expires within `--warn`, has expired, is not trusted, or certbot's last renewal failed (exit 1) | renew or replace the certificates the result marks |
-| `PORT_CLOSED` | `net check`: a port did not answer (exit 5) | the result says why (`refused`, `timeout`, `dns`, `unreachable`): check the address, firewall or service |
-| `NO_RESPONSE` | `net http`: nothing answered (exit 4) | check the URL, and that the server can reach it: `komando net check SERVER HOST:443` |
-| `UNEXPECTED_STATUS` | `net http --expect`: another status came back (exit 5) | check the URL and the service behind it |
-| `NXDOMAIN` | `net dns`: the name does not resolve from this server (exit 3) | check the name and the server's DNS (`/etc/resolv.conf`) |
-| `NO_RECORDS` | `net dns`: no records of that type (exit 3) | check the name and `--type` |
-| `DIG_MISSING` | `net dns --type` found no `dig` on the server, and komando could not ask its resolver itself (no nameserver, or no TCP forwarding) | install the package the error names |

@@ -151,7 +151,7 @@ Available Commands:
 
 Flags:
       --actor string          only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account
-      --command string        only commands that start with this (like exec, svc.)
+      --command string        only commands that start with this (like exec, fs.)
       --failed[=true|false]   only actions that failed or were blocked
   -h, --help[=true|false]     help for audit
   -n, --limit int             the newest N entries (0 = all; with --since or --until, all unless given) (default 50)

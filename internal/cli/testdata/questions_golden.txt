@@ -4,7 +4,7 @@ title: Show the audit log: who did what, where, and the result
 - flag:target | --target | Only for which servers or conns? | Leave empty for everything. |  | optional,free,choices
 - flag:failed | --failed | Only what failed or was blocked? | Only actions that failed or were blocked |  | default,choices
 - flag:actor | --actor | Only what one person or AI agent did? | Part of the name, like claude or codex. Leave empty for everyone. | claude | optional,check
-- flag:command | --command | Only commands that start with this (like exec, svc.) |  |  | optional,advanced,check
+- flag:command | --command | Only commands that start with this (like exec, fs.) |  |  | optional,advanced,check
 - flag:limit | --limit | The newest N entries (0 = all; with --since or --until, all unless given) |  |  | optional,advanced,default,check
 - flag:until | --until | Only entries before this time (the same forms as --since) |  |  | optional,advanced,check
 ### komando audit verify
