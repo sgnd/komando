@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/capability"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -298,6 +300,53 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 		for _, s := range c.Commands() {
 			if !inList(s) {
 				t.Errorf("%q: %q, which the help of %q lists, is not ready to list", tc.line, s.CommandPath(), tc.want)
+			}
+		}
+	}
+}
+
+// A script's `help LINE` and `LINE --help` print the command's help as the
+// whole tree has it, Safety line and all (the e2e core checks of base.sh).
+func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
+	home := t.TempDir()
+	setHome(t, home)
+	env := map[string]string{"KOMANDO_HOME": home, "USER": "ana"}
+	cases := []struct {
+		cmd, tier string // tier: words of its Safety line, "" for a read
+	}{
+		{"host list", ""},
+		{"host rm", "a change"},
+		{"secret rm", "dangerous"},
+	}
+	// the runs first: a whole tree built before them could hide a step
+	// that only the whole tree takes
+	printed := map[string][2]string{}
+	for _, tc := range cases {
+		for _, args := range [][]string{
+			slices.Concat([]string{"help"}, strings.Fields(tc.cmd), []string{"-o", "text"}),
+			slices.Concat(strings.Fields(tc.cmd), []string{"--help", "-o", "text"}),
+		} {
+			var o, e bytes.Buffer
+			call := engine.Call{Program: "komando", LookupEnv: envOf(env, &sync.Map{}), Stdout: &o, Stderr: &e}
+			if code := RunCall(context.Background(), call, args); code != 0 {
+				t.Errorf("%q: exit %d, stderr %q", args, code, e.String())
+			}
+			printed[strings.Join(args, " ")] = [2]string{o.String(), e.String()}
+		}
+	}
+	whole := newRoot(tcl)
+	for _, tc := range cases {
+		c, _, err := whole.Find(strings.Fields(tc.cmd))
+		if err != nil || c.CommandPath() != "komando "+tc.cmd {
+			t.Fatalf("%s: the whole tree finds %q (%v)", tc.cmd, c.CommandPath(), err)
+		}
+		if line := safetyLine(c); !strings.Contains(line, tc.tier) || (tc.tier == "") != (line == "") {
+			t.Fatalf("%s: the Safety line is %q, want one with %q", tc.cmd, line, tc.tier)
+		}
+		for _, args := range []string{"help " + tc.cmd + " -o text", tc.cmd + " --help -o text"} {
+			o, e := printed[args][0], printed[args][1]
+			if !strings.Contains(o, c.Long) || strings.Contains(o, "Safety: ") != (tc.tier != "") {
+				t.Errorf("%q: stdout lacks the help of the whole tree\n got: %q\nwant: %q\nstderr: %q", args, o, c.Long, e)
 			}
 		}
 	}
