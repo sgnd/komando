@@ -8199,7 +8199,6 @@ Usage:
 Examples:
   komando queue pubsub consumer list prod-pubsub
   komando queue pubsub consumer list prod-pubsub -n 20
-  komando queue pubsub consumer show prod-pubsub billing
 
 Available Commands:
   list        List the subscriptions of a Pub/Sub project

@@ -243,65 +243,59 @@ func TestQueueBodyDefaultsMatchTable(t *testing.T) {
 }
 
 // TestQueueProvidersCarryEqualTableEntries pins the all-carriers rule for
-// queue: the leaves of one area and verb carry the same entries in every
-// table keyed by ID or path, whichever provider they sit under.
+// queue: the leaves of one area and verb carry the same entry in every table
+// keyed by ID (idTables) and in cmdKeys, whichever provider they sit under.
 func TestQueueProvidersCarryEqualTableEntries(t *testing.T) {
 	type entry struct {
-		key         safetyKey
-		personal    bool
-		noNetwork   bool
-		localFlags  string
-		localRead   bool
-		leavesHome  bool
-		providerKey bool
+		v  any
+		ok bool
 	}
-	seen := map[[2]string]map[string]entry{}
+	seen := map[[2]string]map[string]map[string]entry{} // area and verb, provider, table
 	for _, l := range capability.All() {
 		if l.Type != "queue" || l.State != capability.Built {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
-		_, noNet := gateNoNetwork[id]
-		e := entry{
-			key:         cmdKeys[id],
-			personal:    personalCmds[strings.Join(l.Key.Path(), " ")],
-			noNetwork:   noNet,
-			localFlags:  strings.Join(gateLocalFlags[id], ","),
-			localRead:   localReads[id],
-			leavesHome:  leavesHome[id],
-			providerKey: providerIDs[id],
+		if want := (safetyKey{l.Type, l.Area, l.Verb}); cmdKeys[id] != want {
+			t.Errorf("%s: cmdKeys has %v, the leaf's key is %v", id, cmdKeys[id], want)
 		}
-		if want := (safetyKey{l.Type, l.Area, l.Verb}); e.key != want {
-			t.Errorf("%s: cmdKeys has %v, the leaf's key is %v", id, e.key, want)
+		got := map[string]entry{}
+		for _, tb := range idTables() {
+			v, ok := tb.get(id)
+			got[tb.name] = entry{v, ok}
 		}
-		if e.localRead != l.LocalRead || e.leavesHome != l.LeavesHome {
-			t.Errorf("%s: localReads %v, leavesHome %v; the leaf says %v, %v", id, e.localRead, e.leavesHome, l.LocalRead, l.LeavesHome)
+		// What the old queue peek and send commands had, every provider keeps.
+		if got["personalCmds"].ok != (l.Area == "message" && l.Verb == "list") {
+			t.Errorf("%s: personalCmds has an entry: %v", id, got["personalCmds"].ok)
 		}
-		// What the old queue peek, send and read commands had, every provider keeps.
-		if e.personal != (l.Area == "message" && l.Verb == "list") {
-			t.Errorf("%s: personalCmds is %v", id, e.personal)
+		from, _ := got["gateLocalFlags"].v.([]string)
+		if want := map[bool]string{true: "from", false: ""}[l.Area == "message" && l.Verb == "create"]; strings.Join(from, ",") != want {
+			t.Errorf("%s: gateLocalFlags is %q, want %q", id, from, want)
 		}
-		if want := map[bool]string{true: "from", false: ""}[l.Area == "message" && l.Verb == "create"]; e.localFlags != want {
-			t.Errorf("%s: gateLocalFlags is %q, want %q", id, e.localFlags, want)
+		if got["localReads"].ok != l.LocalRead || got["leavesHome"].ok != l.LeavesHome {
+			t.Errorf("%s: localReads %v, leavesHome %v; the leaf says %v, %v", id, got["localReads"].ok, got["leavesHome"].ok, l.LocalRead, l.LeavesHome)
 		}
 		area := [2]string{l.Area, l.Verb}
 		if seen[area] == nil {
-			seen[area] = map[string]entry{}
+			seen[area] = map[string]map[string]entry{}
 		}
-		seen[area][l.Provider] = e
+		seen[area][l.Provider] = got
 	}
 	if len(seen) == 0 {
 		t.Fatal("no queue leaf is built")
 	}
 	for area, byProvider := range seen {
 		var first string
-		for p, e := range byProvider {
-			if first == "" {
+		for p := range byProvider {
+			if first == "" || p < first {
 				first = p
-				continue
 			}
-			if e != byProvider[first] {
-				t.Errorf("queue %s %s: %s carries %+v, %s carries %+v", area[0], area[1], p, e, first, byProvider[first])
+		}
+		for p, tables := range byProvider {
+			for name, e := range tables {
+				if want := byProvider[first][name]; e.ok != want.ok || e.ok && !sameEntry(e.v, want.v) {
+					t.Errorf("queue %s %s: %s has %s %s, %s has %s", area[0], area[1], p, name, entryText(e.v, e.ok), first, entryText(want.v, want.ok))
+				}
 			}
 		}
 	}

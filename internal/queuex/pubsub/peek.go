@@ -72,7 +72,7 @@ func (p *Pubsub) Peek(ctx context.Context, o queuex.PeekOptions) (*queuex.PeekRe
 	}
 	sub := subscriptionOf(s)
 	if sub.Delivery != "pull" {
-		return nil, queuex.NotSupported("queue peek", "a pubsub "+sub.Delivery+" subscription", "Pub/Sub delivers this subscription's messages itself, so they cannot be pulled; peek a pull subscription of the same topic")
+		return nil, queuex.NotSupported("message list", "a pubsub "+sub.Delivery+" subscription", "Pub/Sub delivers this subscription's messages itself, so they cannot be pulled; list the messages of a pull subscription of the same topic")
 	}
 	if limit := sub.MaxDeliveryAttempts; limit > 0 && limit <= keepDeliveries {
 		return nil, limitNear(r.name, 0, limit)

@@ -102,7 +102,7 @@ func (r *Rabbit) Topics(ctx context.Context, pattern string, internal bool, limi
 		return nil, queuex.NotSupported("--internal", "rabbitmq", "RabbitMQ has no internal queues: `komando queue rabbitmq topic list NAME` lists every queue of the vhost")
 	}
 	if r.t.Management == "" {
-		return nil, queuex.NotSupported("queue list without the management API", "rabbitmq", noManagement)
+		return nil, queuex.NotSupported("topic list without the management API", "rabbitmq", noManagement)
 	}
 	var qs []mgmtQueue
 	if err := r.mgmt(ctx, r.vhostPath("queues", "")+"?columns=name,type,durable,messages,messages_ready,messages_unacknowledged,consumers,state", "", &qs); err != nil {

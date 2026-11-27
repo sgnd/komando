@@ -109,7 +109,7 @@ type NatsConsumer struct {
 	Paused         bool       `json:"paused,omitempty"`
 }
 
-// NatsMsg is where a message `queue peek` read is in its stream.
+// NatsMsg is where a message `message list` read is in its stream.
 type NatsMsg struct {
 	Subject  string    `json:"subject"`
 	Sequence uint64    `json:"sequence"`
