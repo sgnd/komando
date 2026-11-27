@@ -19,6 +19,10 @@ import (
 //
 // A thin wrapper that runs another command (a synonym that needs its own
 // argument rule) carries the ID of the command it runs (withID).
+//
+// The tree also notes on each command how far it is ready (readyNote): a
+// run prepares only the commands its line runs through (openPath), so a
+// start does not grow with the commands it never reaches.
 
 // cmdIDNote is the annotation that holds a command's ID.
 const cmdIDNote = "komando.id"
@@ -56,4 +60,118 @@ func cmdID(c *cobra.Command) string {
 // ("cache keys").
 func idKey(c *cobra.Command) string {
 	return strings.ReplaceAll(cmdID(c), ".", " ")
+}
+
+// readyNote is the annotation that says how far the tree has readied a
+// command: listed or prepared.
+const readyNote = "komando.ready"
+
+const (
+	// readyListed: what a list of commands, Find and a did-you-mean read
+	// (listNode)
+	readyListed = "listed"
+	// readyPrepared: all of it, and its sub-commands listed (openNode)
+	readyPrepared = "prepared"
+)
+
+// listed reports whether c is ready to be listed and found.
+func listed(c *cobra.Command) bool { return c.Annotations[readyNote] != "" }
+
+// prepared reports whether c is ready to run and to show its help.
+func prepared(c *cobra.Command) bool { return c.Annotations[readyNote] == readyPrepared }
+
+// completeHelper reports whether c is the command cobra adds as it runs
+// to answer the shell's completion; openPath prepares the words it completes.
+func completeHelper(c *cobra.Command) bool {
+	return c.Name() == cobra.ShellCompRequestCmd && c.HasParent() && !c.Parent().HasParent()
+}
+
+func setReady(c *cobra.Command, how string) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[readyNote] = how
+}
+
+// listNode readies c to be listed: its aliases, its group run, its
+// person-only mark.
+func listNode(c *cobra.Command) {
+	if listed(c) {
+		return
+	}
+	applyConventions(c)
+	markPersonOnly(c)
+	setReady(c, readyListed)
+}
+
+// prepareSteps ready a listed command to run and to show its help, in this
+// order: each step of every command before the next step (openAll).
+var prepareSteps = []func(*cobra.Command){addCompletion, stampID, applyHelpStandard}
+
+// openNode prepares c and lists its sub-commands, which its help, its
+// completion and a did-you-mean show.
+func openNode(c *cobra.Command) {
+	if prepared(c) {
+		return
+	}
+	listNode(c)
+	for _, step := range prepareSteps {
+		step(c)
+	}
+	setReady(c, readyPrepared)
+	for _, s := range c.Commands() {
+		listNode(s)
+	}
+}
+
+// openAll prepares every command of the tree under root.
+func openAll(root *cobra.Command) {
+	var all []*cobra.Command
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		all = append(all, c)
+		for _, s := range c.Commands() {
+			walk(s)
+		}
+	}
+	walk(root)
+	for _, c := range all {
+		listNode(c)
+	}
+	for _, step := range prepareSteps {
+		for _, c := range all {
+			if !prepared(c) {
+				step(c)
+			}
+		}
+	}
+	for _, c := range all {
+		setReady(c, readyPrepared)
+	}
+}
+
+// openPath prepares the commands line runs through: the root, then the
+// command Find stops at, until Find stops at a prepared one (an alias or
+// a group's run is only there once its parent is open). `help LINE` and
+// the shell's completion prepare the command of the words after them.
+func openPath(root *cobra.Command, line []string) {
+	openNode(root)
+	if len(line) > 0 && (line[0] == cobra.ShellCompRequestCmd || line[0] == cobra.ShellCompNoDescRequestCmd) {
+		line = line[1:]
+	}
+	for {
+		c, rest, _ := root.Find(line)
+		if c == nil {
+			return
+		}
+		if !prepared(c) {
+			openNode(c)
+			continue
+		}
+		if c.Name() == "help" && c.Parent() == root && len(rest) < len(line) {
+			line = rest
+			continue
+		}
+		return
+	}
 }

@@ -20,6 +20,11 @@ check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret c
 $K secret rm agent-pass-copy --allow-dangerous >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
+# a run prepares only the commands of its line: help LINE, a group's
+# commands in completion and a sub-command's help each come out prepared
+check "help LINE shows the safety line" True "$($K help host rm -o text 2>/dev/null | grep -q 'Safety: ' && echo True || echo False)"
+check "completion lists a group's commands" True "$($K __complete host '' 2>/dev/null | grep -q '^rm' && echo True || echo False)"
+check "a sub-command's help shows the safety line" True "$($K host rm --help -o text 2>/dev/null | grep -q 'Safety: ' && echo True || echo False)"
 check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
 
 echo "==> connectivity (incl. jump host)"

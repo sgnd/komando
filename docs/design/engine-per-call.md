@@ -115,7 +115,17 @@ above are gone. There is no "current call" in a package variable.
   `offerBackup`, `openBucket` ...) take the call as their first
   parameter. Production never writes them.
 - A command tree that is only read (the guided forms, ssh-gate's check,
-  the risk table) is built for a call of its own: `newRoot(treeCall())`.
+  the risk table) is built for a call of its own:
+  `newRootFor(treeCall(), line)`.
+- Every command of the tree is built at each start, but a run prepares
+  only the commands its line runs through (`newRootFor`, `openPath` in
+  `cmdid.go`): their conventions, completion, ID and help standard, and
+  the aliases and person-only marks of their sub-commands. `help LINE`
+  and the shell's completion prepare the command of the words after them.
+  A command the tree did not prepare runs nothing: the root stops it with
+  `NOT_PREPARED`. `newRoot` prepares every command; `komando schema`, the
+  goldens and the help tests read that tree, and `TestLineTreeAgreesWithWholeTree`
+  holds each command of a line's tree to the same command of the whole one.
 
 ### One answer covers one command
 
