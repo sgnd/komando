@@ -234,6 +234,10 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 					return err
 				}
 			}
+			// before the store opens, which moves it: v0.17 jobs with no end (R3)
+			if err := doctorOldJobs(cl, cmd.Context()); err != nil {
+				return toErr(err)
+			}
 			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}
 			add := func(name string, ok bool, detail string, fix ...string) {
