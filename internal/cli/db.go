@@ -522,7 +522,7 @@ func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbF
 		// a cut export would look whole in a file: refuse it instead
 		for _, r := range res.Results {
 			if r.Truncated == "bytes" {
-				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `"+dbPathOf(c, "backup")+" "+c.Name+"`",
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando database "+dbKindOf(c)+" backup "+c.Name+"`",
 					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
 			}
 		}
@@ -760,8 +760,15 @@ func dbPath(name, verb string) string {
 
 // dbPathOf is dbPath for a conn in hand.
 func dbPathOf(c *store.Conn, verb string) string {
+	return "komando database " + dbKindOf(c) + " " + verb
+}
+
+// dbKindOf is the provider word of a conn in hand, KIND when its URL does
+// not parse. A hint that writes the rest of the path in the source reads
+// well in the error-code catalog too.
+func dbKindOf(c *store.Conn) string {
 	if t, err := driver.Parse(c.URL); err == nil {
-		return "komando database " + providerWord(t.Kind) + " " + verb
+		return providerWord(t.Kind)
 	}
-	return "komando database KIND " + verb
+	return "KIND"
 }

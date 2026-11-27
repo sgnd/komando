@@ -778,7 +778,7 @@ func builtinRestore(cl *call, ctx context.Context, st *store.State, c *store.Con
 			if kind == "mysql" {
 				state = "the statements before that line were applied (MySQL cannot roll back tables)"
 			}
-			return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `"+dbPathOf(c, "restore")+" "+c.Name+" --from "+from+"`",
+			return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando database "+dbKindOf(c)+" restore "+c.Name+" --from "+from+"`",
 				"%v; %s", err, state)
 		}
 		return nil
