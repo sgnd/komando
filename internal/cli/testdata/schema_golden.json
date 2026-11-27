@@ -2991,17 +2991,3309 @@
         ]
       },
       {
-        "path": "komando db",
-        "usage": "komando db [flags]",
-        "short": "Databases: query safely, look at the schema, back up, restore",
-        "long": "Look at and query your databases. Add one with `komando db add`.\n\nWithout --write every query runs in a read-only transaction (SQL Server: one\nthat is always rolled back), so nothing can change. With --write, try\n--dry-run first: it runs the SQL and rolls it back, showing how many rows\nwould change.\n\nEach database is a conn: list them with `komando list kind:db`, check one\nwith `komando test TARGET`, change it with `komando conn edit NAME`, rename\nit with `komando conn rename OLD NEW` and remove it with `komando conn rm\nTARGET`.",
+        "path": "komando database",
+        "usage": "komando database [flags]",
+        "short": "Databases: save them, query them, back them up and restore them",
         "aliases": [
-          "sql",
-          "dbs",
-          "database",
           "databases"
         ],
-        "example": "  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw\n  komando db query prod-db \"select id, email from users order by id desc limit 10\"\n  komando db schema prod-db users\n  komando db dump prod-db --to prod.sql.gz\n  komando db restore staging-db --from prod.sql.gz --dry-run",
+        "example": "  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 --dry-run\n  komando database postgres query prod-db \"select id, email from users order by id desc limit 10\"\n  komando database sqlite query local \"select count(*) from users\"\n  komando database mysql backup shop-mysql --to backups/",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery",
+        "usage": "komando database bigquery [flags]",
+        "short": "BigQuery: save a project and query it",
+        "example": "  komando database bigquery add bq bigquery://my-project/shop --via web1 --dry-run\n  komando database bigquery add bq bigquery://my-project/shop --via web1\n  komando database bigquery test bq\n  komando database bigquery query bq \"select count(*) from shop.orders\"",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery add",
+        "usage": "komando database bigquery add NAME [URL] [flags]",
+        "short": "Save a bigquery database under a short name",
+        "long": "Save a bigquery database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database bigquery add bq bigquery://my-project/shop --via web1\n  komando database bigquery add bq bigquery://my-project/shop --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery edit",
+        "usage": "komando database bigquery edit NAME [flags]",
+        "short": "Change a saved bigquery database (only the flags you pass change)",
+        "long": "Change a saved bigquery database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database bigquery edit bq --add-tag critical\n  komando database bigquery edit bq --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery list",
+        "usage": "komando database bigquery list [TARGET] [flags]",
+        "short": "List the saved bigquery databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database bigquery list\n  komando database bigquery list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery query",
+        "usage": "komando database bigquery query NAME [SQL] [flags]",
+        "short": "Run a query on a BigQuery database (read only by default)",
+        "long": "Run a query on a BigQuery database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database bigquery query bq \"select count(*) from shop.orders\"\n  komando database bigquery query bq --write --dry-run \"update shop.orders set status = 'paid' where id = 42\"\n  komando database bigquery query bq \"select count(*) from shop.orders\" --max-bytes 50GB",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "max-bytes",
+            "type": "bytes",
+            "default": "0",
+            "usage": "the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery remove",
+        "usage": "komando database bigquery remove TARGET... [flags]",
+        "short": "Forget a saved bigquery database (the database is not touched)",
+        "long": "Forget a saved bigquery database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database bigquery remove bq --dry-run\n  komando database bigquery remove bq",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery rename",
+        "usage": "komando database bigquery rename NAME NEW [flags]",
+        "short": "Rename a saved bigquery database and every reference to it",
+        "long": "Rename a saved bigquery database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database bigquery rename bq bq-2 --dry-run\n  komando database bigquery rename bq bq-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery shell",
+        "usage": "komando database bigquery shell NAME [flags]",
+        "short": "Open komando's SQL shell on a BigQuery database (person only)",
+        "long": "Open komando's SQL shell on a BigQuery database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database bigquery shell bq\n  komando database bigquery shell bq --write\n  komando database bigquery shell bq --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery show",
+        "usage": "komando database bigquery show NAME [flags]",
+        "short": "Show a saved bigquery database's settings (credentials as names)",
+        "example": "  komando database bigquery show bq\n  komando database bigquery show bq -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database bigquery test",
+        "usage": "komando database bigquery test TARGET [flags]",
+        "short": "Check that a saved bigquery database answers and lets you in",
+        "example": "  komando database bigquery test bq\n  komando database bigquery test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse",
+        "usage": "komando database clickhouse [flags]",
+        "short": "ClickHouse: save a database and query it",
+        "example": "  komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1 --dry-run\n  komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1\n  komando database clickhouse test events-ch\n  komando database clickhouse query events-ch \"select count() from hits where day = today()\"",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse add",
+        "usage": "komando database clickhouse add NAME [URL] [flags]",
+        "short": "Save a clickhouse database under a short name",
+        "long": "Save a clickhouse database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --via web1\n  komando database clickhouse add events-ch clickhouse://app@10.0.0.10:8123/events --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse edit",
+        "usage": "komando database clickhouse edit NAME [flags]",
+        "short": "Change a saved clickhouse database (only the flags you pass change)",
+        "long": "Change a saved clickhouse database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database clickhouse edit events-ch --add-tag critical\n  komando database clickhouse edit events-ch --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse list",
+        "usage": "komando database clickhouse list [TARGET] [flags]",
+        "short": "List the saved clickhouse databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database clickhouse list\n  komando database clickhouse list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse query",
+        "usage": "komando database clickhouse query NAME [SQL] [flags]",
+        "short": "Run a query on a ClickHouse database (read only by default)",
+        "long": "Run a query on a ClickHouse database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database clickhouse query events-ch \"select count() from hits where day = today()\"\n  komando database clickhouse query events-ch --write --dry-run \"alter table hits delete where day < '2026-01-01'\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse remove",
+        "usage": "komando database clickhouse remove TARGET... [flags]",
+        "short": "Forget a saved clickhouse database (the database is not touched)",
+        "long": "Forget a saved clickhouse database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database clickhouse remove events-ch --dry-run\n  komando database clickhouse remove events-ch",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse rename",
+        "usage": "komando database clickhouse rename NAME NEW [flags]",
+        "short": "Rename a saved clickhouse database and every reference to it",
+        "long": "Rename a saved clickhouse database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database clickhouse rename events-ch events-ch-2 --dry-run\n  komando database clickhouse rename events-ch events-ch-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse shell",
+        "usage": "komando database clickhouse shell NAME [flags]",
+        "short": "Open komando's SQL shell on a ClickHouse database (person only)",
+        "long": "Open komando's SQL shell on a ClickHouse database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database clickhouse shell events-ch\n  komando database clickhouse shell events-ch --write\n  komando database clickhouse shell events-ch --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse show",
+        "usage": "komando database clickhouse show NAME [flags]",
+        "short": "Show a saved clickhouse database's settings (credentials as names)",
+        "example": "  komando database clickhouse show events-ch\n  komando database clickhouse show events-ch -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database clickhouse test",
+        "usage": "komando database clickhouse test TARGET [flags]",
+        "short": "Check that a saved clickhouse database answers and lets you in",
+        "example": "  komando database clickhouse test events-ch\n  komando database clickhouse test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb",
+        "usage": "komando database mongodb [flags]",
+        "short": "MongoDB: save a database and send it commands",
+        "example": "  komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1 --dry-run\n  komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1\n  komando database mongodb test prod-mongo\n  komando database mongodb query prod-mongo '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}'",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb add",
+        "usage": "komando database mongodb add NAME [URL] [flags]",
+        "short": "Save a mongodb database under a short name",
+        "long": "Save a mongodb database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --via web1\n  komando database mongodb add prod-mongo mongodb://app@10.0.0.9:27017/app --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb edit",
+        "usage": "komando database mongodb edit NAME [flags]",
+        "short": "Change a saved mongodb database (only the flags you pass change)",
+        "long": "Change a saved mongodb database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database mongodb edit prod-mongo --add-tag critical\n  komando database mongodb edit prod-mongo --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb list",
+        "usage": "komando database mongodb list [TARGET] [flags]",
+        "short": "List the saved mongodb databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database mongodb list\n  komando database mongodb list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb query",
+        "usage": "komando database mongodb query NAME [SQL] [flags]",
+        "short": "Run a query on a MongoDB database (read only by default)",
+        "long": "Run a query on a MongoDB database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database mongodb query prod-mongo '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}'\n  komando database mongodb query prod-mongo --write --dry-run '{\"update\": \"users\", \"updates\": [{\"q\": {\"_id\": 42}, \"u\": {\"$set\": {\"plan\": \"pro\"}}}]}'",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb remove",
+        "usage": "komando database mongodb remove TARGET... [flags]",
+        "short": "Forget a saved mongodb database (the database is not touched)",
+        "long": "Forget a saved mongodb database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database mongodb remove prod-mongo --dry-run\n  komando database mongodb remove prod-mongo",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb rename",
+        "usage": "komando database mongodb rename NAME NEW [flags]",
+        "short": "Rename a saved mongodb database and every reference to it",
+        "long": "Rename a saved mongodb database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database mongodb rename prod-mongo prod-mongo-2 --dry-run\n  komando database mongodb rename prod-mongo prod-mongo-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb show",
+        "usage": "komando database mongodb show NAME [flags]",
+        "short": "Show a saved mongodb database's settings (credentials as names)",
+        "example": "  komando database mongodb show prod-mongo\n  komando database mongodb show prod-mongo -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mongodb test",
+        "usage": "komando database mongodb test TARGET [flags]",
+        "short": "Check that a saved mongodb database answers and lets you in",
+        "example": "  komando database mongodb test prod-mongo\n  komando database mongodb test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql",
+        "usage": "komando database mysql [flags]",
+        "short": "MySQL and MariaDB: save a database, query it, back it up and restore it",
+        "example": "  komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1 --dry-run\n  komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1\n  komando database mysql test shop-mysql\n  komando database mysql query shop-mysql \"select id, email from users order by id desc limit 10\"\n  komando database mysql backup shop-mysql --to backups/",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql add",
+        "usage": "komando database mysql add NAME [URL] [flags]",
+        "short": "Save a mysql database under a short name",
+        "long": "Save a mysql database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --via web1\n  komando database mysql add shop-mysql mysql://app@10.0.0.6:3306/shop --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql backup",
+        "usage": "komando database mysql backup NAME [flags]",
+        "short": "Copy a MySQL database to a file on this computer (person only)",
+        "long": "Copy a MySQL database to a file on this computer.\n\nSafety: it only reads; when an AI agent runs it (the file holds every row,\nsecrets included): only a person at a terminal can run it.\n\nMore about backup:\nWithout --to the file is NAME-<date>.sql.gz (SQLite: NAME-<date>.db) in\nthis folder. A file ending in .gz is compressed. Afterwards komando prints\nthe command that loads it back.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct\nconnection or a VPN) komando writes plain SQL itself. PostgreSQL can also\nwrite its own archive with --format custom (compressed, restored with\npg_restore; needs pg_dump on a server). --table and --schema-only narrow\nthe backup. SQLite databases are copied as a database file instead. An\nexisting FILE is never overwritten. The file holds your data: it is\ncreated readable only by you.\n\nAn AI agent never gets the file: it holds every row as it is, passwords\nand tokens included, so an agent's backup needs a person, who runs it in\ntheir own terminal.",
+        "example": "  komando database mysql backup shop-mysql --to backups/\n  komando database mysql backup shop-mysql --to shop-mysql.sql.gz --dry-run",
+        "flags": [
+          {
+            "name": "run-on",
+            "type": "string",
+            "usage": "run the dump tool on this server (default: the database's --via server)"
+          },
+          {
+            "name": "schema-only",
+            "type": "bool",
+            "default": "false",
+            "usage": "tables, indexes and functions, no rows"
+          },
+          {
+            "name": "table",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)"
+          },
+          {
+            "name": "to",
+            "type": "string",
+            "usage": "the file to create on this computer, or a folder (default: NAME-<date>.sql.gz here; SQLite: NAME-<date>.db)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          },
+          {
+            "tier": "person",
+            "when": "when an AI agent runs it (the file holds every row, secrets included)"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql edit",
+        "usage": "komando database mysql edit NAME [flags]",
+        "short": "Change a saved mysql database (only the flags you pass change)",
+        "long": "Change a saved mysql database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database mysql edit shop-mysql --add-tag critical\n  komando database mysql edit shop-mysql --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql list",
+        "usage": "komando database mysql list [TARGET] [flags]",
+        "short": "List the saved mysql databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database mysql list\n  komando database mysql list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql query",
+        "usage": "komando database mysql query NAME [SQL] [flags]",
+        "short": "Run a query on a MySQL database (read only by default)",
+        "long": "Run a query on a MySQL database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database mysql query shop-mysql \"select id, email from users order by id desc limit 10\"\n  komando database mysql query shop-mysql --write --dry-run \"update users set plan = 'pro' where id = 42\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql remove",
+        "usage": "komando database mysql remove TARGET... [flags]",
+        "short": "Forget a saved mysql database (the database is not touched)",
+        "long": "Forget a saved mysql database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database mysql remove shop-mysql --dry-run\n  komando database mysql remove shop-mysql",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql rename",
+        "usage": "komando database mysql rename NAME NEW [flags]",
+        "short": "Rename a saved mysql database and every reference to it",
+        "long": "Rename a saved mysql database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database mysql rename shop-mysql shop-mysql-2 --dry-run\n  komando database mysql rename shop-mysql shop-mysql-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql restore",
+        "usage": "komando database mysql restore NAME [flags]",
+        "short": "Load a backup into a MySQL database",
+        "long": "Load a backup into a MySQL database.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.\n\nMore about restore:\nRuns the SQL in FILE (from backup, pg_dump, mysqldump or any plain SQL\nfile; .gz is read compressed). komando runs the SQL itself, through the\nconn's --via path, never with psql or mysql. A PostgreSQL archive (backup\n--format custom) is recognized by its content and loaded with pg_restore\non a server: the one named with --run-on HOST, else the database's --via\nserver; the archive is streamed to it over SSH.\n\nIn a terminal komando first offers to save a copy of the database as it is\nnow (a backup), so you can go back. Scripts and AI agents get no question:\nrun backup yourself first.\n\nA restore can overwrite existing data, so it needs --allow-dangerous, plus\n--yes on a protected database. The whole file is checked first: client\ncommands that could run programs (\\! or system) and SQL komando cannot\nfollow (a file ending inside a quote, a change to how quotes are read) are\nrefused, and SQL that runs programs, touches server files or changes\nprivileges is named in the approval.\n\nPostgreSQL restores run in one transaction: on any error nothing changes.\nMySQL runs the statements in order and stops at the first error.",
+        "example": "  komando database mysql restore shop-mysql --from shop-mysql.sql.gz --dry-run\n  komando database mysql restore shop-mysql --from shop-mysql.sql.gz --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "the backup file on this computer"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql shell",
+        "usage": "komando database mysql shell NAME [flags]",
+        "short": "Open komando's SQL shell on a MySQL database (person only)",
+        "long": "Open komando's SQL shell on a MySQL database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database mysql shell shop-mysql\n  komando database mysql shell shop-mysql --write\n  komando database mysql shell shop-mysql --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql show",
+        "usage": "komando database mysql show NAME [flags]",
+        "short": "Show a saved mysql database's settings (credentials as names)",
+        "example": "  komando database mysql show shop-mysql\n  komando database mysql show shop-mysql -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database mysql test",
+        "usage": "komando database mysql test TARGET [flags]",
+        "short": "Check that a saved mysql database answers and lets you in",
+        "example": "  komando database mysql test shop-mysql\n  komando database mysql test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle",
+        "usage": "komando database oracle [flags]",
+        "short": "Oracle: save a database and query it",
+        "example": "  komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1 --dry-run\n  komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1\n  komando database oracle test erp-oracle\n  komando database oracle query erp-oracle \"select id, email from users order by id desc fetch first 10 rows only\"",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle add",
+        "usage": "komando database oracle add NAME [URL] [flags]",
+        "short": "Save a oracle database under a short name",
+        "long": "Save a oracle database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --via web1\n  komando database oracle add erp-oracle oracle://app@10.0.0.8:1521/ERP --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle edit",
+        "usage": "komando database oracle edit NAME [flags]",
+        "short": "Change a saved oracle database (only the flags you pass change)",
+        "long": "Change a saved oracle database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database oracle edit erp-oracle --add-tag critical\n  komando database oracle edit erp-oracle --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle list",
+        "usage": "komando database oracle list [TARGET] [flags]",
+        "short": "List the saved oracle databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database oracle list\n  komando database oracle list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle query",
+        "usage": "komando database oracle query NAME [SQL] [flags]",
+        "short": "Run a query on an Oracle database (read only by default)",
+        "long": "Run a query on an Oracle database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database oracle query erp-oracle \"select id, email from users order by id desc fetch first 10 rows only\"\n  komando database oracle query erp-oracle --write --dry-run \"update users set plan = 'pro' where id = 42\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle remove",
+        "usage": "komando database oracle remove TARGET... [flags]",
+        "short": "Forget a saved oracle database (the database is not touched)",
+        "long": "Forget a saved oracle database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database oracle remove erp-oracle --dry-run\n  komando database oracle remove erp-oracle",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle rename",
+        "usage": "komando database oracle rename NAME NEW [flags]",
+        "short": "Rename a saved oracle database and every reference to it",
+        "long": "Rename a saved oracle database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database oracle rename erp-oracle erp-oracle-2 --dry-run\n  komando database oracle rename erp-oracle erp-oracle-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle shell",
+        "usage": "komando database oracle shell NAME [flags]",
+        "short": "Open komando's SQL shell on an Oracle database (person only)",
+        "long": "Open komando's SQL shell on an Oracle database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database oracle shell erp-oracle\n  komando database oracle shell erp-oracle --write\n  komando database oracle shell erp-oracle --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle show",
+        "usage": "komando database oracle show NAME [flags]",
+        "short": "Show a saved oracle database's settings (credentials as names)",
+        "example": "  komando database oracle show erp-oracle\n  komando database oracle show erp-oracle -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database oracle test",
+        "usage": "komando database oracle test TARGET [flags]",
+        "short": "Check that a saved oracle database answers and lets you in",
+        "example": "  komando database oracle test erp-oracle\n  komando database oracle test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres",
+        "usage": "komando database postgres [flags]",
+        "short": "PostgreSQL: save a database, query it, back it up and restore it",
+        "example": "  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1 --dry-run\n  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1\n  komando database postgres test prod-db\n  komando database postgres query prod-db \"select id, email from users order by id desc limit 10\"\n  komando database postgres backup prod-db --to backups/",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres add",
+        "usage": "komando database postgres add NAME [URL] [flags]",
+        "short": "Save a postgres database under a short name",
+        "long": "Save a postgres database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --via web1\n  komando database postgres add prod-db postgres://app@10.0.0.5:5432/shop --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres backup",
+        "usage": "komando database postgres backup NAME [flags]",
+        "short": "Copy a PostgreSQL database to a file on this computer (person only)",
+        "long": "Copy a PostgreSQL database to a file on this computer.\n\nSafety: it only reads; when an AI agent runs it (the file holds every row,\nsecrets included): only a person at a terminal can run it.\n\nMore about backup:\nWithout --to the file is NAME-<date>.sql.gz (SQLite: NAME-<date>.db) in\nthis folder. A file ending in .gz is compressed. Afterwards komando prints\nthe command that loads it back.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct\nconnection or a VPN) komando writes plain SQL itself. PostgreSQL can also\nwrite its own archive with --format custom (compressed, restored with\npg_restore; needs pg_dump on a server). --table and --schema-only narrow\nthe backup. SQLite databases are copied as a database file instead. An\nexisting FILE is never overwritten. The file holds your data: it is\ncreated readable only by you.\n\nAn AI agent never gets the file: it holds every row as it is, passwords\nand tokens included, so an agent's backup needs a person, who runs it in\ntheir own terminal.",
+        "example": "  komando database postgres backup prod-db --to backups/\n  komando database postgres backup prod-db --to prod-db.sql.gz --dry-run\n  komando database postgres backup prod-db --to prod-db.dump --format custom --run-on db1",
+        "flags": [
+          {
+            "name": "format",
+            "type": "string",
+            "default": "plain",
+            "usage": "plain (SQL) or custom (a PostgreSQL archive for pg_restore)"
+          },
+          {
+            "name": "run-on",
+            "type": "string",
+            "usage": "run the dump tool on this server (default: the database's --via server)"
+          },
+          {
+            "name": "schema-only",
+            "type": "bool",
+            "default": "false",
+            "usage": "tables, indexes and functions, no rows"
+          },
+          {
+            "name": "table",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)"
+          },
+          {
+            "name": "to",
+            "type": "string",
+            "usage": "the file to create on this computer, or a folder (default: NAME-<date>.sql.gz here; SQLite: NAME-<date>.db)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          },
+          {
+            "tier": "person",
+            "when": "when an AI agent runs it (the file holds every row, secrets included)"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres edit",
+        "usage": "komando database postgres edit NAME [flags]",
+        "short": "Change a saved postgres database (only the flags you pass change)",
+        "long": "Change a saved postgres database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database postgres edit prod-db --add-tag critical\n  komando database postgres edit prod-db --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres list",
+        "usage": "komando database postgres list [TARGET] [flags]",
+        "short": "List the saved postgres databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database postgres list\n  komando database postgres list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres query",
+        "usage": "komando database postgres query NAME [SQL] [flags]",
+        "short": "Run a query on a PostgreSQL database (read only by default)",
+        "long": "Run a query on a PostgreSQL database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database postgres query prod-db \"select id, email from users order by id desc limit 10\"\n  komando database postgres query prod-db --write --dry-run \"update users set plan = 'pro' where id = 42\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres remove",
+        "usage": "komando database postgres remove TARGET... [flags]",
+        "short": "Forget a saved postgres database (the database is not touched)",
+        "long": "Forget a saved postgres database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database postgres remove prod-db --dry-run\n  komando database postgres remove prod-db",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres rename",
+        "usage": "komando database postgres rename NAME NEW [flags]",
+        "short": "Rename a saved postgres database and every reference to it",
+        "long": "Rename a saved postgres database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database postgres rename prod-db prod-db-2 --dry-run\n  komando database postgres rename prod-db prod-db-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres restore",
+        "usage": "komando database postgres restore NAME [flags]",
+        "short": "Load a backup into a PostgreSQL database",
+        "long": "Load a backup into a PostgreSQL database.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.\n\nMore about restore:\nRuns the SQL in FILE (from backup, pg_dump, mysqldump or any plain SQL\nfile; .gz is read compressed). komando runs the SQL itself, through the\nconn's --via path, never with psql or mysql. A PostgreSQL archive (backup\n--format custom) is recognized by its content and loaded with pg_restore\non a server: the one named with --run-on HOST, else the database's --via\nserver; the archive is streamed to it over SSH.\n\nIn a terminal komando first offers to save a copy of the database as it is\nnow (a backup), so you can go back. Scripts and AI agents get no question:\nrun backup yourself first.\n\nA restore can overwrite existing data, so it needs --allow-dangerous, plus\n--yes on a protected database. The whole file is checked first: client\ncommands that could run programs (\\! or system) and SQL komando cannot\nfollow (a file ending inside a quote, a change to how quotes are read) are\nrefused, and SQL that runs programs, touches server files or changes\nprivileges is named in the approval.\n\nPostgreSQL restores run in one transaction: on any error nothing changes.\nMySQL runs the statements in order and stops at the first error.",
+        "example": "  komando database postgres restore prod-db --from prod-db.sql.gz --dry-run\n  komando database postgres restore prod-db --from prod-db.sql.gz --allow-dangerous   # after a person's yes",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "the backup file on this computer"
+          },
+          {
+            "name": "run-on",
+            "type": "string",
+            "usage": "run pg_restore for a PostgreSQL archive on this server (default: the database's --via server)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres shell",
+        "usage": "komando database postgres shell NAME [flags]",
+        "short": "Open komando's SQL shell on a PostgreSQL database (person only)",
+        "long": "Open komando's SQL shell on a PostgreSQL database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database postgres shell prod-db\n  komando database postgres shell prod-db --write\n  komando database postgres shell prod-db --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres show",
+        "usage": "komando database postgres show NAME [flags]",
+        "short": "Show a saved postgres database's settings (credentials as names)",
+        "example": "  komando database postgres show prod-db\n  komando database postgres show prod-db -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database postgres test",
+        "usage": "komando database postgres test TARGET [flags]",
+        "short": "Check that a saved postgres database answers and lets you in",
+        "example": "  komando database postgres test prod-db\n  komando database postgres test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake",
+        "usage": "komando database snowflake [flags]",
+        "short": "Snowflake: save an account and query it",
+        "example": "  komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1 --dry-run\n  komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1\n  komando database snowflake test analytics\n  komando database snowflake query analytics \"select count(*) from orders\"",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake add",
+        "usage": "komando database snowflake add NAME [URL] [flags]",
+        "short": "Save a snowflake database under a short name",
+        "long": "Save a snowflake database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --via web1\n  komando database snowflake add analytics snowflake://app_ro@myorg-acct/ANALYTICS/PUBLIC?warehouse=REPORTING --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake edit",
+        "usage": "komando database snowflake edit NAME [flags]",
+        "short": "Change a saved snowflake database (only the flags you pass change)",
+        "long": "Change a saved snowflake database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database snowflake edit analytics --add-tag critical\n  komando database snowflake edit analytics --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake list",
+        "usage": "komando database snowflake list [TARGET] [flags]",
+        "short": "List the saved snowflake databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database snowflake list\n  komando database snowflake list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake query",
+        "usage": "komando database snowflake query NAME [SQL] [flags]",
+        "short": "Run a query on a Snowflake database (read only by default)",
+        "long": "Run a query on a Snowflake database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database snowflake query analytics \"select count(*) from orders\"\n  komando database snowflake query analytics --write --dry-run \"update orders set status = 'paid' where id = 42\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake remove",
+        "usage": "komando database snowflake remove TARGET... [flags]",
+        "short": "Forget a saved snowflake database (the database is not touched)",
+        "long": "Forget a saved snowflake database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database snowflake remove analytics --dry-run\n  komando database snowflake remove analytics",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake rename",
+        "usage": "komando database snowflake rename NAME NEW [flags]",
+        "short": "Rename a saved snowflake database and every reference to it",
+        "long": "Rename a saved snowflake database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database snowflake rename analytics analytics-2 --dry-run\n  komando database snowflake rename analytics analytics-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake shell",
+        "usage": "komando database snowflake shell NAME [flags]",
+        "short": "Open komando's SQL shell on a Snowflake database (person only)",
+        "long": "Open komando's SQL shell on a Snowflake database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database snowflake shell analytics\n  komando database snowflake shell analytics --write\n  komando database snowflake shell analytics --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake show",
+        "usage": "komando database snowflake show NAME [flags]",
+        "short": "Show a saved snowflake database's settings (credentials as names)",
+        "example": "  komando database snowflake show analytics\n  komando database snowflake show analytics -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database snowflake test",
+        "usage": "komando database snowflake test TARGET [flags]",
+        "short": "Check that a saved snowflake database answers and lets you in",
+        "example": "  komando database snowflake test analytics\n  komando database snowflake test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite",
+        "usage": "komando database sqlite [flags]",
+        "short": "SQLite: save a database file, query it and back it up",
+        "example": "  komando database sqlite add local sqlite:///var/lib/app.db --dry-run\n  komando database sqlite add local sqlite:///var/lib/app.db\n  komando database sqlite test local\n  komando database sqlite query local \"select id, email from users order by id desc limit 10\"\n  komando database sqlite backup local --to backups/",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite add",
+        "usage": "komando database sqlite add NAME [URL] [flags]",
+        "short": "Save a sqlite database under a short name",
+        "long": "Save a sqlite database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database sqlite add local sqlite:///var/lib/app.db --via web1\n  komando database sqlite add local sqlite:///var/lib/app.db --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite backup",
+        "usage": "komando database sqlite backup NAME [flags]",
+        "short": "Copy a SQLite database to a file on this computer (person only)",
+        "long": "Copy a SQLite database to a file on this computer.\n\nSafety: it only reads; when an AI agent runs it (the file holds every row,\nsecrets included): only a person at a terminal can run it.\n\nMore about backup:\nWithout --to the file is NAME-<date>.sql.gz (SQLite: NAME-<date>.db) in\nthis folder. A file ending in .gz is compressed. Afterwards komando prints\nthe command that loads it back.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct\nconnection or a VPN) komando writes plain SQL itself. PostgreSQL can also\nwrite its own archive with --format custom (compressed, restored with\npg_restore; needs pg_dump on a server). --table and --schema-only narrow\nthe backup. SQLite databases are copied as a database file instead. An\nexisting FILE is never overwritten. The file holds your data: it is\ncreated readable only by you.\n\nAn AI agent never gets the file: it holds every row as it is, passwords\nand tokens included, so an agent's backup needs a person, who runs it in\ntheir own terminal.",
+        "example": "  komando database sqlite backup local --to backup.db\n  komando database sqlite backup local --to backup.db --dry-run",
+        "flags": [
+          {
+            "name": "to",
+            "type": "string",
+            "usage": "the file to create on this computer, or a folder (default: NAME-<date>.sql.gz here; SQLite: NAME-<date>.db)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          },
+          {
+            "tier": "person",
+            "when": "when an AI agent runs it (the file holds every row, secrets included)"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite edit",
+        "usage": "komando database sqlite edit NAME [flags]",
+        "short": "Change a saved sqlite database (only the flags you pass change)",
+        "long": "Change a saved sqlite database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database sqlite edit local --add-tag critical\n  komando database sqlite edit local --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite list",
+        "usage": "komando database sqlite list [TARGET] [flags]",
+        "short": "List the saved sqlite databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database sqlite list\n  komando database sqlite list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite query",
+        "usage": "komando database sqlite query NAME [SQL] [flags]",
+        "short": "Run a query on a SQLite database (read only by default)",
+        "long": "Run a query on a SQLite database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database sqlite query local \"select id, email from users order by id desc limit 10\"\n  komando database sqlite query local --write --dry-run \"update users set plan = 'pro' where id = 42\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite remove",
+        "usage": "komando database sqlite remove TARGET... [flags]",
+        "short": "Forget a saved sqlite database (the database is not touched)",
+        "long": "Forget a saved sqlite database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database sqlite remove local --dry-run\n  komando database sqlite remove local",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite rename",
+        "usage": "komando database sqlite rename NAME NEW [flags]",
+        "short": "Rename a saved sqlite database and every reference to it",
+        "long": "Rename a saved sqlite database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database sqlite rename local local-2 --dry-run\n  komando database sqlite rename local local-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite shell",
+        "usage": "komando database sqlite shell NAME [flags]",
+        "short": "Open komando's SQL shell on a SQLite database (person only)",
+        "long": "Open komando's SQL shell on a SQLite database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database sqlite shell local\n  komando database sqlite shell local --write\n  komando database sqlite shell local --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite show",
+        "usage": "komando database sqlite show NAME [flags]",
+        "short": "Show a saved sqlite database's settings (credentials as names)",
+        "example": "  komando database sqlite show local\n  komando database sqlite show local -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlite test",
+        "usage": "komando database sqlite test TARGET [flags]",
+        "short": "Check that a saved sqlite database answers and lets you in",
+        "example": "  komando database sqlite test local\n  komando database sqlite test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver",
+        "usage": "komando database sqlserver [flags]",
+        "short": "SQL Server: save a database and query it",
+        "example": "  komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1 --dry-run\n  komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1\n  komando database sqlserver test sales-mssql\n  komando database sqlserver query sales-mssql \"select top 10 id, email from users order by id desc\"",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver add",
+        "usage": "komando database sqlserver add NAME [URL] [flags]",
+        "short": "Save a sqlserver database under a short name",
+        "long": "Save a sqlserver database under a short name.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --via web1\n  komando database sqlserver add sales-mssql sqlserver://app@10.0.0.7:1433/sales --dry-run",
+        "flags": [
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace an entry that has the same name"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "tags, like prod"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver edit",
+        "usage": "komando database sqlserver edit NAME [flags]",
+        "short": "Change a saved sqlserver database (only the flags you pass change)",
+        "long": "Change a saved sqlserver database (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database sqlserver edit sales-mssql --add-tag critical\n  komando database sqlserver edit sales-mssql --notes 'main one' --dry-run",
+        "flags": [
+          {
+            "name": "add-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "put it in these groups"
+          },
+          {
+            "name": "add-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "add these tags"
+          },
+          {
+            "name": "ask-password",
+            "type": "bool",
+            "default": "false",
+            "usage": "type the password now (hidden, a person at a terminal); it is stored as a password credential"
+          },
+          {
+            "name": "credential",
+            "type": "string",
+            "usage": "what it logs in with"
+          },
+          {
+            "name": "label",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "label KEY=VALUE"
+          },
+          {
+            "name": "login",
+            "type": "string",
+            "usage": "how the password is used: ask at every connect, a stored one, or none"
+          },
+          {
+            "name": "notes",
+            "type": "string",
+            "usage": "free-form notes, shown to people and agents"
+          },
+          {
+            "name": "option",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "an option of this provider, KEY=VALUE"
+          },
+          {
+            "name": "protected",
+            "type": "bool",
+            "default": "false",
+            "usage": "changes need a person's yes"
+          },
+          {
+            "name": "rm-group",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "take it out of these groups"
+          },
+          {
+            "name": "rm-tag",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "remove these tags"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear these settings: via, credential, notes, protected"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "usage": "the new URL (the provider may not change)"
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver list",
+        "usage": "komando database sqlserver list [TARGET] [flags]",
+        "short": "List the saved sqlserver databases",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando database sqlserver list\n  komando database sqlserver list @web",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver query",
+        "usage": "komando database sqlserver query NAME [SQL] [flags]",
+        "short": "Run a query on a SQL Server database (read only by default)",
+        "long": "Run a query on a SQL Server database (read only by default).\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous.\n\nMore about query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
+        "example": "  komando database sqlserver query sales-mssql \"select top 10 id, email from users order by id desc\"\n  komando database sqlserver query sales-mssql --write --dry-run \"update users set plan = 'pro' where id = 42\"",
+        "flags": [
+          {
+            "name": "arg",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "a value for a placeholder, in order (repeatable)"
+          },
+          {
+            "name": "file",
+            "shorthand": "f",
+            "type": "string",
+            "usage": "read the query from a file ('-' for stdin)"
+          },
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "500",
+            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
+          },
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow a command that changes data (it only reads without this)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "only reads unless --write",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver remove",
+        "usage": "komando database sqlserver remove TARGET... [flags]",
+        "short": "Forget a saved sqlserver database (the database is not touched)",
+        "long": "Forget a saved sqlserver database (the database is not touched).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando database sqlserver remove sales-mssql --dry-run\n  komando database sqlserver remove sales-mssql",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver rename",
+        "usage": "komando database sqlserver rename NAME NEW [flags]",
+        "short": "Rename a saved sqlserver database and every reference to it",
+        "long": "Rename a saved sqlserver database and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando database sqlserver rename sales-mssql sales-mssql-2 --dry-run\n  komando database sqlserver rename sales-mssql sales-mssql-2",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver shell",
+        "usage": "komando database sqlserver shell NAME [flags]",
+        "short": "Open komando's SQL shell on a SQL Server database (person only)",
+        "long": "Open komando's SQL shell on a SQL Server database.\n\nSafety: only a person at a terminal can run it.\n\nMore about shell:\nOpens komando's own SQL shell on the database, through its --via path when\nit has one. Nothing else needs to be installed.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of query: read-only unless the shell was\nstarted with --write, destructive statements only with --allow-dangerous,\nand every statement is audited. A statement runs in its own transaction.\nA protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
+        "example": "  komando database sqlserver shell sales-mssql\n  komando database sqlserver shell sales-mssql --write\n  komando database sqlserver shell sales-mssql --write --dry-run",
+        "flags": [
+          {
+            "name": "write",
+            "type": "bool",
+            "default": "false",
+            "usage": "allow changes in this session"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver show",
+        "usage": "komando database sqlserver show NAME [flags]",
+        "short": "Show a saved sqlserver database's settings (credentials as names)",
+        "example": "  komando database sqlserver show sales-mssql\n  komando database sqlserver show sales-mssql -o json",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando database sqlserver test",
+        "usage": "komando database sqlserver test TARGET [flags]",
+        "short": "Check that a saved sqlserver database answers and lets you in",
+        "example": "  komando database sqlserver test sales-mssql\n  komando database sqlserver test @web",
+        "flags": [
+          {
+            "name": "end",
+            "type": "bool",
+            "default": "false",
+            "usage": "end the session a person's login keeps open"
+          },
+          {
+            "name": "wait",
+            "type": "duration",
+            "default": "0",
+            "usage": "wait this long for a person's sign-in"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando db",
+        "usage": "komando db [flags]",
+        "short": "Databases: the schema, sessions, sizes and users",
+        "long": "Look at a database's schema, sessions, locks, sizes and users. Add a\ndatabase, query it, back it up and restore it with `komando database\npostgres` (or mysql, sqlserver, oracle, sqlite, mongodb, clickhouse,\nsnowflake, bigquery): `komando database postgres add`, `komando database\npostgres query`.\n\nEach database is a conn: list them with `komando list kind:db`.",
+        "aliases": [
+          "sql",
+          "dbs"
+        ],
+        "example": "  komando db schema prod-db users\n  komando db info prod-db\n  komando db activity prod-db\n  komando db user list prod-db",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -3037,379 +6329,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando db add",
-        "usage": "komando db add NAME URL [flags]",
-        "short": "Add a database",
-        "long": "Same as `komando conn add NAME URL`, for a database.\n\nSafety: a change; try it with --dry-run first.\n\nSaves a database under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them.",
-        "example": "  komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password\n  komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --dry-run",
-        "flags": [
-          {
-            "name": "ask-password",
-            "type": "bool",
-            "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
-          },
-          {
-            "name": "group",
-            "shorthand": "g",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "put it in these groups (comma-separated)"
-          },
-          {
-            "name": "label",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "label KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "login",
-            "type": "string",
-            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)"
-          },
-          {
-            "name": "notes",
-            "type": "string",
-            "usage": "free-form notes (komando conn show shows them to people and agents)"
-          },
-          {
-            "name": "option",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "an option of this kind, KEY=VALUE (repeatable)"
-          },
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace a conn that has the same name"
-          },
-          {
-            "name": "password-ref",
-            "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
-          },
-          {
-            "name": "protected",
-            "type": "bool",
-            "default": "false",
-            "usage": "production: komando asks you before every change, and an AI agent needs your yes in a window"
-          },
-          {
-            "name": "tag",
-            "shorthand": "t",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "tags, like prod (comma-separated)"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ],
-        "add_kinds": [
-          {
-            "id": "bigquery",
-            "display_name": "Google BigQuery",
-            "family": "db",
-            "url_schemes": [
-              "bigquery"
-            ],
-            "url_example": "bigquery://my-project/analytics?location=EU",
-            "url_note": "the project jobs run in, a default dataset; the login is gcloud's, or a service account key in --password-ref",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "clickhouse",
-            "display_name": "ClickHouse",
-            "family": "db",
-            "url_schemes": [
-              "clickhouse"
-            ],
-            "url_example": "clickhouse://app@ch.internal:8443/analytics?tls=true",
-            "url_note": "HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=secret:NAME",
-            "default_port": 8123,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "mongodb",
-            "display_name": "MongoDB",
-            "family": "db",
-            "url_schemes": [
-              "mongodb",
-              "mongodb+srv"
-            ],
-            "url_example": "mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin",
-            "url_note": "Atlas: mongodb+srv://app@cluster0.abcde.mongodb.net/shop",
-            "default_port": 27017,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "mysql",
-            "display_name": "MySQL or MariaDB",
-            "family": "db",
-            "url_schemes": [
-              "mysql",
-              "mariadb"
-            ],
-            "url_example": "mysql://shop@db.internal:3306/shop?tls=true",
-            "default_port": 3306,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "oracle",
-            "display_name": "Oracle Database",
-            "family": "db",
-            "url_schemes": [
-              "oracle"
-            ],
-            "url_example": "oracle://app@db.internal:1521/ORCLPDB1?tls=true",
-            "url_note": "the path is the service name; TCPS with a private CA: &ca=secret:NAME",
-            "default_port": 1521,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "postgres",
-            "display_name": "PostgreSQL",
-            "family": "db",
-            "url_schemes": [
-              "postgres",
-              "postgresql"
-            ],
-            "url_example": "postgres://app@10.0.0.5:5432/app?sslmode=require",
-            "default_port": 5432,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "snowflake",
-            "display_name": "Snowflake",
-            "family": "db",
-            "url_schemes": [
-              "snowflake"
-            ],
-            "url_example": "snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO",
-            "url_note": "the account in place of a host; --password-ref holds a programmatic access token or a private key",
-            "default_port": 443,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          },
-          {
-            "id": "sqlite",
-            "display_name": "SQLite",
-            "family": "db",
-            "url_schemes": [
-              "sqlite",
-              "sqlite3"
-            ],
-            "url_example": "sqlite:///var/lib/app.db",
-            "file": true,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag"
-            ]
-          },
-          {
-            "id": "sqlserver",
-            "display_name": "SQL Server",
-            "family": "db",
-            "url_schemes": [
-              "sqlserver",
-              "mssql"
-            ],
-            "url_example": "sqlserver://app@db.internal:1433/sales?encrypt=true",
-            "url_note": "self-signed: &tls=skip-verify; private CA: &ca=secret:NAME",
-            "default_port": 1433,
-            "file": false,
-            "required": [],
-            "one_of": [],
-            "optional": [
-              "ask-password",
-              "group",
-              "label",
-              "login",
-              "notes",
-              "option",
-              "overwrite",
-              "password-ref",
-              "protected",
-              "tag",
-              "via"
-            ]
-          }
-        ]
-      },
-      {
-        "path": "komando db dump",
-        "usage": "komando db dump CONN [flags]",
-        "short": "Save a copy of a database to a file on this computer (person only)",
-        "long": "Saves a copy of the database to a file on this computer. Without --to the\nfile is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this\nfolder. A file ending in .gz is compressed. Afterwards komando prints the\ncommand that loads it back.\n\nSafety: it only reads; when an AI agent runs it (the file holds every row,\nsecrets included): only a person at a terminal can run it; on a protected\nserver or conn, a person's yes (--yes) as well.\n\npg_dump or mysqldump runs on a server that has it: the one you name with\n--run-on HOST, else the database's --via server. It connects to the conn\nURL's address from that server, runs at low priority (nice, ionice) and\nstreams the backup back over SSH. Without such a server (a direct connection\nor a VPN) komando writes plain SQL itself. PostgreSQL can also write its own\narchive with --format custom (compressed, restored with pg_restore; needs\npg_dump on a server). --table and --schema-only narrow the dump. SQLite\ndatabases are copied as a database file instead. An existing FILE is never\noverwritten. The file holds your data: it is created readable only by you.",
-        "example": "  komando db dump prod-db                  # saves prod-db-<date>.sql.gz here\n  komando db dump prod-db --to backups/    # the same name, inside backups/\n  komando db dump prod-db --to prod-2026-11-02.sql.gz\n  komando db dump prod-db --to prod.dump --format custom\n  komando db dump prod-db --to prod.dump --format custom --run-on db1\n  komando db dump prod-db --to orders.sql --table public.orders --table public.order_items\n  komando db dump prod-db --to schema.sql --schema-only\n  komando db dump local --to backup.db",
-        "flags": [
-          {
-            "name": "format",
-            "type": "string",
-            "default": "plain",
-            "usage": "plain (SQL) or custom (PostgreSQL archive for pg_restore)"
-          },
-          {
-            "name": "run-on",
-            "type": "string",
-            "usage": "run pg_dump or mysqldump on this server (default: the database's --via server)"
-          },
-          {
-            "name": "schema-only",
-            "type": "bool",
-            "default": "false",
-            "usage": "tables, indexes and functions, no rows"
-          },
-          {
-            "name": "table",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)"
-          },
-          {
-            "name": "to",
-            "type": "string",
-            "usage": "file to create on this computer (default: CONN-<date>.sql.gz; SQLite: CONN-<date>.db)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          },
-          {
-            "tier": "person",
-            "when": "when an AI agent runs it (the file holds every row, secrets included)"
           }
         ]
       },
@@ -3559,85 +6478,6 @@
         ]
       },
       {
-        "path": "komando db query",
-        "usage": "komando db query CONN [SQL] [flags]",
-        "short": "Run SQL (read only by default)",
-        "long": "Runs SQL on a database and prints the rows. Without --write it only reads:\nkomando runs it in a read-only transaction, and stops it after 30s.\n\nSafety: a change; try it with --dry-run first; when the query deletes data\n(DROP, DELETE without WHERE, KILL, ...): dangerous, it cannot be undone: a\nperson types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\nMore about db query:\nA run stops after 30s unless --timeout (or the statement_timeout option in\nthe database URL) allows more. Placeholders take their values from\n--arg, in order. -o csv and -o tsv print every row (up to --limit, if\ngiven) for spreadsheets and scripts.\nSQL that starts with a -- comment: pass it after -- or with -f -.\n\nSQL Server has no read-only transaction: without --write komando rolls the\nSQL back, and a statement it does not know as a read (a bare procedure\nname, EXEC) needs --write. Its placeholders are @p1, @p2, ...\n\nOracle: placeholders are :1, :2, ... A PL/SQL block (BEGIN ... END;) runs\nto the end of the text or to a line with only /, and needs --write and\n--allow-dangerous. DDL (CREATE, ALTER, DROP, GRANT) commits on its own in\nOracle, so it needs --write, goes on its own, and a dry run only reports it.\n\nClickHouse has no transactions: without --write every request carries the\nserver's own readonly=1, and a statement that is not a read (INSERT, ALTER,\nCREATE, ...) needs --write, goes on its own, and a dry run only reports it.\nPlaceholders are {p1:String}, {p2:UInt64}, ... (named p1, p2, with a type).\n\nSnowflake has no read-only mode komando can switch on, and each statement\nis a session of its own: without --write komando sends only what it rates\nas a read, and a statement that is not a read needs --write, goes on its\nown, and a dry run only reports it. Log in with a role that may only\nread. Placeholders are ?.\n\nBigQuery: each statement first goes as a dry run, which runs nothing and\nsays what BigQuery sees and how many bytes it would read (which is what\nBigQuery bills). Without --write only a SELECT runs. A query that would\nread more than --max-bytes (default 10GB) does not run, and the job\ncarries that cap too. A write needs --write, goes on its own, and\n--write --dry-run shows BigQuery's dry run. Placeholders are ?; the values\ngo as STRING, so write CAST(? AS INT64) for a number.\n\nOn MongoDB the text is a command document in JSON, its first key\nnaming it ({\"find\": ...}, {\"aggregate\": ...}, {\"update\": ...}). komando rates\nit as it rates SQL: what it does not know as a read needs --write. \"$db\"\npicks another database than the URL's.",
-        "example": "  komando db query prod-db \"select id, email from users order by id desc limit 10\"\n  komando db query mongo-db '{\"find\": \"users\", \"filter\": {\"plan\": \"pro\"}, \"limit\": 10}'   # MongoDB\n  komando db query prod-db \"select * from users where email = $1\" --arg bob@example.com\n  komando db query prod-db --write --dry-run \"update users set plan = 'pro' where id = 42\"\n  komando db query prod-db --file migration.sql --write --dry-run\n  komando db query prod-db -o csv \"select * from orders\" > orders.csv\n  komando db query bq \"select count(*) from shop.orders\" --max-bytes 50GB   # BigQuery",
-        "flags": [
-          {
-            "name": "arg",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake and bigquery); repeat in order"
-          },
-          {
-            "name": "file",
-            "shorthand": "f",
-            "type": "string",
-            "usage": "read SQL from a file ('-' for stdin)"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "500",
-            "usage": "the most rows to return per statement (0 = no limit; --max-output caps the size too)"
-          },
-          {
-            "name": "max-bytes",
-            "type": "bytes",
-            "usage": "BigQuery: the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap)"
-          },
-          {
-            "name": "write",
-            "type": "bool",
-            "default": "false",
-            "usage": "allow changes (runs in a normal transaction; combine with --dry-run to roll back)"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "only reads unless --write",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when the query deletes data (DROP, DELETE without WHERE, KILL, ...)"
-          }
-        ]
-      },
-      {
-        "path": "komando db restore",
-        "usage": "komando db restore CONN --from FILE [flags]",
-        "short": "Load a backup into a database",
-        "long": "Runs the SQL in FILE (from `db dump`, pg_dump, mysqldump or any plain SQL\nfile; .gz is read compressed). komando runs the SQL itself, through the\nconn's --via path, never with psql or mysql. A PostgreSQL archive (`db dump\n--format custom`) is recognized by its content and loaded with pg_restore on\na server: the one named with --run-on HOST, else the database's --via\nserver; the archive is streamed to it over SSH.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.\n\nIn a terminal komando first offers to save a copy of the database as it is\nnow (db dump), so you can go back. Scripts and AI agents get no question:\nrun `komando db dump CONN` yourself first.\n\nA restore can overwrite existing data, so it needs --allow-dangerous, plus\n--yes on a protected database. The whole file is checked first: client\ncommands that could run programs (\\! or system) and SQL komando cannot\nfollow (a file ending inside a quote, a change to how quotes are read) are\nrefused, and SQL that runs programs, touches server files or changes\nprivileges is named in the approval.\n\nPostgreSQL restores run in one transaction: on any error nothing changes.\nMySQL runs the statements in order and stops at the first error.",
-        "example": "  komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing\n  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous   # after a person's yes\n  komando db restore staging-db --from prod.dump --run-on db1 --dry-run\n  komando db restore staging-db --from prod.dump --run-on db1 --allow-dangerous   # after a person's yes",
-        "flags": [
-          {
-            "name": "from",
-            "type": "string",
-            "usage": "SQL file on this computer"
-          },
-          {
-            "name": "run-on",
-            "type": "string",
-            "usage": "run pg_restore for a PostgreSQL archive on this server (default: the database's --via server)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
         "path": "komando db revoke",
         "usage": "komando db revoke CONN USER [flags]",
         "short": "Take privileges (or a role) away from a user",
@@ -3683,29 +6523,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando db shell",
-        "usage": "komando db shell CONN [flags]",
-        "short": "Open an SQL shell, read only by default (person only)",
-        "long": "Opens komando's own SQL shell on CONN (PostgreSQL, MySQL/MariaDB, SQL\nServer, Oracle, ClickHouse, Snowflake, BigQuery or SQLite), through its\n--via path when it has one. Nothing else needs to be installed.\n\nSafety: only a person at a terminal can run it.\n\nEach statement ends with ; (an Oracle PL/SQL block with a line holding\nonly /) and runs with the checks of db query: read-only\nunless the shell was started with --write, destructive statements only with\n--allow-dangerous, and every statement is audited. A statement runs in its\nown transaction. A protected conn asks first.\n\nInside: \\q quits, \\? lists the commands, \\d [TABLE] shows tables or one\ntable, \\l databases, \\dn schemas, \\du roles, \\x switches expanded rows,\n\\timing shows how long each statement took, \\i FILE runs a file, and a\nstatement ending in \\G is shown expanded. Up and down arrows recall lines.",
-        "example": "  komando db shell prod-db\n  komando db shell staging-db --write\n  komando db shell staging-db --write --dry-run",
-        "flags": [
-          {
-            "name": "write",
-            "type": "bool",
-            "default": "false",
-            "usage": "allow changes in this session"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "an shellNote shell for a person: whatever they type; read-only unless --write",
-        "confirm": [
-          {
-            "tier": "person"
           }
         ]
       },
@@ -6703,7 +9520,7 @@
         "path": "komando output",
         "usage": "komando output [flags]",
         "short": "Text for people, JSON for programs",
-        "long": "Text for people, JSON for programs.\n\nIn a terminal komando prints text; piped, one JSON envelope on stdout:\n  {\"ok\":true,\"command\":\"exec\",\"data\":{...},\"meta\":{...}}\n  {\"ok\":false,\"command\":\"exec\",\"error\":{\"code\":\"AUTH_FAILED\",...}}\nForce one with -o json or -o text (db query also takes csv and tsv).\nQuestions, the line komando runs ($ komando ...) and Next: go to stderr,\nand only at a person's terminal.",
+        "long": "Text for people, JSON for programs.\n\nIn a terminal komando prints text; piped, one JSON envelope on stdout:\n  {\"ok\":true,\"command\":\"exec\",\"data\":{...},\"meta\":{...}}\n  {\"ok\":false,\"command\":\"exec\",\"error\":{\"code\":\"AUTH_FAILED\",...}}\nForce one with -o json or -o text (database KIND query also takes csv and tsv).\nQuestions, the line komando runs ($ komando ...) and Next: go to stderr,\nand only at a person's terminal.",
         "runnable": false
       },
       {
@@ -8232,7 +11049,7 @@
         "path": "komando safety",
         "usage": "komando safety [flags]",
         "short": "How komando keeps a change from going wrong",
-        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
+        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           database KIND query, cache redis raw and cluster run only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
         "runnable": false
       },
       {
@@ -11879,7 +14696,7 @@
         "code": "OUTPUT_TRUNCATED",
         "exit": 1,
         "example": "the rows are more than the output size cap (--max-output) allows; nothing was printed",
-        "hint": "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`"
+        "hint": "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando database KIND backup`"
       },
       {
         "code": "OVPN_UNSUPPORTED",
@@ -12149,13 +14966,13 @@
         "code": "RESTORE_FAILED",
         "exit": 5,
         "example": "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it",
-        "hint": "fix the file, then restore it again: `komando db restore … --from …`"
+        "hint": "fix the file, then restore it again: `komando database KIND restore … --from …`"
       },
       {
         "code": "RESTORE_SPACE_MISSING",
         "exit": 3,
         "example": "not enough free space for the restore's copy; nothing was sent to the database",
-        "hint": "free … bytes in … (komando checks a private copy of the backup there before the database is touched), then restore again: `komando db restore CONN --from …`"
+        "hint": "free … bytes in … (komando checks a private copy of the backup there before the database is touched), then restore again: `komando database KIND restore NAME --from …`"
       },
       {
         "code": "RESTORE_UNSUPPORTED",
@@ -12442,7 +15259,7 @@
         "code": "SQL_TX_CHECK_REQUIRED",
         "exit": 6,
         "example": "statement … (…) ended komando's transaction, so komando stopped (…)",
-        "hint": "leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando db query CONN -- SELECT ...`"
+        "hint": "leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando database KIND query NAME -- SELECT ...`"
       },
       {
         "code": "SQL_TX_CONTROL",
@@ -13033,7 +15850,7 @@
         "name": "output",
         "shorthand": "o",
         "type": "string",
-        "usage": "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv"
+        "usage": "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); database KIND\nquery also takes csv and tsv"
       },
       {
         "name": "parallel",

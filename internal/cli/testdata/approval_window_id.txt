@@ -62,7 +62,7 @@ Pengecekan dilewati: pengecekan penyembunyian rahasia
 
 Perintah: select 1
 [owner]
-komando: izinkan komando db query shop --reveal -- select 1
+komando: izinkan komando database postgres query shop --reveal -- select 1
 [windows sizes]
 20/64/114
 

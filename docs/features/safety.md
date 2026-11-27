@@ -172,14 +172,14 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `storage rm` | always | dangerous | `--allow-dangerous` |
 | `registry oci image delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |
-| `database KIND restore` | always | dangerous | `--allow-dangerous` |
+| `database postgres restore` | always | dangerous | `--allow-dangerous` |
 | `key rm` | with --delete-file | dangerous | `--allow-dangerous` |
 | `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `recipe run` | when a step matches a destructive rule | dangerous | `--allow-dangerous` |
 | `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `cluster run` | when the cluster command deletes something or scales to 0 | dangerous | `--allow-dangerous` |
 | `cache redis raw` | when the cache command deletes data (DEL, FLUSHALL, ...) | dangerous | `--allow-dangerous` |
-| `database KIND query` | when the query deletes data (DROP, DELETE without WHERE, KILL, ...) | dangerous | `--allow-dangerous` |
+| `database postgres query` | when the query deletes data (DROP, DELETE without WHERE, KILL, ...) | dangerous | `--allow-dangerous` |
 | `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `import` | when an imported proxy command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy rm` | always | safety | `--yes` |
@@ -200,11 +200,11 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `secret passphrase` | always | person |  |
 | `secret keychain` | without --off | person |  |
 | `shell` | always | person |  |
-| `database KIND shell` | always | person |  |
+| `database postgres shell` | always | person |  |
 | `cluster shell` | always | person |  |
 | `host ca add` | always | person |  |
 | `host trust` | with --reset | person |  |
-| `database KIND backup` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
+| `database postgres backup` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
 | `export` | with --sealed | person |  |
 | `export` | with --for-phone | person |  |
 | `host edit` | with --protected=false | safety | `--yes` |

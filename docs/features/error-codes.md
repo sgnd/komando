@@ -157,7 +157,7 @@ This page is made from the code (`komando schema` lists the same under
 | `OBJECT_NOT_FOUND` | 3 | … not found | list files with `komando storage list CONN [PREFIX]` |
 | `OPEN_BIND` | 6 | the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer) | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `OPTION_LIKE_VAR` | 2 | the value of … may not start with '-' (… would be read as an option) | for a path that starts with -, write ./… |
-| `OUTPUT_TRUNCATED` | 1 | the rows are more than the output size cap (--max-output) allows; nothing was printed | raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump` |
+| `OUTPUT_TRUNCATED` | 1 | the rows are more than the output size cap (--max-output) allows; nothing was printed | raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando database KIND backup` |
 | `OVPN_UNSUPPORTED` | 2 | the OpenVPN profile has an option komando's own client does not support (the message names it) | change the profile, or report the option you need at …/issues |
 | `PACKAGE_NOT_FOUND` | 3 | …: no such package in the server's package index | check the name; refresh the index with `komando pkg update TARGET` if the package is new |
 | `PARTIAL_FAILURE` | 1 | some targets failed and some worked (see each result) | read each target's error and hint (data.results in -o json) |
@@ -202,7 +202,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RENAME_FAILED` | 1 | the vault cannot rename the VPN's secrets: …; nothing was renamed | check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS) |
 | `REPOSITORY_NOT_FOUND` | 3 | no repository named … | list the repositories with `komando registry oci image list NAME` |
 | `RESERVED_SECRET` | 2 | secret … belongs to komando's approval code | a person manages it with `komando config approval-code` |
-| `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
+| `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando database KIND restore … --from …` |
 | `RESTORE_SPACE_MISSING` | 3 | not enough free space for the restore's copy; nothing was sent to the database | free … bytes in … (komando checks a private copy of the backup there before the database is touched), then restore again: `komando database KIND restore NAME --from …` |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
 | `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST` |
