@@ -211,15 +211,6 @@ var commandKinds = map[safetyKey]cmdKind{
 
 	{"", "", "import"}: changes,
 
-	{"host", "job", ""}:       reads,
-	{"host", "job", "kill"}:   changes,
-	{"host", "job", "list"}:   reads,
-	{"host", "job", "logs"}:   reads,
-	{"host", "job", "rm"}:     changes,
-	{"host", "job", "start"}:  dependsOn(unlessReadOnly),
-	{"host", "job", "status"}: reads,
-	{"host", "job", "wait"}:   reads,
-
 	{"credential", "key", ""}:          reads,
 	{"credential", "key", "add"}:       changes,
 	{"credential", "key", "install"}:   changes,

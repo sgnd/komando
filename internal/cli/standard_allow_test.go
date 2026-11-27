@@ -74,7 +74,6 @@ var (
 		"fs replace dry-run",
 		"fs stat",
 		"host show",
-		"job status",
 		"key list",
 		"net check",
 		"net http",

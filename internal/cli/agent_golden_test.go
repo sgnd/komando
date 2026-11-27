@@ -160,7 +160,6 @@ var goldenExtra = [][]string{
 	{"exec", "x1", "apt-get", "install", "-y", "nginx"},
 	{"exec", "x1", "uptime", "--dry-run"},
 	{"exec", "x1", "stray", "--", "uptime"},
-	{"job", "start", "x1", "uptime"},
 	{"docker", "exec", "x1", "x2", "id"},
 	{"docker", "compose", "x1", "ps"},
 	{"docker", "raw", "x1", "ps"},

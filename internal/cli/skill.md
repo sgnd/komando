@@ -60,7 +60,7 @@ not know? Set `KOMANDO_AGENT=1`.
    with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
    `cache redis raw` and `cluster run` are the other way round: they only read
    unless you add `--write`.
-   Every command that hands words to another program (`exec`, `job start`,
+   Every command that hands words to another program (`exec`,
    `docker exec`, `docker compose`, `docker raw`, `cluster exec`, `cluster
    shell`, `cluster run`, `cache redis raw`) takes them only after `--`, and
    komando's own flags go before it. Without `--` it stops with `USAGE`
@@ -89,11 +89,15 @@ not know? Set `KOMANDO_AGENT=1`.
      `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
      secret, key and group of a project, one approval for all of them),
      `komando import csv FILE` (many servers at once).
-4. **Long or fragile work is a job.** Use `komando job start` for anything
-   that may take more than about 2 minutes or runs over a shaky link (a
-   VPN): a job survives a dropped connection, `exec` does not.
+4. **Long or fragile work runs in a session.** `komando exec` on one Linux
+   or Unix server (no `--pty`) runs the command in a session on the server,
+   so it survives a dropped connection (a VPN, a shaky link). It prints the
+   session ID first; read the rest with `komando exec TARGET --attach ID`,
+   stop it with `--attach ID --stop`, delete it when it ended with
+   `--attach ID --remove`.
    `CONNECTION_LOST` (exit 4) from `exec` means the link broke while the
-   command ran: it may still be running, or may have finished. Check with a
+   command ran: in a session it goes on, so read it with `--attach ID`; without
+   one it may still be running, or may have finished: check with a
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
    When a command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,

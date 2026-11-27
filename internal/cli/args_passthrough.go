@@ -8,7 +8,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// Passthrough commands hand words to another program: exec, job start,
+// Passthrough commands hand words to another program: exec,
 // docker exec/compose/raw, cluster exec/shell/run and cache redis raw and cache memcached raw (every
 // command whose Use has `-- COMMAND...` or `-- ARGS...`). komando reads its
 // own flags anywhere before `--`, so every word for the other program must

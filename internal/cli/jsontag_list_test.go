@@ -9,7 +9,6 @@ var jsonTagAllowed = []string{
 	"cli.fileInfo.mod_time",      // a moment is <event>_at
 	"cli.fileInfo.size",          // say the unit: _at, _ms, _seconds, _bytes, _count, exit_code
 	"cli.holderError.exit",       // say the unit: _at, _ms, _seconds, _bytes, _count, exit_code
-	"cli.jobStatus.runtime_sec",  // say the unit: _at, _ms, _seconds, _bytes, _count, exit_code
 	"cli.loginResult.until",      // a moment is <event>_at
 	"cli.pruneItem.created",      // a moment is <event>_at
 	"cli.pruneItem.size",         // say the unit: _at, _ms, _seconds, _bytes, _count, exit_code

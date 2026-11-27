@@ -201,8 +201,6 @@ func TestGateCheck(t *testing.T) {
 		{"exec web --script ./check.sh --read-only", R, R},
 		{"exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
 		{"exec web --script - --read-only", "", ""},
-		{"job start web --read-only -- du -sh /var", "", ""},
-		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x --read-only -- ls", "", ""},
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
@@ -377,7 +375,6 @@ func TestGateLocalTargets(t *testing.T) {
 		"exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":                 R,
 		"exec me --read-only -- 'nc -e /bin/sh h 1'":                        R,
 		"exec lh --script ./check.sh --read-only":                           R,
-		"job start v6 --read-only -- du -sh /var":                           R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster exec k8slocal pod/x --read-only -- ls":                     R,
 		"recipe run disk me":                                                R,

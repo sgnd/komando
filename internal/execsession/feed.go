@@ -16,16 +16,6 @@ func Feed(pw bool) string {
 	return f + `[ ! -f "$d/env" ] || { cat "$d/env"; rm -f "$d/env"; }; [ ! -f "$d/in" ] || { cat "$d/in"; rm -f "$d/in"; }; }`
 }
 
-// Wrapper is job start's root process: it runs start with the login's own
-// umask ($1, so the run's environment gains no variable) and writes its
-// exit code, unless the run was stopped (killed).
-func Wrapper(start string, timeout time.Duration) string {
-	watch, end := watcher(timeout)
-	// the env (vault values), the input and the sudo password go once the
-	// run ends, also when sudo refused it before they were sent and deleted
-	return `umask "$1"; ` + start + `; umask 077; ` + watch + end + `[ -f "$d/killed" ] || echo $c > "$d/exit"; rm -f "$d/env" "$d/in" "$d/pw"`
-}
-
 // watcher is the wait for the run (w) that sets c to its exit code. With a
 // timeout, a watcher stops the run after it, the whole process group
 // (setsid) or else the command, and notes "TERM timeout" in killed.

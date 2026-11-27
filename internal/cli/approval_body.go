@@ -16,7 +16,7 @@ import (
 )
 
 // approvalBody is a file a command sends besides its command line
-// (exec --script FILE, --stdin-file, job start --script). The approval
+// (exec --script FILE, --stdin-file). The approval
 // window shows its SHA-256 and every line of it, so a person does not
 // allow a script they never saw whole.
 type approvalBody struct {
@@ -59,8 +59,8 @@ func newBody(label string, body []byte, data bool) *approvalBody {
 type bodyKind int
 
 const (
-	bodyInput  bodyKind = iota // code sent on stdin (exec --stdin-file, job start)
-	bodyScript                 // a script file (exec --script, job start --script)
+	bodyInput  bodyKind = iota // code sent on stdin (exec --stdin-file)
+	bodyScript                 // a script file (exec --script)
 	bodySQL                    // the SQL of db query --file
 	bodyData                   // content stored or sent, not run (noteApprovalData)
 )

@@ -53,7 +53,7 @@ func runScript(cl *call, ctx context.Context, target string, so scriptOpts, o ex
 		if so.interpreter != "" {
 			js = append(js, "--interpreter", so.interpreter)
 		}
-		o.jobScript = shellLine(append(js, scriptArgsShown(argsList)...))
+		o.scriptFlags = shellLine(append(js, scriptArgsShown(argsList)...))
 	}
 	if err := guardBody(cl, string(body)); err != nil {
 		return err
@@ -67,7 +67,7 @@ func runScript(cl *call, ctx context.Context, target string, so scriptOpts, o ex
 	return runFleet(cl, ctx, "exec", target, command, body, o, mutating)
 }
 
-// scriptReadOnly is --read-only for a script (exec --script, job start
+// scriptReadOnly is --read-only for a script (exec --script
 // --script): a script that changes something is refused, and mutating says
 // whether a protected target still needs --yes.
 func scriptReadOnly(cl *call, body, interpreter string, args, env []string) (mutating bool, err error) {
@@ -138,18 +138,18 @@ func guardBody(cl *call, body string) error {
 	return Guard(cl, st, nil, body, false)
 }
 
-// jobStartLine is the job start command that runs what exec ran on host,
-// with the same --sudo, --sudo-user, --dir, --env and --stdin-file, and
-// --script for a script. Input from komando's own stdin cannot be sent
-// again, and job start has no pty, so a run with one of those gets "",
-// and so does any command but exec: module commands build their own
-// scripts.
-func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
-	piped := stdin != nil && o.jobScript == "" && (o.stdinFile == "" || o.stdinFile == "-")
-	if name != "exec" || piped || o.pty || o.display != "" {
+// execLine is the exec that runs what exec ran on host again, as a session
+// on the server that survives a drop, with the same --sudo, --sudo-user,
+// --dir, --env and --stdin-file, and --script for a script. Input from
+// komando's own stdin cannot be sent again, and a session has no pty, so a
+// run with one of those gets "", and so does any command but exec: module
+// commands build their own scripts.
+func execLine(name string, h *store.Host, command string, stdin []byte, o execOpts) string {
+	piped := stdin != nil && o.scriptFlags == "" && (o.stdinFile == "" || o.stdinFile == "-")
+	if name != "exec" || piped || o.pty || o.display != "" || h.Windows() {
 		return ""
 	}
-	parts := []string{"komando", "job", "start", host}
+	parts := []string{"komando", "exec", h.Name}
 	if o.sudo {
 		parts = append(parts, "--sudo")
 	}
@@ -162,8 +162,8 @@ func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
 	for _, e := range o.env {
 		parts = append(parts, "--env", e)
 	}
-	if o.jobScript != "" {
-		return shellLine(parts) + " " + o.jobScript
+	if o.scriptFlags != "" {
+		return shellLine(parts) + " " + o.scriptFlags
 	}
 	if o.stdinFile != "" {
 		parts = append(parts, "--stdin-file", o.stdinFile)
@@ -171,20 +171,32 @@ func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
 	return shellLine(parts) + " -- " + sshx.Q(command)
 }
 
-// execTimeoutErr is a server's TIMEOUT; line, when exec can name it, is
-// the job start that runs the same thing as a background job.
+// execTimeoutErr is a server's TIMEOUT. A run in a session ends there at
+// --timeout; for a run without one, line, when exec can name it, is the
+// exec that runs the same thing in a session.
 func execTimeoutErr(line string, after time.Duration) *out.Error {
-	e := out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out after %s", after)
+	e := out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "command timed out after %s", after)
 	if line != "" {
-		e.Hint = "raise --timeout, or run it as a background job that outlives the connection: `" + line + "`"
+		e.Hint = "raise --timeout, or run it in a session that outlives the connection and goes on after --wait: `" + line + "`"
 	}
 	return e
 }
 
-// lostJobHint adds the job start line to a CONNECTION_LOST hint: a job
-// survives the next drop.
-func lostJobHint(e *out.Error, line string) {
-	if line != "" && e != nil && e.Code == "CONNECTION_LOST" {
-		e.Hint += "; over a shaky link run it as a job, which survives a drop: `" + line + "`"
+// lostHint adds the way on to a CONNECTION_LOST hint: a run in a session
+// is read on with --attach; for a run without one, line is the exec that
+// starts one, which survives the next drop.
+func lostHint(e *out.Error, sess *sessionRun, host, line string) {
+	if e == nil || e.Code != "CONNECTION_LOST" {
+		return
+	}
+	switch {
+	case sess != nil && sess.id != "":
+		at := ""
+		if sess.nextFrom != nil {
+			at = " --offset " + strconv.FormatInt(*sess.nextFrom, 10)
+		}
+		e.Hint += "; the run goes on in session " + sess.id + ": `komando exec " + host + " --attach " + sess.id + at + "` reads on"
+	case line != "":
+		e.Hint += "; over a shaky link run it in a session, which survives a drop: `" + line + "`"
 	}
 }

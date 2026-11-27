@@ -103,7 +103,7 @@ func parseEnvTo(cl *call, pairs []string, hosts []*store.Host) (map[string]strin
 // command komando runs there. In an AI agent's command the agent could
 // read the value back in a form masking does not know (printenv K | rev),
 // so for an agent those values are left out (sshx.HostSecretEnv) until a
-// person says yes: the agent adds --yes to exec or job start, and
+// person says yes: the agent adds --yes to exec, and
 // komando's window names the secrets and the servers. Plain env values
 // still go.
 

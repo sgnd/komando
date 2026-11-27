@@ -35,7 +35,7 @@ servers.
 komando list                          # servers, conns and VPNs: name, kind, address, groups, protected
 komando group list                    # groups and tags, with their members
 komando test all                      # what is reachable; which user; passwordless sudo?
-komando status                        # what komando left running: VPN sessions, tunnels, jobs, logins
+komando status                        # what komando left running: VPN sessions, tunnels, exec sessions, logins
 komando facts TARGET                  # OS and support status, updates, sudo, Docker/Swarm, PM2, ports, custom units
 komando schema --compact              # every command (`komando schema COMMAND`: its flags, and kind: read, change or depends)
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
@@ -105,7 +105,7 @@ as `winrm://USER@HOST` is reached over WinRM: the same commands, but no
 mixes Windows and Linux servers is refused for `exec` (`MIXED_OS`): run
 it once per shell.
 
-Commands that hand words to another program (`exec`, `job start`, `docker
+Commands that hand words to another program (`exec`, `docker
 exec/compose/raw`, `cluster exec/shell/run`, `cache redis raw`) take those words
 only after `--`; komando's flags go before it. Without `--` the command
 stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
@@ -304,19 +304,24 @@ transaction and rolls it back (sequences still advance); in `cache`,
 
 ## 6. Long-running work
 
-Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
+Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations)
+goes through `exec` on one Linux or Unix server. It runs in a session on the
+server, so it survives a dropped connection:
 
 ```bash
-komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # returns job id at once
-komando job logs JOB --offset NEXT_OFFSET        # read only new output
-komando job wait JOB --timeout 10m               # blocks; exit code mirrors the job
-komando job start @web --script ./migrate.sh --arg v2   # a long script from this computer
+komando exec db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # the first JSON line names the session ID
+komando exec db1 --attach ID --offset NEXT_FROM      # read only new output (next_from of the last read)
+komando exec db1 --attach ID --wait 10m              # wait up to 10 minutes; the exit code mirrors the run
+komando exec db1 --attach ID --stop                  # stop it, from the computer that started it
+komando exec db1 --attach ID --remove                # delete a finished session's folder
+komando exec db1 --script ./migrate.sh --arg v2      # a long script from this computer
 ```
 
-Several servers: `job start @web ...` prints one ID per server; `job wait
-JOB1 JOB2 ...` waits for all of them (its `next` field has the line). A job survives a dropped connection
-(VPN, Wi-Fi): `job wait` connects again by itself. Over a shaky link, prefer
-a job to `exec`.
+`exec` waits `--wait` (default 1 minute), then returns exit 7 with `next_from`
+while the run goes on. `--attach` takes several IDs of sessions on the one
+server. A run on several servers (`@web`), with `--pty` or on Windows is not in
+a session: run it once per server, or without `--pty`, to get one. A session
+that dropped with the connection is read on with `--attach`, never run again.
 
 Security patching is the exception: `komando pkg upgrade TARGET --security`
 (after `pkg security TARGET --refresh` and a `--dry-run`) installs only
@@ -324,12 +329,12 @@ security updates, one server at a time, compares running containers,
 failed units, pending updates and reboot state before and after, and stops
 the round on an unexpected change (`UNEXPECTED_CHANGE`). The upgrade runs
 detached on the server and komando waits up to 30 minutes per server, so do
-not wrap it in `job start`. It never reboots: report `reboot_required` and
+not wrap it in a session. It never reboots: report `reboot_required` and
 `services_need_restart` to the human.
 
 A process started with `&` inside `komando exec` ends with that command.
-Anything that must keep running (a temporary web server, a watcher) is a
-`job start`.
+Anything that must keep running (a temporary web server, a watcher) is the
+session's own command: start it with `komando exec`, stop it with `--stop`.
 
 ## 7. Guardrails (do not fight them)
 
@@ -429,14 +434,14 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | HOSTKEY_UNKNOWN                   | host keys are strict: show the human the fingerprint in the message and let them compare it before `host trust` (it asks them) |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up NAME` |
 | 4    | AWS_LOGIN_REQUIRED                | the AWS SSO login ran out: ask the human to run the `komando login aws --profile NAME` that `error.hint` names (an agent gets NEEDS_PERSON); AWS_FAILED: follow `error.hint` (keys or profile in ~/.aws); never read ~/.aws yourself |
-| 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
+| 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; a run in a session goes on there: read it with `exec --attach ID` |
 | 5    | COMMAND_FAILED                    | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 5    | REMOTE_WRITE_FAILED               | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
 | 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, EMPTY_FOLDER_CONFIRM_REQUIRED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SHORTER_SCRIPT_REQUIRED, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_NETWORK_REQUIRED, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
 | 6    | NEEDS_PERSON or DECLINED from a server or conn whose login is `ask` (`host show`/`conn show`: `login: ask`) | its password is typed by the human in komando's window, never by you; do not retry: ask them to run `komando test SERVER` (a conn: the command itself) in their own terminal. Adding one or changing where it goes (address, `--via`, a jump host or VPN on its way) is theirs too |
 | 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |
-| 7    | TIMEOUT                           | raise `--timeout` or use `job start` |
+| 7    | TIMEOUT                           | raise `--timeout` (a run in a session goes on after `--wait`: `exec --attach ID` reads it) |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |
 | 8    | NOT_WRITABLE (update)             | ask the human to run the `sudo` command from `error.hint` in their terminal |
 | worst of the hosts | PARTIAL_FAILURE | several hosts ran and at least one failed: read `data.results[]` per host (one target fails with its own code instead) |

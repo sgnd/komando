@@ -3,14 +3,13 @@ package cli
 import "slices"
 
 // The questions for your list (servers, conns, groups, import, export,
-// test), jobs and recipes, safety and audit, and setup. host add, conn add
+// test), recipes, safety and audit, and setup. host add, conn add
 // and vpn add have hand-made forms (form_kinds.go).
 
 func init() {
 	addFormHints(invHostHints)
 	addFormHints(invConnHints)
 	addFormHints(invListHints)
-	addFormHints(invJobHints)
 	addFormHints(invRecipeHints)
 	addFormHints(invSafetyHints)
 	addFormHints(invSetupHints)
@@ -32,10 +31,6 @@ var (
 		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invNewName = formArg{ask: "What should the new name be?", example: "web2",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
-	invJob = formArg{ask: "Which job?", pick: "job", free: true,
-		help: "A job started with `komando job start`. `komando job list` shows them."}
-	invJobs = formArg{ask: "Which jobs?", pick: "job", free: true,
-		help: "Several: separate them with spaces. `komando job list` shows them."}
 	invGroupNew = formArg{ask: "Which group?", pick: "group", free: true, example: "web",
 		help: "Pick one, or type a new name to make a new group."}
 	invGroup = formArg{ask: "Which group?", pick: "group",
@@ -185,39 +180,6 @@ var invListHints = map[string]formHint{
 		help: "Empty deletes the group itself; the servers, conns and VPNs in it stay in your list."}}},
 }
 
-var invJobHints = map[string]formHint{
-	"job": {},
-	"job start": {
-		next: []string{"job list", "job status JOB"},
-		args: []formArg{invServers, {ask: "What command should it run?", example: "apt-get -y upgrade",
-			help: "A long task that keeps running when your connection drops. Type it as you would on the server."}},
-		flags: []formFlag{invSudo, invReadOnly,
-			{name: "dir", ask: "In which folder on the server should it run?",
-				help: "Leave empty for the login user's home folder.", example: "/srv/app"}},
-		hide: []string{"cmd"},
-	},
-	"job list": {flags: []formFlag{
-		{name: "target", ask: "Only the jobs on which servers?", pick: "host",
-			help: "Leave empty for every job komando knows."},
-		{name: "refresh", ask: "Ask the servers whether each job still runs?",
-			help: "No shows what komando saw last time, which is quicker."}}},
-	"job status": {args: []formArg{invJob}, flags: []formFlag{
-		{name: "tail", ask: "How many of its last output lines to show?", example: "20",
-			help: "0 shows none."}}},
-	"job logs": {args: []formArg{invJob}, flags: []formFlag{
-		{name: "limit", ask: "Only the last how many lines?", example: "50",
-			help: "Leave empty to read the output from the start."}}},
-	"job wait": {args: []formArg{invJobs}},
-	"job kill": {args: []formArg{invJob}, flags: []formFlag{
-		{name: "signal", ask: "How should it stop?", choices: []string{"TERM", "INT", "HUP", "KILL"},
-			help: "TERM asks it to stop and clean up. KILL stops it at once, use it when TERM did not work."},
-		{name: "sudo", ask: "Was the job started with sudo?",
-			help: "Then stopping it needs sudo too."}}},
-	"job rm": {args: []formArg{invJobs}, flags: []formFlag{
-		{name: "kill", ask: "Stop it first if it still runs?",
-			help: "No refuses to remove a job that still runs."}}},
-}
-
 var invRecipeHints = map[string]formHint{
 	"recipe":      {},
 	"recipe list": {},
@@ -335,7 +297,7 @@ func importSourceNames() []string {
 	return n
 }
 
-// Next: lines for your list, jobs, safety and setup (core, server and
+// Next: lines for your list, safety and setup (core, server and
 // release areas): what a person usually runs after each command.
 func init() {
 	addFormHints(map[string]formHint{
@@ -343,10 +305,6 @@ func init() {
 		"import":       {next: []string{"list", "test all"}},
 		"group add":    {next: []string{"list @{}", "test @{}"}},
 		"group rm":     {next: []string{"group add {} TARGET..."}}, // to put them back
-		"job status":   {next: []string{"job logs {} --limit 50", "job wait {}", "job kill {}"}},
-		"job wait":     {next: []string{"job logs {} --limit 50", "job rm {}"}},
-		"job kill":     {next: []string{"job status {}", "job rm {}"}},
-		"job list":     {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
 		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm RULE"}},
 		"policy check": {next: []string{"policy list"}},
 		"audit":        {next: []string{"audit verify", "audit --failed"}},

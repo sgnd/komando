@@ -135,7 +135,7 @@ func DefaultHint(exit int) string {
 	case ExitPolicy:
 		return "stop and tell the user what you want to do and why; `komando guide` explains the safety stops"
 	case ExitTimeout:
-		return "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"
+		return "give it more time with --timeout (for example --timeout 30m), or run long work in a session: `komando exec TARGET -- COMMAND` returns after --wait and goes on there"
 	case ExitConflict:
 		return "the state is not what the command expected: look at it again, then run it again"
 	}

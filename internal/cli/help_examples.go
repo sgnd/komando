@@ -81,10 +81,6 @@ var examples = map[string]string{
 		"  komando host edit web1 --protected --dry-run\n" +
 		"  komando host edit web1 --protected\n" +
 		"  komando host rm web1                              # from komando only",
-	"komando job": "  komando job start @web -- ./deploy.sh\n" +
-		"  komando job list\n" +
-		"  komando job wait j1103-101500-ab12cd34 --timeout 30m\n" +
-		"  komando job logs j1103-101500-ab12cd34 --limit 50",
 	"komando key": "  komando key gen deploy\n" +
 		"  komando key deploy deploy @web --dry-run\n" +
 		"  komando key deploy deploy @web\n" +
@@ -145,12 +141,6 @@ var examples = map[string]string{
 	"komando host show": "  komando host show web1",
 	"komando host test": "  komando host test web1\n  komando host test @prod --wait 2m",
 
-	"komando job kill":   "  komando job kill j1103-101500-ab12cd34\n  komando job kill j1103-101500-ab12cd34 --signal KILL",
-	"komando job list":   "  komando job list\n  komando job list --refresh --target web1",
-	"komando job logs":   "  komando job logs j1103-101500-ab12cd34 --limit 100\n  komando job logs j1103-101500-ab12cd34 --offset 4096   # only what is new since then",
-	"komando job rm":     "  komando job rm j1103-101500-ab12cd34",
-	"komando job status": "  komando job status j1103-101500-ab12cd34",
-
 	"komando key list": "  komando key list",
 	"komando key rm":   "  komando key rm old-deploy",
 
@@ -206,9 +196,6 @@ var details = map[string]string{
 	"komando fs replace":        "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
 	"komando guide":             "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
 	"komando host rm":           "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
-	"komando job kill":          "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
-	"komando job logs":          "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
-	"komando job rm":            "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",
 	"komando list":              "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
 	"komando logs":              "Read logs from journald (--unit), a file (--file) or a container (--container).",
 	"komando net ports":         "Listening sockets as structured rows: proto, address, port, process, pid (read with ss or netstat).",

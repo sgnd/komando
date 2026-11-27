@@ -187,7 +187,7 @@ func useArgs(c *cobra.Command) []string {
 // itemCommands; "" finds the kind in the inventory (a server, conn or VPN).
 var showKinds = map[string]string{
 	"host show": "", "conn show": "", "vpn show": "",
-	"group list": "group", "key show": "key", "job status": "job", "secret show": "secret", "config get": "setting",
+	"group list": "group", "key show": "key", "secret show": "secret", "config get": "setting",
 	"tunnel show": "tunnel", "recipe show": "recipe",
 }
 
@@ -197,7 +197,7 @@ var showKinds = map[string]string{
 var itemCommands = map[string][]string{
 	"server": {"facts {}", "logs {} --since 30m", "exec {} -- uptime", "shell {}", "svc list {} --failed",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "upload {} ./FILE /tmp/FILE",
-		"download {} /var/log/syslog --to ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
+		"download {} /var/log/syslog --to ./", "tunnel start {} -L 8080:localhost:80",
 		"key deploy KEY {}", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	"server:windows": {"facts {}", "svc list {} --state running", "svc status {} NAME", "svc restart {} NAME --wait 10s",
 		"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
@@ -235,7 +235,6 @@ var itemCommands = map[string][]string{
 	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "facts @{}", "pkg upgradable @{}", "recipe run health @{}",
 		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},
-	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
 	"secret":  {"secret check {}", "secret set {}", "secret rename {} NEW", "secret cp {} NEW", "secret rm {}"},
 	"setting": {"config set {} VALUE"},
 	"tunnel":  {"tunnel stop {}", "tunnel list"},

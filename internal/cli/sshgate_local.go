@@ -44,7 +44,7 @@ import (
 var gateTargetArgs = map[safetyKey]func(cl *call, args []string) []string{
 	{"snippet", "", "exec"}: argAt(1), {"credential", "key", "install"}: argAt(1), {"credential", "key", "uninstall"}: argAt(1),
 	{"", "cp", "copy"}: gateRemoteSides, {"", "sync", "copy"}: gateRemoteSides, {"registry", "image", "copy"}: gateRemoteSides,
-	{"host", "job", "kill"}: argAt(-1), {"host", "job", "rm"}: argAt(-1), {"vpn", "", "start"}: argAt(-1), {"vpn", "", "stop"}: argAt(-1),
+	{"vpn", "", "start"}: argAt(-1), {"vpn", "", "stop"}: argAt(-1),
 }
 
 // argAt reads argument i as the target (none when i < 0).

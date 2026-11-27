@@ -17,10 +17,10 @@ import (
 )
 
 // komando status lists what komando left running: VPN sessions and tunnels
-// on this computer, and the jobs it started on servers. It contacts nothing
-// (docs/features/commands.md): sessions and tunnels are checked here,
-// and jobs are only listed, because whether one still runs is known on its
-// server (`job list --refresh` asks).
+// on this computer, and the exec sessions it started on servers. It contacts
+// nothing (docs/features/commands.md): VPN sessions and tunnels are checked
+// here, and exec sessions are only listed, because whether one still runs is
+// known on its server (`exec TARGET --attach ID` reads it).
 
 type runningVpn struct {
 	Name     string    `json:"name"`
@@ -42,22 +42,23 @@ type runningData struct {
 	Vpns   []runningVpn   `json:"vpns"`
 	Logins []runningLogin `json:"logins"`
 	// AWS IAM Identity Center logins saved in ~/.aws/sso/cache
-	AWSLogins []cloud.AWSLogin `json:"aws_logins"`
-	Tunnels   []tunnelRow      `json:"tunnels"`
-	Jobs      []*store.Job     `json:"jobs"`
+	AWSLogins    []cloud.AWSLogin     `json:"aws_logins"`
+	Tunnels      []tunnelRow          `json:"tunnels"`
+	ExecSessions []*store.ExecSession `json:"exec_sessions"`
 }
 
 func statusCmd() *cobra.Command {
 	var short bool
 	c := &cobra.Command{
 		Use:   "status",
-		Short: "What komando left running: VPNs, logins, tunnels, jobs",
+		Short: "What komando left running: VPNs, logins, tunnels, exec sessions",
 		Long: `Lists what still runs after the command that started it ended: VPN
 sessions (from vpn up, or started by a command), server logins kept by
 ` + "`komando login SERVER`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
-~/.aws/config and when they end, tunnels, and the jobs started on servers. Nothing is contacted, so it is quick and works offline.
-A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on
-its server: ` + "`komando job list --refresh`" + ` asks.
+~/.aws/config and when they end, tunnels, and the exec sessions started on servers. Nothing is contacted, so it is quick and works offline.
+An exec session is listed until ` + "`komando exec SERVER --attach ID --remove`" + `
+(or a read to its end by the one who started it) removes it; whether it still
+runs is known on its server: ` + "`komando exec SERVER --attach ID`" + ` reads it.
 
 --short prints one line for your shell prompt: "vpn:1 tun:2" when one VPN
 is up and two tunnels run, nothing when nothing runs. It reads only the
@@ -110,7 +111,7 @@ starship, in ~/.config/starship.toml:
 var sessionAlive = netx.SessionAlive
 
 func runningStatus(cl *call, st *store.State) runningData {
-	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, AWSLogins: append([]cloud.AWSLogin{}, awsLogins(cl)...), Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
+	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, AWSLogins: append([]cloud.AWSLogin{}, awsLogins(cl)...), Tunnels: []tunnelRow{}, ExecSessions: []*store.ExecSession{}}
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 	for _, v := range st.SortedVpns() {
 		s := st.Sessions[v.Name]
@@ -135,16 +136,16 @@ func runningStatus(cl *call, st *store.State) runningData {
 		}
 	}
 	sort.Slice(d.Tunnels, func(i, j int) bool { return d.Tunnels[i].StartedAt.Before(d.Tunnels[j].StartedAt) })
-	for _, j := range st.Jobs {
-		d.Jobs = append(d.Jobs, j)
+	for _, e := range st.ExecSessions {
+		d.ExecSessions = append(d.ExecSessions, e)
 	}
-	sort.Slice(d.Jobs, func(a, b int) bool { return d.Jobs[a].StartedAt.After(d.Jobs[b].StartedAt) })
+	sort.Slice(d.ExecSessions, func(a, b int) bool { return d.ExecSessions[a].StartedAt.After(d.ExecSessions[b].StartedAt) })
 	return d
 }
 
 func (d runningData) Text() string {
-	if len(d.Vpns)+len(d.Logins)+len(d.AWSLogins)+len(d.Tunnels)+len(d.Jobs) == 0 {
-		return "nothing running: no VPN sessions, server or AWS logins, tunnels or jobs\n"
+	if len(d.Vpns)+len(d.Logins)+len(d.AWSLogins)+len(d.Tunnels)+len(d.ExecSessions) == 0 {
+		return "nothing running: no VPN sessions, server or AWS logins, tunnels or exec sessions\n"
 	}
 	now := time.Now()
 	rows := [][]string{}
@@ -173,14 +174,14 @@ func (d runningData) Text() string {
 		listen, to := tunnelEnds(t)
 		rows = append(rows, []string{"tunnel", t.ID, term.CleanText(listen + " → " + to), humanAge(now.Sub(t.StartedAt))})
 	}
-	for _, j := range d.Jobs {
-		command := term.CleanText(j.Command)
+	for _, e := range d.ExecSessions {
+		command := term.CleanText(e.Command)
 		command = term.TruncateWidth(command, 50)
-		rows = append(rows, []string{"job", j.ID, term.CleanText(j.Host) + ": " + command, humanAge(now.Sub(j.StartedAt))})
+		rows = append(rows, []string{"exec", e.ID, term.CleanText(e.Host) + ": " + command, humanAge(now.Sub(e.StartedAt))})
 	}
 	s := textTable([]string{"kind", "name", "detail", "since"}, rows)
-	if len(d.Jobs) > 0 {
-		s += "jobs run on their servers: `komando job list --refresh` shows which still run\n"
+	if len(d.ExecSessions) > 0 {
+		s += "exec sessions run on their servers: `komando exec SERVER --attach ID` shows how one ended or reads on\n"
 	}
 	return s
 }
