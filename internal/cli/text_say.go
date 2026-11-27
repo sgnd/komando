@@ -219,7 +219,7 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 // at a terminal can type the add command alone, which asks step by step.
 func addHint(cl *call, family, wanted string) string {
 	if cl.interactive() {
-		cmd := "host add"
+		cmd := "host ssh add"
 		switch {
 		case familyWord[family] != [2]string{}:
 			cmd = family + " add"

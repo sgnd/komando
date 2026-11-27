@@ -165,6 +165,8 @@ func TestPromptNext(t *testing.T) {
 // A person told there is nothing yet is given the add command to type,
 // never a menu that is gone.
 func TestAddHintForAPerson(t *testing.T) {
+	noAgent(t)
+	setCallerEnv(t, "CI", "") // in CI a terminal is no person: the hint would come from the other branch
 	saved := tcl.terminal
 	tcl.terminal = true
 	defer func() { tcl.terminal = saved }()
