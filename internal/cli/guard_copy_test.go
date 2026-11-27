@@ -178,8 +178,9 @@ func TestGuardFolderRuleSplitsValuesAsTheShellDoes(t *testing.T) {
 		"S='x -S'; mkdir -p /tmp/k; mv \"$S\" ~/.ssh /tmp/k",
 		`IFS=,; o="$HOME/.ssh,/tmp/k"; mv $o`,
 		`IFS=,; o="-rf,$HOME"; rm $o`,
-		`mkdir -p "$HOME/x y"; d="$HOME/x y/.."; rm -rf "$d"`,
 	}, treeRefusal)
+	// from a project folder, where no field of it names a protected folder
+	checkRefusedBy(t, home, repo, []string{`mkdir -p "$HOME/x y"; d="$HOME/x y/.."; rm -rf "$d"`}, treeRefusal)
 	checkLines(t, home, repo, []string{
 		`S='a b'; mv "$S" /tmp/out`,
 		`IFS=,; o="build,/tmp/out"; mv $o`,
@@ -187,20 +188,36 @@ func TestGuardFolderRuleSplitsValuesAsTheShellDoes(t *testing.T) {
 }
 
 // The folder rule checks each word once, however many argument lists and
-// program values a line gives: a crafted line ends well inside the guard's
-// time budget.
+// program values a line gives: a line of 64 lists and 8 program values
+// takes about as long as one of a single list, and well under a second.
+// The words name no path, so the other checks pass over them.
 func TestGuardFolderRuleChecksEachWordOnce(t *testing.T) {
 	home, repo := guardLineHome(t)
-	names := make([]string, 64)
-	for i := range names {
-		names[i] = fmt.Sprint(i + 1)
+	var words string
+	for i := range 32 {
+		words += fmt.Sprintf(" f%d", i)
 	}
-	list := "{" + strings.Join(names, ",") + "}"
-	line := "A=a; true || A=b; P=rm; true || P=trash; $P -rf $A $A $A $A $A $A /tmp/x/" + list + " /tmp/y/" + list
-	start := time.Now()
-	checkLines(t, home, repo, []string{line}, false)
-	if el := time.Since(start); el > time.Second {
-		t.Errorf("the check took %v, want under 1s", el)
+	took := func(line string) time.Duration {
+		best := time.Hour
+		for range 3 {
+			start := time.Now()
+			checkLines(t, home, repo, []string{line}, false)
+			if best = min(best, time.Since(start)); best > time.Second {
+				break
+			}
+		}
+		return best
+	}
+	// P=rm and A=a surely run; the values after || may be added
+	values := "P=rm; A=a; true || A=b; "
+	for _, p := range []string{"trash", "mv", "chmod", "chown", "chgrp", "/bin/rm", "/bin/chmod"} {
+		values += "true || P=" + p + "; "
+	}
+	one := took(values + "$P -Rf a b a b a b" + words)
+	many := took(values + "$P -Rf $A $A $A $A $A $A" + words)
+	t.Logf("64 lists %v, one list %v", many, one)
+	if many > time.Second || many > 8*one {
+		t.Errorf("64 lists took %v, one list %v: want under 1s and under 8 times as long", many, one)
 	}
 }
 
@@ -237,6 +254,12 @@ func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
 		`rm -rf ` + repo,
 		`rm -rf .`,
 	}, treeRefusal)
+	// from a folder of the project that holds no agent folder itself
+	sub := filepath.Join(repo, "internal")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	checkRefusedBy(t, home, sub, []string{`rm -rf ` + repo, `rm -rf ..`}, treeRefusal)
 	checkLines(t, home, wt, []string{`rm -rf ` + other}, false)
 }
 
