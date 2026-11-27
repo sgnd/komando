@@ -742,6 +742,13 @@ func TestMoveGivesEveryProviderTheOldEntries(t *testing.T) {
 		for _, l := range leaves {
 			id := strings.Join(l.Key.Path(), ".")
 			for _, tb := range idTables() {
+				if _, needs := gateNetwork[id]; needs && tb.name == "gateNoNetwork" {
+					// C6: a leaf that needs a network (host ssh exec) is in no gateNoNetwork
+					if got, ok := tb.get(id); ok {
+						t.Errorf("%s: %s needs a network and has %s", tb.name, id, entryText(got, ok))
+					}
+					continue
+				}
 				if got, ok := tb.get(id); !ok || !sameEntry(got, want[tb.name]) {
 					t.Errorf("%s: %s has %s, probetype.run had %s", tb.name, id, entryText(got, ok), entryText(want[tb.name], true))
 				}
@@ -820,7 +827,20 @@ func moveJoinsTwoOldEntries(t *testing.T) {
 		if len(have) < 2 {
 			continue // every entry of the table is the same: nothing can disagree
 		}
-		if _, _, stop := join(tb, have[0], have[1]); stop == nil {
+		got, ok, stop := join(tb, have[0], have[1])
+		switch {
+		case isString(have[0]) && isString(have[1]):
+			// C6 (joinEntry): two reasons say the same thing; the leaf's own stays
+			if stop != nil || !ok || !sameEntry(got, have[0]) {
+				t.Errorf("%s: two reasons gave %s (stop %v), want the Today one %s", tb.name, entryText(got, ok), stop, entryText(have[0], true))
+			}
+		case isStrings(have[0]) && isStrings(have[1]):
+			// C6 (joinEntry): two lists of flags join
+			want := slices.Compact(slices.Sorted(slices.Values(slices.Concat(have[0].([]string), have[1].([]string)))))
+			if stop != nil || !ok || !sameEntry(got, want) {
+				t.Errorf("%s: two lists gave %s (stop %v), want %v", tb.name, entryText(got, ok), stop, want)
+			}
+		case stop == nil:
 			t.Errorf("%s: two different entries did not stop the move", tb.name)
 		}
 	}
