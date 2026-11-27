@@ -265,7 +265,6 @@ var itemCommands = map[string][]string{
 	"secret": {"secret check {}", "credential password add {}", "credential password rename {} NEW", "secret cp {} NEW",
 		"credential password remove {}"},
 	"setting": {"config set {} VALUE"},
-	"tunnel":  {"host ssh tunnel stop {}", "host ssh tunnel list"},
 	"recipe":  {"snippet exec {} TARGET", "snippet create {} COMMAND --overwrite --dry-run", "snippet remove {}"},
 }
 
