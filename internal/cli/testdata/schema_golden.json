@@ -13154,7 +13154,7 @@
         "code": "TUNNEL_NOT_FOUND",
         "exit": 3,
         "example": "no tunnel named …",
-        "hint": "see them with `komando tunnel list`"
+        "hint": "see them with `komando host ssh tunnel list`"
       },
       {
         "code": "TUNNEL_TIMEOUT",
