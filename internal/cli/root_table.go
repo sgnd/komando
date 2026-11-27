@@ -479,10 +479,14 @@ func typeWord(family string) string {
 
 // entryIsOf is nil when the saved conn called name is a provider entry of
 // this type. Another provider's entry, or another type's, is WRONG_KIND
-// with the path that fits it.
+// with the path that fits it. A selector (@group, label:k=v) is checked on
+// every conn it picks, as targetsAreOf does.
 func entryIsOf(cl *call, st *store.State, name, typ, provider, verb string) error {
 	c, err := findConn(cl, st, name)
 	if err != nil {
+		if isSelector(name) {
+			return targetsAreOf(cl, st, []string{name}, typ, provider, verb)
+		}
 		return nil // the body says what is wrong with the name, after the flags it checks first
 	}
 	return connIsOf(c, typ, provider, verb)

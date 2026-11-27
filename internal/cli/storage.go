@@ -322,7 +322,7 @@ func storageLsCmd() *cobra.Command {
 					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
 						// a bucket has no folders, only keys: nothing under the
 						// prefix is what a missing folder is on a file server,
-						// unless it is an empty folder (storage mkdir's marker)
+						// unless it is an empty folder (object create's marker)
 						if o, found, err := s.Lookup(ctx, prefix); err != nil || !found || !o.Dir {
 							return nil, storex.FolderNotFound(prefix)
 						}

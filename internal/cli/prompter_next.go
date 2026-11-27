@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -57,6 +58,16 @@ func promptNext(cl *call) {
 	}
 }
 
+// noLinkLeaf says whether the Next: line n suggests `storage PROVIDER object
+// link` for a provider that has no such command.
+func noLinkLeaf(n, provider string) bool {
+	if !strings.Contains(n, "{P} object link") || provider == "PROVIDER" {
+		return false
+	}
+	_, ok := capability.Find(capability.Key{Type: "storage", Provider: provider, Area: "object", Verb: "link"})
+	return !ok
+}
+
 // nextLines are the Next: lines of the command key, filled in: its
 // formHint's list, or else the one its verb gives (verbNext). A line with
 // {} needs first; one with NEW needs rename's second argument.
@@ -74,8 +85,12 @@ func nextLines(key, first string, args []string) []string {
 		if strings.Contains(n, "{}") && first == "" || strings.Contains(n, " NEW") && newName == "" {
 			continue
 		}
+		prov := providerOfEntry(first)
+		if noLinkLeaf(n, prov) {
+			continue
+		}
 		n = strings.ReplaceAll(n, "{}", first)
-		n = strings.ReplaceAll(n, "{P}", providerOfEntry(first))
+		n = strings.ReplaceAll(n, "{P}", prov)
 		if newName != "" {
 			n = strings.ReplaceAll(n, " NEW", " "+newName)
 		}

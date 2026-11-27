@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/inventory"
@@ -712,6 +713,10 @@ func init() {
 		hints["storage "+p+" object"] = formHint{}
 		for old, nw := range oldToNew {
 			if h, ok := hints["storage "+old]; ok && (old != "link" || p == "s3" || p == "gcs" || p == "azblob") {
+				if p == "sftp" && old == "mv" { // only an SFTP server has modes: move --mode is chmod
+					h.flags = append(slices.Clone(h.flags), formFlag{name: "mode", ask: "Change its permissions instead? (as a number)",
+						help: "Like 0644 or 0750. Then the file is not moved.", example: "0640"})
+				}
 				hints["storage "+p+" "+nw] = h
 			}
 		}

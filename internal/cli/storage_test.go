@@ -395,3 +395,29 @@ func TestStorageReadHidesPersonalDataForEveryProvider(t *testing.T) {
 		t.Errorf("the providers hide differently: %v", hidden)
 	}
 }
+
+// A selector names conns, not one conn: `storage s3 object delete @grp` is
+// refused when the group holds an entry of another provider, as a plain name
+// is, so the run never reaches it under the wrong provider's ID.
+func TestStorageObjectRefusesAnotherProvidersSelector(t *testing.T) {
+	invHome(t)
+	mustRun(t, "storage", "sftp", "add", "files1", "sftp://deploy@10.0.0.5/uploads", "--label", "k=v")
+	mustRun(t, "group", "add", "grp", "files1")
+	for _, sel := range []string{"files1", "@grp", "label:k=v"} {
+		wantCode(t, "WRONG_KIND", "storage", "s3", "object", "delete", sel, "a.txt", "--dry-run")
+	}
+}
+
+// A Next: line suggests object link only where the provider has the leaf
+// (s3, gcs, azblob); sftp, ftp, smb and webdav have none.
+func TestNextLinkLineOnlyWhereTheLeafExists(t *testing.T) {
+	const line = "storage {P} object link {} OBJECT --expires 24h"
+	for p, want := range map[string]bool{"s3": false, "gcs": false, "azblob": false, "sftp": true, "ftp": true, "smb": true, "webdav": true, "PROVIDER": false} {
+		if got := noLinkLeaf(line, p); got != want {
+			t.Errorf("noLinkLeaf(link line, %s) = %v, want %v", p, got, want)
+		}
+	}
+	if noLinkLeaf("storage {P} object list {}", "sftp") {
+		t.Error("only the link line is dropped")
+	}
+}

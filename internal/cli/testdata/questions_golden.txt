@@ -1809,7 +1809,7 @@ title: Move or rename an object in a sftp storage
 - arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
 - arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
 - flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+- flag:mode | --mode | Change its permissions instead? (as a number) | Like 0644 or 0750. Then the file is not moved. | 0640 | optional,check
 ### komando storage sftp object read
 title: Show the text of an object in a sftp storage
 - arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
