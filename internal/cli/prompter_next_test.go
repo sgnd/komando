@@ -258,15 +258,15 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"host add":    "komando test web1",
-		"conn add":    "komando test web1",
-		"host rename": "komando host show web2",
-		"key rename":  "komando credential key show web2",
-		"rename":      "komando list web2",
-		"user add":    "komando user list web1",
-		"cron rm":     "komando cron list web1",
-		"host rm":     "komando host list",
-		"vpn edit":    "komando vpn show web1",
+		"host add":              "komando test web1",
+		"conn add":              "komando test web1",
+		"host rename":           "komando host show web2",
+		"credential key rename": "komando credential key show web2",
+		"rename":                "komando list web2",
+		"user add":              "komando user list web1",
+		"cron rm":               "komando cron list web1",
+		"host rm":               "komando host list",
+		"vpn edit":              "komando vpn show web1",
 	} {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
 			t.Errorf("%s: Next: %q, want %q first", key, got, want)

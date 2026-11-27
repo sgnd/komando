@@ -1,6 +1,12 @@
 package cli
 
-import "github.com/sgnd/komando/internal/capability"
+import (
+	"maps"
+	"slices"
+	"strings"
+
+	"github.com/sgnd/komando/internal/capability"
+)
 
 // The safety tables key a command by where it sits in the v2.7 grammar
 // (TYPE PROVIDER AREA VERB, spec section 7.1), not by its path: a
@@ -43,4 +49,40 @@ func keyID(key safetyKey) string {
 		}
 	}
 	return found
+}
+
+// replacedIDs are today's commands that exec, query or raw replace: they
+// stay in the tree until cut step D, so a leaf that carries one leaves
+// their entries alone.
+func replacedIDs() map[string]bool {
+	m := map[string]bool{}
+	for _, r := range capability.Replacements() {
+		m[r.Today] = true
+	}
+	return m
+}
+
+// keyGroups gives a moved type's own top-level group its key, drops the
+// entries of a group of today whose every command has gone (key), and lets
+// a group of today that is left until cut step D (secret, host ca) share
+// its key with the moved group of the same key.
+func keyGroups(typ string, gone []string, tables []idTable) {
+	if _, ok := cmdKeys[typ]; !ok {
+		cmdKeys[typ] = safetyKey{typ: typ}
+	}
+	for _, g := range capability.Groups() {
+		k, ok := cmdKeys[g]
+		if !ok || k.typ != typ {
+			continue
+		}
+		under := func(id string) bool { return strings.HasPrefix(id, g+".") }
+		if slices.ContainsFunc(gone, under) && !slices.ContainsFunc(slices.Collect(maps.Keys(cmdKeys)), under) {
+			delete(cmdKeys, g)
+			for _, tb := range tables {
+				tb.drop(g)
+			}
+			continue
+		}
+		providerIDs[g] = true
+	}
 }

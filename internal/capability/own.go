@@ -15,12 +15,12 @@ var credentialLeaves = concat(
 	[]Leaf{
 		{Key: own("credential", "", "list"), LocalRead: true, Synonyms: []string{"ls"}, Today: []string{"secret.list"},
 			Options: []Option{limitOpt},
-			Short:   "List the saved passwords and tokens, when they changed and what uses them",
+			Short:   "List the saved passwords and tokens and what uses them",
 			Example: "  komando credential list\n  komando credential list -o json"},
-		{Key: own("credential", "", "run"), Args: []Arg{{Name: "PROGRAM", Many: true, Dash: true}},
+		{Key: own("credential", "", "run"), Args: []Arg{{Name: "COMMAND", Many: true, Dash: true}},
 			Options: []Option{{Name: "env", Short: "e", Kind: String, Repeat: true, Help: "put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)"}},
 			Stops:   []string{"refuseEncodedSecret", "RefGuard"}, Today: []string{"secret.run"},
-			Short: "Run a program on this computer with saved credentials in its environment",
+			Short: "Run a command here with saved credentials in its environment",
 			Example: "  komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh\n" +
 				"  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n" +
 				"  komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan"},

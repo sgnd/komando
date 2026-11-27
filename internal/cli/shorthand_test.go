@@ -99,7 +99,7 @@ func TestStandardShorthands(t *testing.T) {
 		}},
 		"A": {"all-namespaces": cluster},
 		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "exec", "job start") }},
-		"C": {"dir": nil, "comment": func(p string) bool { return in(p, "key gen") }},
+		"C": {"dir": nil, "comment": func(p string) bool { return in(p, "credential key create") }},
 		"e": {"env": nil},
 		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},
 		"g": {"group": editOrAdd},
@@ -110,7 +110,7 @@ func TestStandardShorthands(t *testing.T) {
 		"r": {"recursive": nil}, "s": {"sudo": nil},
 		"t": {"tag": editOrAdd},
 		"u": {"unit": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }}, // the logs family
-		"b": {"bits": func(p string) bool { return in(p, "key gen") }},
+		"b": {"bits": func(p string) bool { return in(p, "credential key create") }},
 		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start") }},
 		"L": {"local": func(p string) bool { return in(p, "tunnel start") }},
 		"R": {"remote": func(p string) bool { return in(p, "tunnel start") }},

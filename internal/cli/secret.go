@@ -199,7 +199,7 @@ func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Check or copy a saved password or token (the rest is under credential)",
+		Short:   "Check or copy a saved password or token",
 		Long:    secretLong,
 	}
 	// the other commands run as the credential and config vault leaves;

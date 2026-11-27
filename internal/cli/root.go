@@ -551,6 +551,11 @@ func newRoot(cl *call) *cobra.Command {
 	return root
 }
 
+// helpGroups is the heading of `komando --help` that a type's own
+// top-level group goes under, when today's tree has no command of that
+// name (mountTable sets it).
+var helpGroups = map[string]string{}
+
 // addCommands adds komando's commands to root under the groups of
 // `komando` alone (personHelp), so --help reads the same.
 func addCommands(cl *call, root *cobra.Command) {

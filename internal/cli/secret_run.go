@@ -26,7 +26,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-const credentialRunLong = `Starts PROGRAM on this computer with the --env values in its environment.
+const credentialRunLong = `Starts COMMAND on this computer with the --env values in its environment.
 A value secret:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own

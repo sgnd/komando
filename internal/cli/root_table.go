@@ -39,11 +39,6 @@ var handlers = map[capability.Key]handler{}
 // movedTypes are the types whose every built leaf has a handler.
 var movedTypes = []string{}
 
-// helpGroups is the heading of `komando --help` (root.go) that a type's
-// own top-level group goes under, when today's tree has no command of
-// that name.
-var helpGroups = map[string]string{}
-
 // groupShorts is the text of each group the builder makes (a provider or
 // an area under a type), by its words: "cache redis".
 var groupShorts = map[string]string{}
@@ -746,6 +741,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		carried[id] = got
 	}
 	var gone []string
+	replaced := replacedIDs()
 	for k, l := range built {
 		words := l.Key.Path()
 		id := strings.Join(words, ".")
@@ -754,8 +750,8 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		providerIDs[id] = true
 		for i := 1; i < len(words)-1; i++ { // the provider and area groups
 			gid, gkey := strings.Join(words[:i+1], "."), safetyKey{typ: l.Type}
-			if i >= 2 {
-				gkey.area = words[2]
+			if i >= 2 || l.Provider == "" { // komando's own noun has its area first
+				gkey.area = words[i]
 			}
 			cmdKeys[gid], providerIDs[gid] = gkey, true
 			if _, ok := gateNoNetwork[typ]; ok {
@@ -773,8 +769,8 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		if l.LeavesHome {
 			leavesHome[id] = true
 		}
-		for _, old := range l.Today {
-			if !stays[old] {
+		for _, old := range slices.Concat(l.Today, l.Carries) { // a command exec, query or raw replaces stays to step D
+			if !stays[old] && !replaced[old] {
 				gone = append(gone, old)
 			}
 		}
@@ -785,6 +781,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 			tb.drop(old)
 		}
 	}
+	keyGroups(typ, gone, tables)
 }
 
 // joinEntry is the entry id gets in tb when it carries old's entry v as

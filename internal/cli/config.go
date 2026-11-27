@@ -2,7 +2,6 @@ package cli
 
 import (
 	"cmp"
-	"context"
 	"slices"
 	"strconv"
 	"strings"

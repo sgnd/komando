@@ -70,7 +70,7 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
+		"host", "conn", "vpn", "group", "secret", "credential", "recipe", "policy", "job", "tunnel", "config",
 		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
@@ -131,7 +131,7 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
+		"secret": {"secrets"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
 		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
 		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
 		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
@@ -162,8 +162,8 @@ var (
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv", "svc daemon-reload",
 		"storage chmod", "storage mkdir", "storage mv",
 		"cluster scale", "cluster apply", "cluster rollback", "cluster forward", "cluster helm values",
-		"net dns", "net http", "net ports", "net check", "key gen", "key deploy", "host trust", "host ssh-command",
-		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
+		"net dns", "net http", "net ports", "net check", "credential key create", "credential key install", "host trust", "host ssh-command",
+		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
 
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.
@@ -657,8 +657,7 @@ func TestStandardJourneys(t *testing.T) {
 		"host":   {"add", "test", "show", "list", "edit", "rename", "rm"},
 		"conn":   {"add", "test", "show", "list", "edit", "rename", "rm"},
 		"vpn":    {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"key":    {"gen", "add", "show", "list", "edit", "rename", "rm"},
-		"secret": {"set", "add", "check", "show", "get", "list", "rename", "rm"},
+		"secret": {"check", "cp"},
 		"group":  {"add", "show", "list", "rename", "rm"},
 		"recipe": {"add", "show", "list", "rm"},
 		"policy": {"deny", "add", "check", "list", "rm"},
