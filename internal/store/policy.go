@@ -32,6 +32,9 @@ type storeKeys struct {
 // keysFor makes the keys of a store of format from master. A format-1
 // store sealed its rows with the derivation that is the runtime key now.
 func keysFor(master []byte, format string) (storeKeys, error) {
+	if format == "3" {
+		return keysFor3(master)
+	}
 	label := sealkey.Rows
 	if format == "1" {
 		label = sealkey.Runtime
@@ -54,7 +57,7 @@ func keysFor(master []byte, format string) (storeKeys, error) {
 	return storeKeys{row: row, policy: p}, err
 }
 
-// newestFormat is the format of a store this komando makes or upgrades to.
+// newestFormat is the format of a store this komando makes or migrates to.
 var newestFormat = strconv.Itoa(sealdb.Format)
 
 // upgrade gives a store an older komando made (format 1) its policy MAC,
@@ -62,7 +65,7 @@ var newestFormat = strconv.Itoa(sealdb.Format)
 // they are now, the format raised. From then on a missing MAC is
 // tampering. The caller holds the store lock.
 func upgrade(d *sealdb.DB, master []byte) error {
-	ks, err := keysFor(master, newestFormat)
+	ks, err := keysFor(master, "2") // the migration takes it on to format 3
 	if err != nil {
 		return err
 	}

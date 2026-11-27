@@ -218,7 +218,7 @@ func TestParseSnowflake(t *testing.T) {
 			Host: "xy12345.eu-central-1.snowflakecomputing.com", User: "app", Database: "DB"},
 		"snowflake://app@MyOrg-My_Acct.snowflakecomputing.com:443": {Account: "MyOrg-My_Acct", JWTAccount: "MYORG-MY_ACCT",
 			Host: "myorg-my-acct.snowflakecomputing.com", User: "app"},
-		"snowflake://app@acct/?ca=secret:proxy-ca": {Account: "acct", JWTAccount: "ACCT", Host: "acct.snowflakecomputing.com", User: "app"},
+		"snowflake://app@acct/?ca=credential:proxy-ca": {Account: "acct", JWTAccount: "ACCT", Host: "acct.snowflakecomputing.com", User: "app"},
 	} {
 		got, err := ParseSnowflakeURL(raw)
 		if err != nil || got != want {
@@ -229,7 +229,7 @@ func TestParseSnowflake(t *testing.T) {
 			t.Errorf("Parse %s: %+v, %v", raw, tg, err)
 		}
 	}
-	if tg, _ := Parse("snowflake://app@acct/?ca=secret:proxy-ca"); tg.CA != "secret:proxy-ca" {
+	if tg, _ := Parse("snowflake://app@acct/?ca=credential:proxy-ca"); tg.CA != "credential:proxy-ca" {
 		t.Errorf("ca: %+v", tg)
 	}
 	for raw, msg := range map[string]string{
@@ -239,7 +239,7 @@ func TestParseSnowflake(t *testing.T) {
 		"snowflake://app@acct/db/schema/x":           "/DATABASE/SCHEMA",
 		"snowflake://app@acct/db?tls=false":          "always HTTPS",
 		"snowflake://app@acct/db?authenticator=x":    "unknown snowflake URL option",
-		"snowflake://app@acct/db?ca=proxy":           "secret:NAME",
+		"snowflake://app@acct/db?ca=proxy":           "credential:NAME",
 		"snowflake://app@-acct/db":                   "not an account identifier",
 		"snowflake://app@acct..x/db":                 "not an account identifier",
 		"snowflake://app@acct/db?warehouse=a%0Ab":    "line break",

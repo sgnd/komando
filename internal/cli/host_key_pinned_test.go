@@ -14,7 +14,7 @@ func TestPinnedKeyIsAudited(t *testing.T) {
 	invHome(t)
 	sshx.HostKeyPinned(withCall(context.Background(), tcl), sshx.NewHostKey{Host: "web1", Address: "203.0.113.10:22", Type: "ssh-ed25519", Fingerprint: "SHA256:abc"})
 	b := []byte(auditText(t))
-	for _, want := range []string{`"command":"host.key-pinned"`, `"hosts":["web1"]`, `"fingerprint":"SHA256:abc"`, `"key_type":"ssh-ed25519"`, `"first_use":true`} {
+	for _, want := range []string{`"event":"host.key-pinned"`, `"hosts":["web1"]`, `"fingerprint":"SHA256:abc"`, `"key_type":"ssh-ed25519"`, `"first_use":true`} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("audit record %s has no %s", b, want)
 		}

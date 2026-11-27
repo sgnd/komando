@@ -63,8 +63,8 @@ VPN's own configuration gives.
 A VPN that logs in with a password, pre-shared key or auth key reads it
 from the vault: store it first with `komando secret set NAME` (it asks for
 it, hidden), then name it in `--credential` or `--psk-credential`. Or type it
-when you add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
-`--ask-psk` stores a pre-shared key as `secret:NAME-psk`.
+when you add the VPN: `--ask-password` stores it as `credential:NAME-pass`, and
+`--ask-psk` stores a pre-shared key as `credential:NAME-psk`.
 
 Pick the line for your kind of VPN:
 
@@ -98,9 +98,9 @@ komando vpn proxy add office --proxy-address proxy.corp.example:3128
   reuse the secrets of the VPN it replaces, when nothing else uses them,
   and a secret that nothing uses and that holds the same key already (the
   same file added again after `vpn KIND remove`) is reused too.
-- `--credential` works like everywhere else in komando:
-  `secret:NAME`, `env:VAR`, a password manager, and so on (see
-  [Servers](servers.md)). For Tailscale it is an auth key. The VPN sends
+- `--credential` and `--psk-credential` take the name of a secret saved
+  with `komando secret set NAME` (see [Secrets](secrets.md)); another store
+  (`env:VAR`, `op://...`) is refused. For Tailscale it is an auth key. The VPN sends
   it (and `--psk-credential`) to its server each time it connects, so when an AI
   agent adds a VPN with one, or points a VPN at another server or address,
   a person allows it: `--yes` and a click in komando's window, which names

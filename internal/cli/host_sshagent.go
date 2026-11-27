@@ -63,6 +63,7 @@ func agentKeys(cl *call, st *store.State, hops []*store.Host, dir string) (map[s
 	}
 	defer done()
 	opts := map[string][]string{}
+	byKey := map[string][]string{} // one key pair under several names (a copy per user) goes to the agent once
 	var added []string
 	for i, k := range keys {
 		pem, err := store.ReadPrivateKey(k)
@@ -77,6 +78,11 @@ func agentKeys(cl *call, st *store.State, hops []*store.Host, dir string) (map[s
 		if err != nil {
 			return nil, err
 		}
+		fp := ssh.FingerprintSHA256(signer.PublicKey())
+		if o, ok := byKey[fp]; ok {
+			opts[k.Name] = o
+			continue
+		}
 		if err := ag.Add(agent.AddedKey{PrivateKey: priv, Comment: "komando:" + k.Name, LifetimeSecs: agentLifetime}); err != nil {
 			return nil, out.Errf(out.ExitError, "SSH_AGENT_REFUSED", "check the ssh-agent, or use `komando shell SERVER`", "the ssh-agent did not take key %s: %v", k.Name, err)
 		}
@@ -86,7 +92,8 @@ func agentKeys(cl *call, st *store.State, hops []*store.Host, dir string) (map[s
 			return nil, err
 		}
 		opts[k.Name] = []string{"-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=" + sock, "-i", pub}
+		byKey[fp] = opts[k.Name]
 	}
-	audit(cl, st, "host ssh-command", nil, "", true, map[string]any{"agent_keys": added, "agent_lifetime_secs": agentLifetime})
+	audit(cl, st, "host.ssh-command", nil, "", true, map[string]any{"agent_keys": added, "agent_lifetime_secs": agentLifetime})
 	return opts, nil
 }

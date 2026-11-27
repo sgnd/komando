@@ -93,7 +93,7 @@ func StopExit(host, id string, exit int, stderr string) error {
 			"session %s on %s is not running: its process ended, or its PID belongs to another process now", id, host)
 	}
 	return out.Errf(out.ExitRemote, "SESSION_STOP_FAILED",
-		"a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME`",
+		"a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref credential:NAME`",
 		"%s: session %s was not stopped (exit %d): %s", host, id, exit, strings.TrimSpace(stderr))
 }
 

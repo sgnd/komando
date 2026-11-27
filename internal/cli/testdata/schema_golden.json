@@ -18,7 +18,7 @@
           {
             "name": "command",
             "type": "string",
-            "usage": "only commands that start with this (like exec, fs.)"
+            "usage": "only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key"
           },
           {
             "name": "failed",
@@ -2027,7 +2027,7 @@
         "aliases": [
           "conns"
         ],
-        "example": "  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref secret:prod-db-pass\n  komando test prod-db                              # does it answer and let komando in?\n  komando conn edit prod-db --via web1 --dry-run\n  komando conn rm prod-db                           # from komando only",
+        "example": "  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref credential:prod-db-pass\n  komando test prod-db                              # does it answer and let komando in?\n  komando conn edit prod-db --via web1 --dry-run\n  komando conn rm prod-db                           # from komando only",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -2041,13 +2041,13 @@
         "usage": "komando conn add NAME URL [flags]",
         "short": "Add a conn (the URL scheme sets its kind)",
         "long": "Add a conn (the URL scheme sets its kind).\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected\n  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected --dry-run\n  komando conn add shop mysql://shop@db.internal/shop --group shop\n  komando conn add local sqlite:///var/lib/app.db\n  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass\n  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret\n  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)\n  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --login ask      # type it at every connect; never stored",
+        "example": "  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref credential:prod-db-pass --protected\n  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref credential:prod-db-pass --protected --dry-run\n  komando conn add shop mysql://shop@db.internal/shop --group shop\n  komando conn add local sqlite:///var/lib/app.db\n  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref credential:redis-pass\n  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref credential:s3-secret\n  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)\n  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --login ask      # type it at every connect; never stored",
         "flags": [
           {
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
           },
           {
             "name": "group",
@@ -2087,7 +2087,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -2125,7 +2125,7 @@
               "azure"
             ],
             "url_example": "azblob://ACCOUNT@my-container/backups",
-            "url_note": "the account key or SAS token goes in --password-ref secret:NAME",
+            "url_note": "the account key or SAS token goes in --password-ref credential:NAME",
             "default_port": 443,
             "file": false,
             "required": [],
@@ -2179,7 +2179,7 @@
               "clickhouse"
             ],
             "url_example": "clickhouse://app@ch.internal:8443/analytics?tls=true",
-            "url_note": "HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=secret:NAME",
+            "url_note": "HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=credential:NAME",
             "default_port": 8123,
             "file": false,
             "required": [],
@@ -2261,7 +2261,7 @@
               "gcs"
             ],
             "url_example": "gs://my-bucket/backups",
-            "url_note": "logs in like gcloud, or with a service account key: --password-ref secret:NAME",
+            "url_note": "logs in like gcloud, or with a service account key: --password-ref credential:NAME",
             "default_port": 443,
             "file": false,
             "required": [],
@@ -2316,7 +2316,7 @@
               "kafka"
             ],
             "url_example": "kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512",
-            "url_note": "private CA: &ca=secret:NAME; --via an SSH server: kafka://broker1.internal:9092",
+            "url_note": "private CA: &ca=credential:NAME; --via an SSH server: kafka://broker1.internal:9092",
             "default_port": 9092,
             "file": false,
             "required": [],
@@ -2427,7 +2427,7 @@
               "tls"
             ],
             "url_example": "tls://app@nats1.example.com:4222,nats2.example.com:4222",
-            "url_note": "tls = TLS; a .creds file: ?creds=secret:NAME; --via an SSH server: nats://nats.internal:4222",
+            "url_note": "tls = TLS; a .creds file: ?creds=credential:NAME; --via an SSH server: nats://nats.internal:4222",
             "default_port": 4222,
             "file": false,
             "required": [],
@@ -2454,7 +2454,7 @@
               "oracle"
             ],
             "url_example": "oracle://app@db.internal:1521/ORCLPDB1?tls=true",
-            "url_note": "the path is the service name; TCPS with a private CA: &ca=secret:NAME",
+            "url_note": "the path is the service name; TCPS with a private CA: &ca=credential:NAME",
             "default_port": 1521,
             "file": false,
             "required": [],
@@ -2508,7 +2508,7 @@
               "pubsub"
             ],
             "url_example": "pubsub://my-project",
-            "url_note": "Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref secret:NAME; the emulator: ?endpoint=http://localhost:8085",
+            "url_note": "Google Cloud Pub/Sub; the login is gcloud's application default one, or a service account key: --password-ref credential:NAME; the emulator: ?endpoint=http://localhost:8085",
             "default_port": 443,
             "file": false,
             "required": [],
@@ -2592,7 +2592,7 @@
               "oci"
             ],
             "url_example": "registry://myuser@ghcr.io",
-            "url_note": "Docker Hub: registry://myuser@docker.io; private CA: ?ca=secret:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP",
+            "url_note": "Docker Hub: registry://myuser@docker.io; private CA: ?ca=credential:NAME; self-signed: ?tls=skip-verify; no TLS: ?tls=false; wrong or missing DNS: ?resolve=IP",
             "default_port": 443,
             "file": false,
             "required": [],
@@ -2753,7 +2753,7 @@
               "mssql"
             ],
             "url_example": "sqlserver://app@db.internal:1433/sales?encrypt=true",
-            "url_note": "self-signed: &tls=skip-verify; private CA: &ca=secret:NAME",
+            "url_note": "self-signed: &tls=skip-verify; private CA: &ca=credential:NAME",
             "default_port": 1433,
             "file": false,
             "required": [],
@@ -2780,7 +2780,7 @@
               "sqs"
             ],
             "url_example": "sqs://eu-west-1",
-            "url_note": "Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref secret:NAME; an emulator: ?endpoint=http://localhost:4566",
+            "url_note": "Amazon SQS; the login is your AWS one: --option aws_profile=NAME, or keys: sqs://ACCESS_KEY_ID@eu-west-1 --password-ref credential:NAME; an emulator: ?endpoint=http://localhost:4566",
             "default_port": 443,
             "file": false,
             "required": [],
@@ -2852,7 +2852,7 @@
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
           },
           {
             "name": "label",
@@ -2879,7 +2879,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -3129,7 +3129,7 @@
           "database",
           "databases"
         ],
-        "example": "  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw\n  komando db query prod-db \"select id, email from users order by id desc limit 10\"\n  komando db schema prod-db users\n  komando db dump prod-db --to prod.sql.gz\n  komando db restore staging-db --from prod.sql.gz --dry-run",
+        "example": "  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref credential:shop-pw\n  komando db query prod-db \"select id, email from users order by id desc limit 10\"\n  komando db schema prod-db users\n  komando db dump prod-db --to prod.sql.gz\n  komando db restore staging-db --from prod.sql.gz --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -3179,7 +3179,7 @@
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
           },
           {
             "name": "group",
@@ -3219,7 +3219,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "protected",
@@ -3283,7 +3283,7 @@
               "clickhouse"
             ],
             "url_example": "clickhouse://app@ch.internal:8443/analytics?tls=true",
-            "url_note": "HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=secret:NAME",
+            "url_note": "HTTP interface: 8443 with TLS, 8123 without; private CA: &ca=credential:NAME",
             "default_port": 8123,
             "file": false,
             "required": [],
@@ -3365,7 +3365,7 @@
               "oracle"
             ],
             "url_example": "oracle://app@db.internal:1521/ORCLPDB1?tls=true",
-            "url_note": "the path is the service name; TCPS with a private CA: &ca=secret:NAME",
+            "url_note": "the path is the service name; TCPS with a private CA: &ca=credential:NAME",
             "default_port": 1521,
             "file": false,
             "required": [],
@@ -3472,7 +3472,7 @@
               "mssql"
             ],
             "url_example": "sqlserver://app@db.internal:1433/sales?encrypt=true",
-            "url_note": "self-signed: &tls=skip-verify; private CA: &ca=secret:NAME",
+            "url_note": "self-signed: &tls=skip-verify; private CA: &ca=credential:NAME",
             "default_port": 1433,
             "file": false,
             "required": [],
@@ -3863,8 +3863,8 @@
         "path": "komando db user",
         "usage": "komando db user [flags]",
         "short": "Database users: see, add, change passwords, remove",
-        "long": "Passwords come from a secret reference (--password-ref secret:NAME,\nvault:..., aws-sm:...), so they are never typed on a command line or shown.\nPostgreSQL gets a SCRAM-SHA-256 verifier komando computes, so the password\nitself never reaches the server or its logs. Adding a user or changing a\npassword is a change (a production database asks first); removing one needs\n--allow-dangerous.",
-        "example": "  komando db user list prod-db\n  komando db user show prod-db app\n  komando db user add prod-db app --password-ref secret:app-pass --dry-run\n  komando db user add prod-db app --password-ref secret:app-pass --allow-dangerous",
+        "long": "Passwords come from a secret reference (--password-ref credential:NAME,\nvault:..., aws-sm:...), so they are never typed on a command line or shown.\nPostgreSQL gets a SCRAM-SHA-256 verifier komando computes, so the password\nitself never reaches the server or its logs. Adding a user or changing a\npassword is a change (a production database asks first); removing one needs\n--allow-dangerous.",
+        "example": "  komando db user list prod-db\n  komando db user show prod-db app\n  komando db user add prod-db app --password-ref credential:app-pass --dry-run\n  komando db user add prod-db app --password-ref credential:app-pass --allow-dangerous",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -3881,7 +3881,7 @@
         "aliases": [
           "create"
         ],
-        "example": "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run   # shows the statement\n  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --allow-dangerous   # after a person's yes",
+        "example": "  komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run   # shows the statement\n  komando db user add prod-db app_ro --password-ref credential:app-ro-pass --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "from-host",
@@ -3897,7 +3897,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ..."
+            "usage": "the password: credential:NAME | vault:PATH#FIELD | aws-sm:NAME | ..."
           }
         ],
         "runnable": true,
@@ -3938,7 +3938,7 @@
         "usage": "komando db user passwd CONN USER --password-ref REF [flags]",
         "short": "Set a user's password from a secret reference (rotation)",
         "long": "Set a user's password from a secret reference (rotation).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run\n  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --allow-dangerous   # after a person's yes",
+        "example": "  komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run\n  komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --allow-dangerous   # after a person's yes",
         "flags": [
           {
             "name": "from-host",
@@ -3948,7 +3948,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ..."
+            "usage": "the password: credential:NAME | vault:PATH#FIELD | aws-sm:NAME | ..."
           }
         ],
         "runnable": true,
@@ -5368,7 +5368,7 @@
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
           },
           {
             "name": "env",
@@ -5424,7 +5424,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "port",
@@ -5606,7 +5606,7 @@
         "usage": "komando host edit TARGET... [flags]",
         "short": "Change one or more servers (only the flags you pass change)",
         "long": "Changes only the settings you pass. Give one name, several names, or a\nselector (@group, tag:prod, 'web-*') to change many servers at once. Try\n--dry-run first to see which servers would change.\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.\n\n--protected marks a production server: komando asks you before every change,\nand an AI agent needs your yes in a window. Changing the login of a\nproduction server, or turning its protection off, asks the same way; one yes\ncovers every server in the command.",
-        "example": "  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo\n  komando host edit web1 -g web -t prod          # -g/-t add a group/tag\n  komando host edit db1 --protected              # production: ask before changes\n  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run\n  komando host edit web1 web2 web3 --user deploy\n  komando host edit vps1 --ask-password          # type a new password (hidden)\n  komando host edit web2 --login ask             # never store its password; type it at every connect\n  komando host edit web2 --login key --key deploy   # log in with a key komando names\n  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)",
+        "example": "  komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo\n  komando host edit web1 -g web -t prod          # -g/-t add a group/tag\n  komando host edit db1 --protected              # production: ask before changes\n  komando host edit @ubuntu --sudo-ref credential:ubuntu-sudo --dry-run\n  komando host edit web1 web2 web3 --user deploy\n  komando host edit vps1 --ask-password          # type a new password (hidden)\n  komando host edit web2 --login ask             # never store its password; type it at every connect\n  komando host edit web2 --login key --key deploy   # log in with a key komando names\n  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)",
         "flags": [
           {
             "name": "add-group",
@@ -5629,7 +5629,7 @@
             "name": "ask-password",
             "type": "bool",
             "default": "false",
-            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref"
+            "usage": "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref"
           },
           {
             "name": "env",
@@ -5678,7 +5678,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: credential:NAME (saved with komando secret set NAME)"
           },
           {
             "name": "port",
@@ -6281,8 +6281,8 @@
         "path": "komando key add",
         "usage": "komando key add NAME FILE [flags]",
         "short": "Add a private key file you already have (komando keeps its path)",
-        "long": "Adds a private key file you already have to komando's key list; the file\nstays where it is. For a key with a passphrase, store the passphrase in the\nvault and pass --passphrase-ref secret:NAME.\n\nSafety: a change; try it with --dry-run first.\n\nAn OpenSSH user certificate next to the key (FILE-cert.pub) is used at\nlogin, as ssh does; --cert names one kept somewhere else.",
-        "example": "  komando key add personal ~/.ssh/id_ed25519\n  komando key add personal ~/.ssh/id_ed25519 --dry-run\n  komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub\n  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass",
+        "long": "Adds a private key file you already have to komando's key list; the file\nstays where it is. For a key with a passphrase, store the passphrase in the\nvault and pass --passphrase-ref credential:NAME.\n\nSafety: a change; try it with --dry-run first.\n\nAn OpenSSH user certificate next to the key (FILE-cert.pub) is used at\nlogin, as ssh does; --cert names one kept somewhere else.",
+        "example": "  komando key add personal ~/.ssh/id_ed25519\n  komando key add personal ~/.ssh/id_ed25519 --dry-run\n  komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub\n  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref credential:id-pass",
         "flags": [
           {
             "name": "cert",
@@ -6292,7 +6292,7 @@
           {
             "name": "passphrase-ref",
             "type": "string",
-            "usage": "passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)"
+            "usage": "passphrase reference for encrypted keys: credential:NAME"
           }
         ],
         "runnable": true,
@@ -6348,8 +6348,8 @@
         "path": "komando key edit",
         "usage": "komando key edit NAME [flags]",
         "short": "Change a key's passphrase reference or certificate",
-        "long": "Sets where komando finds the passphrase of an encrypted key. Store the\npassphrase with `komando secret set NAME` first and pass secret:NAME;\n--unset passphrase-ref clears it.\n\nSafety: a change; try it with --dry-run first.\n\n--cert FILE gives the key an OpenSSH user certificate (for a key komando\nmade, or one kept away from the key file); --unset cert goes back to\nFILE-cert.pub next to the key.",
-        "example": "  komando secret set work-key-pass\n  komando key edit work --passphrase-ref secret:work-key-pass\n  komando key edit work --passphrase-ref secret:work-key-pass --dry-run\n  komando key edit work --unset passphrase-ref\n  komando key edit deploy --cert ~/Downloads/deploy-cert.pub",
+        "long": "Sets where komando finds the passphrase of an encrypted key. Store the\npassphrase with `komando secret set NAME` first and pass credential:NAME;\n--unset passphrase-ref clears it.\n\nSafety: a change; try it with --dry-run first.\n\n--cert FILE gives the key an OpenSSH user certificate (for a key komando\nmade, or one kept away from the key file); --unset cert goes back to\nFILE-cert.pub next to the key.",
+        "example": "  komando secret set work-key-pass\n  komando key edit work --passphrase-ref credential:work-key-pass\n  komando key edit work --passphrase-ref credential:work-key-pass --dry-run\n  komando key edit work --unset passphrase-ref\n  komando key edit deploy --cert ~/Downloads/deploy-cert.pub",
         "flags": [
           {
             "name": "cert",
@@ -6359,7 +6359,7 @@
           {
             "name": "passphrase-ref",
             "type": "string",
-            "usage": "where the passphrase is: secret:NAME | env:VAR | ..."
+            "usage": "where the passphrase is: credential:NAME"
           },
           {
             "name": "unset",
@@ -10102,7 +10102,7 @@
         "path": "komando registry",
         "usage": "komando registry [flags]",
         "short": "Container registries: see images, copy them, clean up",
-        "long": "Look at, copy and clean up container images. Add a registry with\n`komando registry oci add ghcr registry://myuser@ghcr.io --ask-password`,\nor bring in the ones you use with `komando import docker`.\nls and inspect only read, copy writes to the destination, rm and prune\ndelete images and need --allow-dangerous (try --dry-run first).\n\nTLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or\npins the registry's own certificate; the check stays on), ?tls=skip-verify\ndoes not check the certificate, ?tls=false is plain HTTP. ?resolve=IP\nconnects to that IP instead of what DNS says (like curl --resolve). With\n--via the last server looks the name up.",
+        "long": "Look at, copy and clean up container images. Add a registry with\n`komando registry oci add ghcr registry://myuser@ghcr.io --ask-password`,\nor bring in the ones you use with `komando import docker`.\nls and inspect only read, copy writes to the destination, rm and prune\ndelete images and need --allow-dangerous (try --dry-run first).\n\nTLS options in the registry URL: ?ca=credential:NAME trusts a private CA (or\npins the registry's own certificate; the check stays on), ?tls=skip-verify\ndoes not check the certificate, ?tls=false is plain HTTP. ?resolve=IP\nconnects to that IP instead of what DNS says (like curl --resolve). With\n--via the last server looks the name up.",
         "aliases": [
           "oci",
           "registries"
@@ -10526,7 +10526,7 @@
         "path": "komando rename",
         "usage": "komando rename OLD NEW [flags]",
         "short": "Rename one entry, or all names starting with OLD (--starts-with)",
-        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\nsecret:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
+        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\ncredential:NAME options in conn URLs, the key a server uses, group\nmembership, jobs and tunnels. A key komando made (key gen) lives in the\nsealed store, so no file moves; a key file you added stays where it is. The\nprotected mark, labels, notes and creation time stay. Names inside URLs (a\nbucket, a database user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
         "example": "  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is\n  komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference\n  komando rename --starts-with shop- acme-shop- --yes   # after a person's yes\n  komando rename --starts-with old-registry registry --kind conn,secret\n  komando rename --starts-with lab- test- --in-notes --in-labels --dry-run",
         "flags": [
           {
@@ -10594,13 +10594,13 @@
       {
         "path": "komando secret",
         "usage": "komando secret [flags]",
-        "short": "Saved passwords and tokens: store, check, use as secret:NAME",
-        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host edit web1 --password-ref secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
+        "short": "Saved passwords and tokens: store, check, use as credential:NAME",
+        "long": "Save a password once, then point to it as credential:NAME instead of typing\nit:\n  komando secret set web1-pass\n  komando host edit web1 --password-ref credential:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
         "aliases": [
           "secrets",
           "vault"
         ],
-        "example": "  komando secret set prod-db-pass                   # typed hidden\n  komando secret list\n  komando conn edit prod-db --password-ref secret:prod-db-pass\n  komando secret rm old-pass --dry-run",
+        "example": "  komando secret set prod-db-pass                   # typed hidden\n  komando secret list\n  komando conn edit prod-db --password-ref credential:prod-db-pass\n  komando secret rm old-pass --dry-run",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -10740,7 +10740,7 @@
         "path": "komando secret rename",
         "usage": "komando secret rename OLD NEW [flags]",
         "short": "Rename a secret and every reference to it (value never shown)",
-        "long": "Renames OLD to NEW inside the vault, and points every server, conn, key and\nVPN that used secret:OLD at secret:NEW in the same step, so nothing stops\nworking and nobody types the value again. The value is never printed, so an\nAI agent can do this too. Scripts or notes of your own that name secret:OLD\nare not changed.\n\nSafety: a change; try it with --dry-run first.\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
+        "long": "Renames OLD to NEW inside the vault, and points every server, conn, key and\nVPN that used credential:OLD at credential:NEW in the same step, so nothing\nstops working and nobody types the value again. The value is never printed,\nso an AI agent can do this too. Scripts or notes of your own that name\ncredential:OLD are not changed.\n\nSafety: a change; try it with --dry-run first.\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
         "aliases": [
           "mv"
         ],
@@ -10785,15 +10785,15 @@
         "path": "komando secret run",
         "usage": "komando secret run -- COMMAND [ARGS...] [flags]",
         "short": "Run a local command with vault secrets in its environment",
-        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
-        "example": "  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan\n  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh",
+        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue credential:NAME is read from the vault right before the program\nstarts, so it is never in the command line or the shell history. The program\nstarts directly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it prints\nshows as [credential:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every credential:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
+        "example": "  komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app\n  komando secret run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan\n  komando secret run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh",
         "flags": [
           {
             "name": "env",
             "shorthand": "e",
             "type": "stringArray",
             "default": "[]",
-            "usage": "put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)"
+            "usage": "put KEY=VALUE or KEY=credential:NAME in the program's environment (repeatable)"
           }
         ],
         "runnable": true,
@@ -10844,7 +10844,7 @@
         "path": "komando secret show",
         "usage": "komando secret show NAME [flags]",
         "short": "Show that a secret exists, its value hidden",
-        "long": "Says whether the secret exists and what uses it, without its value. A person\nat a terminal can add --reveal to print it; from a program without a\nterminal (the Komando Mac app), komando first asks the person in its own\nwindow. AI agents never get the value (they reference it as secret:NAME\ninstead). A warning says when the value starts or ends with a space, tab or\nline break, a common cause of a failing login; 'komando secret check NAME'\nlets a person compare it.",
+        "long": "Says whether the secret exists and what uses it, without its value. A person\nat a terminal can add --reveal to print it; from a program without a\nterminal (the Komando Mac app), komando first asks the person in its own\nwindow. AI agents never get the value (they reference it as credential:NAME\ninstead). A warning says when the value starts or ends with a space, tab or\nline break, a common cause of a failing login; 'komando secret check NAME'\nlets a person compare it.",
         "aliases": [
           "get"
         ],
@@ -19430,7 +19430,7 @@
         "code": "CACHE_CONNECT",
         "exit": 4,
         "example": "cannot connect to …: …",
-        "hint": "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`)"
+        "hint": "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=credential:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`)"
       },
       {
         "code": "CACHE_ERROR",
@@ -19559,6 +19559,12 @@
         "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
       },
       {
+        "code": "CREDENTIAL_IN_USE",
+        "exit": 8,
+        "example": "…: changing … would change credential …, which these entries use: …; nothing was changed",
+        "hint": "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"
+      },
+      {
         "code": "DB_AUTH",
         "exit": 4,
         "example": "bigquery: the stored key is not a service account key: …",
@@ -19598,7 +19604,7 @@
         "code": "DB_USER_EXISTS",
         "exit": 8,
         "example": "user … already exists",
-        "hint": "change its password with `komando db user passwd CONN … --password-ref secret:NAME`"
+        "hint": "change its password with `komando db user passwd CONN … --password-ref credential:NAME`"
       },
       {
         "code": "DB_USER_IN_USE",
@@ -19699,7 +19705,7 @@
         "code": "ENCODED_SECRET_INVALID",
         "exit": 2,
         "example": "the script or command holds a private key; komando does not send one this way",
-        "hint": "put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line"
+        "hint": "put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=credential:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line"
       },
       {
         "code": "ERROR",
@@ -19794,8 +19800,8 @@
       {
         "code": "HIDDEN_VALUE",
         "exit": 2,
-        "example": "stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value",
-        "hint": "edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}}"
+        "example": "stdin holds a value komando hid ([hidden] or [credential:NAME]); uploading it would destroy the real value",
+        "hint": "edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{credential:NAME}}"
       },
       {
         "code": "HOSTKEY_MISMATCH",
@@ -20023,6 +20029,12 @@
         "exit": 5,
         "example": "the server did not stop session …",
         "hint": "you may lack the right to stop another user's session"
+      },
+      {
+        "code": "KIND_UNSUPPORTED",
+        "exit": 2,
+        "example": "…: kind … has no type",
+        "hint": "pick a kind komando knows: `komando conn add --help` lists them"
       },
       {
         "code": "KOMANDO_MISSING",
@@ -20385,6 +20397,12 @@
         "hint": "see them with `komando recipe list`"
       },
       {
+        "code": "REFERENCE_UNSUPPORTED",
+        "exit": 2,
+        "example": "… holds the old marker of a secret, which komando no longer reads; nothing was written",
+        "hint": "write … instead; `komando secret list` names the saved credentials"
+      },
+      {
         "code": "REGISTRY_AUTH",
         "exit": 4,
         "example": "the registry refused to list its repositories: …",
@@ -20496,7 +20514,7 @@
         "code": "REVEAL_NEEDS_TERMINAL",
         "exit": 6,
         "example": "--reveal only works for a person at a terminal",
-        "hint": "ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead"
+        "hint": "ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (credential:…) instead"
       },
       {
         "code": "REVISION_NOT_FOUND",
@@ -20556,7 +20574,7 @@
         "code": "SECRET_EXISTS",
         "exit": 8,
         "example": "secret … is used by … already; --ask-password and --ask-psk do not replace it",
-        "hint": "use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME"
+        "hint": "use it with --… …, or store this one under another name: `komando secret set NAME`, then --… credential:NAME"
       },
       {
         "code": "SECRET_IN_ARGS",
@@ -20658,7 +20676,7 @@
         "code": "SESSION_STOP_FAILED",
         "exit": 5,
         "example": "…: session … was not stopped (exit …): …",
-        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref secret:NAME`"
+        "hint": "a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host edit TARGET --sudo-ref credential:NAME`"
       },
       {
         "code": "SESSION_WAIT_TIMEOUT",
@@ -20825,7 +20843,7 @@
         "code": "STORAGE_AUTH",
         "exit": 4,
         "example": "an azblob conn needs the storage account's key or a SAS token",
-        "hint": "store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME"
+        "hint": "store the account key or a SAS token with `komando secret set NAME` and pass --password-ref credential:NAME"
       },
       {
         "code": "STORAGE_CONNECT",
@@ -20866,8 +20884,8 @@
       {
         "code": "STORE_IN_USE",
         "exit": 8,
-        "example": "… is to move to a new format, and komando still runs: …",
-        "hint": "end each one as listed, then run `komando doctor` again"
+        "example": "… changed after the plan was shown; nothing was changed",
+        "hint": "run `komando doctor` again"
       },
       {
         "code": "STORE_KEY_CHANGED",
@@ -20879,7 +20897,7 @@
         "code": "STORE_MIGRATION_FAILED",
         "exit": 1,
         "example": "…; nothing was changed",
-        "hint": "fix it with komando v0.17.0, then run `komando doctor` again"
+        "hint": "fix it with komando …, then run `komando doctor` again"
       },
       {
         "code": "STORE_NEWER",
@@ -20897,7 +20915,7 @@
         "code": "STORE_REFERENCE_UNSUPPORTED",
         "exit": 2,
         "example": "… …: field … still names a secret the old way",
-        "hint": "point the field at a saved secret again with komando v0.17.0, then run `komando doctor`"
+        "hint": "point the field at a saved secret again with komando …, then run `komando doctor`"
       },
       {
         "code": "STREAM_EXISTS",
@@ -20928,6 +20946,12 @@
         "exit": 5,
         "example": "Docker Swarm answered with an error",
         "hint": "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"
+      },
+      {
+        "code": "SWARM_MANAGER_NOT_FOUND",
+        "exit": 3,
+        "example": "swarm service …: its manager server … is not in your list",
+        "hint": "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service"
       },
       {
         "code": "SWARM_OBJECT_NOT_FOUND",
@@ -21095,7 +21119,7 @@
         "code": "URL_HAS_PASSWORD",
         "exit": 2,
         "example": "a conn URL holds no password",
-        "hint": "remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME"
+        "hint": "remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref credential:NAME"
       },
       {
         "code": "USAGE",
@@ -21245,7 +21269,7 @@
         "code": "WINRM_TLS",
         "exit": 4,
         "example": "…: the WinRM server's certificate cannot be trusted: …",
-        "hint": "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`)"
+        "hint": "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=credential:NAME to its winrm:// address (`komando host edit … --address winrm://...`)"
       },
       {
         "code": "WRITE_FAILED",
@@ -21359,7 +21383,7 @@
     ],
     "name": "komando",
     "secret_ref_list": [
-      "secret:NAME (komando's vault)",
+      "credential:NAME (komando's vault)",
       "env:VAR",
       "file:PATH",
       "op://VAULT/ITEM/FIELD (1Password Connect)",
@@ -21370,7 +21394,7 @@
       "gcp-sm:NAME[@PROJECT] (Google Secret Manager)",
       "azure-kv:VAULT/NAME[#JSON_KEY] (Azure Key Vault)"
     ],
-    "secret_refs": "secret:NAME (komando's vault) | env:VAR | file:PATH | op://VAULT/ITEM/FIELD (1Password Connect) | bw://ITEM/FIELD (Bitwarden, Vaultwarden) | kdbx:FILE#GROUP/ENTRY[#FIELD] (KeePass, KeePassXC) | vault:PATH#FIELD (HashiCorp Vault or OpenBao, KV) | aws-sm:NAME[#JSON_KEY] (AWS Secrets Manager) | gcp-sm:NAME[@PROJECT] (Google Secret Manager) | azure-kv:VAULT/NAME[#JSON_KEY] (Azure Key Vault)",
+    "secret_refs": "credential:NAME (komando's vault) | env:VAR | file:PATH | op://VAULT/ITEM/FIELD (1Password Connect) | bw://ITEM/FIELD (Bitwarden, Vaultwarden) | kdbx:FILE#GROUP/ENTRY[#FIELD] (KeePass, KeePassXC) | vault:PATH#FIELD (HashiCorp Vault or OpenBao, KV) | aws-sm:NAME[#JSON_KEY] (AWS Secrets Manager) | gcp-sm:NAME[@PROJECT] (Google Secret Manager) | azure-kv:VAULT/NAME[#JSON_KEY] (Azure Key Vault)",
     "selector_note": "a selector picks servers and conns together; each command uses the ones it works with and lists the rest in meta.skipped",
     "target_selectors": {
       "@GROUP": "everything in a group (servers and conns)",

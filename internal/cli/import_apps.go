@@ -60,7 +60,7 @@ func importFileZilla(cl *call, path string) (*importPlan, error) {
 			h.Port = s.Port
 		}
 		if pw := s.password(); pw != "" {
-			h.PasswordRef = "secret:" + name + "-pass"
+			h.PasswordRef = "credential:" + name + "-pass"
 			p.Secrets[name+"-pass"] = pw
 		}
 		if s.Keyfile != "" {

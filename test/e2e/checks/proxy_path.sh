@@ -34,7 +34,7 @@ PROXY_PID=$!
 for _ in $(seq 1 20); do nc -z 127.0.0.1 "$PROXY_PORT" 2>/dev/null && break; sleep 0.2; done
 
 q $K vpn proxy add t-corp --proxy-address "127.0.0.1:$PROXY_PORT"
-q $K host add t-viaproxy "agent@127.0.0.1:$E2E_SSH_BASTION" --via t-corp --password-ref secret:agent-pass
+q $K host add t-viaproxy "agent@127.0.0.1:$E2E_SSH_BASTION" --via t-corp --password-ref credential:agent-pass
 check "ssh through an HTTP proxy" True "$($K exec t-viaproxy -- hostname | jget 'd["data"]["results"][0]["ok"]')"
 check "the proxy carried it (CONNECT)" True "$(grep -q "CONNECT 127.0.0.1:$E2E_SSH_BASTION" "$TMP/proxy.log" && echo True || echo False)"
 check "vpn status sees the proxy" True "$($K vpn proxy status | jget 'any(r["name"] == "t-corp" and r["up"] for r in d["data"]["vpns"])')"

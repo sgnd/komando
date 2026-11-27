@@ -18,7 +18,7 @@ type OracleOptions struct {
 
 // oracleKeys are the option names and what each takes.
 var oracleKeys = map[string]string{
-	"tls": "true, skip-verify or false", "ca": "secret:NAME", "sid": "an instance SID, in place of the service name",
+	"tls": "true, skip-verify or false", "ca": "credential:NAME", "sid": "an instance SID, in place of the service name",
 }
 
 // ParseOracleOptions reads the options of an oracle:// URL.

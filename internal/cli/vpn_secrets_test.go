@@ -62,7 +62,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 		}
 	}
 	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Hosts["web"] = &store.Host{Name: "web", Address: "web.example.com", User: "alice", PasswordRef: "secret:prod-key"}
+		s.Hosts["web"] = &store.Host{Name: "web", Address: "web.example.com", User: "alice", PasswordRef: "credential:prod-key"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -110,8 +110,8 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	kept("lab-config")
 	// nor does --overwrite of a VPN of another kind (a SOCKS VPN's password
 	// is not a key `vpn add` stored): it is WRONG_KIND, before any secret
-	mustRun(t, "vpn", "socks", "add", "corp", "--proxy-address", "127.0.0.1:1080", "--user", "alice", "--credential", "corp-key")
 	set("corp-key")
+	mustRun(t, "vpn", "socks", "add", "corp", "--proxy-address", "127.0.0.1:1080", "--user", "alice", "--credential", "corp-key")
 	wantCode(t, "WRONG_KIND", "vpn", "wireguard", "add", "corp", "--config", wg("1"), "--overwrite")
 	kept("corp-key")
 	if st, _ := store.Load(); st.Vpns["corp"].Kind != "socks" {
@@ -154,7 +154,7 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 
 	// the VPN's own secret, but a server uses it too
 	if err := store.Update(store.Save(), func(s *store.State) error {
-		s.Hosts["web"] = &store.Host{Name: "web", Address: "web.example.com", User: "alice", PasswordRef: "secret:lab-config"}
+		s.Hosts["web"] = &store.Host{Name: "web", Address: "web.example.com", User: "alice", PasswordRef: "credential:lab-config"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -174,7 +174,7 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 	if _, err := vault.Get("office-key"); err == nil {
 		t.Error("office-key is still there after vpn mv")
 	}
-	if st, _ := store.Load(); st.Vpns["office-east"].KeyRef != "secret:office-east-key" || st.Vpns["office-east"].PSKRef != "secret:office-east-psk" {
+	if st, _ := store.Load(); st.Vpns["office-east"].KeyRef != "credential:office-east-key" || st.Vpns["office-east"].PSKRef != "credential:office-east-psk" {
 		t.Errorf("refs after vpn mv: %+v", st.Vpns["office-east"])
 	}
 	mustRun(t, "vpn", "wireguard", "add", "office", "--config", wg("1"))
@@ -185,7 +185,7 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 	if w := d["warnings"].([]any); len(w) != 1 || !strings.Contains(w[0].(string), "lab-config keeps its name") {
 		t.Errorf("shared secret on vpn mv: %v", d)
 	}
-	if st, _ := store.Load(); st.Vpns["lab-2"].ConfigRef != "secret:lab-config" {
+	if st, _ := store.Load(); st.Vpns["lab-2"].ConfigRef != "credential:lab-config" {
 		t.Error("a shared secret moved")
 	}
 }

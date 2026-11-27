@@ -164,7 +164,9 @@ func swarmForm(cl *call) formSpec {
 	build := sp.build
 	sp.build = func(st *store.State, a formAnswers) [][]string {
 		cmds := build(st, a)
-		cmds[0] = append(cmds[0], "--tag", "swarm") // so `cluster status all` and @groups read it
+		// removed by the C cluster row: the store makes the swarm service of a
+		// server with this tag (store/format3_swarm.go)
+		cmds[0] = append(cmds[0], "--tag", "swarm")
 		status := []string{"cluster", "status", a["name"]}
 		if a["code"] == "yes" { // komando login first, then look
 			return append(cmds, status)

@@ -21,7 +21,7 @@ func TestAddValueHidesIt(t *testing.T) {
 	}
 	wg.Wait()
 	got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v)) + " c=vault-value-1234")
-	if strings.Contains(got, "outside-value") || got != "a="+Hidden+" b="+Hidden+" c=[secret:db]" {
+	if strings.Contains(got, "outside-value") || got != "a="+Hidden+" b="+Hidden+" c=[credential:db]" {
 		t.Fatalf("Redact: %q", got)
 	}
 	if j := string(p.redactJSON([]byte(`{"v":"` + v + `"}`))); strings.Contains(j, v) {
@@ -30,7 +30,7 @@ func TestAddValueHidesIt(t *testing.T) {
 	// a vault value keeps its name; a short value is not hidden
 	p.AddValue("vault-value-1234")
 	p.AddValue("abc")
-	if got := p.Redact("vault-value-1234 abc"); got != "[secret:db] abc" {
+	if got := p.Redact("vault-value-1234 abc"); got != "[credential:db] abc" {
 		t.Fatalf("known or short value: %q", got)
 	}
 	s := p.NewValueScanner()
@@ -45,7 +45,7 @@ func TestAddValueHidesIt(t *testing.T) {
 	}
 	// the next command (one process runs many in tests) starts without it
 	p.ForgetAdded()
-	if got := p.Redact(v + " vault-value-1234"); got != v+" [secret:db]" {
+	if got := p.Redact(v + " vault-value-1234"); got != v+" [credential:db]" {
 		t.Fatalf("after ForgetAdded: %q", got)
 	}
 }

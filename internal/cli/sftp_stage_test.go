@@ -61,7 +61,7 @@ func checkStaged(t *testing.T, r *peekReader) {
 	}
 }
 
-// The staged file holds secrets ({{secret:NAME}} already filled in): only
+// The staged file holds secrets ({{credential:NAME}} already filled in): only
 // the SSH user may read it while it is written, whatever the final mode.
 func TestWriteStagesPrivately(t *testing.T) {
 	defer syscall.Umask(syscall.Umask(0o022))

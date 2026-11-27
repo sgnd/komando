@@ -52,7 +52,7 @@ still checks the certificate fully. Without it, the error is
 
 ```bash
 komando secret set corp-ca < corp-ca.crt
-komando storage s3 add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=secret:corp-ca' --ask-password
+komando storage s3 add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=credential:corp-ca' --ask-password
 ```
 
 ### AWS logins (SSO, roles, temporary keys)
@@ -296,7 +296,7 @@ stores; it asks first like any `rm`.
 ```bash
 komando storage gcs add media gs://my-bucket/site                     # logs in like gcloud
 komando secret set media-sa < key.json                            # or a service account key
-komando conn edit media --password-ref secret:media-sa
+komando conn edit media --password-ref credential:media-sa
 
 komando secret set files-key                                      # key1 from the portal, or a SAS token
 komando storage azblob add files azblob://mystorageacct@uploads/2026 --credential files-key
@@ -447,7 +447,7 @@ komando conn rm backups                       # komando forgets it; the files st
 |-------|---------------|------------|
 | `STORAGE_AUTH` | the storage refused the login, or there is none (Google Cloud) | check the key with `komando conn show backups`, or log in with gcloud |
 | `STORAGE_CONNECT` | komando could not reach the bucket or file server | `komando test backups`; reach it `--via` a server or a VPN |
-| `STORAGE_TLS` | the certificate does not check out | name your CA with `?ca=secret:NAME` |
+| `STORAGE_TLS` | the certificate does not check out | name your CA with `?ca=credential:NAME` |
 | `STORAGE_ERROR` | for example, another program has the file open | close it there and run it again |
 | `BUCKET_NOT_FOUND` | the bucket (or SMB share) does not exist | check the name in the conn URL |
 | `FOLDER_NOT_FOUND` | the folder is empty or does not exist (exit 3) | check it with `komando storage s3 object list backups` |

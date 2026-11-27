@@ -174,9 +174,9 @@ func secretDiff(stored, given string) string {
 	return fmt.Sprintf("the stored value has %d characters, the one you entered %d", ns, ng)
 }
 
-const secretLong = `Save a password once, then point to it as secret:NAME instead of typing it:
+const secretLong = `Save a password once, then point to it as credential:NAME instead of typing it:
   komando secret set web1-pass
-  komando host edit web1 --password-ref secret:web1-pass
+  komando host edit web1 --password-ref credential:web1-pass
 
 komando shows a saved value only to a person: at a terminal with
 ` + "`secret show --reveal`" + `, or after "Allow once" in komando's window; never
@@ -197,7 +197,7 @@ func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Saved passwords and tokens: store, check, use as secret:NAME",
+		Short:   "Saved passwords and tokens: store, check, use as credential:NAME",
 		Long:    secretLong,
 	}
 	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true), runCmd(),
@@ -221,9 +221,9 @@ changes.`
 		verb, command = "rename", "secret.rename"
 		short = "Rename a secret and every reference to it (value never shown)"
 		long = `Renames OLD to NEW inside the vault, and points every server, conn, key and
-VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
+VPN that used credential:OLD at credential:NEW in the same step, so nothing stops
 working and nobody types the value again. The value is never printed, so an
-AI agent can do this too. Scripts or notes of your own that name secret:OLD
+AI agent can do this too. Scripts or notes of your own that name credential:OLD
 are not changed.`
 		example = "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass"
 	}
@@ -263,7 +263,7 @@ are not changed.`
 			if err := guardCopyTrust(cl, st, from, to, replaced); err != nil {
 				return err
 			}
-			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
+			res := map[string]any{"from": from, "to": to, "ref": "credential:" + to, "replaced": replaced}
 			if cl.dryRun() {
 				res[map[bool]string{true: "would_move", false: "would_copy"}[move]] = true
 				if move {

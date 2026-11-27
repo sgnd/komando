@@ -240,7 +240,7 @@ func vpnOwnSecrets(s *store.State, v *store.Vpn, to string) (map[string]string, 
 	have := secretNames()
 	for _, suffix := range []string{"-key", "-psk", "-config", "-pass"} {
 		n := v.Name + suffix
-		ref := "secret:" + n
+		ref := "credential:" + n
 		if (v.KeyRef != ref && v.PSKRef != ref && v.ConfigRef != ref) || !slices.Contains(have, n) {
 			continue
 		}

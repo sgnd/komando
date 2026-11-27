@@ -60,7 +60,7 @@ messages.
 | Field | Meaning |
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
-| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs |
+| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs, and those of v0.17 |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
@@ -150,8 +150,8 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | Error | Usually means | Try |
 |-------|---------------|-----|
 | `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
-| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref secret:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
-| `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando secret set NAME`, `komando key add NAME PATH --passphrase-ref secret:NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando key edit NAME --passphrase-ref secret:NAME`) |
+| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref credential:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
+| `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando secret set NAME`, `komando key add NAME PATH --passphrase-ref credential:NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando key edit NAME --passphrase-ref credential:NAME`) |
 | `KEY_EXISTS` | `key gen`, `key add` or `key rename` to a key name that is taken | choose another name, or `komando key rm NAME` first |
 | `CONNECTION_REFUSED`, `CONNECT_TIMEOUT`, `DNS_ERROR` | the server is down, the address or port is wrong, a firewall drops the connection, or nothing listens on the port | `komando host show NAME` to check the address and port; a slow link: `--connect-timeout 30s`; a private server: add `--via BASTION` or a VPN |
 | `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host trust NAME --reset` in a terminal, or `@group` for many at once (only a person replaces a key; an agent reports it and gets `NEEDS_PERSON`) |
@@ -164,7 +164,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
 | `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
 | `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
-| `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref secret:NAME` |
+| `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref credential:NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
@@ -172,12 +172,12 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `POLICY_BLOCKED` | the command looks destructive | double-check it; at your terminal you type the name of what goes, a script adds `--allow-dangerous` |
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` | a change to something marked protected | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | at your terminal komando asks; a script adds `--yes` |
-| `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
+| `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{credential:NAME}}`, `--env K=credential:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
 | `NEEDS_PERSON` | something only a person can do: type a password (`secret set`, `--ask-password`, a `--login ask` server), log in (`komando login`), compare a secret with `secret check`, set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
 | `DECLINED` | a person answered no to komando's question | nothing was changed; run it again to be asked again |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
-| `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
+| `HIDDEN_VALUE` | the text holds `[hidden]` or `[credential:NAME]` | change one line with `fs replace`; set a secret with `{{credential:NAME}}` |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
 | `TARGET_NOT_FOUND` | a typo in a server, conn or VPN name, whatever the command | the hint suggests the closest match; `komando list` |
 | `TARGET_EMPTY` | a group, tag or pattern picked nothing | `komando list GROUP` shows what it picks |

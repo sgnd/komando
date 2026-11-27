@@ -41,7 +41,7 @@ func acceptOldCopy(cl *call) error {
 	if err != nil {
 		return err
 	}
-	audit(cl, nil, "doctor.accept-old-copy", nil, "", true, map[string]any{"from": from, "to": have})
+	auditEvent(cl, nil, "doctor.accept-old-copy", nil, "", true, map[string]any{"from": from, "to": have})
 	cl.out.Print("doctor.accept-old-copy", map[string]any{"accepted": true, "from": from, "to": have}, nil)
 	return nil
 }

@@ -45,7 +45,7 @@ func TestImportEnv(t *testing.T) {
 	if len(p.Conns) != 3 || p.Conns[0].Name != "database" || p.Conns[1].Name != "redis" || p.Conns[2].Name != "mongo" {
 		t.Fatalf("conns: %+v", p.Conns)
 	}
-	if p.Conns[1].PasswordRef != "secret:redis-pass" || p.Secrets["redis-pass"] != "rpw" {
+	if p.Conns[1].PasswordRef != "credential:redis-pass" || p.Secrets["redis-pass"] != "rpw" {
 		t.Errorf("redis password: %q %q", p.Conns[1].PasswordRef, p.Secrets["redis-pass"])
 	}
 	if len(p.Notes) != 2 || !strings.Contains(p.Notes[0], "SENTRY_URL") || !strings.Contains(p.Notes[1], "API_URI") {
@@ -73,15 +73,15 @@ func TestImportKomandoIsDefensive(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := writeTemp(t, "exp.json", `{"format":"komando-export/1",
-		"hosts":[{"name":"evil","address":"attacker.example","password_ref":"secret:prod-db-pass","sudo_ref":"file:/etc/passwd"}],
-		"conns":[{"name":"newdb","url":"postgres://a@h/d","password_ref":"secret:newdb-pass"}],
+		"hosts":[{"name":"evil","address":"attacker.example","password_ref":"credential:prod-db-pass","sudo_ref":"file:/etc/passwd"}],
+		"conns":[{"name":"newdb","url":"postgres://a@h/d","password_ref":"credential:newdb-pass"}],
 		"vpns":[{"name":"v","kind":"anyconnect","portal":"--script=/tmp/x"}],
 		"recipes":[{"name":"wipe","command":"rm -rf /srv","read_only":true}]}`)
 	p, err := importKomando(tcl, file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Conns[0].PasswordRef != "secret:newdb-pass" {
+	if p.Conns[0].PasswordRef != "credential:newdb-pass" {
 		t.Errorf("a ref to a secret not set yet may stay: %q", p.Conns[0].PasswordRef)
 	}
 	if len(p.Vpns) != 0 {
@@ -97,8 +97,8 @@ func TestImportKomandoIsDefensive(t *testing.T) {
 // password or an env value (sent with every command run there).
 func TestImportedHostsCannotUseLocalSecrets(t *testing.T) {
 	hosts := `[{"name":"evil","address":"attacker.example",
-		"password_ref":"secret:prod-db-pass","sudo_ref":"file:/etc/passwd",
-		"env":{"DB_PASSWORD":"secret:prod-db-pass","LATER":"secret:not-set-yet","APP_ENV":"secret-less prod"}}]`
+		"password_ref":"credential:prod-db-pass","sudo_ref":"file:/etc/passwd",
+		"env":{"DB_PASSWORD":"credential:prod-db-pass","LATER":"credential:not-set-yet","APP_ENV":"secret-less prod"}}]`
 	for _, tc := range []struct {
 		name string
 		file string
@@ -130,7 +130,7 @@ func TestImportedHostsCannotUseLocalSecrets(t *testing.T) {
 			if h.PasswordRef != "" || h.SudoRef != "" {
 				t.Errorf("refs to existing secrets and files must be dropped: %+v", h)
 			}
-			want := map[string]string{"LATER": "secret:not-set-yet", "APP_ENV": "secret-less prod"}
+			want := map[string]string{"LATER": "credential:not-set-yet", "APP_ENV": "secret-less prod"}
 			if !maps.Equal(h.Env, want) {
 				t.Errorf("env %v, want %v", h.Env, want)
 			}
@@ -196,7 +196,7 @@ func TestImportDBeaverPasswordNote(t *testing.T) {
 		"b":{"name":"Broken","provider":"postgresql","configuration":{"host":"db.lan","port":"not-a-port","database":"x","user":"app"}}}}`))
 	notes := fmt.Sprint(d["not_imported"])
 	if fmt.Sprint(d["conns"]) != "[shop-prod-2]" ||
-		!strings.Contains(notes, "shop-prod-2: set its password with `komando secret set shop-prod-2-pass` and `komando conn edit shop-prod-2 --password-ref secret:shop-prod-2-pass`") ||
+		!strings.Contains(notes, "shop-prod-2: set its password with `komando secret set shop-prod-2-pass` and `komando conn edit shop-prod-2 --password-ref credential:shop-prod-2-pass`") ||
 		strings.Contains(notes, "conn edit shop-prod ") || strings.Contains(notes, "broken: set its password") {
 		t.Errorf("conns %v, notes %s", d["conns"], notes)
 	}
@@ -229,7 +229,7 @@ func TestImportFileZillaStoresServerPassword(t *testing.T) {
 	if !strings.Contains(fmt.Sprint(mustRun(t, "secret", "list")), "web-pass") {
 		t.Errorf("web-pass is not in the vault")
 	}
-	if ref := mustRun(t, "host", "show", "web")["password_ref"]; ref != "secret:web-pass" {
+	if ref := mustRun(t, "host", "show", "web")["password_ref"]; ref != "credential:web-pass" {
 		t.Errorf("password_ref %v", ref)
 	}
 	// a secret of that name in the vault stays: the server comes without it
@@ -237,7 +237,7 @@ func TestImportFileZillaStoresServerPassword(t *testing.T) {
 	d = mustRun(t, "import", "filezilla", writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
 <Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">b3RoZXI=</Pass><Name>Web</Name></Server>
 </Servers></FileZilla3>`))
-	if s, _ := d["secrets"].([]any); len(s) != 0 || !strings.Contains(fmt.Sprint(d["not_imported"]), `dropped password_ref "secret:web-pass"`) {
+	if s, _ := d["secrets"].([]any); len(s) != 0 || !strings.Contains(fmt.Sprint(d["not_imported"]), `dropped password_ref "credential:web-pass"`) {
 		t.Errorf("second import: %v", d)
 	}
 }

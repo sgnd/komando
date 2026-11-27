@@ -15,6 +15,7 @@ import (
 // off does not, and only the kinds they apply to take them.
 func TestVpnEditOptIns(t *testing.T) {
 	invHome(t)
+	saveSecrets(t, "kantor", "kantor-psk", "asa-group")
 	mustRun(t, "vpn", "l2tp", "add", "kantor", "--server", "vpn.kantor.id", "--psk-credential", "kantor-psk", "--user", "budi", "--credential", "kantor")
 	mustRun(t, "vpn", "ipsec", "add", "asa", "--server", "asa.client.com", "--id", "staff", "--psk-credential", "asa-group", "--user", "budi")
 	vpn := func(name string) *store.Vpn {
@@ -56,6 +57,7 @@ func TestVpnEditOptIns(t *testing.T) {
 // (--legacy-crypto) take them.
 func TestVpnAddOptIns(t *testing.T) {
 	invHome(t)
+	saveSecrets(t, "old", "old-psk", "g")
 	l2tp := []string{"vpn", "l2tp", "add", "old-office", "--server", "vpn.example.com", "--psk-credential", "old-psk", "--user", "alice", "--credential", "old"}
 	saved := func() bool {
 		st, err := store.Load()
@@ -112,6 +114,7 @@ MIIB
 // server. People and scripts are not asked.
 func TestVpnSecretsNeedAPerson(t *testing.T) {
 	secretHome(t)
+	saveSecrets(t, "db-pass", "branch-psk", "github-token", "site-key", "other")
 	profile := filepath.Join(t.TempDir(), "office.ovpn")
 	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
 		t.Fatal(err)
@@ -127,9 +130,8 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	add := []string{"vpn", "l2tp", "add", "branch", "--server", "vpn.example.com", "--psk-credential", "branch-psk", "--user", "alice", "--credential", "db-pass"}
 	for _, args := range [][]string{
 		add,
-		{"vpn", "socks", "add", "lab", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--credential", "env:GITHUB_TOKEN"},
-		{"vpn", "tailscale", "add", "tailnet", "--credential", "file:/etc/ssl/private/site.key"},
-		{"vpn", "socks", "add", "lab-op", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--credential", "op://vault/item/password"},
+		{"vpn", "socks", "add", "lab", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--credential", "github-token"},
+		{"vpn", "tailscale", "add", "tailnet", "--credential", "site-key"},
 		{"vpn", "openvpn", "edit", "office", "--credential", "other"},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SECRET_DESTINATION" {
@@ -149,7 +151,7 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	if _, e := cliRun(t, append(add, "--yes")...); e != nil {
 		t.Fatal(e)
 	}
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:branch-psk, secret:db-pass to vpn.example.com (vpn branch)") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:branch-psk, credential:db-pass to vpn.example.com (vpn branch)") {
 		t.Fatalf("window: %q", *texts)
 	}
 	if _, e := cliRun(t, "vpn", "l2tp", "edit", "branch", "--server", "vpn.evil.example"); e == nil || e.Code != "SECRET_DESTINATION" {
@@ -158,7 +160,7 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	if _, e := cliRun(t, "vpn", "openvpn", "add", "office", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--credential", "db-pass", "--overwrite", "--yes"); e != nil {
 		t.Fatal(e)
 	}
-	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "secret:db-pass to vpn.example.com:1194, vpn2.example.com:443 (vpn office)") {
+	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "credential:db-pass to vpn.example.com:1194, vpn2.example.com:443 (vpn office)") {
 		t.Errorf("an OpenVPN profile names its servers: %q", w)
 	}
 

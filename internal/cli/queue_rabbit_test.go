@@ -44,7 +44,7 @@ func TestQueueRabbitLive(t *testing.T) {
 		t.Skip("set KOMANDO_E2E_RABBITMQ and KOMANDO_E2E_RABBITMQ_PASSWORD")
 	}
 	invHome(t)
-	mustRun(t, "conn", "add", "jobs", url, "--password-ref", "env:KOMANDO_E2E_RABBITMQ_PASSWORD")
+	mustRun(t, "conn", "add", "jobs", url, "--password-ref", savedRef(t, "jobs-pw", os.Getenv("KOMANDO_E2E_RABBITMQ_PASSWORD")))
 	if d := mustRun(t, "conn", "test", "jobs"); !strings.Contains(jsonOf(d), `"check":"login"`) {
 		t.Errorf("conn test: %v", d)
 	}

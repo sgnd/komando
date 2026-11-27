@@ -14,8 +14,8 @@ import (
 )
 
 func TestParseWinRMAddress(t *testing.T) {
-	h, err := parseWinRMAddress("winrm://Administrator@10.0.0.9:5999?auth=basic&ca=secret:corp-ca")
-	if err != nil || h.User != "Administrator" || h.Address != "10.0.0.9" || h.Port != 5999 || h.WinRMOpts.Auth != "basic" || h.WinRMOpts.CA != "secret:corp-ca" || !h.WinRM() || !h.Windows() {
+	h, err := parseWinRMAddress("winrm://Administrator@10.0.0.9:5999?auth=basic&ca=credential:corp-ca")
+	if err != nil || h.User != "Administrator" || h.Address != "10.0.0.9" || h.Port != 5999 || h.WinRMOpts.Auth != "basic" || h.WinRMOpts.CA != "credential:corp-ca" || !h.WinRM() || !h.Windows() {
 		t.Errorf("%+v %+v %v", h, h.WinRMOpts, err)
 	}
 	if h, err := parseWinRMAddress("winrm://deploy@corp.local@win.corp.local"); err != nil || h.User != "deploy@corp.local" || h.Address != "win.corp.local" || h.Port != 0 {
@@ -33,8 +33,7 @@ func TestParseWinRMAddress(t *testing.T) {
 
 func TestHostAddWinRM(t *testing.T) {
 	startFakeServer(t)
-	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", savedRef(t, "win2-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -91,8 +90,7 @@ func TestExecOverWinRM(t *testing.T) {
 		_, _ = io.WriteString(w, `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"><s:Body>`+body+`</s:Body></s:Envelope>`)
 	}))
 	defer srv.Close()
-	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", savedRef(t, "win2-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	got := captureOutput(t, func() error { return runRoot(t, "exec", "win2", "--read-only", "--", "Get-Date") })
@@ -108,11 +106,10 @@ func TestExecOverWinRM(t *testing.T) {
 // --address takes a winrm:// address on add too, as its help says.
 func TestHostAddWinRMAddressFlag(t *testing.T) {
 	startFakeServer(t)
-	t.Setenv("WIN_PW", "x")
-	if err := runRoot(t, "host", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", savedRef(t, "win5-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
-	if err := runRoot(t, "host", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", "env:WIN_PW"); err != nil {
+	if err := runRoot(t, "host", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", savedRef(t, "win6-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -130,7 +127,7 @@ func TestWinRMCAExportImport(t *testing.T) {
 	invHome(t)
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["win7"] = &store.Host{Name: "win7", Address: "10.0.0.9", User: "a", Transport: store.TransportWinRM, OS: store.OSWindows,
-			WinRMOpts: &store.WinRMOpts{CA: "secret:corp-ca"}}
+			WinRMOpts: &store.WinRMOpts{CA: "credential:corp-ca"}}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -143,8 +140,8 @@ func TestWinRMCAExportImport(t *testing.T) {
 	invHome(t)
 	setSecret(t, "local-ca", "-----BEGIN CERTIFICATE-----")
 	file := writeTemp(t, "hosts.json", `{"format":"komando-export/1","hosts":[
-		{"name":"w8","address":"10.0.0.8","user":"a","transport":"winrm","os":"windows","winrm":{"ca":"secret:local-ca"}},
-		{"name":"w9","address":"10.0.0.9","user":"a","transport":"winrm","os":"windows","winrm":{"ca":"secret:later-ca"}}]}`)
+		{"name":"w8","address":"10.0.0.8","user":"a","transport":"winrm","os":"windows","winrm":{"ca":"credential:local-ca"}},
+		{"name":"w9","address":"10.0.0.9","user":"a","transport":"winrm","os":"windows","winrm":{"ca":"credential:later-ca"}}]}`)
 	d := mustRun(t, "import", "komando", file)
 	if notes := fmt.Sprint(d["not_imported"], d["notes"]); !strings.Contains(notes, "dropped winrm.ca") {
 		t.Errorf("no note for the CA: %s", notes)
@@ -153,12 +150,12 @@ func TestWinRMCAExportImport(t *testing.T) {
 	if h := st.Hosts["w8"]; h == nil || h.WinRMOpts.CA != "" {
 		t.Errorf("a ref to an existing secret must be dropped: %+v", h)
 	}
-	if h := st.Hosts["w9"]; h == nil || h.WinRMOpts.CA != "secret:later-ca" {
+	if h := st.Hosts["w9"]; h == nil || h.WinRMOpts.CA != "credential:later-ca" {
 		t.Errorf("a ref to a secret not set yet may stay: %+v", h)
 	}
 }
 
-// A WinRM server's CA (winrm://...?ca=secret:NAME) is a reference like any
+// A WinRM server's CA (winrm://...?ca=credential:NAME) is a reference like any
 // other: secret list names the server, secret rm refuses while it is used,
 // secret mv points it at the new name, and host rm reports it as unused.
 func TestSecretRefInWinRMCA(t *testing.T) {
@@ -166,7 +163,7 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 	setSecret(t, "corp-ca", "-----BEGIN CERTIFICATE-----")
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts = map[string]*store.Host{"win2": {Name: "win2", Address: "10.0.0.9", User: "Administrator",
-			Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{CA: "secret:corp-ca"}}}
+			Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{CA: "credential:corp-ca"}}}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -184,7 +181,7 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Errorf("mv: %v", d)
 	}
 	st, _ := loadState()
-	if got := st.Hosts["win2"].WinRMOpts.CA; got != "secret:win-ca" {
+	if got := st.Hosts["win2"].WinRMOpts.CA; got != "credential:win-ca" {
 		t.Errorf("CA after mv: %s", got)
 	}
 

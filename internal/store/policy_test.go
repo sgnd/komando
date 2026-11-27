@@ -18,7 +18,7 @@ import (
 // policy key. fakeKeys' master key.
 func rowKeyHandle(t *testing.T) *sealdb.DB {
 	t.Helper()
-	ks, err := keysFor(bytes.Repeat([]byte{7}, 32), "2")
+	ks, err := keysFor(bytes.Repeat([]byte{7}, 32), newestFormat)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,38 +198,43 @@ func TestPolicyLegitWrite(t *testing.T) {
 	}
 }
 
-// A store an older komando made (format 1, no MAC) loads, gets its MAC
-// once, and loads again. A MAC stripped after that stops komando: it is
-// never made again.
+// A store an older komando made (format 1, no MAC) gets its MAC once,
+// on the way to format 3 at a person's first open, and loads again. A MAC
+// stripped after that stops komando: it is never made again.
 func TestPolicyUpgradeOnce(t *testing.T) {
 	sealedStore(t)
 	sealdb.CreateFormat = 1
-	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web", Address: "10.0.0.1", Protected: true} })
-	sealdb.CreateFormat = sealdb.Format
-	if err := UpdateRuntime(Save(), func(s *State) error {
-		s.Sessions["office"] = &VpnSession{Vpn: "office", PID: 4242}
-		return nil
-	}); err != nil {
+	t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
+	d, err := DB(true)
+	if err != nil {
 		t.Fatal(err)
 	}
+	old := &State{Settings: DefaultSettings()}
+	old.init()
+	old.Hosts["web"] = &Host{Name: "web", Address: "10.0.0.1", Protected: true}
+	if err := d.Update(context.Background(), func(tx *sealdb.Tx) error { return putFormat2(tx, old) }); err != nil {
+		t.Fatal(err)
+	}
+	sealdb.CreateFormat = sealdb.Format
 	Close()
 	if m, _ := sealdb.Peek(context.Background(), DBPath()); m["format"] != "1" {
 		t.Fatalf("the old store is of format %q", m["format"])
 	}
+	callerIs(t, atTerminal())
 	for range 2 {
 		s, err := Load()
 		if err != nil {
 			t.Fatalf("loading an old store: %v", err)
 		}
-		if !s.Hosts["web"].Protected || s.Sessions["office"] == nil {
-			t.Errorf("after the upgrade: %v %v", s.Hosts, s.Sessions)
+		if !s.Hosts["web"].Protected {
+			t.Errorf("after the upgrade: %v", s.Hosts)
 		}
 		Close()
 	}
-	if m, _ := sealdb.Peek(context.Background(), DBPath()); m["format"] != "2" {
+	if m, _ := sealdb.Peek(context.Background(), DBPath()); m["format"] != "3" {
 		t.Fatalf("format %q after the upgrade", m["format"])
 	}
-	err := rowKeyHandle(t).Update(context.Background(), func(tx *sealdb.Tx) error { return tx.Delete("policymac") })
+	err = rowKeyHandle(t).Update(context.Background(), func(tx *sealdb.Tx) error { return tx.Delete("policymac") })
 	if err != nil {
 		t.Fatal(err)
 	}

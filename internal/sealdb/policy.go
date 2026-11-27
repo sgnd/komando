@@ -318,7 +318,7 @@ func (d *DB) SetPolicy(ctx context.Context, p *Policy) error {
 	return err
 }
 
-// Upgrade moves a format-1 store to this format in one write step: every
+// Upgrade moves a format-1 store to format 2 in one write step: every
 // record and audit entry is sealed again under rowKey, the format goes
 // up, and the safety rows get their policy MAC. From then on the store
 // uses rowKey and p.
@@ -333,7 +333,9 @@ func (d *DB) Upgrade(ctx context.Context, rowKey *sealrow.Key, p *Policy) error 
 		if err := tx.resealAll(d.key, rowKey); err != nil {
 			return err
 		}
-		if err := tx.setFormat(Format); err != nil {
+		// format 2, the shape its records have; the move to format 3 is
+		// the store migration's (store/migrate3.go)
+		if err := tx.setFormat(2); err != nil {
 			return err
 		}
 		return tx.SealPolicy(p)

@@ -70,7 +70,11 @@ func (l auditList) Text() string {
 			res = "failed"
 		}
 		t := term.TruncateWidth(auditCell(strings.Join(targets, ",")), 60)
-		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(fmt.Sprint(e["command"])), t, res})
+		command := fmt.Sprint(e["command"])
+		if ev, _ := e["event"].(string); ev != "" {
+			command += " (" + ev + ")"
+		}
+		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(command), t, res})
 	}
 	return textTable([]string{"TIME", "ACTOR", "COMMAND", "TARGETS", "OK"}, rows)
 }
@@ -172,7 +176,7 @@ is given.`,
 	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, like @prod)")
-	c.Flags().StringVar(&command, "command", "", "only commands that start with this (like exec, fs.)")
+	c.Flags().StringVar(&command, "command", "", "only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key")
 	c.Flags().BoolVar(&failed, "failed", false, "only actions that failed or were blocked")
 	c.Flags().StringVar(&actorName, "actor", "", "only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account")
 	c.Flags().StringVar(&since, "since", "", "only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'")

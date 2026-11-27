@@ -91,7 +91,7 @@ func keepLogin(cl *call, st *store.State, h *store.Host, keep time.Duration) (lo
 		endLogin(l)
 		return loginResult{}, err
 	}
-	audit(cl, st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
+	auditEvent(cl, st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
 	return loginResult{Host: h.Name, Until: l.Until}, nil
 }
 

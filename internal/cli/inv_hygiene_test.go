@@ -12,10 +12,10 @@ func TestDoctorConnHygiene(t *testing.T) {
 	setSecret(t, "prd-minio", "x")
 	setSecret(t, "prd-sudo", "x")
 	st := &store.State{Hosts: map[string]*store.Host{}, Keys: map[string]*store.Key{}, Conns: map[string]*store.Conn{}, Vpns: map[string]*store.Vpn{}}
-	st.Hosts["prd"] = &store.Host{Name: "prd", Address: "10.0.0.1", Port: 22, Protected: true, SudoRef: "secret:prd-sudo"}
-	st.Conns["prd-minio"] = &store.Conn{Name: "prd-minio", Kind: "s3", URL: "s3://key@minio.prd/b", PasswordRef: "secret:prd-minio", Protected: true}
+	st.Hosts["prd"] = &store.Host{Name: "prd", Address: "10.0.0.1", Port: 22, Protected: true, SudoRef: "credential:prd-sudo"}
+	st.Conns["prd-minio"] = &store.Conn{Name: "prd-minio", Kind: "s3", URL: "s3://key@minio.prd/b", PasswordRef: "credential:prd-minio", Protected: true}
 	// a dev conn with the production password
-	st.Conns["dev-minio"] = &store.Conn{Name: "dev-minio", Kind: "s3", URL: "s3://key@minio.dev/b", PasswordRef: "secret:prd-minio"}
+	st.Conns["dev-minio"] = &store.Conn{Name: "dev-minio", Kind: "s3", URL: "s3://key@minio.dev/b", PasswordRef: "credential:prd-minio"}
 	// two conns to the same place
 	st.Conns["app"] = &store.Conn{Name: "app", Kind: "postgres", URL: "postgres://postgres@10.0.0.2:5432/shop", Protected: true}
 	st.Conns["db-shop"] = &store.Conn{Name: "db-shop", Kind: "postgres", URL: "postgres://postgres@10.0.0.2:5432/shop", Protected: true}
@@ -30,7 +30,7 @@ func TestDoctorConnHygiene(t *testing.T) {
 		}
 	}
 	for name, want := range map[string]string{
-		"conn:dev-minio": "shares secret:prd-minio with protected conn prd-minio",
+		"conn:dev-minio": "shares credential:prd-minio with protected conn prd-minio",
 		"conn:db-shop":   "same kind, URL and --via as conn app",
 		"conn:redis":     "label host=prd, a protected server",
 	} {
@@ -43,7 +43,7 @@ func TestDoctorConnHygiene(t *testing.T) {
 			t.Errorf("%s warned: %s", name, got[name])
 		}
 	}
-	if !strings.Contains(got["conn:dev-minio"], "`komando secret cp prd-minio NEW` and `komando conn edit dev-minio --password-ref secret:NEW`") {
+	if !strings.Contains(got["conn:dev-minio"], "`komando secret cp prd-minio NEW` and `komando conn edit dev-minio --password-ref credential:NEW`") {
 		t.Errorf("dev-minio hint: %s", got["conn:dev-minio"])
 	}
 }

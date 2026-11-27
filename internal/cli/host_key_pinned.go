@@ -13,6 +13,6 @@ func auditPinnedKey(cl *call, k sshx.NewHostKey) {
 	if err != nil {
 		st = nil // the audit log is written either way
 	}
-	audit(cl, st, "host.key-pinned", []string{k.Host}, "", true,
+	auditEvent(cl, st, "host.key-pinned", []string{k.Host}, "", true,
 		map[string]any{"address": k.Address, "key_type": k.Type, "fingerprint": k.Fingerprint, "first_use": true})
 }

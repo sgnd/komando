@@ -2,6 +2,7 @@ package sealdb
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 )
 
@@ -63,7 +64,7 @@ func TestMigrate(t *testing.T) {
 	if len(seen) != 5 {
 		t.Errorf("read back %d records under the new key: %q", len(seen), seen)
 	}
-	if f := formatOf(t, path); f != "3" {
+	if f := formatOf(t, path); f != strconv.Itoa(Format+1) {
 		t.Errorf("format %s after the migration", f)
 	}
 	if err := d.Update(ctx, func(*Tx) error { return nil }); err == nil {
@@ -134,7 +135,7 @@ func TestMigrateFailsClosed(t *testing.T) {
 			if !errors.Is(err, tt.want) {
 				t.Fatalf("want %v, got %v", tt.want, err)
 			}
-			if f := formatOf(t, path); f != "2" {
+			if f := formatOf(t, path); f != strconv.Itoa(Format) {
 				t.Errorf("format %s after a failed migration", f)
 			}
 			o := rowKeyHandle(t, path) // the old row key still opens it
@@ -164,17 +165,17 @@ func TestMigrateNeedsCheckedPolicy(t *testing.T) {
 	if !errors.Is(err, ErrPolicyMissing) {
 		t.Fatalf("want ErrPolicyMissing, got %v", err)
 	}
-	if f := formatOf(t, path); f != "2" {
+	if f := formatOf(t, path); f != strconv.Itoa(Format) {
 		t.Errorf("format %s", f)
 	}
 }
 
 func TestMigrateWrongFrom(t *testing.T) {
 	path, d, p := migrateStore(t)
-	if err := d.Migrate(ctx, 1, 3, key(t, 2), p, func(*Tx) error { return nil }, func(*Tx) error { return nil }); err == nil {
-		t.Fatal("a store of format 2 migrated as format 1")
+	if err := d.Migrate(ctx, Format-1, Format+1, key(t, 2), p, func(*Tx) error { return nil }, func(*Tx) error { return nil }); err == nil {
+		t.Fatal("a store migrated from a format it is not of")
 	}
-	if f := formatOf(t, path); f != "2" {
+	if f := formatOf(t, path); f != strconv.Itoa(Format) {
 		t.Errorf("format %s", f)
 	}
 }

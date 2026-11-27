@@ -19,8 +19,11 @@ const Len = 32
 type Label string
 
 const (
-	// Rows seals the records and audit entries of store.db (format 2).
+	// Rows seals the records and audit entries of a format-2 store.db;
+	// only the migration to format 3 reads it.
 	Rows Label = "komando local store v2"
+	// RowsV3 seals the records and audit entries of store.db (format 3).
+	RowsV3 Label = "komando local store v3"
 	// Runtime seals runtime.json. It is the derivation a format-1 store
 	// sealed its rows with, so it also opens such a store to upgrade it.
 	Runtime Label = "komando local store v1"
@@ -33,7 +36,7 @@ const (
 )
 
 // all is every label; no two may be the same.
-var all = []Label{Rows, Runtime, Values, Tickets, Policy}
+var all = []Label{Rows, RowsV3, Runtime, Values, Tickets, Policy}
 
 // Derive makes the key for l from master.
 func Derive(master []byte, l Label) ([]byte, error) {

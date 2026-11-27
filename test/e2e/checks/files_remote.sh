@@ -4,8 +4,8 @@
 # a bucket, and two conns; --continue on upload, download and cp. Uses
 # t-e2eops/ keys and /tmp/e2eops paths, and removes them at the end.
 set +e
-q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
-q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
+q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref credential:files-pass
+q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref credential:files-pass
 echo e2eops > "$TMP/e2eops.txt"
 
 echo "==> storage s3 object create, mv, chmod"

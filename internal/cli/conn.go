@@ -67,7 +67,7 @@ type connFlags struct {
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME)")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(connLoginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
@@ -116,8 +116,11 @@ func checkConn(s *store.State, c *store.Conn) error {
 			return err
 		}
 	}
+	if err := store.CredentialRef("--password-ref", c.PasswordRef); err != nil {
+		return err
+	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
-		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
+		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref credential:NAME",
 			"--password-ref takes a reference, not the password itself")
 	}
 	return inventory.CheckLabels(c.Groups, c.Tags, c.Labels)
@@ -146,11 +149,11 @@ func connAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME URL",
 		Short: "Add a conn (the URL scheme sets its kind)",
-		Example: `  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
+		Example: `  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref credential:prod-db-pass --protected
   komando conn add shop mysql://shop@db.internal/shop --group shop
   komando conn add local sqlite:///var/lib/app.db
-  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
-  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
+  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref credential:redis-pass
+  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref credential:s3-secret
   komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)
   komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --login ask      # type it at every connect; never stored`,
 		Args: formArgs(cobra.ExactArgs(2)),
@@ -432,7 +435,7 @@ func connRmCmd() *cobra.Command {
 				for _, n := range names {
 					refs = append(refs, s.Conns[n].PasswordRef)
 					for _, r := range inventory.URLSecretRefs(s.Conns[n].URL) {
-						refs = append(refs, "secret:"+r.Name)
+						refs = append(refs, "credential:"+r.Name)
 					}
 					delete(s.Conns, n)
 				}

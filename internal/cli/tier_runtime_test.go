@@ -134,7 +134,7 @@ var tierRuns = []tierRun{
 	{"floor", "host.trust", []string{"prod"}, false},
 	{"floor", "import", []string{"ssh-config", "ssh_config"}, false},
 	{"floor", "key.deploy", []string{"k1", "dev"}, false},
-	{"floor", "key.edit", []string{"k1", "--passphrase-ref", "secret:pw"}, false},
+	{"floor", "key.edit", []string{"k1", "--passphrase-ref", "credential:pw"}, false},
 	{"floor", "key.gen", []string{"k3"}, false},
 	{"floor", "key.rename", []string{"k1", "k4"}, false},
 	{"floor", "key.revoke", []string{"k1", "dev"}, false},
@@ -149,7 +149,7 @@ var tierRuns = []tierRun{
 	{"floor", "registry.oci.rename", []string{"reg", "reg9"}, false},
 	{"registry add dynamic safety", "registry.oci.add", []string{"reg3", "registry://127.0.0.1:1?tls=false"}, false},
 	{"floor", "registry.oci.image.copy", []string{"reg:app:1", "reg:app:2"}, false},
-	{"credential run dynamic safety", "secret.run", []string{"--env", "X=secret:pw", "--", "true"}, false},
+	{"credential run dynamic safety", "secret.run", []string{"--env", "X=credential:pw", "--", "true"}, false},
 	{"floor", "ssh-gate.line", []string{"--name", "phone", "ca.pub"}, false},
 	{"floor", "storage.s3.add", []string{"s4", "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}, false},
 	{"floor", "storage.s3.edit", []string{"s3", "--notes", "x"}, false},
@@ -637,7 +637,7 @@ func tierSeed(t *testing.T) {
 				check = addr
 			}
 			if oneOf(p, "l2tp", "ipsec") {
-				psk = "secret:vpn-psk" // not pw: a stored secret that a VPN uses changes what the credential rows stop at
+				psk = "credential:vpn-psk" // not pw: a stored secret that a VPN uses changes what the credential rows stop at
 			}
 			st.Vpns["vp-"+p] = &store.Vpn{Name: "vp-" + p, Kind: p, Address: addr, Check: check, PSKRef: psk}
 			st.Vpns["vp-"+p+"-mfa"] = &store.Vpn{Name: "vp-" + p + "-mfa", Kind: p, Address: addr, Check: check, PSKRef: psk, MFA: true}
@@ -649,6 +649,7 @@ func tierSeed(t *testing.T) {
 	}
 	t.Setenv("PW", "secret-value-1")
 	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
+	saveSecrets(t, "office-psk")
 	mustRun(t, "key", "gen", "k1")
 	mustRun(t, "key", "gen", "k6")
 	mustRun(t, "recipe", "add", "wipe", "rm -rf /")

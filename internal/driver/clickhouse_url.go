@@ -27,7 +27,7 @@ func parseClickHouse(u *url.URL, t Target) (Target, error) {
 	q := u.Query()
 	for key := range q {
 		if key != "tls" && key != "ca" {
-			return Target{}, out.Usage("unknown clickhouse URL option %q (known: tls (true, skip-verify or false), ca (secret:NAME))", key)
+			return Target{}, out.Usage("unknown clickhouse URL option %q (known: tls (true, skip-verify or false), ca (credential:NAME))", key)
 		}
 	}
 	t.TLS = strings.ToLower(q.Get("tls"))

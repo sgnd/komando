@@ -41,10 +41,10 @@ func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	windows := asAgent(t, false, false)
-	if _, err := localTool(tcl, "openconnect", []string{"secret:db-pass"}); toErr(err).Code != "SECRET_DESTINATION" {
+	if _, err := localTool(tcl, "openconnect", []string{"credential:db-pass"}); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("localTool: %v", err)
 	}
-	if p, err := localTool(tcl, "sh", []string{"secret:db-pass"}); err != nil || !filepath.IsAbs(p) {
+	if p, err := localTool(tcl, "sh", []string{"credential:db-pass"}); err != nil || !filepath.IsAbs(p) {
 		t.Fatalf("a system program: %q %v", p, err)
 	}
 	wantCode(t, "SECRET_DESTINATION", "vpn", "fortinet", "start", "office")

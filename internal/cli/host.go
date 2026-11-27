@@ -35,7 +35,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.user, "user", "", "the user to log in as")
 	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME)")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(loginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
@@ -232,10 +232,10 @@ selector (@group, tag:prod, 'web-*') to change many servers at once. Try
 and an AI agent needs your yes in a window. Changing the login of a
 production server, or turning its protection off, asks the same way; one yes
 covers every server in the command.`,
-		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
+		Example: `  komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo
   komando host edit web1 -g web -t prod          # -g/-t add a group/tag
   komando host edit db1 --protected              # production: ask before changes
-  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
+  komando host edit @ubuntu --sudo-ref credential:ubuntu-sudo --dry-run
   komando host edit web1 web2 web3 --user deploy
   komando host edit vps1 --ask-password          # type a new password (hidden)
   komando host edit web2 --login ask             # never store its password; type it at every connect
@@ -538,7 +538,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 	if err := applyKV(&h.Env, f.env); err != nil {
 		return err
 	}
-	if err := checkEnvKeys(h.Env); err != nil {
+	if err := checkEnv(h.Env); err != nil {
 		return err
 	}
 	for _, u := range f.unset {
@@ -675,8 +675,11 @@ func checkHostRefs(h *store.Host) error {
 		return err
 	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
+		if err := store.CredentialRef(r.flag, r.ref); err != nil {
+			return err
+		}
 		if r.ref != "" && !vault.ValidRef(r.ref) {
-			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
+			return out.Usage("%s takes a reference, not the password itself: store the password with `komando secret set NAME`, then pass credential:NAME", r.flag)
 		}
 	}
 	return nil

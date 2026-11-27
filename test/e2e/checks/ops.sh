@@ -24,7 +24,7 @@ NSKEY=$($K key show t-fixops-k | jget 'd["data"]["public_key"]')
 q $K exec direct --sudo -- "useradd -m -s /bin/sh t-fixopsns && mkdir -p ~t-fixopsns/.ssh && echo '$NSKEY' > ~t-fixopsns/.ssh/authorized_keys && chown -R t-fixopsns ~t-fixopsns/.ssh && chmod 700 ~t-fixopsns/.ssh"
 q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
 q $K host trust t-fixops-ns
-check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
+check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref credential:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
 for sub in ps stats images; do
   check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
 done

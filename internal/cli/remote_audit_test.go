@@ -309,7 +309,7 @@ func TestJobChecks(t *testing.T) {
 
 func TestDryRunMissingSecretFails(t *testing.T) {
 	auditHome(t)
-	if d, e := invRun(t, "exec", "web2", "-e", "TOKEN=secret:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
+	if d, e := invRun(t, "exec", "web2", "-e", "TOKEN=credential:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
 		t.Errorf("a missing secret: want SECRET_NOT_FOUND, got %+v %v", e, d)
 	}
 }

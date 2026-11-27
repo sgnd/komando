@@ -32,8 +32,7 @@ func TestQueuePubsubConn(t *testing.T) {
 	if d := mustRun(t, "conn", "show", "pubsub"); !strings.Contains(jsonOf(d), "my-project") {
 		t.Errorf("conn show: %v", d)
 	}
-	t.Setenv("KOMANDO_TEST_PUBSUB_KEY", "{}")
-	mustRun(t, "conn", "add", "keyed", "pubsub://test-project?endpoint=http://127.0.0.1:9", "--password-ref", "env:KOMANDO_TEST_PUBSUB_KEY")
+	mustRun(t, "conn", "add", "keyed", "pubsub://test-project?endpoint=http://127.0.0.1:9", "--password-ref", savedRef(t, "keyed-key", "{}"))
 	wantCode(t, "USAGE", "queue", "pubsub", "info", "keyed")
 }
 

@@ -112,7 +112,7 @@ func refuseHiddenWrite(texts ...string) error {
 		if out.HasHidden(s) {
 			return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
 				"write the real value, or leave that column or key out of the change; a person can let you see values with --reveal",
-				"the change holds a value komando hid ([hidden], [hidden: KIND] or [secret:NAME]); writing it would destroy the real value")
+				"the change holds a value komando hid ([hidden], [hidden: KIND] or [credential:NAME]); writing it would destroy the real value")
 		}
 	}
 	return nil

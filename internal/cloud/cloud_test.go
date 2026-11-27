@@ -197,7 +197,7 @@ func TestAWSSecretAndECR(t *testing.T) {
 	if got, err := ECRToken(context.Background(), "", "eu-west-1"); err != nil || got != "ecr-pw" {
 		t.Errorf("ecr: %q %v", got, err)
 	}
-	if arnPart("arn:aws:secretsmanager:ap-southeast-1:123:secret:x", 3) != "ap-southeast-1" || arnPart("plain", 3) != "" {
+	if arnPart("arn:aws:secretsmanager:ap-southeast-1:123:credential:x", 3) != "ap-southeast-1" || arnPart("plain", 3) != "" {
 		t.Error("arnPart")
 	}
 }

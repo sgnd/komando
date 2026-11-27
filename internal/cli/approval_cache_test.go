@@ -95,7 +95,7 @@ func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	if err := vault.Set(store.Save(), "web-pw", "old-value"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "edit", "web", "--password-ref", "secret:web-pw", "--yes")
+	mustRun(t, "host", "edit", "web", "--password-ref", "credential:web-pw", "--yes")
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
 	mustRun(t, "secret", "set", "web-pw", "--from-env", "V", "--yes", "--reveal")

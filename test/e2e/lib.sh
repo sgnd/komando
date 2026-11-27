@@ -58,7 +58,6 @@ export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
 export E2E_BAO=${E2E_BAO:-8201} E2E_MOTO=${E2E_MOTO:-5016} E2E_VW=${E2E_VW:-8090} E2E_K3S_OLD=${E2E_K3S_OLD:-16444}
 export E2E_AZURITE=${E2E_AZURITE:-10010}
 E2E_SOCKS=${E2E_SOCKS:-18080}
-BAOENV=(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=e2e-root)
 PASS=0
 FAIL=0
 
@@ -117,17 +116,17 @@ lab_down() {
 # bastion, direct, and target (protected, only reachable through bastion)
 setup_hosts() {
   echo "==> inventory & vault"
-  echo -n agentpass | $K secret set agent-pass >/dev/null
+  q sh -c 'printf %s agentpass | "$0" secret set agent-pass' "$K"
   if has_service bastion; then
     wait_port "$E2E_SSH_BASTION"
-    $K host add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref secret:agent-pass -g lab >/dev/null
+    q $K host add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref credential:agent-pass -g lab
   fi
   if has_service direct; then
     wait_port "$E2E_SSH_DIRECT"
-    $K host add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass -g lab -t test >/dev/null
+    q $K host add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref credential:agent-pass -g lab -t test
   fi
   if has_service target; then
-    $K host add target agent@target --via bastion --password-ref secret:agent-pass -g lab --protected >/dev/null
+    q $K host add target agent@target --via bastion --password-ref credential:agent-pass -g lab --protected
   fi
   sleep 1
 }
@@ -140,9 +139,9 @@ setup_data() {
   echo -n apppass | $K secret set pg-pass >/dev/null
   echo -n shoppass | $K secret set maria-pass >/dev/null
   echo -n redispass | $K secret set redis-pass >/dev/null
-  q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
-  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
-  q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
+  q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref credential:pg-pass
+  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref credential:maria-pass --protected
+  q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref credential:redis-pass
   setup_bucket
 }
 
@@ -154,14 +153,14 @@ setup_bucket() {
   G bucket create backups >/dev/null && G key create komando > "$TMP/s3key" && G bucket allow --read --write --owner backups --key komando >/dev/null
   S3ID=$(awk '/Key ID/{print $3}' "$TMP/s3key")
   awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K secret set s3-secret >/dev/null
-  q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
+  q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref credential:s3-secret
 }
 
 # +maria_conn: the protected conn maria, for checks that only edit the
 # inventory (no MariaDB runs)
 setup_maria_conn() {
   echo -n shoppass | $K secret set maria-pass >/dev/null
-  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
+  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref credential:maria-pass --protected
 }
 
 # +vpns: the SOCKS VPN lab (through the bastion, in use by target-lab) and
@@ -169,13 +168,13 @@ setup_maria_conn() {
 setup_vpns() {
   q $K vpn socks add lab --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
   q $K vpn system add corp --check 127.0.0.1:1
-  q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
+  q $K host add target-lab agent@target --via lab --password-ref credential:agent-pass
 }
 
 # +swarm: swarm1, a one-node Docker Swarm manager over SSH
 setup_swarm() {
   wait_port "$E2E_SSH_SWARM"
-  q $K host add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref secret:agent-pass
+  q $K host add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref credential:agent-pass
   for _ in $(seq 1 60); do $K exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
 }
 
