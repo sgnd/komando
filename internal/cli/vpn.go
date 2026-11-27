@@ -36,13 +36,8 @@ func vpnCmd() *cobra.Command {
 		Long: `Add a VPN once, then put it first in --via. A command that needs it
 connects it, using the login you saved. The word after vpn is the kind:
 
-<<<<<<< HEAD
   komando vpn wireguard add office --config ~/Downloads/office.conf
   komando vpn globalprotect add client-x --portal vpn.client.com --user alice --credential client-x --mfa
-=======
-  komando vpn add office wireguard --config ~/Downloads/office.conf
-  komando vpn add client-x globalprotect --portal vpn.client.com --user alice --password-ref credential:client-x --mfa
->>>>>>> feat/c489-cut-e1-format3
   komando host add app admin@10.0.0.5 --via office,bastion
   komando exec app -- uptime
 
@@ -72,7 +67,6 @@ func vpnAddCmd() *cobra.Command {
 		Use:   "add NAME KIND",
 		Short: "Add a VPN",
 		Long: `Saves a VPN under a short name. Typed alone at a terminal, it asks step by
-<<<<<<< HEAD
 step.`,
 		Example: `  komando vpn wireguard add office --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn globalprotect add client-x --portal vpn.client.com   # signs in through a browser window at start
@@ -86,21 +80,6 @@ step.`,
   komando vpn socks add lab --proxy-address 127.0.0.1:1080
   komando vpn proxy add office --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,
 		Args: cobra.ExactArgs(2),
-=======
-step, starting with the VPN app your company uses.`,
-		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-  komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
-  komando vpn add office openvpn --config office.ovpn --user alice --password-ref credential:office --check 10.8.0.1:22
-  komando vpn add tailnet tailscale --password-ref credential:ts-authkey
-  komando vpn add office l2tp --server vpn.example.com --psk-ref credential:office-psk --user alice --ask-password   # type the password now (hidden)
-  komando vpn add old-office l2tp --server vpn.example.com --psk-ref credential:old-psk --user alice --legacy-crypto --allow-pap
-  komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref credential:asa-group --user alice
-  komando vpn add cloud ikev2 --server vpn.example.com --user alice --password-ref credential:cloud
-  komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-  komando vpn add lab socks --proxy-address 127.0.0.1:1080
-  komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,
-		Args: formArgs(cobra.ExactArgs(2)),
->>>>>>> feat/c489-cut-e1-format3
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			name, kind := args[0], args[1]
 			if err := checkEntryName("vpn", name); err != nil {
@@ -355,11 +334,7 @@ func vpnAskPasswordRef(cmd *cobra.Command, name, kind string, askPw bool, ref *s
 		return out.Usage("use --ask-password or --credential, not both")
 	}
 	if !vpnTakes(kind, "ask-password") {
-<<<<<<< HEAD
-		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --credential secret:%s-authkey)", kind, name, name)
-=======
-		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --password-ref credential:%s-authkey)", kind, name, name)
->>>>>>> feat/c489-cut-e1-format3
+		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --credential %s-authkey)", kind, name, name)
 	}
 	*ref = "credential:" + name + "-pass"
 	return nil

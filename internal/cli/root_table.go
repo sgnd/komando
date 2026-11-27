@@ -410,21 +410,17 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 }
 
 // credentialRef is how today's bodies write the name of a credential: the
-// reference to a secret. Row E1 renames it to credential:NAME; this is the
-// one place that changes.
-<<<<<<< HEAD
+// reference to a secret. A whole reference passes as typed, and the body's
+// store.CredentialRef refuses an outside store or the old secret: spelling.
 func credentialRef(name string) string {
 	if strings.Contains(name, ":") { // a name never has a colon: this is a whole reference (env:VAR, op://...)
 		return name
 	}
-	return "secret:" + name
+	return "credential:" + name
 }
 
 // unsetWords are the words of --unset that today's bodies spell otherwise.
 var unsetWords = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref"}
-=======
-func credentialRef(name string) string { return "credential:" + name }
->>>>>>> feat/c489-cut-e1-format3
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.

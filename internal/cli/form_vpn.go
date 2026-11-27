@@ -13,13 +13,8 @@ import (
 )
 
 // The VPN forms of Add, most common first. A secret the person types never
-<<<<<<< HEAD
 // goes on the command line: the add with --ask-password asks the password
-// hidden and keeps it as secret:NAME-pass, and with --ask-psk it asks a
-=======
-// goes on the command line: vpn add --ask-password asks the password
-// hidden and keeps it as credential:NAME-pass, and vpn add --ask-psk asks a
->>>>>>> feat/c489-cut-e1-format3
+// hidden and keeps it as credential:NAME-pass, and with --ask-psk it asks a
 // shared secret (pre-shared key, Cisco group password) hidden and keeps it
 // as credential:NAME-psk. A Tailscale auth key is stored first with `komando
 // secret set NAME-authkey`, which asks it hidden too. After the add comes
@@ -113,25 +108,14 @@ func vpnUserQ(optional bool, help string) formQ {
 }
 
 // vpnPassQ asks how komando gets the VPN password: asked by the command,
-<<<<<<< HEAD
 // hidden, and kept in the vault (--ask-password); typed at each `start`;
-// or read from a password manager (--credential). def comes first. It is
+// or a secret saved before (--credential). def comes first. It is
 // asked only once there is a user name.
 func vpnPassQ(def string, canType bool) formQ {
 	rows := map[string]pickRow{
 		"save": {label: "Save it now, hidden", detail: "the command asks for it without showing it and keeps it as a saved password", value: "save"},
 		"type": {label: "Type it each time I connect", detail: "komando asks for it at each start; best when you also need a code from your phone", value: "type"},
-		"ref":  {label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"},
-=======
-// hidden, and kept in the vault (--ask-password); typed at each `vpn up`;
-// or a secret saved before (--password-ref). def comes first. It is asked
-// only once there is a user name.
-func vpnPassQ(def string, canType bool) formQ {
-	rows := map[string]pickRow{
-		"save": {label: "Save it now, hidden", detail: "the command asks for it without showing it and keeps it as a saved password", value: "save"},
-		"type": {label: "Type it each time I connect", detail: "komando vpn up asks for it; best when you also need a code from your phone", value: "type"},
 		"ref":  {label: "I saved it in komando before", detail: "pick it from your saved passwords", value: "ref"},
->>>>>>> feat/c489-cut-e1-format3
 	}
 	order := []string{def}
 	for _, k := range []string{"save", "type", "ref"} {
@@ -162,24 +146,14 @@ func vpnRefQ(key, from string) formQ {
 }
 
 // vpnPskQ asks how komando gets a shared secret (a pre-shared key, or a
-<<<<<<< HEAD
-// Cisco group password): typed hidden when add --ask-psk asks, or
-// from a password manager.
-=======
-// Cisco group password): typed hidden when vpn add --ask-psk asks, or a
+// Cisco group password): typed hidden when add --ask-psk asks, or a
 // secret saved before.
->>>>>>> feat/c489-cut-e1-format3
 func vpnPskQ(label, what, help string) formQ {
 	return formQ{key: "psk", label: label, ask: "How should komando get the " + what + "?", help: help,
 		def: func(*store.State, formAnswers) string { return "save" },
 		choices: func(*store.State, formAnswers) []pickRow {
-<<<<<<< HEAD
 			return []pickRow{{label: "Save it now, hidden", detail: "komando asks for it, hidden, and keeps it as a saved password", value: "save"},
-				{label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"}}
-=======
-			return []pickRow{{label: "Save it now, hidden", detail: "vpn add asks for it, hidden, and keeps it as a saved password", value: "save"},
 				{label: "I saved it in komando before", detail: "pick it from your saved passwords", value: "ref"}}
->>>>>>> feat/c489-cut-e1-format3
 		}}
 }
 
@@ -212,28 +186,16 @@ func vpnPassArgs(args []string, a formAnswers) []string {
 	case a["pass"] == "save":
 		args = append(args, "--ask-password")
 	case a["pass"] == "ref":
-<<<<<<< HEAD
-		args = append(args, "--credential", a["ref"])
-=======
-		args = append(args, "--password-ref", formSecretRef(a["ref"]))
->>>>>>> feat/c489-cut-e1-format3
+		args = append(args, "--credential", strings.TrimPrefix(a["ref"], "credential:"))
 	}
 	return args
 }
 
-<<<<<<< HEAD
 // vpnPskArgs adds --psk-credential for a key already stored, or --ask-psk: vpn
-// add then asks for it hidden and keeps it as secret:NAME-psk.
-func vpnPskArgs(args []string, a formAnswers) []string {
-	if a["psk"] == "ref" {
-		return append(args, "--psk-credential", a["pskref"])
-=======
-// vpnPskArgs adds --psk-ref for a key already stored, or --ask-psk: vpn
 // add then asks for it hidden and keeps it as credential:NAME-psk.
 func vpnPskArgs(args []string, a formAnswers) []string {
 	if a["psk"] == "ref" {
-		return append(args, "--psk-ref", formSecretRef(a["pskref"]))
->>>>>>> feat/c489-cut-e1-format3
+		return append(args, "--psk-credential", strings.TrimPrefix(a["pskref"], "credential:"))
 	}
 	return append(args, "--ask-psk")
 }
@@ -385,11 +347,7 @@ func tailscaleForm(_ *call) formSpec {
 			return vpnBuild(a, nil, args, true)
 		}
 		sec := a["name"] + "-authkey"
-<<<<<<< HEAD
 		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--credential", sec), false)
-=======
-		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--password-ref", "credential:"+sec), false)
->>>>>>> feat/c489-cut-e1-format3
 	}}
 }
 

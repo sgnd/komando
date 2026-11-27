@@ -45,15 +45,9 @@ var errorCodes = []errorCode{
 	{"CONNECT_TIMEOUT", 7, "connecting to … timed out", "a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link"},
 	{"CONN_EXISTS", 8, "… … already exists", "use `komando … edit` or pass --overwrite to replace it"},
 	{"CONN_UNREACHABLE", 4, "cannot reach …: …", "check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME`"},
-<<<<<<< HEAD
 	{"CONSUMER_GROUP_NOT_FOUND", 3, "no consumer group named …", "list consumer groups with `komando queue kafka consumer list NAME`"},
 	{"CONSUMER_NOT_FOUND", 3, "no consumer named …", "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"},
-=======
-	{"CONSUMER_GROUP_NOT_FOUND", 3, "no consumer group named …", "list consumer groups with `komando queue groups CONN`"},
-	{"CONSUMER_NOT_FOUND", 3, "no consumer named …", "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER"},
 	{"CREDENTIAL_IN_USE", 8, "…: changing … would change credential …, which these entries use: …; nothing was changed", "give this entry its own: `komando secret cp … NEW`, then pass credential:NEW"},
-	{"CRONTAB_UNREADABLE", 5, "cannot read the crontab (exit …)", "check the user name; reading another user's crontab needs sudo"},
->>>>>>> feat/c489-cut-e1-format3
 	{"DB_AUTH", 4, "bigquery: the stored key is not a service account key: …", "the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login"},
 	{"DB_BYTES_LIMIT", 6, "the query would read …, more than --max-bytes …, so it did not run", "BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes"},
 	{"DB_CONNECT", 4, "cannot open …: …", "check the file path in the conn URL (`komando conn show NAME`)"},
@@ -132,11 +126,8 @@ var errorCodes = []errorCode{
 	{"KEY_UNREADABLE", 4, "cannot read key …: …", "check the key path (`komando key list` shows the keys komando knows)"},
 	{"KEY_USER_INVALID", 2, "the user is root (uid 0) or is not on the server, so no device key is written for it", "name a user that is not root: fix it on the server as the message says, then run `komando key deploy` again"},
 	{"KILL_FAILED", 5, "the server did not stop session …", "you may lack the right to stop another user's session"},
-<<<<<<< HEAD
-	{"KOMANDO_MISSING", 3, "komando is not installed on the server, so no gate line can run it", "fix it on the server as the message says, then run `komando key deploy` again"},
-=======
 	{"KIND_UNSUPPORTED", 2, "…: kind … has no type", "pick a kind komando knows: `komando conn add --help` lists them"},
->>>>>>> feat/c489-cut-e1-format3
+	{"KOMANDO_MISSING", 3, "komando is not installed on the server, so no gate line can run it", "fix it on the server as the message says, then run `komando key deploy` again"},
 	{"KUBECONFIG", 2, "conn …: …", "import it again with `komando import kubeconfig`"},
 	{"LOGIN_FAILED", 4, "the login to … ended early (…)", "a person reads the whole log in …"},
 	{"MIXED_OS", 2, "the target picks Windows servers (…) and other servers (…)", "a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh)"},
@@ -282,20 +273,11 @@ var errorCodes = []errorCode{
 	{"STORE_MIGRATION_FAILED", 1, "…; nothing was changed", "fix it with komando …, then run `komando doctor` again"},
 	{"STORE_NEWER", 1, "… was made by a newer komando", "a newer komando made or changed this store; update this one: `komando update`"},
 	{"STORE_OLD_COPY", 6, "… …: servers, rules, secrets or pinned host keys may be old", "if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain"},
-<<<<<<< HEAD
-	{"STORE_REFERENCE_UNSUPPORTED", 2, "… …: field … still names a secret the old way", "point the field at a saved secret again with komando v0.17.0, then run `komando doctor`"},
+	{"STORE_REFERENCE_UNSUPPORTED", 2, "… …: field … still names a secret the old way", "point the field at a saved secret again with komando …, then run `komando doctor`"},
 	{"STREAM_EXISTS", 8, "stream … already exists", "pick another name, or see it with `komando queue nats topic show NAME …`"},
 	{"STREAM_NOT_FOUND", 3, "no stream named …", "list streams with `komando queue nats topic list NAME`"},
 	{"SUBSCRIPTION_EXISTS", 8, "subscription … already exists", "pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…`"},
 	{"SUBSCRIPTION_NOT_FOUND", 3, "no subscription named …", "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own"},
-=======
-	{"STORE_REFERENCE_UNSUPPORTED", 2, "… …: field … still names a secret the old way", "point the field at a saved secret again with komando …, then run `komando doctor`"},
-	{"STREAM_EXISTS", 8, "stream … already exists", "pick another name, or see it with `komando queue describe CONN …`"},
-	{"STREAM_NOT_FOUND", 3, "no stream named …", "list streams with `komando queue list CONN`"},
-	{"SUBSCRIPTION_EXISTS", 8, "subscription … already exists", "pick another name, or see it with `komando queue describe CONN subscriptions/…`"},
-	{"SUBSCRIPTION_NOT_FOUND", 3, "no subscription named …", "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own"},
-	{"SVC_FAILED", 5, "systemctl daemon-reload failed (…)", "read the error output (stderr) for systemd's reason; a unit file with a mistake is named there"},
->>>>>>> feat/c489-cut-e1-format3
 	{"SWARM_ERROR", 5, "Docker Swarm answered with an error", "check that Docker runs there: `komando exec TARGET --read-only -- docker info`"},
 	{"SWARM_MANAGER_NOT_FOUND", 3, "swarm service …: its manager server … is not in your list", "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service"},
 	{"SWARM_OBJECT_NOT_FOUND", 3, "no … named …", "list what exists with `komando cluster list TARGET …s`"},
