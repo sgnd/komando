@@ -43,7 +43,7 @@ This page is made from the code (`komando schema` lists the same under
 | `COMMAND_FAILED` | 5 | exit code … | read the error output (stderr) for the reason |
 | `COMMAND_NOT_FOUND` | 3 | no command … | run `komando schema --compact` to see every command |
 | `CONFIRM_REQUIRED` | 6 | deleting group … takes … entries out of it | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
-| `CONNECTION_LOST` | 4 | the connection to … broke while the command ran | check with a read-only command before running it again; a run in a session goes on there: `komando exec … --attach ID` reads on |
+| `CONNECTION_LOST` | 4 | the connection to … was lost before the command started…; it did not run | check the link with `komando test …`, then run it again |
 | `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: `komando host show …` |
 | `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
 | `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |

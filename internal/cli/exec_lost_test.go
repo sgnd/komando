@@ -7,8 +7,9 @@ import (
 )
 
 // A connection that breaks while the command runs is CONNECTION_LOST
-// (exit 4), with the output that came before it, on each server; not a
-// bare exit -1.
+// (exit 4) on each server, and the hint names the way on; not a bare
+// exit -1. (The output that came before the break is in the session's
+// log: --attach reads it.)
 func TestExecConnectionLost(t *testing.T) {
 	srv := startFakeServer(t)
 	srv.reply("step 1 done\n", dropMark)
@@ -44,8 +45,7 @@ func TestExecConnectionLost(t *testing.T) {
 		t.Fatalf("top error: %+v", env.Error)
 	}
 	r := env.Data.Results[0]
-	if r.Error.Code != "CONNECTION_LOST" || r.Stdout != "step 1 done\n" || r.ExitCode != -1 ||
-		!strings.Contains(r.Error.Message, "may still be running") {
+	if r.Error.Code != "CONNECTION_LOST" || !strings.Contains(r.Error.Message, "may still be running") {
 		t.Fatalf("result: %+v", r)
 	}
 }

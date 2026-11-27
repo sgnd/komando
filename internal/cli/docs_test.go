@@ -238,7 +238,7 @@ func TestAgentDocsUsePrimaryNames(t *testing.T) {
 			// a passthrough command given words after its fixed arguments
 			// writes them after -- (S-4.4)
 			if n := passthroughFixed(cmd.Use); n >= 0 && !strings.Contains(line, " -- ") && !strings.Contains(line, "--script") &&
-				!strings.Contains(line, " -c ") && !strings.Contains(line, "--cmd") {
+				!strings.Contains(line, " -c ") && !strings.Contains(line, "--cmd") && !strings.Contains(line, "--attach") {
 				rest := words[len(key):]
 				pos := 0
 				for _, w := range rest {
