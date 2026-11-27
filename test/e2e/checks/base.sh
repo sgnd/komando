@@ -179,8 +179,8 @@ $K host rm ops >/dev/null
 $K exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
 $K fs write direct /etc/private/token --content s3cret --sudo >/dev/null
 check "fs write --sudo keeps a mode the user cannot see" 600 "$($K exec direct --sudo -- stat -c %a /etc/private/token | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "upload to group" 3 "$($K cp "$TMP/f" @lab:/tmp/f --yes | jget 'd["data"]["summary"]["ok"]')"
-$K cp '@lab:/tmp/f' "$TMP/down" >/dev/null
+check "upload to group" 3 "$($K copy "$TMP/f" @lab:/tmp/f --yes | jget 'd["data"]["summary"]["ok"]')"
+$K copy '@lab:/tmp/f' "$TMP/down" >/dev/null
 check "download per host" payload "$(cat "$TMP/down/target/f")"
 
 echo "==> jobs"

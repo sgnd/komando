@@ -2,20 +2,21 @@ package cli
 
 import (
 	"context"
+	"maps"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 )
 
-// `komando upload` and `download` move files between this computer and any
-// target that stores files: servers (SFTP) or storage conns. `cp` and
-// `storage upload/download` are the same thing spelled per area
-// (docs/design/principles.md, section 12).
+// `komando copy` moves files between this computer and any target that
+// stores files: servers (SFTP) or storage conns. Its bodies are the old
+// upload and download, which cp runs for its two directions.
 
 // fileTarget says whether a target is servers or one storage conn.
 func fileTarget(cl *call, expr string) (storage bool, err error) {
@@ -50,13 +51,11 @@ func downloadCmd() *cobra.Command { return downloadCmdFor(false) }
 // spelled inside the storage area: the same code, for storage conns only.
 func storageUploadCmd() *cobra.Command {
 	c := alias(uploadCmdFor(true), "upload TARGET FILE [DEST]", "Upload a file to a storage conn")
-	c.Example = `  komando storage upload backups ./report.pdf reports/2026/`
 	return c
 }
 
 func storageDownloadCmd() *cobra.Command {
 	c := alias(downloadCmdFor(true), "download TARGET PATH", "Download an object from a storage conn")
-	c.Example = `  komando storage download backups reports/q3.pdf --to ~/Downloads/`
 	return c
 }
 
@@ -65,30 +64,7 @@ func storageDownloadCmd() *cobra.Command {
 func uploadCmdFor(storageOnly bool) *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
-		Use:   "upload TARGET FILE [DEST]",
-		Short: "Upload a file to servers (many at once) or to file storage",
-		Long: `DEST is the path on the servers, or the key in the storage conn. It defaults
-to the file's name (servers: in the login user's home folder; ~/x works too).
-A storage KEY ending in / is a folder, so the file keeps its name inside it.
-An existing file at DEST is replaced (the result says replaced).
-
-FILE - reads the file from stdin into DEST, which then names the file: on a
-server through a temporary file moved into place at the end. --size N
-makes a stream of another length fail (SIZE_CONFLICT) and replace nothing.
-
---continue goes on with an upload of one file that was cut off: the part
-already at DEST is kept when it matches the file (sha256), the rest is
-sent, and the whole file is checked. S3, Google Cloud Storage, Azure
-Blob and WebDAV store a file whole and cannot add to one
-(RESUME_UNSUPPORTED).
-
-` + uploadFolderRule,
-		Example: `  komando upload @web ./app.tar.gz /tmp/app.tar.gz
-  komando upload web1 ./site /var/www/site -r
-  komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
-  komando upload backups ./db.sql.gz 2026/db.sql.gz
-  komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
-  komando upload web1 - /etc/app/motd --size 120 < motd.txt`,
+		Use:  "upload TARGET FILE [DEST]",
 		Args: cobra.RangeArgs(2, 3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			dest := ""
@@ -135,31 +111,7 @@ func downloadCmdFor(storageOnly bool) *cobra.Command {
 	var o cpOpts
 	var to string
 	c := &cobra.Command{
-		Use:   "download TARGET PATH",
-		Short: "Download files from servers or from file storage",
-		Long: `PATH is the path on the servers, or the key in the storage conn. --to is
-where it lands: a file name, or a folder (existing, or ending in /); a
-folder per server when several are picked. A file that is already here is
-replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
-and a folder keeps them (kept) and copies the rest. --sudo reads one file
-as root (up to 512 MiB).
-
---to - streams one file to stdout, from a server or storage: stdout has the
-file's bytes and nothing else, whatever -o says, and komando's own answer
-(the result with bytes and sha256, or the error) goes to stderr.
-
---continue goes on with a download of one file that was cut off: the part
-already here is kept when it matches the source (sha256), the rest is
-fetched, and the whole file is checked. A file here that is longer, or
-differs, stops with RESUME_CONFLICT and is not touched.
-
-` + downloadFolderRule,
-		Example: `  komando download web1 /var/log/nginx/error.log --to ./logs/
-  komando download @web /etc/nginx/nginx.conf --to ./configs/
-  komando download backups 2026/db.sql.gz
-  komando download backups reports/ -r --to ./reports
-  komando download web1 /var/backups/db.sql.gz --continue
-  komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf`,
+		Use:  "download TARGET PATH",
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
@@ -227,7 +179,7 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 			return storageUploadStdin(cl, ctx, name, target, dest, o)
 		}
 		if o.recursive {
-			// a folder: sent like `komando sync`, new and changed files only
+			// a folder: sent like `komando copy --sync`, new and changed files only
 			return syncUp(cl, ctx, name, file, target, storageFolderDest(file, dest), syncOpts{})
 		}
 		if err := noteUpload(cl, file, nil); err != nil {
@@ -299,11 +251,26 @@ func continueFlags(o cpOpts) error {
 	case !o.resume:
 		return nil
 	case o.recursive:
-		return out.Usage("--continue goes on with one file; for a folder use `komando sync`, which sends only what is still missing")
+		return out.Usage("--continue goes on with one file; for a folder use `komando copy --sync`, which sends only what is still missing")
 	case o.sudo:
 		return out.Usage("--continue reads and writes as the SSH user; --sudo copies the whole file")
 	case o.overwrite:
 		return out.Usage("--continue keeps the part already there and --overwrite replaces it; give one of them")
 	}
 	return nil
+}
+
+// copy is the one command for what cp, upload, download, sync, storage
+// upload and storage download did: --sync runs the folder sync body, the
+// rest runs cp's, which reads which side is TARGET:PATH.
+func init() {
+	handlers[capability.Key{Verb: "copy"}] = func(cl *call, ctx context.Context, in leafInput) error {
+		if !in.Bool("sync") {
+			return runBody(cl, ctx, cpCmd(), in, nil)
+		}
+		in.vals = maps.Clone(in.vals)
+		delete(in.vals, "sync") // the sync body is --sync already
+		return runBody(cl, ctx, syncCmd(), in, nil)
+	}
+	moveTop("copy")
 }

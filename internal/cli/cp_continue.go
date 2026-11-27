@@ -86,7 +86,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 		return resumed{}, resumeConflict(dst.where(), fmt.Sprintf("is longer than the source (%s, the source %s)", term.HumanBytes(ds), term.HumanBytes(ss)))
 	}
 	if ds > 0 && ds < ss && !dst.canAppend() {
-		return resumed{}, out.Errf(out.ExitUsage, "RESUME_UNSUPPORTED", "run it again without --continue to copy the whole file: `komando cp SRC DST`",
+		return resumed{}, out.Errf(out.ExitUsage, "RESUME_UNSUPPORTED", "run it again without --continue to copy the whole file: `komando copy SOURCE DESTINATION`",
 			"%s cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed", dst.where())
 	}
 	sh, dh := sha256.New(), sha256.New()
@@ -143,7 +143,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 		return resumed{}, err
 	}
 	if got != want {
-		return resumed{}, out.Errf(out.ExitConflict, "RESUME_CONFLICT", "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST`",
+		return resumed{}, out.Errf(out.ExitConflict, "RESUME_CONFLICT", "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando copy SOURCE DESTINATION`",
 			"%s does not match the source after the copy (sha256 %s, the source %s); it was left as it is", dst.where(), got, want)
 	}
 	pp.fileDone()
@@ -153,12 +153,12 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 // fileChanged: a file changed while komando copied it; the next step is to
 // run the same command again, which reads it anew.
 func fileChanged(where, why string) error {
-	return out.Errf(out.ExitConflict, "FILE_CHANGED", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again",
+	return out.Errf(out.ExitConflict, "FILE_CHANGED", "run the same command again (`komando copy SOURCE DESTINATION --continue`): komando reads the file's length again",
 		"%s %s; nothing was added", where, why)
 }
 
 func resumeConflict(where, why string) error {
-	return out.Errf(out.ExitConflict, "RESUME_CONFLICT", "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST`",
+	return out.Errf(out.ExitConflict, "RESUME_CONFLICT", "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando copy SOURCE DESTINATION`",
 		"%s %s, so --continue cannot go on from it; nothing was changed", where, why)
 }
 
@@ -470,7 +470,7 @@ func continueDownload(cl *call, ctx context.Context, src resumeEnd, dst string, 
 			return resumed{}, err
 		}
 		if ok && n <= hiddenScanMax {
-			return resumed{}, out.Errf(out.ExitUsage, "RESUME_UNSUPPORTED", "run it again without --continue: `komando download TARGET PATH`",
+			return resumed{}, out.Errf(out.ExitUsage, "RESUME_UNSUPPORTED", "run it again without --continue: `komando copy SOURCE DESTINATION`",
 				"%s is saved for an AI agent with secret values shown as [hidden], which --continue cannot go on from; nothing was changed", src.where())
 		}
 	}

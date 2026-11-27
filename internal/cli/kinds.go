@@ -130,7 +130,7 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"conn", "", "show"}:    reads,
 	{"conn", "", "test"}:    reads,
 
-	{"", "cp", "copy"}: dependsOn("changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC"),
+	{"", "", "copy"}: dependsOn("changes the destination: a server or bucket when it is the DESTINATION, only this computer when it is the SOURCE"),
 
 	{"database", "", ""}:           reads,
 	{"database", "", "activity"}:   reads,
@@ -169,10 +169,9 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"host", "docker", "stats"}:   reads,
 	{"host", "docker", "stop"}:    changes,
 
-	{"", "", "doctor"}:       reads,
-	{"", "download", "copy"}: reads,
-	{"host", "", "exec"}:     dependsOn(unlessReadOnly),
-	{"", "", "export"}:       reads,
+	{"", "", "doctor"}:   reads,
+	{"host", "", "exec"}: dependsOn(unlessReadOnly),
+	{"", "", "export"}:   reads,
 
 	{"host", "file", ""}:        reads,
 	{"host", "file", "cat"}:     reads,
@@ -302,26 +301,21 @@ var commandKinds = map[safetyKey]cmdKind{
 
 	{"", "", "status"}: reads,
 
-	{"storage", "", ""}:               reads,
-	{"storage", "object", "read"}:     reads,
-	{"storage", "object", "chmod"}:    changes,
-	{"storage", "object", "download"}: reads,
-	{"storage", "object", "link"}:     changes, // hands out access (OD-13)
-	{"storage", "object", "list"}:     reads,
-	{"storage", "object", "create"}:   changes,
-	{"storage", "object", "move"}:     changes,
-	{"storage", "object", "delete"}:   changes,
-	{"storage", "object", "upload"}:   changes,
+	{"storage", "", ""}:             reads,
+	{"storage", "object", "read"}:   reads,
+	{"storage", "object", "chmod"}:  changes,
+	{"storage", "object", "link"}:   changes, // hands out access (OD-13)
+	{"storage", "object", "list"}:   reads,
+	{"storage", "object", "create"}: changes,
+	{"storage", "object", "move"}:   changes,
+	{"storage", "object", "delete"}: changes,
 
-	{"", "sync", "copy"}: changes,
-	{"", "", "test"}:     reads,
+	{"", "", "test"}: reads,
 
 	{"host", "tunnel", ""}:      reads,
 	{"host", "tunnel", "list"}:  reads,
 	{"host", "tunnel", "start"}: changes,
 	{"host", "tunnel", "stop"}:  changes,
-
-	{"", "upload", "copy"}: changes,
 
 	{"", "", "update"}:  changes,
 	{"", "", "version"}: reads,

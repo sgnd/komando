@@ -374,7 +374,7 @@ func storageCatCmd() *cobra.Command {
 						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
 					}
 					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
-						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN OBJECT`", "%s is not text", args[1])
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "copy it to this computer with `komando copy SOURCE DESTINATION`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -582,7 +582,7 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, 
 	}
 	fi, err := os.Stat(file)
 	if err != nil || fi.IsDir() {
-		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando upload CONN DIR KEY -r`)", "cannot upload %s", file)
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando copy DIR CONN:KEY -r`)", "cannot upload %s", file)
 	}
 	if err := guardLocalRead(cl, file); err != nil {
 		return err

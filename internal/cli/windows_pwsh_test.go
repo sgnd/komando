@@ -210,11 +210,11 @@ func TestPwshRealFiles(t *testing.T) {
 	body := strings.Repeat("0123456789abcdef", 20000) // 320 KB: several input lines
 	src := filepath.Join(t.TempDir(), "big.bin")
 	_ = os.WriteFile(src, []byte(body), 0o600)
-	if got, err := run("upload", "win", src, dir+"/"); err != nil || !strings.Contains(got, `"bytes":320000`) {
+	if got, err := run("copy", src, "win:"+dir+"/"); err != nil || !strings.Contains(got, `"bytes":320000`) {
 		t.Fatalf("upload: %v %s", err, got)
 	}
 	to := t.TempDir()
-	if got, err := run("download", "win", dir+"/big.bin", "--to", to); err != nil {
+	if got, err := run("copy", "win:"+dir+"/big.bin", to); err != nil {
 		t.Fatalf("download: %v %s", err, got)
 	}
 	if b, _ := os.ReadFile(filepath.Join(to, "big.bin")); string(b) != body {

@@ -15,7 +15,7 @@ func TestTargetKinds(t *testing.T) {
 	root := newRoot(tcl)
 	for line, want := range map[string]string{
 		"exec": "Target (servers)", "pkg install": "Target (servers)", "cluster status": "Target (clusters)",
-		"upload": "Target (servers or file storage)", "conn rm": "Target (conns)", "test": "Target",
+		"copy": "Source", "conn rm": "Target (conns)", "test": "Target",
 	} {
 		c, _, err := root.Find(shellWords(line))
 		if err != nil {

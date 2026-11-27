@@ -80,13 +80,13 @@ var tierRuns = []tierRun{
 	{"credential token remove dangerous", "secret.rm", []string{"pw"}, false},
 	{"floor", "secret.rename", []string{"pw", "pw2"}, false},
 	{"floor", "secret.set", []string{"pw3", "--from-env", "PW"}, false},
-	{"copy --sync --delete dangerous", "sync", []string{"dev:/tmp/a", "b", "--delete"}, false},
-	{"floor", "sync", []string{"dev:/tmp/a", "b"}, false},
-	{"floor", "cp", []string{"dev:/tmp/a", "b"}, false},
-	{"floor", "upload", []string{"dev", "a.txt", "/tmp/"}, false},
-	{"floor", "download", []string{"dev", "/tmp/a", "--to", "."}, false},
-	{"floor", "storage.upload", []string{"s3", "a.txt"}, false},
-	{"floor", "storage.download", []string{"s3", "a.txt"}, false},
+	{"copy --sync --delete dangerous", "copy", []string{"dev:/tmp/a", "b", "--sync", "--delete"}, false},
+	{"floor", "copy", []string{"dev:/tmp/a", "b", "--sync"}, false},
+	{"floor", "copy", []string{"dev:/tmp/a", "b"}, false},
+	{"floor", "copy", []string{"a.txt", "dev:/tmp/"}, false},
+	{"floor", "copy", []string{"dev:/tmp/a", "."}, false},
+	{"floor", "copy", []string{"a.txt", "s3:"}, false},
+	{"floor", "copy", []string{"s3:a.txt", "."}, false},
 	{"vpn edit --protected=false safety", "vpn.edit", []string{"wg-prot", "--protected=false"}, false},
 	// person
 	{"config approval-code person", "config.approval-code", nil, false},
@@ -176,12 +176,6 @@ var tierRuns = []tierRun{
 var tierUnreached = map[string]string{
 	// leaves with no path today: C gives them one, and this test then runs them
 	"floor | (no path today)": "no path today (credential token rename)",
-	// only sync has --delete today; copy --sync --delete is run as sync above
-	"copy --sync --delete dangerous | cp":               "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | upload":           "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | download":         "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | storage.upload":   "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | storage.download": "only sync has --delete today (run as sync)",
 	// flags that arrive in the cut
 	"host ssh exec --stop change | exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
 	"host ssh exec --remove change | exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",

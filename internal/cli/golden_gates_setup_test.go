@@ -111,7 +111,7 @@ var goldenGates = [][]string{
 	{"pkg", "rm", "web1", "openssh-server"},
 	{"fs", "rm", "web1", "/tmp/x", "--recursive"},
 	{"fs", "rm", "web1", "/"},
-	{"sync", "testdata", "web1:/tmp/x", "--delete"},
+	{"copy", "testdata", "web1:/tmp/x", "--sync", "--delete"},
 	{"cache", "rm", "cache1", "k"},
 	{"cache", "rm", "pcache", "k"},
 	{"cache", "redis", "raw", "cache1", "--write", "--", "FLUSHALL"},
@@ -134,7 +134,7 @@ var goldenGates = [][]string{
 	{"fs", "write", "prod1", "/tmp/x", "--content", "hi"},
 	{"fs", "rm", "prod1", "/tmp/x"},
 	{"docker", "stop", "prod1", "c1"},
-	{"upload", "prod1", "testdata/golden_restore.sql", "/tmp/h"},
+	{"copy", "testdata/golden_restore.sql", "prod1:/tmp/h"},
 	{"host", "rm", "prod1"},
 	{"host", "edit", "prod1", "--protected=false"},
 	// PROTECTED_TARGET: a change on a protected conn (--yes)

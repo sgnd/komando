@@ -35,21 +35,21 @@ check "fs replace dry-run says would_change" True "$($K fs replace direct $R/b -
 check "diff has real hunk headers" True "$($K fs write direct $R/b --content c --dry-run | jget 'd["data"]["diff"].startswith("@@ -1 +1 @@")')"
 
 # transfers
-q $K cp -r "$L/site" direct:$R/up/site -p
-q $K cp -r "$L/site" direct:$R/up/site
+q $K copy -r "$L/site" direct:$R/up/site -p
+q $K copy -r "$L/site" direct:$R/up/site
 check "cp -r twice does not nest" "False True" "$($K fs stat direct $R/up/site/site | jget 'd["data"]["exists"]') $($K fs stat direct $R/up/site/sub/b.txt | jget 'd["data"]["exists"]')"
-check "upload -r lists skipped links" link "$($K upload direct "$L/site" $R/up/site -r | jget 'd["data"]["results"][0]["skipped"][0]')"
-check "upload into a missing folder" FOLDER_NOT_FOUND "$($K upload direct "$L/site/a.txt" $R/missing/a.txt | jget 'd["error"]["code"]' || true)"
-check "~ is the home folder" True "$($K cp "$L/site/a.txt" 'direct:~/t-e2erun-a.txt' | jget 'd["data"]["results"][0]["dest"].startswith("/home/")')"
-set +e; $K download direct $R/dl -r --to "$L/dl" >/dev/null; check "partial folder download -> 5" 5 $?; set -e
+check "upload -r lists skipped links" link "$($K copy "$L/site" direct:$R/up/site -r | jget 'd["data"]["results"][0]["skipped"][0]')"
+check "upload into a missing folder" FOLDER_NOT_FOUND "$($K copy "$L/site/a.txt" direct:$R/missing/a.txt | jget 'd["error"]["code"]' || true)"
+check "~ is the home folder" True "$($K copy "$L/site/a.txt" 'direct:~/t-e2erun-a.txt' | jget 'd["data"]["results"][0]["dest"].startswith("/home/")')"
+set +e; $K copy direct:$R/dl "$L/dl" -r >/dev/null; check "partial folder download -> 5" 5 $?; set -e
 check "partial download keeps the readable files" 1 "$(cat "$L/dl/ok" 2>/dev/null)"
 
 # sync
 mkdir -p "$L/keep" && echo k > "$L/keep/k"
-set +e; $K sync direct:$R/missing "$L/keep" --delete --allow-dangerous >/dev/null; check "sync from a missing folder -> 3" 3 $?; set -e
+set +e; $K copy direct:$R/missing "$L/keep" --sync --delete --allow-dangerous >/dev/null; check "sync from a missing folder -> 3" 3 $?; set -e
 check "sync never deleted the local files" k "$(cat "$L/keep/k")"
-check "sync from a file" NOT_A_FOLDER "$($K sync direct:$R/b "$L/x" | jget 'd["error"]["code"]' || true)"
-check "sync dry-run grammar" True "$($K sync "$L/site" direct:$R/s --dry-run -o text 2>/dev/null | grep -q '^would copy 2, update 0, delete 0' && echo True || echo False)"
+check "sync from a file" NOT_A_FOLDER "$($K copy direct:$R/b "$L/x" --sync | jget 'd["error"]["code"]' || true)"
+check "sync dry-run grammar" True "$($K copy "$L/site" direct:$R/s --sync --dry-run -o text 2>/dev/null | grep -q '^would copy 2, update 0, delete 0' && echo True || echo False)"
 
 # jobs
 JR=$($K job start direct -- 'sleep 60' | jget 'd["data"]["jobs"][0]["id"]')

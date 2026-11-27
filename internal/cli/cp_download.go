@@ -89,7 +89,7 @@ func download(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, sr
 }
 
 // downloadFolder is download -r: the folder src (its contents with a
-// trailing /) into dst, as cpFolderRule says.
+// trailing /) into dst, as the folder rules in docs/features/files.md say.
 func downloadFolder(cl *call, ctx context.Context, sc *sftp.Client, src, dst string, dstIsDir, dstSlash bool, o cpOpts) (xferStats, error) {
 	contents := strings.HasSuffix(src, "/")
 	src = path.Clean(src)

@@ -116,7 +116,7 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
-		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
+		{[]string{"secret", "copy"}, "secret.cp"},
 		{[]string{"job", "stop"}, "job.kill"}, {[]string{"secret", "passwd"}, "secret.passphrase"},
 		{[]string{"cluster", "info"}, "cluster.status"},
 	} {

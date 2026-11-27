@@ -259,74 +259,10 @@ func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
 	c.Flags().StringVar(&o.mode, "mode", "", prefix+"file mode, like 0755")
 }
 
-const cpFolderRule = `Folders (-r), like cp and rsync:
-  SRC/  (trailing slash)  the contents of SRC go into DST
-  SRC   into a new DST    DST becomes the copy of SRC
-  SRC   into a folder DST of the same name (site -> /var/www/site): DST is
-        updated in place, so running the same copy again never nests site/site
-  SRC   into another existing folder DST: the copy is DST/SRC
-Symbolic links are not copied (they are listed as skipped). For repeatable
-deploys that send only changed files, use ` + "`komando sync`.\n"
-
-// uploadFolderRule is cpFolderRule in upload's words.
-const uploadFolderRule = `Folders (-r), like cp and rsync:
-  FILE/  (trailing slash)  the contents of FILE go into DEST
-  FILE   into a new DEST    DEST becomes the copy of FILE
-  FILE   into a folder DEST of the same name (site -> /var/www/site): DEST
-         is updated in place, so running the same upload again never nests
-         site/site
-  FILE   into another existing folder DEST: the copy is DEST/FILE
-Without DEST the folder keeps its name (servers: in the home folder). In
-storage, a DEST ending in / is an existing folder. Symbolic links are not
-copied (they are listed as skipped). For repeatable deploys that send only
-changed files, use ` + "`komando sync`.\n"
-
-// downloadFolderRule is cpFolderRule in download's words.
-const downloadFolderRule = `Folders (-r), like cp and rsync:
-  PATH/  (trailing slash)  the contents of PATH go into --to
-  PATH   into a new --to    --to becomes the copy of PATH
-  PATH   into a folder --to of the same name (/var/log/app -> ./app): it
-         is updated in place, so downloading again never nests app/app
-  PATH   into another existing folder --to: the copy is --to/NAME
-Without --to it lands in the current folder under its own name. Symbolic
-links are not copied (they are listed as skipped).
-`
-
 func cpCmd() *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
-		Use:     "cp SRC DST",
-		Aliases: []string{"copy"},
-		Short:   "Copy files, written SRC DST with TARGET:PATH (upload/download)",
-		Long: `Remote paths are written TARGET:PATH (TARGET: alone, or TARGET:~/x, is the
-login user's home folder). Uploads accept any target selector (@group,
-tag:x, ...) and run in parallel. Downloads from several servers go to
-DST/<server>/... . A single-file copy reports its sha256, so you can check it.
-TARGET can be a storage conn too (backups:2026/db.sql.gz). cp is upload or
-download written the cp way: the same code, flags and results.
-
-With TARGET:PATH on both sides, cp copies from one server or storage conn
-to another (server to server, storage to storage, or one of each). The
-data streams through this computer and is never saved on its disk. The
-file at the destination is replaced, as an upload replaces it.
-
---continue goes on with a single file that was cut off: the part already
-at the destination is kept when it matches the source (sha256), the rest
-is sent, and the whole file is checked against the source. A destination
-that is longer, or differs, stops with RESUME_CONFLICT and is not touched.
-S3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and
-cannot add to one (RESUME_UNSUPPORTED).
-
-` + cpFolderRule,
-		Example: `  komando cp ./app.tar.gz @web:/tmp/app.tar.gz
-  komando cp -r ./site web1:/var/www/site
-  komando cp ./nginx.conf web1:/etc/nginx/nginx.conf --sudo
-  komando cp web1:/var/log/nginx/error.log ./logs/
-  komando cp @web:/etc/nginx/nginx.conf ./configs/
-  komando cp ./db.sql.gz backups:2026/db.sql.gz
-  komando cp web1:/var/backups/db.sql.gz web2:/var/backups/
-  komando cp -r web1:/var/www/site backups:sites/
-  komando cp web1:/var/backups/db.sql.gz ./db.sql.gz --continue`,
+		Use:  "copy SRC DST",
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
@@ -519,7 +455,7 @@ func downloadExists(local, remote string, check bool) error {
 	return fileExists(local)
 }
 
-// treeDest is where a folder copy goes (see cpFolderRule). srcBase is the
+// treeDest is where a folder copy goes (see the folder rules in docs/features/files.md). srcBase is the
 // folder's own name, contents is a trailing slash on SRC, dstIsDir says
 // DST exists as a folder.
 func treeDest(dst, srcBase string, contents, dstIsDir, dstSlash bool) string {

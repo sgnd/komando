@@ -59,7 +59,7 @@ func TestCpSelectorsAndAdhocPort(t *testing.T) {
 		{"root@192.0.2.50:2222:/tmp/x", "root@192.0.2.50:2222"},
 		{"[2001:db8::1]:/tmp/x", "[2001:db8::1]"},
 	} {
-		d, e := invRun(t, "cp", f, c.dst, "--dry-run")
+		d, e := invRun(t, "copy", f, c.dst, "--dry-run")
 		if e != nil {
 			t.Errorf("%s: %s %s", c.dst, e.Code, e.Message)
 			continue
@@ -165,8 +165,7 @@ func TestScriptInputFlagsAndHiddenValues(t *testing.T) {
 	}
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	for _, args := range [][]string{
-		{"upload", "bk", masked, "--dry-run"},
-		{"storage", "upload", "bk", masked, "--dry-run"},
+		{"copy", masked, "bk:", "--dry-run"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "HIDDEN_VALUE" {
 			t.Errorf("%v: want HIDDEN_VALUE, got %+v", args, e)
@@ -316,16 +315,16 @@ func TestDryRunMissingSecretFails(t *testing.T) {
 
 func TestDownloadChecks(t *testing.T) {
 	dir := auditHome(t)
-	if d, e := invRun(t, "download", "web2", "/etc/hosts", "--to", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
+	if d, e := invRun(t, "copy", "web2:/etc/hosts", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
 		t.Errorf("--to - for a server, dry run: %v %+v", d, e)
 	}
 	exists := filepath.Join(dir, "exists.txt")
 	_ = os.WriteFile(exists, []byte("x"), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "hosts"), []byte("x"), 0o600)
 	for _, to := range []string{exists, dir} {
-		if _, e := invRun(t, "download", "web2", "/etc/hosts", "--to", to, "--dry-run"); e == nil || e.Code != "FILE_EXISTS" {
+		if _, e := invRun(t, "copy", "web2:/etc/hosts", to, "--dry-run"); e == nil || e.Code != "FILE_EXISTS" {
 			t.Errorf("--to %s: want FILE_EXISTS, got %+v", to, e)
 		}
 	}
-	mustRun(t, "download", "web2", "/etc/hosts", "--to", exists, "--overwrite", "--dry-run")
+	mustRun(t, "copy", "web2:/etc/hosts", exists, "--overwrite", "--dry-run")
 }

@@ -241,16 +241,16 @@ func TestContinueStorage(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "db.sql")
 	writeFile(t, f, data)
 
-	d := mustRun(t, "upload", "bk", f, "a/db.sql", "--continue")
+	d := mustRun(t, "copy", f, "bk:a/db.sql", "--continue")
 	if m.objs["a/db.sql"] != string(data) || d["sha256"] != sumOf(data) || d["continued_from_bytes"] != nil {
 		t.Fatalf("new object: %v", d)
 	}
-	d = mustRun(t, "storage", "upload", "bk", f, "a/db.sql", "--continue")
+	d = mustRun(t, "copy", f, "bk:a/db.sql", "--continue")
 	if d["continued_from_bytes"].(float64) != 5000 || d["replaced"] != false {
 		t.Errorf("whole object: %v", d)
 	}
 	m.objs["a/db.sql"] = string(data[:100])
-	if e := wantCode(t, "RESUME_UNSUPPORTED", "cp", f, "bk:a/db.sql", "--continue"); e.Exit != out.ExitUsage {
+	if e := wantCode(t, "RESUME_UNSUPPORTED", "copy", f, "bk:a/db.sql", "--continue"); e.Exit != out.ExitUsage {
 		t.Errorf("exit %d", e.Exit)
 	}
 	if m.objs["a/db.sql"] != string(data[:100]) {
@@ -260,12 +260,12 @@ func TestContinueStorage(t *testing.T) {
 	m.objs["a/db.sql"] = string(data)
 	to := filepath.Join(t.TempDir(), "got.sql")
 	writeFile(t, to, data[:1234])
-	d = mustRun(t, "download", "bk", "a/db.sql", "--to", to, "--continue")
+	d = mustRun(t, "copy", "bk:a/db.sql", to, "--continue")
 	if d["continued_from_bytes"].(float64) != 1234 || d["sha256"] != sumOf(data) || !bytes.Equal(readBytes(t, to), data) {
 		t.Errorf("storage download: %v", d)
 	}
 	writeFile(t, to, []byte("other"))
-	wantCode(t, "RESUME_CONFLICT", "storage", "download", "bk", "a/db.sql", "--to", to, "--continue")
+	wantCode(t, "RESUME_CONFLICT", "copy", "bk:a/db.sql", to, "--continue")
 	if string(readBytes(t, to)) != "other" {
 		t.Error("the file here was changed")
 	}
@@ -301,25 +301,22 @@ func TestContinueFlags(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "a.txt")
 	writeFile(t, f, []byte("a"))
 	for _, args := range [][]string{
-		{"upload", "web1", f, "/tmp/a.txt", "--continue", "-r"},
-		{"upload", "web1", f, "/tmp/a.txt", "--continue", "--sudo"},
-		{"download", "web1", "/tmp/a.txt", "--continue", "--overwrite"},
-		{"cp", "web1:/tmp/a.txt", t.TempDir(), "--continue", "--sudo"},
-		{"cp", "-r", "web1:/tmp/a", "web1:/tmp/b", "--continue"},
-		{"download", "web1", "/tmp/a.txt", "--to", "-", "--continue"},
+		{"copy", f, "web1:/tmp/a.txt", "--continue", "-r"},
+		{"copy", f, "web1:/tmp/a.txt", "--continue", "--sudo"},
+		{"copy", "web1:/tmp/a.txt", ".", "--continue", "--overwrite"},
+		{"copy", "web1:/tmp/a.txt", t.TempDir(), "--continue", "--sudo"},
+		{"copy", "-r", "web1:/tmp/a", "web1:/tmp/b", "--continue"},
+		{"copy", "web1:/tmp/a.txt", "-", "--continue"},
 	} {
 		wantCode(t, "USAGE", args...)
 	}
 	// a dry run of a download that continues does not stop at the file here
-	d := mustRun(t, "--dry-run", "cp", "web1:/tmp/a.txt", f, "--continue")
+	d := mustRun(t, "--dry-run", "copy", "web1:/tmp/a.txt", f, "--continue")
 	if d["direction"] != "download" {
 		t.Errorf("dry run: %v", d)
 	}
-	for _, p := range [][]string{{"upload"}, {"download"}, {"cp"}, {"storage", "upload"}, {"storage", "download"}} {
-		c, _, err := newRoot(tcl).Find(p)
-		if err != nil || c.Flags().Lookup("continue") == nil {
-			t.Errorf("%v has no --continue", p)
-		}
+	if c, _, err := newRoot(tcl).Find([]string{"copy"}); err != nil || c.Flags().Lookup("continue") == nil {
+		t.Errorf("copy has no --continue")
 	}
 }
 

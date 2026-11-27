@@ -624,7 +624,7 @@ var formAreas = []struct {
 	words         []string
 }{
 	{"Servers", "run commands, logs, packages, Docker, certificates", []string{"exec", "shell", "logs", "pkg", "docker", "cert"}},
-	{"Files", "read, edit, copy and move files on servers", []string{"fs", "upload", "download", "cp", "sync"}},
+	{"Files", "read, edit, copy and move files on servers", []string{"fs", "copy"}},
 	{"Databases", "queries, shells, dumps, users", []string{"db"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},
 	{"Message queues", "Kafka, RabbitMQ, NATS, SQS, Pub/Sub", []string{"queue"}},

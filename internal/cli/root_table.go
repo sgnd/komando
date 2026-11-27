@@ -686,10 +686,22 @@ func noCheck(v any) bool {
 // that a type not moved yet still names keeps them.
 func moveType(typ string) { moveLeaves(typ, capability.All()) }
 
+// moveTop is moveType for one top-level leaf (copy): the commands it carries
+// are gone from the tree, so their entries leave the tables with them.
+func moveTop(verb string) {
+	moveWhere("", capability.All(), true, func(l capability.Leaf) bool { return l.Type == "" && l.Verb == verb })
+}
+
 // moveLeaves is moveType over the table leaves.
 func moveLeaves(typ string, leaves []capability.Leaf) {
 	movedTypes = append(movedTypes, typ)
 	providerIDs[typ] = true // the type's own group shares its key with the provider groups
+	moveWhere(typ, leaves, false, func(l capability.Leaf) bool { return l.Type == typ })
+}
+
+// moveWhere moves the built leaves that pick selects. retire also takes the
+// entries of the IDs they carry (not only those they keep under Today).
+func moveWhere(typ string, leaves []capability.Leaf, retire bool, pick func(capability.Leaf) bool) {
 	tables := idTables()
 	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
 	var built []capability.Leaf
@@ -699,12 +711,12 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		if l.State != capability.Built {
 			continue
 		}
-		if !slices.Contains(movedTypes, l.Type) {
-			for _, id := range slices.Concat(l.Today, l.Carries) {
-				stays[id] = true
+		if !pick(l) {
+			if !slices.Contains(movedTypes, l.Type) {
+				for _, id := range slices.Concat(l.Today, l.Carries) {
+					stays[id] = true
+				}
 			}
-		}
-		if l.Type != typ {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
@@ -749,7 +761,11 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		if l.LeavesHome {
 			leavesHome[id] = true
 		}
-		for _, old := range l.Today {
+		olds := l.Today
+		if retire {
+			olds = slices.Concat(l.Today, l.Carries)
+		}
+		for _, old := range olds {
 			if !stays[old] {
 				gone = append(gone, old)
 			}

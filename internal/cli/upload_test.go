@@ -4,61 +4,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
-// flagNames lists a command's own flags.
-func flagNames(c *cobra.Command) []string {
-	var l []string
-	c.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) { l = append(l, f.Name) })
-	slices.Sort(l)
-	return l
-}
-
-// storage upload/download are upload/download for storage conns: the same
-// code, with only the flags that mean something for storage.
-func TestStorageTransferIsUploadDownload(t *testing.T) {
-	root := newRoot(tcl)
-	find := func(path string) *cobra.Command {
-		c, _, err := root.Find(strings.Fields(path))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return c
-	}
-	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"continue", "progress", "recursive", "size"}) {
-		t.Errorf("storage upload flags: %v", got)
-	}
-	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"continue", "overwrite", "progress", "recursive", "to"}) {
-		t.Errorf("storage download flags: %v", got)
-	}
-	for _, p := range []string{"storage upload", "storage download"} {
-		if c := find(p); c.Hidden || !strings.HasPrefix(c.Long, "Same as `komando ") {
-			t.Errorf("%s: hidden %v, short %q", p, c.Hidden, c.Short)
-		}
-	}
-	for _, p := range []string{"upload", "download"} {
-		for _, f := range flagNames(find("storage " + p)) {
-			if find(p).Flags().Lookup(f) == nil {
-				t.Errorf("storage %s has --%s, %s has not", p, f, p)
-			}
-		}
-	}
-	if got := cmdName(find("storage upload")); got != "storage.upload" {
-		t.Errorf("JSON name %q", got)
-	}
-	if got := cmdName(find("cp")); got != "cp" {
-		t.Errorf("JSON name %q", got)
-	}
-}
-
-// upload, storage upload and cp give the same answers, because they are
-// one code path; the checks here stop before any server is contacted.
+// copy to a storage conn or from one, to a server or from one, is one code
+// path; the checks here stop before any server is contacted.
 func TestTransferOnePath(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
@@ -66,37 +17,25 @@ func TestTransferOnePath(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "a.txt")
 	_ = os.WriteFile(f, []byte("hello\n"), 0o600)
 	for _, args := range [][]string{
-		{"upload", "bk", f, "--sudo"},
-		{"cp", f, "bk:a.txt", "--sudo"},
-		{"cp", f, "bk:a.txt", "-p"},
-		{"download", "bk", "a.txt", "--sudo"},
-		{"cp", "bk:a.txt", t.TempDir(), "--sudo"},
-		{"storage", "download", "bk", "logs/", "-r", "--to", "-"},
-		{"download", "bk", "logs/", "-r", "--to", "-"},
-		{"download", "web1", "/etc/hosts", "--to", "-", "--sudo"},
-		{"download", "web1", "/var/www", "-r", "--sudo"},
+		{"copy", f, "bk:a.txt", "--sudo"},
+		{"copy", f, "bk:a.txt", "-p"},
+		{"copy", "bk:a.txt", t.TempDir(), "--sudo"},
+		{"copy", "bk:logs/", "-", "-r"},
+		{"copy", "web1:/etc/hosts", "-", "--sudo"},
+		{"copy", "web1:/var/www", ".", "-r", "--sudo"},
 	} {
 		if e := wantCode(t, "USAGE", args...); e.Exit != 2 {
 			t.Errorf("%v: exit %d", args, e.Exit)
 		}
 	}
-	// --sudo is no storage flag
-	if _, e := invRun(t, "storage", "upload", "bk", f, "--sudo"); e == nil || !strings.Contains(e.Message, "unknown flag") {
-		t.Errorf("storage upload --sudo: %+v", e)
+	// a copy to a server and one from it say their direction
+	up := mustRun(t, "--dry-run", "copy", f, "web1:/tmp/a.txt")
+	if up["dst"] != "web1:/tmp/a.txt" || up["direction"] != "upload" {
+		t.Errorf("copy to a server: %v", up)
 	}
-	// storage upload is for storage conns only
-	if _, e := invRun(t, "storage", "upload", "web1", f); e == nil {
-		t.Error("storage upload to a server ran")
-	}
-	// cp to a server is upload to a server: same dry-run plan
-	up := mustRun(t, "--dry-run", "upload", "web1", f, "/tmp/a.txt")
-	cp := mustRun(t, "--dry-run", "cp", f, "web1:/tmp/a.txt")
-	if up["dst"] != "web1:/tmp/a.txt" || cp["dst"] != up["dst"] || cp["direction"] != "upload" {
-		t.Errorf("upload %v, cp %v", up, cp)
-	}
-	down := mustRun(t, "--dry-run", "cp", "web1:/etc/hosts", "./x/")
+	down := mustRun(t, "--dry-run", "copy", "web1:/etc/hosts", "./x/")
 	if down["direction"] != "download" || down["src"] != "web1:/etc/hosts" {
-		t.Errorf("cp download %v", down)
+		t.Errorf("copy from a server: %v", down)
 	}
 }
 

@@ -73,7 +73,7 @@ func TestStandardTopLevel(t *testing.T) {
 		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
 		"fs", "pkg", "docker", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
+		"list", "test", "exec", "shell", "logs", "copy", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
 		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
@@ -148,10 +148,10 @@ func TestStandardNounAliases(t *testing.T) {
 
 // verbTable is S-3.1's verbs, toolWords S-3.3's.
 var (
-	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "cp", "check",
+	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "check",
 		"describe", "get", "info", "status", "logs", "history", "events", "create", "set",
 		"start", "stop", "restart", "reload", "enable", "disable", "kill", "wait", "purge", "prune",
-		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
+		"exec", "run", "query", "shell", "dump", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
 		"remove", "raw", "copy", "delete"} // the v2.7 verbs join as their type moves (step C)

@@ -57,8 +57,7 @@ func TestStreamStorageDownload(t *testing.T) {
 	data := binaryPayload()
 	withMemBucket(t, &memBucket{objs: map[string]string{"img/a.bin": data}})
 	for _, args := range [][]string{
-		{"download", "bk", "img/a.bin", "--to", "-"},
-		{"storage", "download", "bk", "img/a.bin", "--to", "-"},
+		{"copy", "bk:img/a.bin", "-"},
 	} {
 		stdout, stderr, code := streamRun(t, "", args...)
 		if code != 0 || stdout != data {
@@ -69,17 +68,17 @@ func TestStreamStorageDownload(t *testing.T) {
 			t.Errorf("%v: the result on stderr: %v %v", args, d, e)
 		}
 	}
-	stdout, stderr, code := streamRun(t, "", "download", "bk", "nope.bin", "--to", "-")
+	stdout, stderr, code := streamRun(t, "", "copy", "bk:nope.bin", "-")
 	if _, e := envelopeOf(t, stderr); code != out.ExitNotFound || stdout != "" || e == nil || e.Code != "OBJECT_NOT_FOUND" {
 		t.Errorf("a missing object: exit %d, stdout %q, stderr %s", code, stdout, stderr)
 	}
 	// a usage error found before anything is read: on stderr too
-	stdout, stderr, code = streamRun(t, "", "download", "bk", "img/a.bin", "--to", "-", "--continue")
+	stdout, stderr, code = streamRun(t, "", "copy", "bk:img/a.bin", "-", "--continue")
 	if _, e := envelopeOf(t, stderr); code != out.ExitUsage || stdout != "" || e == nil || e.Code != "USAGE" {
 		t.Errorf("--continue: exit %d, stdout %q, stderr %s", code, stdout, stderr)
 	}
 	// a dry run reads nothing and answers on stdout, as every dry run does
-	stdout, _, code = streamRun(t, "", "download", "bk", "img/a.bin", "--to", "-", "--dry-run")
+	stdout, _, code = streamRun(t, "", "copy", "bk:img/a.bin", "-", "--dry-run")
 	if d, e := envelopeOf(t, stdout); code != 0 || e != nil || d["file"] != "stdout" {
 		t.Errorf("dry run: exit %d, %s", code, stdout)
 	}
@@ -146,9 +145,8 @@ func TestStreamUploadFromStdin(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"keep.bin": "old"}}
 	withMemBucket(t, m)
 	for _, args := range [][]string{
-		{"upload", "bk", "-", "in/a.bin"},
-		{"storage", "upload", "bk", "-", "in/b.bin"},
-		{"cp", "-", "bk:in/c.bin"},
+		{"copy", "-", "bk:in/a.bin"},
+		{"copy", "-", "bk:in/c.bin"},
 	} {
 		stdout, stderr, code := streamRun(t, data, args...)
 		d, e := envelopeOf(t, stdout)
@@ -157,35 +155,35 @@ func TestStreamUploadFromStdin(t *testing.T) {
 			t.Errorf("%v: exit %d, %v %v, stored %d bytes\n%s", args, code, d, e, len(m.objs[key]), stderr)
 		}
 	}
-	stdout, _, code := streamRun(t, data, "upload", "bk", "-", "sized.bin", "--size", "10")
+	stdout, _, code := streamRun(t, data, "copy", "-", "bk:sized.bin", "--size", "10")
 	if _, e := envelopeOf(t, stdout); code != out.ExitConflict || e == nil || e.Code != "SIZE_CONFLICT" {
 		t.Errorf("--size too small: exit %d %s", code, stdout)
 	}
-	stdout, _, code = streamRun(t, "abc", "upload", "bk", "-", "keep.bin", "--size", "10")
+	stdout, _, code = streamRun(t, "abc", "copy", "-", "bk:keep.bin", "--size", "10")
 	if _, e := envelopeOf(t, stdout); code != out.ExitConflict || e == nil || e.Code != "SIZE_CONFLICT" || m.objs["keep.bin"] != "old" {
 		t.Errorf("stdin ended early: exit %d %s, keep.bin %q", code, stdout, m.objs["keep.bin"])
 	}
-	if d := mustRun(t, "upload", "bk", "-", "sized.bin", "--size", "3", "--dry-run"); d["file"] != "-" || d["dry_run"] != true {
+	if d := mustRun(t, "copy", "-", "bk:sized.bin", "--size", "3", "--dry-run"); d["file"] != "-" || d["dry_run"] != true {
 		t.Errorf("dry run: %v", d)
 	}
 	stdin := strings.NewReader("not read")
 	tcl.stdin = stdin
-	mustRun(t, "upload", "bk", "-", "dry.bin", "--dry-run")
+	mustRun(t, "copy", "-", "bk:dry.bin", "--dry-run")
 	if stdin.Len() != len("not read") {
 		t.Error("a dry run read stdin")
 	}
 	tcl.stdin = nil
 	// a masked copy (a [hidden] value) never replaces a real file
-	stdout, _, code = streamRun(t, "DB=[hidden]\n", "upload", "bk", "-", "keep.bin")
+	stdout, _, code = streamRun(t, "DB=[hidden]\n", "copy", "-", "bk:keep.bin")
 	if _, e := envelopeOf(t, stdout); code != out.ExitUsage || e == nil || e.Code != "HIDDEN_VALUE" || m.objs["keep.bin"] != "old" {
 		t.Errorf("hidden value: exit %d %s", code, stdout)
 	}
 	for _, args := range [][]string{
-		{"upload", "bk", "-"},                               // no name to give it
-		{"upload", "bk", "-", "dir/"},                       // a folder
-		{"upload", "bk", "-", "a.bin", "--continue"},        // cannot be read again
-		{"upload", "bk", "-", "a.bin", "-r"},                // one stream, one file
-		{"upload", "bk", "./a.bin", "a.bin", "--size", "3"}, // --size is for stdin
+		{"copy", "-", "bk:"},                           // no name to give it
+		{"copy", "-", "bk:dir/"},                       // a folder
+		{"copy", "-", "bk:a.bin", "--continue"},        // cannot be read again
+		{"copy", "-", "bk:a.bin", "-r"},                // one stream, one file
+		{"copy", "./a.bin", "bk:a.bin", "--size", "3"}, // --size is for stdin
 	} {
 		wantCode(t, "USAGE", args...)
 	}
@@ -229,10 +227,10 @@ func TestStreamUploadChecks(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
 	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--group", "web")
-	wantCode(t, "USAGE", "upload", "@web", "-", "/tmp/a")
-	wantCode(t, "USAGE", "download", "@web", "/tmp/a", "--to", "-")
-	wantCode(t, "USAGE", "download", "web1", "/var/www", "--to", "-", "-r")
-	d := mustRun(t, "upload", "web1", "-", "/tmp/a", "--dry-run")
+	wantCode(t, "USAGE", "copy", "-", "@web:/tmp/a")
+	wantCode(t, "USAGE", "copy", "@web:/tmp/a", "-")
+	wantCode(t, "USAGE", "copy", "web1:/var/www", "-", "-r")
+	d := mustRun(t, "copy", "-", "web1:/tmp/a", "--dry-run")
 	if d["src"] != "-" {
 		t.Errorf("dry run: %v", d)
 	}
@@ -285,7 +283,7 @@ func TestStreamUploadCancelledReplacesNothing(t *testing.T) {
 // answer on stderr and nothing else there.
 func TestStreamRefusesProgress(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"a.bin": "abc"}})
-	wantCode(t, "USAGE", "download", "bk", "a.bin", "--to", "-", "--progress")
+	wantCode(t, "USAGE", "copy", "bk:a.bin", "-", "--progress")
 }
 
 // For an AI agent a binary stream is refused when it holds anything komando

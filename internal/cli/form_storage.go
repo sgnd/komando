@@ -678,14 +678,6 @@ func init() {
 		"storage cat": {args: []formArg{conn,
 			key("Which file?", "Its name inside the storage, as storage list shows it.", "logs/app.log")},
 			flags: []formFlag{{name: "tail", ask: "Show only the last how many lines?", help: "Empty shows the whole file, up to 1 MiB.", example: "50"}}},
-		"storage download": {args: []formArg{conn,
-			key("Which file (or folder) to download?", "Its name inside the storage, as storage list shows it. A folder ends in /.", "reports/q3.pdf")},
-			flags: []formFlag{
-				{name: "to", ask: "Where to save it on this computer?", help: "A file or a folder. Empty saves it in the current folder with its own name.", example: "~/Downloads/"},
-				{name: "recursive", ask: "Is it a folder? Download everything in it?"}}},
-		"storage upload": {args: []formArg{conn,
-			key("Which file on this computer?", "Its path; ~/ means your home folder.", "./report.pdf"),
-			key("Where in the storage?", "Empty keeps its name, at the top. A folder ends in /, like reports/2026/.", "reports/2026/")}},
 		"storage rm": {args: []formArg{conn,
 			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
 			flags: []formFlag{
@@ -709,13 +701,11 @@ func init() {
 // Next: lines for the storage commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"storage list":     {next: []string{"storage cat {} OBJECT --tail 50", "storage download {} OBJECT", "storage list {} PREFIX/ --recursive"}},
-		"storage cat":      {next: []string{"storage download {} OBJECT"}},
-		"storage upload":   {next: []string{"storage list {} PREFIX/", "storage link {} OBJECT --expires 24h"}},
-		"storage download": {next: []string{"storage list {}"}},
-		"storage rm":       {next: []string{"storage list {} --recursive"}},
-		"storage mkdir":    {next: []string{"storage upload {} FILE OBJECT", "storage list {} PREFIX/"}},
-		"storage mv":       {next: []string{"storage list {} PREFIX/"}},
-		"storage chmod":    {next: []string{"storage list {} PREFIX/"}},
+		"storage list":  {next: []string{"storage cat {} OBJECT --tail 50", "copy {}:OBJECT ./", "storage list {} PREFIX/ --recursive"}},
+		"storage cat":   {next: []string{"copy {}:OBJECT ./"}},
+		"storage rm":    {next: []string{"storage list {} --recursive"}},
+		"storage mkdir": {next: []string{"copy ./FILE {}:OBJECT", "storage list {} PREFIX/"}},
+		"storage mv":    {next: []string{"storage list {} PREFIX/"}},
+		"storage chmod": {next: []string{"storage list {} PREFIX/"}},
 	})
 }

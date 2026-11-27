@@ -458,7 +458,7 @@ func fsCatCmd() *cobra.Command {
 			}
 			cl.out.Print("fs.cat", res, nil)
 			if r, ok := res.(catResult); ok && r.Truncated && cl.out.Format == "text" {
-				fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", term.HumanBytes(maxBytes))
+				fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes, or use `komando copy`\n", term.HumanBytes(maxBytes))
 			}
 			return nil
 		}),
@@ -498,11 +498,11 @@ func catContent(cl *call, target, p string, b []byte, trunc bool, head, tail int
 	if binary {
 		if cl.out.Format == "text" {
 			// printing a placeholder would make `fs cat ... > file` a corrupt copy
-			return catResult{}, out.Errf(out.ExitError, "BINARY_FILE", "save it with `komando download "+target+" "+p+"`",
+			return catResult{}, out.Errf(out.ExitError, "BINARY_FILE", "save it with `komando copy "+target+":"+p+" .`",
 				"%s is a binary file; fs cat shows text only", p)
 		}
 		r.Binary = true
-		r.Content = "<binary content omitted; use `komando download` to save it>"
+		r.Content = "<binary content omitted; use `komando copy` to save it>"
 		return r, nil
 	}
 	lines := strings.SplitAfter(text, "\n")

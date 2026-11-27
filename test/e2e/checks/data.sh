@@ -52,20 +52,20 @@ check "CLUSTER MEET needs --allow-dangerous" True "$($K cache redis raw cache --
 # storage
 echo e2edata > "$TMP/e2edata.txt"
 for c in bucket files-sftp files-ftps; do
-  check "$c upload into a folder keeps the name" t-e2edata/dir/e2edata.txt "$($K storage upload "$c" "$TMP/e2edata.txt" t-e2edata/dir/ | jget 'd["data"]["key"]')"
-  $K storage upload "$c" "$TMP/e2edata.txt" ../escape.txt --dry-run >/dev/null; check "$c upload dry-run checks the key" 2 $?
-  check "$c upload dry-run says it replaces" True "$($K storage upload "$c" "$TMP/e2edata.txt" t-e2edata/dir/ --dry-run | jget 'd["data"]["replaced"]')"
+  check "$c upload into a folder keeps the name" t-e2edata/dir/e2edata.txt "$($K copy "$TMP/e2edata.txt" "$c:t-e2edata/dir/" | jget 'd["data"]["key"]')"
+  $K copy "$TMP/e2edata.txt" "$c:../escape.txt" --dry-run >/dev/null; check "$c upload dry-run checks the key" 2 $?
+  check "$c upload dry-run says it replaces" True "$($K copy "$TMP/e2edata.txt" "$c:t-e2edata/dir/" --dry-run | jget 'd["data"]["replaced"]')"
   $K storage ls "$c" t-e2edata/nope/ >/dev/null; check "$c ls of a missing folder" 3 $?
   rm -rf "$TMP/e2edata-dl"; mkdir -p "$TMP/e2edata-dl"
-  q $K storage download "$c" t-e2edata/dir/e2edata.txt --to "$TMP/e2edata-dl/" --dry-run
+  q $K copy "$c:t-e2edata/dir/e2edata.txt" "$TMP/e2edata-dl/" --dry-run
   check "$c download dry-run writes nothing" 0 "$(ls -A "$TMP/e2edata-dl" | wc -l | tr -d ' ')"
-  q $K storage download "$c" t-e2edata/dir/e2edata.txt --to "$TMP/e2edata-dl/"
+  q $K copy "$c:t-e2edata/dir/e2edata.txt" "$TMP/e2edata-dl/"
   check "$c download into a folder" e2edata "$(cat "$TMP/e2edata-dl/e2edata.txt")"
-  q $K storage download "$c" t-e2edata/dir/e2edata.txt --to "$TMP/e2edata-dl" --overwrite
-  check "$c download to stdout" e2edata "$($K storage download "$c" t-e2edata/dir/e2edata.txt --to - -o text)"
+  q $K copy "$c:t-e2edata/dir/e2edata.txt" "$TMP/e2edata-dl" --overwrite
+  check "$c download to stdout" e2edata "$($K copy "$c:t-e2edata/dir/e2edata.txt" - -o text)"
 done
 printf 'ab\0cd' > "$TMP/e2edata.bin"
-q $K storage upload bucket "$TMP/e2edata.bin" t-e2edata/
+q $K copy "$TMP/e2edata.bin" bucket:t-e2edata/
 $K storage cat bucket t-e2edata/e2edata.bin >/dev/null; check "cat of binary is usage" 2 $?
 $K storage cat bucket t-e2edata/dir/e2edata.txt --head 1 --tail 1 >/dev/null; check "cat --head with --tail is usage" 2 $?
 check "cat cap is said on stderr" True "$($K storage cat bucket t-e2edata/dir/e2edata.txt --max-bytes 2 -o text 2>&1 >/dev/null | grep -q 'raise --max-bytes' && echo True || echo False)"

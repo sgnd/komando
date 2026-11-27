@@ -33,9 +33,9 @@ func TestApprovalWindowShowsSentFiles(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{[]string{"cp", conf, "web:/etc/app.conf", "--yes"}, []string{"marker_upload on", "SHA-256"}},
-		{[]string{"cp", "-r", dir, "web:/srv/", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
-		{[]string{"sync", dir, "web:/srv/site", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
+		{[]string{"copy", conf, "web:/etc/app.conf", "--yes"}, []string{"marker_upload on", "SHA-256"}},
+		{[]string{"copy", "-r", dir, "web:/srv/", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
+		{[]string{"copy", dir, "web:/srv/site", "--sync", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
 		{[]string{"cluster", "run", "kube", "--write", "--yes", "--", "apply", "-f", yaml}, []string{"metadata: {name: marker-run-cm}", "SHA-256"}},
 	} {
 		*texts = nil
@@ -63,7 +63,7 @@ func TestApprovalWindowNamesBinaryFile(t *testing.T) {
 	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	bin := writeTemp(t, "app.tar", strings.Repeat("PK\x00\x01binary\x00data", 400))
 	texts := windowText(t, false)
-	invRun(t, "cp", bin, "web:/srv/app.tar", "--yes")
+	invRun(t, "copy", bin, "web:/srv/app.tar", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "SHA-256") || !strings.Contains((*texts)[0], "it is not text") {
 		t.Errorf("a binary file: %q", *texts)
 	}
@@ -104,7 +104,7 @@ func TestApprovalWindowBigUploads(t *testing.T) {
 	}
 	archive := writeTemp(t, "app.dump", testPGArchive(t))
 	texts := windowText(t, false)
-	invRun(t, "cp", big, "web:/etc/big.conf", "--yes")
+	invRun(t, "copy", big, "web:/etc/big.conf", "--yes")
 	b, _ := os.ReadFile(big)
 	sum := sha256.Sum256(b)
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], hex.EncodeToString(sum[:])) || !strings.Contains((*texts)[0], "it is too long") {
@@ -112,7 +112,7 @@ func TestApprovalWindowBigUploads(t *testing.T) {
 	}
 	*texts = nil
 	resetApproval()
-	if _, e := invRun(t, "cp", "-r", dir, "web:/srv/", "--yes"); e == nil || len(*texts) != 0 {
+	if _, e := invRun(t, "copy", "-r", dir, "web:/srv/", "--yes"); e == nil || len(*texts) != 0 {
 		t.Errorf("a folder of %d files: %v, %q", bodyMaxLines+1, e, *texts)
 	}
 	*texts = nil
