@@ -128,6 +128,14 @@ func sessionFor(st *store.State, name string, hosts []*store.Host, o execOpts, s
 	return &sessionRun{opts: *o.session, st: st, shown: shown}
 }
 
+// note puts the session's ID into exec's audit record, when there is one.
+func (s *sessionRun) note(rec map[string]any) map[string]any {
+	if s != nil && s.id != "" {
+		rec["session"] = s.id
+	}
+	return rec
+}
+
 // fill puts the session into a server's result: its ID (null when it ran
 // without one) and, while it runs, next_from.
 func (s *sessionRun) fill(hr *execHostResult) {

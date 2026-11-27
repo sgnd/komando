@@ -446,11 +446,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 		data.Results = append(data.Results, hr)
 	}
 	data.Summary.Total = len(results)
-	rec := withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe)
-	if sess != nil && sess.id != "" {
-		rec["session"] = sess.id
-	}
-	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, rec)
+	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, sess.note(withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe)))
 	if o.stream && cl.out.Format != "text" {
 		cl.out.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
