@@ -188,7 +188,7 @@ func runRoot(t *testing.T, args ...string) error {
 // The input of exec --stdin-file and the interpreter of script are
 // checked like the command itself.
 func TestStdinAndInterpreterChecked(t *testing.T) {
-	srv := startFakeServer(t)
+	srv := startSessionServer(t, "", true)
 	tmp := t.TempDir()
 	evil := filepath.Join(tmp, "evil.sh")
 	_ = os.WriteFile(evil, []byte("rm -rf / --no-preserve-root\n"), 0o600)
@@ -229,7 +229,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"bash -s with #!/bin/bash", []string{"exec", "prod", "--read-only", "--stdin-file", shebang, "--", "bash -s"}, "", bashScript},
 		{"bash -s with #!/usr/bin/env bash", []string{"exec", "prod", "--read-only", "--stdin-file", envBang, "--", "bash -s"}, "", envScript},
 		{"env value that runs code", []string{"exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
-		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "dir=/var/log", "--", "find $dir -name '*.gz'"}, "", ""},
+		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "dir=/var/log", "--", "find $dir -name '*.gz'"}, "", "export dir='/var/log'; "},
 		{"read-only, input piped into a shell", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
 		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_TARGET", ""},
 		{"interpreter tee", []string{"exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
@@ -238,7 +238,6 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"read-only shell script", []string{"exec", "prod", "--read-only", "--interpreter", "bash -eu", "--script", benign}, "", "uptime\ndf -h /\n"},
 		{"read-only script that writes", []string{"exec", "prod", "--read-only", "--script", writes}, "READ_ONLY_VIOLATION", ""},
 		{"env value turns find into a delete", []string{"exec", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
-		{"job: env value", []string{"job", "start", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
 		// --read-only is an allowlist on a protected target: a command
 		// komando does not know reads still needs --yes, even though the
 		// denylist lets it pass (it changes nothing komando can see)
@@ -251,7 +250,6 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"allowlist: docker ps runs", []string{"exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
 		{"allowlist: docker rm is a clear write", []string{"exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
 		{"allowlist: systemctl status runs", []string{"exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
-		{"allowlist: job unknown is refused", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
 		{"compose file in a folder komando cannot tell", []string{"exec", "prod", "--yes", "--", `cd "$APP" && docker compose up -d`}, "POLICY_BLOCKED", ""},
 	}
 	for _, c := range cases {
@@ -267,8 +265,16 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		if c.code != "" && len(execs) != 0 {
 			t.Errorf("%s: the server ran %d command(s): %+v", c.name, len(execs), execs)
 		}
-		if c.code == "" && (len(execs) != 1 || execs[0].stdin != c.stdin) {
-			t.Errorf("%s: the server got %+v, want one run with input %q", c.name, execs, c.stdin)
+		if c.code == "" {
+			var starts []fakeExec
+			for _, x := range execs {
+				if strings.Contains(x.cmd, "mkfifo") {
+					starts = append(starts, x)
+				}
+			}
+			if len(starts) != 1 || starts[0].stdin != c.stdin {
+				t.Errorf("%s: the server got %d session start(s), want one with input %q: %+v", c.name, len(starts), c.stdin, starts)
+			}
 		}
 	}
 }
@@ -365,7 +371,7 @@ func TestBuiltinRecipesAreReadOnly(t *testing.T) {
 // Streamed output is redacted by whole lines, so a secret split across
 // two reads does not reach the agent in pieces.
 func TestStreamRedactsSplitSecrets(t *testing.T) {
-	srv := startFakeServer(t)
+	srv := startSessionServer(t, "", true)
 	asAgent(t, false, true) // agents get masking
 	cases := []struct {
 		chunks []string
@@ -377,7 +383,7 @@ func TestStreamRedactsSplitSecrets(t *testing.T) {
 		{[]string{"-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAE\nQyNTUxOQAAACDUMMYBODYKEY\n-----END OPENSSH PRIVATE KEY-----\n"}, []string{"b3BlbnNzaC1rZXkt", "DUMMYBODYKEY"}},
 	}
 	for i, c := range cases {
-		srv.reply(c.chunks...)
+		srv.log = strings.Join(c.chunks, "")
 		for _, format := range []string{"json", "text"} {
 			got := captureOutput(t, func() error {
 				return runRoot(t, "-o", format, "exec", "prod", "--read-only", "--stream", "--", "tail -f /var/log/app.log")

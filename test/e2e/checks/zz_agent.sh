@@ -49,7 +49,6 @@ aok "fs ls" fs ls direct /etc
 aok "fs stat" fs stat direct /etc/hostname
 aok "fs cat" fs cat direct /etc/hostname
 aok "logs from a file" logs direct --file /etc/hostname
-aok "job list" job list
 aok "tunnel list" tunnel list
 aok "net ports" net ports direct
 aok "net dns" net dns direct localhost

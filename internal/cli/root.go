@@ -387,7 +387,7 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true,
+	"tunnel.list": true, "status": true,
 	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
 }
 
@@ -570,7 +570,7 @@ func addCommands(cl *call, root *cobra.Command) {
 		}
 	}
 	add("servers", execCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
+		svcCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
@@ -664,7 +664,7 @@ func personHelp() string {
 	}
 	for _, g := range [][2]string{
 		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
-		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
+		{"SERVERS", "exec  logs  facts  fs  svc  docker  pkg  cron  user  reboot  shell"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},

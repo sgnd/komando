@@ -514,7 +514,6 @@ var formHides = map[string]string{
 	"host edit tag":          "-t is --add-tag, which is asked",
 	"conn edit group":        "-g is --add-group, which is asked",
 	"conn edit tag":          "-t is --add-tag, which is asked",
-	"job start cmd":          "the same as the command words, which are asked",
 	"exec cmd":               "the same as the command words, which are asked",
 	"guide install no-guard": "it turns off the guard that keeps AI agents away from secret files",
 	"rename starts-with":     "always added: the menu renames by the start of the names",

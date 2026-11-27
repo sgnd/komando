@@ -977,19 +977,6 @@
     },
     "ok": "bool"
   },
-  "job list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "jobs": []
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "key list": {
     "command": "string",
     "data": {
@@ -1401,7 +1388,7 @@
     "command": "string",
     "data": {
       "aws_logins": [],
-      "jobs": [],
+      "exec_sessions": [],
       "logins": [],
       "tunnels": [],
       "vpns": []

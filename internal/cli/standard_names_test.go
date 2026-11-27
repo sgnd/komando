@@ -110,13 +110,13 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"databases", "query"}, "db.query"}, {[]string{"files", "cat"}, "fs.cat"},
 		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
 		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
-		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
+		{[]string{"group", "show"}, "group.list"},
 		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
 		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"user", "create"}, "user.add"}, {[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
-		{[]string{"job", "stop"}, "job.kill"}, {[]string{"secret", "passwd"}, "secret.passphrase"},
+		{[]string{"secret", "passwd"}, "secret.passphrase"},
 		{[]string{"cluster", "info"}, "cluster.status"},
 	} {
 		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {

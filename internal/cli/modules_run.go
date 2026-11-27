@@ -218,7 +218,7 @@ func collectOps(cl *call, ctx context.Context, spec opsSpec) (*opsData, int, []h
 			}
 			switch {
 			case rr.TimedOut:
-				r.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out")
+				r.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "command timed out")
 			case r.Error != nil:
 				r.Error.Exit = max(r.Error.Exit, 1)
 			case rr.ExitCode != 0:

@@ -8,7 +8,7 @@ and how to see what is still running. [All docs](README.md)
 ```bash
 komando exec web1 -- uptime              # readable text in a terminal
 komando exec web1 -o json -- uptime      # one JSON object (what agents get)
-komando status                           # VPNs, logins, tunnels and jobs still running
+komando status                           # VPNs, logins, tunnels and exec sessions still running
 komando doctor                           # check the local setup
 ```
 
@@ -64,7 +64,7 @@ messages.
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
-| `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or `komando job start`) |
+| `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or a session: `komando exec TARGET -- COMMAND`) |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
 | `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run, `would_need` (every approval flag the real run needs) and `not_simulated` (steps the dry run could not try without making them, such as a MySQL DDL statement or sqlite's VACUUM); `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own; `truncated` when a list stopped at `--limit` and there is more (`--limit 0` shows all); `body_sha256` when the command sent a script or content: its full SHA-256, whose first 16 hex characters the approval window shows ([what each command's hash covers](safety.md#history)) |
 
@@ -88,7 +88,7 @@ and `komando help output` print a short version at the terminal.
 
 ## What is still running, and where am I?
 
-`komando status` lists the VPNs, logins, tunnels and jobs still running
+`komando status` lists the VPNs, logins, tunnels and exec sessions still running
 (see [See what is still running](commands.md#see-what-is-still-running)),
 and the line komando prints before `shell` and similar commands is in
 [Where am I?](commands.md#where-am-i-status-lines).
@@ -188,8 +188,8 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `USAGE` | a wrong command, flag or value; also `komando` alone or a group such as `komando db` without its sub-command, when piped | the message says what is wrong, often with "did you mean"; the hint gives an example or lists the sub-commands |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
 | `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
-| `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; use `komando job start` over a shaky link ([details](commands.md#when-the-connection-drops)) |
-| `TIMEOUT` | the command took too long | `--timeout 30m`, or `komando job start` for long work |
+| `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; a run in a session goes on there: `komando exec TARGET --attach ID` reads it ([details](commands.md#when-the-connection-drops)) |
+| `TIMEOUT` | the command took too long | `--timeout 30m`; a run in a session goes on after `--wait` (`exec --attach ID`) |
 
 `komando doctor` checks your local setup, the inventory and its security.
 

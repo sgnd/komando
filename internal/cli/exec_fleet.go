@@ -79,7 +79,7 @@ func finishFleet(cl *call, command string, data any, sum runSummary, worst int, 
 	}
 	soft := &out.Error{Exit: worst}
 	defer func() {
-		// data that is not per-host results (jobs) says itself where to look
+		// data that is not per-host results says itself where to look
 		// and what to run next, for a person and an agent alike
 		if h, ok := data.(fleetHinter); ok && sum.Total > 1 {
 			if hint := h.fleetHint(cl); hint != "" {
@@ -118,8 +118,8 @@ func finishFleet(cl *call, command string, data any, sum runSummary, worst int, 
 	return exitCode(worst)
 }
 
-// fleetHinter is data whose closing hint is its own: job start and job
-// wait return jobs, not data.results.
+// fleetHinter is data whose closing hint is its own, for data that is not
+// per-host results.
 type fleetHinter interface{ fleetHint(cl *call) string }
 
 // truncationNotes tells a person, on stderr, that output was cut. JSON
@@ -136,7 +136,7 @@ func truncationNotes(cl *call, rs []execHostResult, limit int, many bool) {
 		if many {
 			who = " from " + r.Host
 		}
-		sayLine(cl, "Note: showing the first "+term.HumanBytes(int64(limit))+" of the output"+who+"; raise --max-output, or run it with `komando job start` or `komando download` for big output")
+		sayLine(cl, "Note: showing the first "+term.HumanBytes(int64(limit))+" of the output"+who+"; raise --max-output, or write it to a file on the server and fetch that with `komando download`")
 	}
 }
 

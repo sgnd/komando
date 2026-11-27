@@ -104,7 +104,6 @@ var goldenGates = [][]string{
 	{"exec", "web1", "--", "rm", "-rf", "/"},
 	{"exec", "web1", "--", "reboot"},
 	{"exec", "web1", "--", "foo", "bar"}, // the deny rule foo.*bar
-	{"job", "start", "web1", "--", "reboot"},
 	{"reboot", "web1"},
 	{"reboot", "prod1"},
 	{"svc", "stop", "web1", "sshd"},
@@ -130,7 +129,6 @@ var goldenGates = [][]string{
 	{"docker", "raw", "web1", "--", "system", "prune", "-af"},
 	// PROTECTED_TARGET: a change on a protected server (--yes)
 	{"exec", "prod1", "--", "touch", "/tmp/x"},
-	{"job", "start", "prod1", "--", "touch", "x"},
 	{"svc", "restart", "prod1", "nginx"},
 	{"user", "add", "prod1", "bob"},
 	{"pkg", "install", "prod1", "vim"},

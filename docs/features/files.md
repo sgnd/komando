@@ -424,7 +424,7 @@ read, the rest are still copied; the result lists the failures under
   file (and any other temporary file or sign-in browser profile this run
   made).
 - For a copy that may take longer than a few minutes, or over a shaky
-  link, run it on the server as a job: `komando job start`.
+  link, run it on the server with `komando exec`: it runs in a session that survives a drop.
 
 ## Keep a folder in step (sync)
 

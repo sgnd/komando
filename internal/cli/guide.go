@@ -28,7 +28,7 @@ func (t textBlob) Text() string { return string(t) }
 
 // guideTopics name the numbered sections of guide.md for `komando guide
 // TOPIC`, in their order there.
-var guideTopics = []string{"orient", "targets", "read", "change", "data", "jobs", "guardrails", "errors", "output"}
+var guideTopics = []string{"orient", "targets", "read", "change", "data", "sessions", "guardrails", "errors", "output"}
 
 // guideRules opens `komando guide` at a terminal; the full text is --all.
 const guideRules = `komando guide: the rules for AI agents
@@ -44,7 +44,7 @@ const guideRules = `komando guide: the rules for AI agents
 Set KOMANDO_AGENT=1 in the agent's environment if komando does not know
 your agent (it knows Claude Code, Codex, Cursor and Gemini CLI).
 
-One part:    komando guide TOPIC  (` + "orient, targets, read, change, data, jobs, guardrails, errors, output" + `)
+One part:    komando guide TOPIC  (` + "orient, targets, read, change, data, sessions, guardrails, errors, output" + `)
 Everything:  komando guide --all
 `
 

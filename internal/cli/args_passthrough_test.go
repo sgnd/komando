@@ -47,7 +47,7 @@ func TestStandardPassthrough(t *testing.T) {
 		}
 	}
 	slices.Sort(want)
-	all := []string{"cache memcached raw", "cache redis raw", "cluster exec", "cluster run", "cluster shell", "docker compose", "docker exec", "docker raw", "exec", "job start", "secret run"}
+	all := []string{"cache memcached raw", "cache redis raw", "cluster exec", "cluster run", "cluster shell", "docker compose", "docker exec", "docker raw", "exec", "secret run"}
 	if !slices.Equal(want, all) {
 		t.Errorf("passthrough commands %v, want %v", want, all)
 	}
@@ -62,7 +62,6 @@ func TestPassthroughDocumentedForms(t *testing.T) {
 		{"exec", "web1", "--dry-run", "-P", "2", "--read-only", "--", "df", "-h"},
 		{"--dry-run", "exec", "web1", "-c", "uptime"},
 		{"--dry-run", "x", "web1", "--", "uptime"},
-		{"--dry-run", "job", "start", "web1", "--", "sleep", "1"},
 	} {
 		mustRun(t, args...)
 	}

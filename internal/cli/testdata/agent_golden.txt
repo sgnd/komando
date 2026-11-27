@@ -4190,150 +4190,6 @@ exit 2
 Error: missing arguments; usage: komando import SOURCE [FILE]
 Hint: for example: komando import ssh-config --dry-run
 (code USAGE, exit 2)
-### komando -o json job kill (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job kill (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job kill JOB
-Hint: for example: komando job kill j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job kill (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job kill (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job kill JOB
-Hint: for example: komando job kill j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job logs (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job logs (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job logs JOB
-Hint: for example: komando job logs j1103-101500-ab12cd34 --limit 100
-(code USAGE, exit 2)
-### komando -o json job logs (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job logs (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job logs JOB
-Hint: for example: komando job logs j1103-101500-ab12cd34 --limit 100
-(code USAGE, exit 2)
-### komando -o json job rm (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job rm (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job rm JOB...
-Hint: for example: komando job rm j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job rm (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job rm (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job rm JOB...
-Hint: for example: komando job rm j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job start (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET -- COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job start TARGET -- COMMAND...
-Hint: for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-(code USAGE, exit 2)
-### komando -o json job start (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET -- COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job start TARGET -- COMMAND...
-Hint: for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-(code USAGE, exit 2)
-### komando -o json job status (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job status (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job status JOB
-Hint: for example: komando job status j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job status (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job status (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job status JOB
-Hint: for example: komando job status j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job wait (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job wait (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job wait JOB...
-Hint: for example: komando job wait j1103-101500-ab12cd34 --timeout 30m
-(code USAGE, exit 2)
-### komando -o json job wait (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job wait (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job wait JOB...
-Hint: for example: komando job wait j1103-101500-ab12cd34 --timeout 30m
-(code USAGE, exit 2)
 ### komando -o json key add (agent json)
 exit 2
 --- stdout
@@ -7886,30 +7742,6 @@ exit 2
 Error: komando exec takes the words for the server after --; nothing was run
 Hint: put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --
 (code USAGE, exit 2)
-### komando -o json job start x1 uptime (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"komando job start takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start x1 uptime (agent text)
-exit 2
---- stdout
---- stderr
-Error: komando job start takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'`; komando reads its own flags (-y, --dry-run, -P) only before --
-(code USAGE, exit 2)
-### komando -o json job start x1 uptime (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"komando job start takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start x1 uptime (script text)
-exit 2
---- stdout
---- stderr
-Error: komando job start takes the words for the server after --; nothing was run
-Hint: put -- before the command: `komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'`; komando reads its own flags (-y, --dry-run, -P) only before --
-(code USAGE, exit 2)
 ### komando -o json docker exec x1 x2 id (agent json)
 exit 2
 --- stdout
@@ -8292,30 +8124,6 @@ exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (matches your deny rule foo.*bar), so komando asks first; nothing was changed
-Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
-(code POLICY_BLOCKED, exit 6)
-### komando -o json job start web1 -- reboot (agent json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start web1 -- reboot (agent text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
-Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
-(code POLICY_BLOCKED, exit 6)
-### komando -o json job start web1 -- reboot (script json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start web1 -- reboot (script text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
 ### komando -o json reboot web1 (agent json, gate inventory)
@@ -8888,30 +8696,6 @@ exit 6
 {"ok":false,"command":"exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (script text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
-Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_TARGET, exit 6)
-### komando -o json job start prod1 -- touch x (agent json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start prod1 -- touch x (agent text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
-Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_TARGET, exit 6)
-### komando -o json job start prod1 -- touch x (script json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start prod1 -- touch x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -10095,18 +9879,25 @@ komando fs cat kind=read confirm=[{"tier":"read"}]
 exit 0
 komando exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when the command matches a destructive rule"}]
   --arg type=stringArray default=[]
+  --attach type=stringSlice default=[]
   --cmd shorthand=c type=string
   --dir shorthand=C type=string
   --env shorthand=e type=stringArray default=[]
   --fail-fast type=bool default=false
   --interpreter type=string
+  --log-max type=bytes default=1073741824
+  --offset type=int64 default=0
   --pty type=bool default=false
   --read-only type=bool default=false
+  --remove type=bool default=false
   --script type=string
+  --signal type=string default=TERM
   --stdin-file type=string
+  --stop type=bool default=false
   --stream type=bool default=false
   --sudo shorthand=s type=bool default=false
   --sudo-user type=string
+  --wait type=duration default=1m
 ### komando schema queue create (schema values)
 exit 0
 komando queue create kind=change confirm=[{"tier":"change"}]

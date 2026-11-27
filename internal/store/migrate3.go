@@ -201,7 +201,7 @@ func noLiveProcesses(alive func(int, string) bool) error {
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Jobs)) {
 		if j := rt.Jobs[n]; j.Ended == "" && alive(j.PID, "") {
-			running = append(running, fmt.Sprintf("job %s (wait for it: komando job wait %s)", n, n))
+			running = append(running, fmt.Sprintf("job %s on %s (the job commands are gone: let it end, or stop it on the server)", n, j.Host))
 		}
 	}
 	// a run on a server: this computer cannot see whether it ended, and its

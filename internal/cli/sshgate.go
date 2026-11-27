@@ -62,7 +62,6 @@ var gateExec = syscall.Exec
 // spelling of a flag shares (flag_alias.go), so every spelling counts.
 var gateReadForm = map[safetyKey]func(c *cobra.Command) string{
 	{"host", "", "exec"}:              needFlag("read-only"),
-	{"host", "job", "start"}:          needFlag("read-only"),
 	{"host", "docker", "exec"}:        needFlag("read-only"),
 	{"cluster", "", "exec"}:           needFlag("read-only"),
 	{"database", "", "query"}:         noFlag("write"),
@@ -99,7 +98,6 @@ var gateNotForReadKey = map[safetyKey]string{
 var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
 	{"host", "", "exec"}: nil, {"host", "", "restart"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
 	{"", "cp", "copy"}: gateLocalDst, {"", "sync", "copy"}: gateLocalDst,
-	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
 	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
 	{"host", "service", "daemon-reload"}: nil, {"host", "service", "disable"}: nil, {"host", "service", "enable"}: nil, {"host", "service", "reload"}: nil,
 	{"host", "service", "restart"}: nil, {"host", "service", "start"}: nil, {"host", "service", "stop"}: nil,
@@ -650,7 +648,7 @@ recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
-exec, job start, docker exec, cluster exec or recipe run, unless the line
+exec, docker exec, cluster exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit`" + `, with --name, even when the
 audit setting is off.`,

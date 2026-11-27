@@ -19,7 +19,7 @@ func TestSayLineOneLineInAPipe(t *testing.T) {
 
 	out.WidthOf = func(io.Writer) int { return 0 } // a pipe
 	got := captureStderr(t, func() { truncationNotes(tcl, rs, 1<<20, true) })
-	if strings.Count(got, "\n") != 1 || !strings.Contains(got, "raise --max-output, or run it with `komando job start`") {
+	if strings.Count(got, "\n") != 1 || !strings.Contains(got, "raise --max-output, or write it to a file on the server") {
 		t.Errorf("cut note in a pipe: %q", got)
 	}
 

@@ -94,7 +94,7 @@ func TestBlockedAttemptNamesSelectedTargets(t *testing.T) {
 }
 
 // The audit log keeps no password a command line carried: the command an
-// exec, job start or cluster exec ran is recorded with what looks like a
+// exec or cluster exec ran is recorded with what looks like a
 // password, key or token hidden, as the ssh-gate's records are. The copy
 // sent to a syslog server is the same record.
 func TestAuditRecordHidesSecretsInTheCommand(t *testing.T) {

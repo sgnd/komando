@@ -190,7 +190,7 @@ func toErr(err error) *out.Error {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return &out.Error{Code: "TIMEOUT", Message: err.Error(), Exit: out.ExitTimeout,
-			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"}
+			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work in a session: `komando exec TARGET -- COMMAND` returns after --wait and goes on there"}
 	}
 	if errors.Is(err, context.Canceled) {
 		return term.Interrupted()

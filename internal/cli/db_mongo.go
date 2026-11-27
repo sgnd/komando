@@ -320,12 +320,12 @@ func mongoLogin(cl *call, ctx context.Context, c *store.Conn, a *access, r *conn
 // noDumpTool is db dump and restore on a kind they do not handle.
 func noDumpTool(t driver.Target) error {
 	if t.Kind.Name == "mongodb" {
-		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "run mongodump on a server that reaches the database, with `komando exec` (or a `komando job` for a big one)",
+		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "run mongodump on a server that reaches the database, with `komando exec` (a session goes on there when the connection drops)",
 			"db dump and restore are for SQL databases, not MongoDB")
 	}
 	if t.Kind.Name == "oracle" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"Oracle backs up with Data Pump (expdp, impdp) or RMAN, which run on the database server and write there: run them with `komando exec` (or a `komando job` for a big one), then fetch the file with `komando download`",
+			"Oracle backs up with Data Pump (expdp, impdp) or RMAN, which run on the database server and write there: run them with `komando exec` (a session goes on there when the connection drops), then fetch the file with `komando download`",
 			"db dump and restore are not available for Oracle")
 	}
 	if t.Kind.Name == "clickhouse" {

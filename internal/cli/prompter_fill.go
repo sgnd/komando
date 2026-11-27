@@ -212,7 +212,7 @@ var promptKinds = map[string]struct{ noun, add string }{
 	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue add"},
 	"storage": {"file storages", "komando storage add"}, "cluster": {"clusters", "komando cluster add"},
 	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn add"},
-	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},
+	"tunnel": {"tunnels", "komando tunnel start"},
 }
 
 // label is a question's name as the command spells it: CONN (database),

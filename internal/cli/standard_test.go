@@ -70,7 +70,7 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
+		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "tunnel", "config",
 		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
@@ -131,7 +131,7 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
+		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"},
 		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
 		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
 		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
@@ -283,7 +283,7 @@ func TestStandardUseGrammar(t *testing.T) {
 		}
 	}
 	allowCheck(t, "S-4.2", got, nil)
-	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "JOB", "TUNNEL"} {
+	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "TUNNEL"} {
 		if p, _ := formArgPick(w); p == "" {
 			t.Errorf("S-4.2: %s has no picker", w)
 		}
@@ -662,7 +662,6 @@ func TestStandardJourneys(t *testing.T) {
 		"group":  {"add", "show", "list", "rename", "rm"},
 		"recipe": {"add", "show", "list", "rm"},
 		"policy": {"deny", "add", "check", "list", "rm"},
-		"job":    {"start", "status", "show", "list", "kill", "stop", "rm"},
 		"tunnel": {"start", "show", "list", "stop"},
 	} {
 		noun := findCmd(t, root, kind)

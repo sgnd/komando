@@ -12,10 +12,10 @@ import (
 
 func TestRunningStatusEmpty(t *testing.T) {
 	d := runningStatus(tcl, &store.State{Settings: store.DefaultSettings()})
-	if d.Vpns == nil || d.AWSLogins == nil || d.Tunnels == nil || d.Jobs == nil {
+	if d.Vpns == nil || d.AWSLogins == nil || d.Tunnels == nil || d.ExecSessions == nil {
 		t.Errorf("empty lists must be [] in JSON, not null: %+v", d)
 	}
-	if got := d.Text(); got != "nothing running: no VPN sessions, server or AWS logins, tunnels or jobs\n" {
+	if got := d.Text(); got != "nothing running: no VPN sessions, server or AWS logins, tunnels or exec sessions\n" {
 		t.Errorf("text: %q", got)
 	}
 }
@@ -44,8 +44,8 @@ func TestRunningStatus(t *testing.T) {
 			"t-up":   {ID: "t-up", Host: "bastion", Kind: "local", Spec: "5433:10.0.0.9:5432", Conn: "app-db", PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), StartedAt: now.Add(-2 * time.Hour)},
 			"t-dead": {ID: "t-dead", Host: "bastion", Kind: "local", Spec: "1:2:3", PID: 1 << 30, StartedAt: now},
 		},
-		Jobs: map[string]*store.Job{
-			"j-1": {ID: "j-1", Host: "web1", Command: "pg_dump app | gzip > /backup/app.sql.gz && echo done && echo \x1b[2J" + strings.Repeat("x", 40), StartedAt: now.Add(-15 * time.Minute)},
+		ExecSessions: map[string]*store.ExecSession{
+			"s-1": {ID: "s-1", Host: "web1", Command: "pg_dump app | gzip > /backup/app.sql.gz && echo done && echo \x1b[2J" + strings.Repeat("x", 40), StartedAt: now.Add(-15 * time.Minute)},
 		},
 	}
 	d := runningStatus(tcl, st)
@@ -61,16 +61,16 @@ func TestRunningStatus(t *testing.T) {
 	if len(d.Tunnels) != 1 || d.Tunnels[0].ID != "t-up" {
 		t.Errorf("only live tunnels: %+v", d.Tunnels)
 	}
-	if len(d.Jobs) != 1 {
-		t.Errorf("jobs: %+v", d.Jobs)
+	if len(d.ExecSessions) != 1 {
+		t.Errorf("exec sessions: %+v", d.ExecSessions)
 	}
 
 	text := d.Text()
 	for _, want := range []string{
 		"vpn", "office", "used 3m ago, closes in 26m if unused", "42m",
 		"tunnel", "t-up", "→ app-db", "2h",
-		"job", "j-1", "web1: pg_dump app", "…", "15m",
-		"`komando job list --refresh`",
+		"exec", "s-1", "web1: pg_dump app", "…", "15m",
+		"`komando exec TARGET --attach ID`",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text misses %q:\n%s", want, text)
@@ -92,7 +92,7 @@ func TestRunningStatus(t *testing.T) {
 func TestStatusCommand(t *testing.T) {
 	setHome(t, t.TempDir())
 	if err := store.Update(store.Save(), func(st *store.State) error {
-		st.Jobs["j-1"] = &store.Job{ID: "j-1", Host: "nowhere", Command: "sleep 1"}
+		st.ExecSessions["s-1"] = &store.ExecSession{ID: "s-1", Host: "nowhere", Command: "sleep 1"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)

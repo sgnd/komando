@@ -666,13 +666,20 @@ title: Run a shell command on one or many servers in parallel
 - flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
 - flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
 - flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
+- flag:attach | --attach | Read the rest of these sessions on one server, and their exit codes |  |  | optional,advanced,check
 - flag:env | --env | Export KEY=VALUE before the command (repeatable) |  |  | optional,advanced,check
 - flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
 - flag:interpreter | --interpreter | With --script: the interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
+- flag:log-max | --log-max | Bytes of output the server keeps for the run, like 100MiB; more is dropped |  |  | optional,advanced,default,check
+- flag:offset | --offset | With --attach: start at this byte of the log (next_from of the last read) |  |  | optional,advanced,check
 - flag:pty | --pty | Allocate a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
+- flag:remove | --remove | With --attach ID: delete a finished session's folder on the server |  |  | advanced,default,choices
+- flag:signal | --signal | With --stop: TERM, INT, HUP, QUIT or KILL |  |  | optional,advanced,default,check
 - flag:stdin-file | --stdin-file | Send this file on this computer as stdin ('-' = komando's stdin) |  |  | optional,advanced,check
+- flag:stop | --stop | With --attach ID: stop the run, from the computer that started it |  |  | advanced,default,choices
 - flag:stream | --stream | Stream output as NDJSON events while it runs |  |  | advanced,default,choices
 - flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
+- flag:wait | --wait | Wait this long for the run to end; it goes on after (exit 7); 0 returns at once |  |  | optional,advanced,default,check
 ### komando export
 title: Save servers, conns, VPNs, recipes and settings to a file
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
@@ -902,51 +909,6 @@ title: Bring in what you have: ssh config, .pgpass, my.cnf, .env
 - arg1 | File | From which file? (leave empty for the usual place) | Empty reads the usual file, like ~/.ssh/config. komando and csv need a file. | ./app/.env | optional,check
 - flag:group | --group | Put everything it adds in a group? | A group lets you pick them all later with @name. Leave empty for none. | imported | optional,free,choices
 - flag:overwrite | --overwrite | Replace entries that have the same name? | No skips a name that is in your list already. |  | default,choices
-### komando job
-title: Long-running jobs on servers: start, follow, wait for, stop
-### komando job kill
-title: Stop a job: send a signal to its process group (default TERM)
-- arg0 | Job | Which job? | A job started with `komando job start`. `komando job list` shows them. |  | free,choices,check
-- flag:signal | --signal | How should it stop? | TERM asks it to stop and clean up. KILL stops it at once, use it when TERM did not work. |  | optional,default,choices
-- flag:sudo | --sudo | Was the job started with sudo? | Then stopping it needs sudo too. |  | default,choices
-### komando job list
-title: List the jobs komando started (--refresh asks the servers)
-- flag:target | --target | Only the jobs on which servers? | Leave empty for every job komando knows. |  | optional,free,choices
-- flag:refresh | --refresh | Ask the servers whether each job still runs? | No shows what komando saw last time, which is quicker. |  | default,choices
-- flag:limit | --limit | Show at most this many jobs, newest first (0 = all) |  |  | optional,advanced,check
-### komando job logs
-title: Read a job's output, piece by piece or its last lines
-- arg0 | Job | Which job? | A job started with `komando job start`. `komando job list` shows them. |  | free,choices,check
-- flag:limit | --limit | Only the last how many lines? | Leave empty to read the output from the start. | 50 | optional,check
-- flag:max-bytes | --max-bytes | The most bytes to return, like 1MiB |  |  | optional,advanced,default,check
-- flag:offset | --offset | Byte offset to read from (use next_offset from the previous call) |  |  | optional,advanced,check
-### komando job rm
-title: Forget jobs and delete their logs on the server
-- arg0 | Job | Which jobs? | Several: separate them with spaces. `komando job list` shows them. |  | free,choices,check
-- flag:kill | --kill | Stop it first if it still runs? | No refuses to remove a job that still runs. |  | default,choices
-- flag:keep-remote | --keep-remote | Keep the job's log folder on the server |  |  | advanced,default,choices
-### komando job start
-title: Start a background job on each server TARGET picks
-- arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- arg1 | Command | What command should it run? | A long task that keeps running when your connection drops. Type it as you would on the server. | apt-get -y upgrade | 
-- flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
-- flag:read-only | --read-only | Does it only look, without changing anything? | Yes lets it run on a production server without asking you first. Say yes only when that is true. |  | default,choices
-- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
-- flag:arg | --arg | With --script: an argument for the script, $1 ... (repeatable) |  |  | optional,advanced,check
-- flag:env | --env | Export KEY=VALUE before the command (repeatable) |  |  | optional,advanced,check
-- flag:interpreter | --interpreter | With --script: the interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
-- flag:script | --script | Run this script from this computer as the job ('-' = komando's stdin) |  |  | optional,advanced,check
-- flag:stdin-file | --stdin-file | Send this file on this computer as the command's input ('-' = komando's stdin) |  |  | optional,advanced,check
-- flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
-### komando job status
-title: Show a job's state, exit code, run time and last lines
-- arg0 | Job | Which job? | A job started with `komando job start`. `komando job list` shows them. |  | free,choices,check
-- flag:tail | --tail | How many of its last output lines to show? | 0 shows none. | 20 | optional,default,check
-### komando job wait
-title: Wait until the jobs end
-- arg0 | Job | Which jobs? | Several: separate them with spaces. `komando job list` shows them. |  | free,choices,check
-- flag:interval | --interval | How often to check |  |  | optional,advanced,default,check
-- flag:tail | --tail | Also show the last N lines of output |  |  | optional,advanced,default,check
 ### komando key
 title: SSH keys: make, add, put on servers, take off
 ### komando key add
@@ -1361,7 +1323,7 @@ title: Print the authorized_keys line that limits a key to komando
 ### komando ssh-gate status
 title: Say which ssh-gate key runs this, and what it may do
 ### komando status
-title: What komando left running: VPNs, logins, tunnels, jobs
+title: What komando left running: VPNs, logins, tunnels, exec sessions
 - flag:short | --short | One line for your shell prompt, like vpn:1 tun:2 (no JSON, never fails) |  |  | advanced,default,choices
 ### komando storage
 title: Buckets (S3, GCS, Azure) and file servers: browse, copy, remove

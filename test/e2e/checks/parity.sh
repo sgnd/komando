@@ -93,14 +93,12 @@ check "net ports = ss (tcp listening)" "$(native direct ss -Htln | awk '{n=split
 check "facts = uname / nproc" "$(native direct sh -c 'uname -n; uname -r; nproc' | words)" \
   "$($K facts direct | jget '" ".join(str(d["data"]["results"][0]["data"][k]) for k in ("hostname", "kernel", "cpus"))')"
 
-# sync = diff -r afterwards; job logs = the job's own output
+# sync = diff -r afterwards; a session's output = the command's own output
 mkdir -p "$TMP/$V.src/sub" && echo one >"$TMP/$V.src/a.txt" && echo two >"$TMP/$V.src/sub/b.txt"
 q $K sync "$TMP/$V.src" "direct:/tmp/$V.sync"
 check "sync = same tree (diff -r)" "$(cd "$TMP/$V.src" && find . -type f | sort | xargs cat | shasum | cut -c1-12)" \
   "$(native direct sh -c "cd /tmp/$V.sync && find . -type f | sort | xargs cat | sha1sum" | cut -c1-12)"
-J=$($K job start direct -- 'printf "line1\nline2\n"' | jget 'd["data"]["jobs"][0]["id"]')
-q $K job wait "$J" --timeout 1m
-check "job logs = the job's output" "$(printf 'line1\nline2')" "$($K job logs "$J" | jget 'd["data"]["content"].rstrip("\n")')"
+check "a session's output = the command's output" "$(printf 'line1\nline2')" "$($K exec direct -- 'printf "line1\nline2\n"' | jget 'd["data"]["results"][0]["stdout"].rstrip("\n")')"
 
 # redis-cli SCAN, psql's table list, the registry catalog
 q $K cache set cache "$V:a" 1
