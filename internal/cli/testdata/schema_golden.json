@@ -11426,7 +11426,7 @@
       {
         "code": "DEPLOY_FAILED",
         "exit": 5,
-        "example": "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
+        "example": "credential key install could not add the key to the server's authorized_keys (the server's words follow)",
         "hint": "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`"
       },
       {
@@ -12379,7 +12379,7 @@
         "code": "SECRET_NOT_FOUND",
         "exit": 3,
         "example": "no secret named …",
-        "hint": "see them with `komando secret list`"
+        "hint": "see them with `komando credential list`"
       },
       {
         "code": "SECRET_UNRESOLVED",
@@ -12606,7 +12606,7 @@
         "code": "SSH_KEY_NOT_FOUND",
         "exit": 3,
         "example": "no SSH key named …",
-        "hint": "see them with `komando key list`"
+        "hint": "see them with `komando credential key list`"
       },
       {
         "code": "SSM_FAILED",

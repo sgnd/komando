@@ -455,6 +455,88 @@
     },
     "ok": "bool"
   },
+  "credential key list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "keys": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "secrets": [
+        {
+          "name": "string",
+          "updated_at": "string",
+          "used_by": [
+            "string"
+          ]
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential password add pg-new --new --from-env PG_PASS --dry-run": {
+    "command": "string",
+    "data": {
+      "action": "string",
+      "name": "string",
+      "ref": "string",
+      "replaced": "bool",
+      "would_set": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential password add pg-pass --new --from-env PG_PASS": {
+    "command": "string",
+    "error": {
+      "code": "code SECRET_EXISTS",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential password show pg-pass": {
+    "command": "string",
+    "data": {
+      "exists": "bool",
+      "name": "string",
+      "ref": "string",
+      "used_by": [
+        "string"
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "download web /etc/hosts --to - --dry-run": {
     "command": "string",
     "data": {
@@ -990,19 +1072,6 @@
     },
     "ok": "bool"
   },
-  "key list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "keys": []
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "list": {
     "command": "string",
     "data": {
@@ -1210,14 +1279,11 @@
     },
     "ok": "bool"
   },
-  "schema secret set": {
+  "schema credential password add": {
     "command": "string",
     "data": {
       "commands": [
         {
-          "aliases": [
-            "string"
-          ],
           "confirm": [
             {
               "tier": "string"
@@ -1303,75 +1369,6 @@
       "contract": "number",
       "name": "string",
       "version": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret get pg-pass": {
-    "command": "string",
-    "data": {
-      "exists": "bool",
-      "name": "string",
-      "ref": "string",
-      "used_by": [
-        "string"
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "secrets": [
-        {
-          "name": "string",
-          "updated_at": "string",
-          "used_by": [
-            "string"
-          ]
-        }
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret set pg-new --new --from-env PG_PASS --dry-run": {
-    "command": "string",
-    "data": {
-      "action": "string",
-      "name": "string",
-      "ref": "string",
-      "replaced": "bool",
-      "would_set": "bool"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret set pg-pass --new --from-env PG_PASS": {
-    "command": "string",
-    "error": {
-      "code": "code SECRET_EXISTS",
-      "hint": "string",
-      "message": "string"
     },
     "meta": {
       "contract": "number",

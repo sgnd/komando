@@ -63,7 +63,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DECLINED` | 6 | not run: the person said no; nothing was changed | run it again to be asked again |
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
-| `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
+| `DEPLOY_FAILED` | 5 | credential key install could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
 | `DIG_MISSING` | 3 | … records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se… | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
@@ -222,7 +222,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando credential password add …` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, for example `…`, or rename it with `komando credential password rename` |
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando credential password add …` |
-| `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando secret list` |
+| `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando credential list` |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando credential token add NAME < ca.crt` |
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
@@ -260,7 +260,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
-| `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
+| `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando credential key list` |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
 | `STATE_CORRUPT` | 1 | nothing was changed: … | the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy` |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando credential token add NAME` and pass --password-ref secret:NAME |
