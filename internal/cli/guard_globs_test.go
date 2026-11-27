@@ -122,6 +122,7 @@ func TestGuardBraceListPastTheLimitIsRefused(t *testing.T) {
 		"unset " + many("CLAUDECODE"),
 		"mv {x{/../.ssh,} /tmp/k",
 	}, true)
+	checkRefusedBy(t, home, repo, []string{"touch " + many("65") + ".txt"}, "more than 64 names")
 	checkLines(t, home, repo, []string{
 		"rm -rf {build,dist}",
 		"touch " + strings.Repeat("{a,b}", 6) + ".txt",

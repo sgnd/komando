@@ -60,7 +60,7 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 		`rm --rec -f ~/.ssh`,
 		`rm -rf -- ~`,
 		`rm -r ~/.ssh`,
-		`rm -rf ~/.aws`,
+		`rm -rf ~/.config`,
 		`rm -rf ~/*`,
 		`rm -rf ~/{src,.ssh}`,
 		`rm -r /`,
@@ -268,6 +268,21 @@ func TestGuardFolderRuleReadsTheRestOfAnUnknownWord(t *testing.T) {
 		`cd "$(cat /tmp/n)" && rm -rf build`,
 		`x=$(git rev-parse --show-toplevel); rm -rf "$x/dist"`,
 	}, false)
+}
+
+// A pin of the folder rule is refused by the folder rule: ~/.config holds
+// a credential store and ~/Library the keychains, and neither is one
+// (~/.aws is, and the older read check refuses it first).
+func TestGuardFolderRuleRefusesForItsOwnReason(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`rm -rf ~`,
+		`rm -rf ~/.ssh`,
+		`rm -rf ~/.config`,
+		`mv ~/Library /tmp/l`,
+		`chmod -R 777 ~`,
+	}, treeRefusal)
+	checkRefusedBy(t, home, home, []string{`rm -rf ~/.aws`}, "is a credential store")
 }
 
 // Copies and links in project and temporary folders stay allowed.
