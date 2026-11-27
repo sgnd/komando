@@ -47,13 +47,13 @@ func TestDoctorConnHygiene(t *testing.T) {
 	// the way out names commands of this version (chief, 2026-11-28, with
 	// rule R7): a credential of its own, then the conn's own edit
 	hint := got["conn:dev-minio"]
-	if !strings.Contains(hint, "`komando credential password add NEW`, then `komando ") || strings.Contains(hint, "secret cp") || strings.Contains(hint, "password-ref") {
+	if !strings.Contains(hint, "`komando credential password add NAME`, then `komando ") || strings.Contains(hint, "secret cp") || strings.Contains(hint, "password-ref") {
 		t.Fatalf("dev-minio hint: %s", hint)
 	}
 	_, edit, _ := strings.Cut(hint, "then `komando ")
 	edit, _, _ = strings.Cut(edit, "`")
 	words := strings.Fields(edit)
-	if len(words) < 3 || !slices.Equal(words[len(words)-3:], []string{"dev-minio", "--credential", "NEW"}) {
+	if len(words) < 3 || !slices.Equal(words[len(words)-3:], []string{"dev-minio", "--credential", "NAME"}) {
 		t.Fatalf("dev-minio edit line %q", edit)
 	}
 	cmd, _, err := newRoot(tcl).Find(words[:len(words)-3])

@@ -151,7 +151,7 @@ func TestFormat3SharedCredentialRefused(t *testing.T) {
 			}
 			// rule R7 (C610): the way out is a command of v0.18, and names
 			// the credential the plain way (rule R2: no credential:NAME)
-			if oe.Code == "CREDENTIAL_IN_USE" && (!strings.Contains(oe.Hint, "`komando credential password add NEW`, then pass --credential NEW") ||
+			if oe.Code == "CREDENTIAL_IN_USE" && (!strings.Contains(oe.Hint, "`komando credential password add NAME`, then pass --credential NAME") ||
 				strings.Contains(oe.Hint, "secret cp") || strings.Contains(oe.Hint, "credential:")) {
 				t.Errorf("hint %q", oe.Hint)
 			}

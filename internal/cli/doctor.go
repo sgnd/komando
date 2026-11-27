@@ -209,9 +209,9 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 func ownCredentialFix(c *store.Conn) string {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
-		return "`komando credential password add NEW`, then pass --credential NEW to its edit"
+		return "`komando credential password add NAME`, then pass --credential NAME to its edit"
 	}
-	return "`komando credential password add NEW`, then `" + entryPath(t.Kind) + " edit " + argQ(c.Name) + " --credential NEW`"
+	return "`komando credential password add NAME`, then `" + entryPath(t.Kind) + " edit " + argQ(c.Name) + " --credential NAME`"
 }
 
 func doctorCmd() *cobra.Command {
