@@ -195,9 +195,37 @@ func TestRiskPersonGains(t *testing.T) {
 	}
 }
 
+// protectionOffSpellings are the ways to switch protection off: the gate
+// rates what the command does after parsing, so --unset protected counts
+// as much as --protected=false.
+var protectionOffSpellings = [][]string{
+	{"--protected=false"}, {"--protected=0"}, {"--protected=F"},
+	{"--unset", "protected"}, {"--unset=protected"},
+	{"--unset", "notes,protected"}, {"--unset=notes,protected"},
+}
+
+// Only the spellings that switch protection off are safety steps.
+func TestProtectionOffOnlyForOffSpellings(t *testing.T) {
+	for _, w := range [][]string{
+		{"x", "--protected=true"}, {"x", "--protected"}, {"x", "--unset", "notes"},
+		{"x", "--unset=notes,via"}, {"x", "--notes", "protected"}, {"x", "--unset"},
+	} {
+		if protectionOff(w) {
+			t.Errorf("%v does not switch protection off", w)
+		}
+	}
+	for _, sp := range protectionOffSpellings {
+		if !protectionOff(append([]string{"x"}, sp...)) {
+			t.Errorf("%v switches protection off", sp)
+		}
+	}
+}
+
 // Turning protection off is a safety step on every edit that takes
 // --protected, also on an edit whose command moved under a provider
 // (cache redis edit, registry oci edit): a moved key keeps the row (C564).
+// The edits come from the command tree, so a type that gains a protected
+// field is checked in every spelling without a list to keep.
 func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
 	var ids []string
 	for _, c := range allCommands(newRoot(tcl)) {
@@ -205,8 +233,13 @@ func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
 			continue
 		}
 		ids = append(ids, cmdID(c))
-		if got := riskOf(c, []string{"x", "--protected=false"}).tier; got != tierSafety {
-			t.Errorf("%s --protected=false: %s, want safety", cmdID(c), got)
+		for _, spelling := range protectionOffSpellings {
+			if strings.HasPrefix(spelling[0], "--unset") && c.Flags().Lookup("unset") == nil {
+				continue
+			}
+			if got := riskOf(c, append([]string{"x"}, spelling...)).tier; got != tierSafety {
+				t.Errorf("%s %s: %s, want safety (the gate rates what the command does, not its spelling)", cmdID(c), strings.Join(spelling, " "), got)
+			}
 		}
 	}
 	want := []string{"conn.edit", "host.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"}
