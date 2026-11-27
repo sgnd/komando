@@ -3,12 +3,15 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // The guard reads a word the way the shell will run it: $'...' and $"..."
@@ -577,11 +580,12 @@ func braceList(w string) (open, end int, cuts []int) {
 	return open, end, cuts
 }
 
-// treeWord is one argument as the program gets it, and whether the shell
-// reads it as a glob.
+// treeWord is one argument as the program gets it, whether the shell reads
+// it as a glob, and the index of the word of the line it comes from.
 type treeWord struct {
 	w    string
 	glob bool
+	arg  int
 }
 
 // treeLines are the argument lists the program may get, so `rm {-rf,~}` and
@@ -589,7 +593,11 @@ type treeWord struct {
 // values the guard knows a word may have, a value both whole (quoted, or
 // in zsh) and split at the line's separators, brace lists expanded. Past 64
 // choices one list holds every value, and flat is set. whole is false when
-// a brace list gives more names than the guard reads.
+// a brace list gives more names than the guard reads. A word with a part
+// the guard cannot know gives its values with that part as written and as
+// empty: checkWritten refused one that ends in the part, and
+// checkTreeChange one whose fixed rest can name a folder that holds a
+// protected path (unknownFolderReaches).
 func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) (lines [][]treeWord, flat, whole bool) {
 	seps, _ := vars.separators()
 	lines, all := [][]treeWord{nil}, []treeWord(nil)
@@ -612,7 +620,7 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 						}
 					}
 					for _, p := range pats {
-						seq = append(seq, treeWord{p, glob && wordHasGlob(p)})
+						seq = append(seq, treeWord{p, glob && wordHasGlob(p), i})
 					}
 				}
 				alts, all = append(alts, seq), append(all, seq...)
@@ -634,6 +642,101 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 		return [][]treeWord{all}, true, true
 	}
 	return lines, false, true
+}
+
+// unknownShapes are the shapes of the word a (vars.shapes) with a part the
+// guard cannot know before the line runs: an unknown value, or a relative
+// name after a cd it could not follow (lostDir).
+func unknownShapes(cl *call, a string, vars lineVars, home, cwd string) []string {
+	vals, known := vars.expand(cl, a, home, cwd)
+	var out []string
+	if !known {
+		shapes, ok := vars.shapes(cl, a, home, cwd)
+		if !ok {
+			return []string{unknownOutput}
+		}
+		out = shapes
+	}
+	if cwd == lostDir {
+		for _, v := range vals {
+			if v != "" && !strings.HasPrefix(v, "-") && !filepath.IsAbs(guardPath(cl, v, home)) {
+				out = append(out, unknownOutput+"/"+v)
+			}
+		}
+	}
+	return out
+}
+
+// unknownFolderReaches says whether the shape s, its unknown parts written
+// as unknownOutput, can name a folder that is or holds a protected path:
+// the unknown part stands for any folder, so the fixed path after the last
+// one must not end the path of such a folder (holderFolders).
+func unknownFolderReaches(cl *call, s, home string, vars lineVars) bool {
+	k := strings.LastIndex(s, unknownOutput)
+	if k < 0 {
+		return false
+	}
+	if _, known := vars.agentFolders(); !known {
+		return true // without the project in use, any folder may hold an agent's own
+	}
+	rest := filepath.ToSlash(s[k+len(unknownOutput):])
+	if !strings.HasPrefix(rest, "/") {
+		rest = "*" + rest // the unknown part ends inside the last name
+	}
+	tail := strings.Split(strings.Trim(path.Clean(rest), "/"), "/")
+	for len(tail) > 0 && (tail[0] == ".." || tail[0] == "." || tail[0] == "") {
+		tail = tail[1:]
+	}
+	if len(tail) == 0 {
+		return true // the unknown folder itself
+	}
+	fold := func(s string) string {
+		if caseFoldFS {
+			return foldCase(s)
+		}
+		return s
+	}
+	for _, d := range holderFolders(cl, home, vars) {
+		dc := strings.Split(fold(filepath.ToSlash(d)), "/")
+		if len(dc) < len(tail) {
+			continue
+		}
+		dc = dc[len(dc)-len(tail):]
+		match := true
+		for j, t := range tail {
+			if ok, err := path.Match(fold(t), dc[j]); err == nil && !ok {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
+// holderFolders are the folders the folder rule refuses by what they are
+// or hold (touchesProtected): the protected folders, komando's data, the
+// agent's own settings folders, the komando programs the guard hook runs,
+// and each folder above them, as named and as their links lead.
+func holderFolders(cl *call, home string, vars lineVars) []string {
+	roots := append(protectedDirs(cl, home), store.Home())
+	for dir := range hookSettingFiles {
+		roots = append(roots, filepath.Join(home, dir))
+	}
+	inUse, _ := vars.agentFolders()
+	roots = append(append(roots, inUse...), guardPrograms()...)
+	var out []string
+	for _, r := range withReal(nil, roots...) {
+		for d := r; ; d = filepath.Dir(d) {
+			out = append(out, d)
+			if d == filepath.Dir(d) {
+				break
+			}
+		}
+	}
+	return out
 }
 
 // treeTargets are the paths the word v, its brace lists expanded

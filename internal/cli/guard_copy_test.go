@@ -239,6 +239,37 @@ func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
 	checkLines(t, home, wt, []string{`rm -rf ` + other}, false)
 }
 
+// A folder the line names with a part the guard cannot know before it
+// runs: checkWritten refuses one that ends in that part, and the folder
+// rule one whose fixed rest after it can end the path of a folder that is
+// or holds a protected path (the home folder, the folders above it, the
+// project in use and the folders above it). Another fixed rest stays
+// allowed.
+func TestGuardFolderRuleReadsTheRestOfAnUnknownWord(t *testing.T) {
+	home, repo := guardLineHome(t)
+	agentRepo(t, repo)
+	checkRefusedBy(t, home, repo, []string{
+		`read d < /tmp/n; rm -rf "$d"`,
+		`read d < /tmp/n; mv "$d/.." /tmp/k`,
+		`read d < /tmp/n; chmod -R 777 $d`,
+	}, "cannot read before the line runs")
+	up := filepath.Base(filepath.Dir(home))
+	checkRefusedBy(t, home, repo, []string{
+		`read d < /tmp/n; rm -rf "$d/` + up + `"`,
+		`read d < /tmp/n; rm -rf "$d/` + filepath.Base(home) + `"`,
+		`read d < /tmp/n; mv "$d/src" /tmp/k`,
+		`read d < /tmp/n; rm -rf "$d/x/../` + up + `"`,
+		`cd "$(cat /tmp/n)" && rm -rf ` + up,
+		`cd "$(cat /tmp/n)" && chmod -R 777 src`,
+	}, treeRefusal)
+	checkLines(t, home, repo, []string{
+		`read d < /tmp/n; rm -rf "$d/build"`,
+		`read d < /tmp/n; mv "$d/out.txt" /tmp/`,
+		`cd "$(cat /tmp/n)" && rm -rf build`,
+		`x=$(git rev-parse --show-toplevel); rm -rf "$x/dist"`,
+	}, false)
+}
+
 // Copies and links in project and temporary folders stay allowed.
 func TestGuardOrdinaryCopiesStayAllowed(t *testing.T) {
 	home, repo := guardLineHome(t)

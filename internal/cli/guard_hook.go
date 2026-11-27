@@ -433,12 +433,15 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 			return d
 		}
 	}
-	bases, from := []string{anyProgram}, first-1
-	if named {
-		bases, from = bases[:0], first
+	bases, from := []string{anyProgram}, first
+	switch {
+	case named:
+		bases = bases[:0]
 		for _, p := range progs {
 			bases = append(bases, filepath.Base(p))
 		}
+	case known && !aliased:
+		from = first - 1 // a value with a separator: its words are among the arguments
 	}
 	if d := checkTreeChange(cl, bases, words[from:], globs[from:], vars, home, cwd); d.Deny {
 		return d

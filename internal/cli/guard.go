@@ -471,7 +471,7 @@ func checkTreeChange(cl *call, bases, args []string, globs []bool, vars lineVars
 	if flat {
 		bases = []string{anyProgram} // one list of every value: an option from one value says nothing of the words after it
 	}
-	checked := map[treeWord]bool{}
+	checked, shaped := map[treeWord]bool{}, map[int]bool{}
 	for _, base := range bases {
 		for _, line := range lines {
 			words := make([]string, len(line))
@@ -479,6 +479,14 @@ func checkTreeChange(cl *call, bases, args []string, globs []bool, vars lineVars
 				words[i] = w.w
 			}
 			for _, i := range treeOperands(base, words) {
+				if a := line[i].arg; !shaped[a] {
+					shaped[a] = true
+					for _, s := range unknownShapes(cl, args[a], vars, home, cwd) {
+						if unknownFolderReaches(cl, s, home, vars) {
+							return deny("%s %s %s and everything under it, a folder komando's guard cannot know before the line runs that may be or hold komando's data, private keys or guard files; name the folder on the line", base, treeVerb(base), strings.ReplaceAll(args[a], unknownOutput, "$(...)"))
+						}
+					}
+				}
 				if words[i] == "" || checked[line[i]] {
 					continue // an empty value names no folder: the word goes, or rm "" fails
 				}
