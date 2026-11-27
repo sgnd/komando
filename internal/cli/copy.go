@@ -26,6 +26,9 @@ import (
 // selector: the one after tag, label, kind or os (tag:edge:/srv), inside
 // [an IPv6 address], or before a port (root@10.0.0.5:2222:/tmp).
 func splitRemote(s string) (target, p string, ok bool) {
+	if filepath.VolumeName(s) != "" {
+		return "", s, false // C:\out.txt on Windows is a path here, as kubectl cp takes it, not target C
+	}
 	i := remoteColon(s)
 	if i <= 0 {
 		return "", s, false
