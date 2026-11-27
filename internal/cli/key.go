@@ -30,12 +30,6 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-func keyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: make, add, put on servers, take off"}
-	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd(), keyMvCmd())
-	return c
-}
-
 // minRSABits: NIST SP 800-57 and current OpenSSH guidance; 2048-bit keys
 // are being retired and 1024-bit ones are refused by modern servers.
 const minRSABits = 3072

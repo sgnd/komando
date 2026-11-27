@@ -15,6 +15,10 @@ var (
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accSecret = formArg{ask: "Which secret?", example: "db-pass", pick: "secret", free: true,
 		help: "The name you saved it under. komando secret list shows your saved passwords."}
+	accSecretAdd = formArg{ask: "What name should it have?", example: "db-pass", pick: "secret", free: true,
+		help: "Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste."}
+	accSecrets = formArg{ask: "Which ones?", example: "old-pass", pick: "secret", free: true,
+		help: "Their names. Several: separate them with spaces. One still in use is not deleted."}
 	accSecretNew = formArg{ask: "What should the new name be?", example: "db-pass-old",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	accOverwrite = formFlag{name: "overwrite", ask: "Replace the new name if it exists already?",
@@ -25,8 +29,8 @@ var (
 		help: "One of your komando SSH keys, or type the path of a .pub file on this computer."}
 	accServers = formArg{ask: "On which servers?", pick: "host", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas."}
-	accPassRef = formFlag{name: "passphrase-ref", ask: "Where is the key's passphrase kept?", example: "secret:work-key-pass",
-		help: "Only for a key that has a passphrase. Store it first with `komando secret set NAME` (it asks hidden), then type secret:NAME here. Leave empty for a key without one."}
+	accPassRef = formFlag{name: "passphrase-credential", ask: "Which saved password opens the key?", example: "work-key-pass",
+		help: "Only for a key that has a passphrase. Save it first with `komando credential password add NAME` (it asks hidden), then type its NAME here. Leave empty for a key without one."}
 	accSecretOff = formFlag{name: "off", ask: "Move the key back into the store.key file instead?",
 		help: "No is the usual answer. Yes makes a copy of ~/.komando open the vault again, so komando asks you to confirm first."}
 )
@@ -86,44 +90,46 @@ func init() {
 			flags: []formFlag{{name: "all", ask: "End every kept login instead?"}}},
 
 		// Secrets
-		"secret set": {args: []formArg{{ask: "What name should the secret have?", example: "db-pass", pick: "secret", free: true,
-			help: "Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste."}}},
-		"secret show": {args: []formArg{accSecret}},
+		"credential password add":  {args: []formArg{accSecretAdd}},
+		"credential token add":     {args: []formArg{accSecretAdd}},
+		"credential password show": {args: []formArg{accSecret}},
+		"credential token show":    {args: []formArg{accSecret}},
 		"secret check": {args: []formArg{{ask: "Which secret should your value be compared with?", example: "vpn-pass", pick: "secret", free: true,
 			help: "Its name in the vault. komando asks for your value next, hidden, and says whether it matches, never showing either."}}},
-		"secret list":   {},
-		"secret rename": {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
-		"secret cp":     {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
-		"secret rm": {args: []formArg{{ask: "Which secrets?", example: "old-pass", pick: "secret", free: true,
-			help: "Their names in the vault. Several: separate them with spaces. A secret still in use is not deleted."}}},
-		"secret run": {args: []formArg{{ask: "Which program should run on this computer?", example: "terraform plan",
+		"credential list":            {},
+		"credential password rename": {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
+		"credential token rename":    {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
+		"secret cp":                  {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
+		"credential password remove": {args: []formArg{accSecrets}},
+		"credential token remove":    {args: []formArg{accSecrets}},
+		"credential run": {args: []formArg{{ask: "Which program should run on this computer?", example: "terraform plan",
 			help: "The program and its arguments, as you would type them here. Its secrets go in the next question, never here."}},
 			flags: []formFlag{{name: "env", ask: "Which variable gets which secret?", example: "TOKEN=secret:gh-token",
 				help: "KEY=secret:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value."}}},
-		"secret keychain": {flags: []formFlag{accSecretOff}},
-		"secret passphrase": {flags: []formFlag{{name: "off", ask: "Go back to a random key in store.key instead?",
+		"config vault keychain": {flags: []formFlag{accSecretOff}},
+		"config vault passphrase": {flags: []formFlag{{name: "off", ask: "Go back to a random key in store.key instead?",
 			help: "No is the usual answer: komando asks for the new passphrase twice, hidden. Yes asks you to confirm first."}}},
 
 		// SSH keys
-		"key gen": {args: []formArg{{ask: "What name should the new key have?", example: "deploy",
-			help: "Letters, digits, dot, dash and underscore, starting with a letter or digit. Next, `komando key deploy` puts it on your servers."}},
+		"credential key create": {args: []formArg{{ask: "What name should the new key have?", example: "deploy",
+			help: "Letters, digits, dot, dash and underscore, starting with a letter or digit. Next, `komando credential key install` puts it on your servers."}},
 			flags: []formFlag{{name: "type", ask: "Which kind of key?", choices: []string{"ed25519", "rsa", "ecdsa"},
 				help: "ed25519 is short and safe; pick rsa only for an old server that does not take ed25519."}}},
-		"key add": {args: []formArg{
+		"credential key add": {args: []formArg{
 			{ask: "What name should the key have in komando?", example: "personal", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."},
 			{ask: "Where is the private key file on this computer?", example: "~/.ssh/id_ed25519", local: true,
 				help: "The file without .pub at the end. It stays where it is. ~/ means your home folder."}},
 			flags: []formFlag{accPassRef}},
-		"key edit":   {args: []formArg{accKey}, flags: []formFlag{accPassRef}},
-		"key list":   {},
-		"key show":   {args: []formArg{accKey}},
-		"key rename": {args: []formArg{accKey, {ask: "What should the new name be?", example: "deploy-2026", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}}},
-		"key rm": {args: []formArg{accKey}, flags: []formFlag{{name: "delete-file", ask: "Also delete the private key?",
+		"credential key edit":   {args: []formArg{accKey}, flags: []formFlag{accPassRef}},
+		"credential key list":   {},
+		"credential key show":   {args: []formArg{accKey}},
+		"credential key rename": {args: []formArg{accKey, {ask: "What should the new name be?", example: "deploy-2026", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}}},
+		"credential key remove": {args: []formArg{accKey}, flags: []formFlag{{name: "delete-file", ask: "Also delete the private key?",
 			help: "Only for a key komando made. A deleted private key cannot be brought back."}}},
-		"key deploy": {args: []formArg{accKeyOrPub, accServers},
+		"credential key install": {args: []formArg{accKeyOrPub, accServers},
 			flags: []formFlag{{name: "set-default", ask: "Should komando log in with this key from now on?",
 				help: "Yes switches each server where it worked to this key."}}},
-		"key revoke": {args: []formArg{accKeyOrPub, accServers},
+		"credential key uninstall": {args: []formArg{accKeyOrPub, accServers},
 			flags: []formFlag{{name: "user", ask: "Whose login should lose the key?", example: "deploy",
 				help: "Leave empty for the user komando logs in as. Another user's file is changed with sudo."}}},
 	})
@@ -152,14 +158,16 @@ func init() {
 		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
 		"tunnel stop":  {next: []string{"tunnel list"}},
 		"login aws":    {next: []string{"test TARGET", "storage list CONN", "import aws"}},
-		"secret set": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
-			"secret list"}},
-		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
-		"secret rename":     {next: []string{"secret list", "test TARGET"}},
-		"secret cp":         {next: []string{"secret list"}},
-		"secret keychain":   {next: []string{"doctor"}},
-		"secret passphrase": {next: []string{"doctor", "tunnel list", "vpn status"}},
-		"key gen":           {next: []string{"key deploy {} TARGET --set-default", "key show {}"}},
-		"key deploy":        {next: []string{"test TARGET", "key revoke NAME TARGET"}},
+		"credential password add": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
+			"credential list"}},
+		"credential token add":       {next: []string{"credential list"}},
+		"credential list":            {next: []string{"credential password show NAME", "credential password add NAME"}},
+		"credential password rename": {next: []string{"credential list", "test TARGET"}},
+		"credential token rename":    {next: []string{"credential list"}},
+		"secret cp":                  {next: []string{"credential list"}},
+		"config vault keychain":      {next: []string{"doctor"}},
+		"config vault passphrase":    {next: []string{"doctor", "tunnel list", "vpn status"}},
+		"credential key create":      {next: []string{"credential key install {} TARGET --set-default", "credential key show {}"}},
+		"credential key install":     {next: []string{"test TARGET", "credential key uninstall NAME TARGET"}},
 	})
 }

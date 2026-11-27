@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
@@ -200,9 +202,45 @@ func secretCmd() *cobra.Command {
 		Short:   "Saved passwords and tokens: store, check, use as secret:NAME",
 		Long:    secretLong,
 	}
-	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true), runCmd(),
-		addAliases(secretCopyCmd(false), "copy"), secretRmCmd(), secretKeychainCmd(), addAliases(secretPassphraseCmd(), "passwd"))
+	// the other commands run as the credential and config vault leaves;
+	// check and cp go in cut step D
+	c.AddCommand(secretCheckCmd(), addAliases(secretCopyCmd(false), "copy"))
 	return c
+}
+
+// The credential leaves run today's secret, key and host ca bodies. Until
+// cut step E keeps a kind with each saved value, the password and the token
+// leaves run the same body.
+func init() {
+	for verb, body := range map[string]func() *cobra.Command{"add": secretSetCmd, "show": secretGetCmd,
+		"remove": secretRmCmd, "rename": func() *cobra.Command { return secretCopyCmd(true) }} {
+		for _, kind := range []string{"password", "token"} {
+			handlers[capability.Key{Type: "credential", Area: kind, Verb: verb}] = bodyHandler(body)
+		}
+	}
+	handlers[capability.Key{Type: "credential", Verb: "list"}] = bodyHandler(secretListCmd)
+	handlers[capability.Key{Type: "credential", Verb: "run"}] = bodyHandler(runCmd)
+	for verb, body := range map[string]func() *cobra.Command{"add": keyAddCmd, "create": keyGenCmd, "edit": keyEditCmd,
+		"install": keyDeployCmd, "uninstall": keyRevokeCmd, "list": keyListCmd, "remove": keyRmCmd, "rename": keyMvCmd, "show": keyShowCmd} {
+		handlers[capability.Key{Type: "credential", Area: "key", Verb: verb}] = bodyHandler(body)
+	}
+	for verb, body := range map[string]func() *cobra.Command{"add": hostCAAddCmd, "list": hostCAListCmd, "remove": hostCARmCmd} {
+		handlers[capability.Key{Type: "credential", Area: "certificate", Verb: verb}] = bodyHandler(body)
+	}
+	moveType("credential")
+	helpGroups["credential"] = "access"
+	groupShorts["credential"] = "Saved passwords, tokens, SSH keys and server CAs"
+	groupShorts["credential password"] = "Saved passwords: add, show, rename, remove"
+	groupShorts["credential token"] = "Saved tokens: add, show, rename, remove"
+	groupShorts["credential key"] = "SSH keys: make, add, install on servers, uninstall"
+	groupShorts["credential certificate"] = "Server CAs: trust the CA that signs servers' host keys"
+}
+
+// bodyHandler runs body, today's command, with what the leaf was given.
+func bodyHandler(body func() *cobra.Command) handler {
+	return func(cl *call, ctx context.Context, in leafInput) error {
+		return runBody(cl, ctx, body(), in, nil)
+	}
 }
 
 // secretCopyCmd is `secret mv` (move) or `secret cp`. The value is copied

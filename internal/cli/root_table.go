@@ -39,6 +39,11 @@ var handlers = map[capability.Key]handler{}
 // movedTypes are the types whose every built leaf has a handler.
 var movedTypes = []string{}
 
+// helpGroups is the heading of `komando --help` (root.go) that a type's
+// own top-level group goes under, when today's tree has no command of
+// that name.
+var helpGroups = map[string]string{}
+
 // groupShorts is the text of each group the builder makes (a provider or
 // an area under a type), by its words: "cache redis".
 var groupShorts = map[string]string{}
@@ -87,6 +92,11 @@ func mountTable(root *cobra.Command) {
 	hideCarried(root, leaves, handlers)
 	if err := mountLeaves(root, leaves, handlers, groupShorts); err != nil {
 		panic("komando: " + err.Error())
+	}
+	for _, c := range root.Commands() {
+		if g := helpGroups[c.Name()]; g != "" && c.GroupID == "" {
+			c.GroupID = g
+		}
 	}
 }
 
@@ -388,7 +398,11 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 // table option that the body names differently is in renames; the
 // credential option is the body's --password-ref (credentialRef).
 func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, renames map[string]string) error {
-	body.SetArgs(bodyArgv(in, renames))
+	argv := bodyArgv(in, renames)
+	if argv == nil {
+		argv = []string{} // nil would make cobra read the process's own arguments
+	}
+	body.SetArgs(argv)
 	body.SilenceErrors, body.SilenceUsage = true, true
 	before := cl.out.As
 	cl.out.As = in.ID // the envelope and the audit record carry the leaf's ID
@@ -400,6 +414,10 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 // reference to a secret. Row E1 renames it to credential:NAME; this is the
 // one place that changes.
 func credentialRef(name string) string { return "secret:" + name }
+
+// credentialFlags are the table's credential options that today's bodies
+// take as a reference under another name.
+var credentialFlags = map[string]string{"credential": "password-ref", "passphrase-credential": "passphrase-ref"}
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.
@@ -416,8 +434,8 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 		switch p := in.vals[name].(type) {
 		case *string:
 			v := *p
-			if name == "credential" {
-				flag, v = "password-ref", credentialRef(v)
+			if to, ok := credentialFlags[name]; ok {
+				flag, v = to, credentialRef(v)
 			}
 			argv = append(argv, "--"+flag+"="+v)
 		case *bool:
@@ -430,8 +448,8 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 			argv = append(argv, "--"+flag+"="+p.String())
 		case *[]string:
 			for _, v := range *p {
-				if name == "unset" && v == "credential" {
-					v = "password-ref"
+				if to, ok := credentialFlags[v]; ok && name == "unset" {
+					v = to
 				}
 				argv = append(argv, "--"+flag+"="+v)
 			}
@@ -657,6 +675,7 @@ func idTables() []idTable {
 		idTableOf("gateNoNetwork", gateNoNetwork, false),
 		idTableOf("gateLocalFlags", gateLocalFlags, false),
 		idTableOf("gateLocalArgs", gateLocalArgs, false),
+		idTableOf("revealNever", revealNever, false),
 	}
 }
 

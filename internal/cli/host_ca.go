@@ -39,22 +39,19 @@ func caRow(c sshx.HostCA) hostCARow {
 	return r
 }
 
+// hostCACmd holds host ca revoke until cut step D removes it; add, list
+// and remove run as the credential certificate leaves.
 func hostCACmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "ca",
-		Short: "Trust servers through the CA that signs their host keys",
-		Long: `A host CA vouches for the host keys of the servers its patterns match, as an
-@cert-authority line in known_hosts does. A server that shows a host
-certificate from a trusted CA, for the name komando dials, is trusted
-without a pin. Adding a CA trusts every server it ever signs, so only a
-person at a terminal can add one. Removing one, and putting a key on the
-never-trust list, anyone may do.`,
-		Example: `  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
-  komando host ca list
-  komando host ca rm corp
-  komando host ca revoke --key old-ca.pub`,
+		Short: "Never trust a host key or a CA key again",
+		Long: `Puts a host key or a CA key on the never-trust list, as a @revoked line in
+known_hosts does. The CAs komando trusts are under ` + "`komando credential certificate`" + `.`,
+		Example: `  komando host ca revoke --key old-ca.pub --dry-run
+  komando host ca revoke --key old-ca.pub
+  komando credential certificate list`,
 	}
-	c.AddCommand(hostCAListCmd(), hostCAAddCmd(), hostCARmCmd(), hostCARevokeCmd())
+	c.AddCommand(hostCARevokeCmd())
 	return c
 }
 

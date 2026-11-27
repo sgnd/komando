@@ -29,11 +29,18 @@ import (
 // root's masking does not ask the person for them.
 var revealNever = map[string]bool{"secret.show": true, "key.show": true, "db.dump": true}
 
+// valueShow are the commands that show a saved password or token.
+var valueShow = map[string]bool{"credential.password.show": true, "credential.token.show": true}
+
 // revealGate says how the person allowed showing what (for example
 // secret:db-pass): "terminal" or "window". It is "" in a dry run, which
 // shows no value and asks nobody. cmdName and field name the audit line
-// of a refusal (secret.show, "secret": NAME).
+// of a refusal (secret.show, "secret": NAME); a leaf that runs the body
+// names it by its own ID.
 func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
+	if cl.out.As != "" {
+		cmdName = cl.out.As
+	}
 	refuse := func(e *out.Error) (string, error) {
 		audit(cl, nil, cmdName, nil, "", false, map[string]any{field: name, "blocked": e.Code, "message": e.Message})
 		return "", e
@@ -72,17 +79,18 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	return refuse(e)
 }
 
-// needsHuman is REVEAL_NEEDS_TERMINAL for cmdName (secret.show, key.show) and
-// name: for an AI agent, or where no window could ask (noScreen).
+// needsHuman is REVEAL_NEEDS_TERMINAL for cmdName (credential.password.show,
+// credential.key.show) and name: for an AI agent, or where no window could
+// ask (noScreen).
 func needsHuman(cmdName, name string, noScreen bool) *out.Error {
-	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_TERMINAL",
-		"ask a person to run `komando secret show "+name+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
-		"--reveal only works for a person at a terminal")
 	run := "`komando " + strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal`"
+	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_TERMINAL",
+		"ask a person to run "+run+" in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
+		"--reveal only works for a person at a terminal")
 	switch {
 	case noScreen:
 		e.Hint = "komando could not ask in a window here (no screen, or a Linux or BSD desktop without the approval code); run " + run + " in a terminal"
-	case cmdName != "secret.show":
+	case !valueShow[cmdName]:
 		e.Hint = "ask a person to run " + run + " in a terminal; an AI agent never gets a private key"
 	}
 	return e
