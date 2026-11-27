@@ -94,7 +94,7 @@ func restoreStaged(cl *call, ctx context.Context, from string, seal *backupSeal,
 
 func noRestoreSpace(dir string, need uint64, from string) *out.Error {
 	return out.Errf(out.ExitNotFound, "RESTORE_SPACE_MISSING",
-		fmt.Sprintf("free %d bytes in %s (komando checks a private copy of the backup there before the database is touched), then restore again: `komando database KIND restore CONN --from %s`", need, dir, from),
+		fmt.Sprintf("free %d bytes in %s (komando checks a private copy of the backup there before the database is touched), then restore again: `komando database KIND restore NAME --from %s`", need, dir, from),
 		"not enough free space for the restore's copy; nothing was sent to the database")
 }
 

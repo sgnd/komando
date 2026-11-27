@@ -226,7 +226,8 @@ func init() {
 		tierRuns = append(tierRuns,
 			tierRun{"database query dynamic dangerous", id + "query", []string{d.name, "--write", d.drop}, false},
 			tierRun{"floor", id + "query", []string{d.name, map[bool]string{true: `{"find": "t"}`, false: "SELECT 1"}[d.provider == "mongodb"]}, false},
-			tierRun{"floor", id + "add", []string{d.name + "2", strings.Replace(cmp.Or(d.url, "sqlite:///var/lib/app2.db"), "/app", "/app2", 1)}, false},
+			// add saves another one; a plain-HTTP endpoint would need a yes there
+			tierRun{"floor", id + "add", []string{d.name + "2", strings.Replace(cmp.Or(d.url, "sqlite:///var/lib/app2.db"), "endpoint=http:", "endpoint=https:", 1)}, false},
 			tierRun{"database edit --protected=false safety", id + "edit", []string{d.name + "-prot", "--protected=false"}, false},
 			tierRun{"floor", id + "edit", []string{d.name, "--notes", "x"}, false},
 			tierRun{"floor", id + "remove", []string{d.name}, false},

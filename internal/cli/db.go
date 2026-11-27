@@ -227,7 +227,7 @@ func (f *dbFlags) pickTable(cmd *cobra.Command) {
 // starts with a -- comment, which reads as a flag.
 func sqlFlagError(cmd *cobra.Command, err error) error {
 	if rest, ok := strings.CutPrefix(err.Error(), "unknown flag: --"); ok && (rest == "" || strings.ContainsAny(rest, " \t\n")) {
-		return out.Errf(out.ExitUsage, "USAGE", "put -- before the SQL (komando database KIND query CONN -- \"-- note ...\"), or read it with -f FILE or -f - (stdin)",
+		return out.Errf(out.ExitUsage, "USAGE", "put -- before the SQL (komando database KIND query NAME -- \"-- note ...\"), or read it with -f FILE or -f - (stdin)",
 			"the SQL starts with a -- comment, which reads as a flag")
 	}
 	return err

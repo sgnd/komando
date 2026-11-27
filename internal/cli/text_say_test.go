@@ -141,9 +141,9 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "run `komando exec TARGET -- true` or `komando test corp`" {
 		t.Errorf("vpn: got %q", e.Hint)
 	}
-	e = out.Errf(out.ExitConnect, "X", "`komando exec TARGET -- true`; `komando database KIND query CONN \"select 1\"`", "x")
+	e = out.Errf(out.ExitConnect, "X", "`komando exec TARGET -- true`; `komando database KIND query NAME \"select 1\"`", "x")
 	fillHint(e, "web1")
-	if e.Hint != "`komando exec web1 -- true`; `komando database KIND query CONN \"select 1\"`" {
+	if e.Hint != "`komando exec web1 -- true`; `komando database KIND query NAME \"select 1\"`" {
 		t.Errorf("server: got %q", e.Hint)
 	}
 	// S-8.7: SERVER only with a server, NAME only in a command of the

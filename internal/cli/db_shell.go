@@ -62,7 +62,7 @@ func dbShellCmd() *cobra.Command {
 func runDBShell(cl *call, ctx context.Context, connExpr string, write bool) error {
 	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
-			"agents and scripts use `komando database KIND query CONN \"SQL\"`, which returns JSON and checks every statement",
+			"agents and scripts use `komando database KIND query NAME \"SQL\"`, which returns JSON and checks every statement",
 			"the SQL shell needs a person at a terminal")
 	}
 	st, err := loadState()

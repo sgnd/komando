@@ -116,7 +116,7 @@ func TestLineLimitFromKind(t *testing.T) {
 func TestTooLongHintByKind(t *testing.T) {
 	for kind, want := range map[bodyKind]string{
 		bodyScript: "`komando exec TARGET --script FILE`",
-		bodySQL:    "`komando database KIND query CONN --file FILE`",
+		bodySQL:    "`komando database KIND query NAME --file FILE`",
 		bodyInput:  "put it in a script file",
 		bodyData:   "smaller pieces",
 	} {
