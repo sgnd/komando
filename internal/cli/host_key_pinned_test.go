@@ -48,3 +48,37 @@ func TestPinnedKeyInOutput(t *testing.T) {
 		t.Errorf("second connection: %v", again)
 	}
 }
+
+// A key pinned on first connect through a leaf that runs a body keeps its
+// own record name: host ssh exec does not rename it.
+func TestPinnedKeyThroughExecKeepsItsName(t *testing.T) {
+	srv := startFakeServer(t)
+	srv.reply("up 1 day")
+	if _, e := invRun(t, "--host-key-policy", "accept-new", "host", "ssh", "exec", "dev", "--read-only", "--", "uptime"); e != nil {
+		t.Fatal(e)
+	}
+	a := auditText(t)
+	if !strings.Contains(a, `"command":"host.key-pinned"`) {
+		t.Errorf("no host.key-pinned record:\n%s", a)
+	}
+	if !strings.Contains(a, `"command":"host.ssh.exec"`) {
+		t.Errorf("no record of the exec itself:\n%s", a)
+	}
+}
+
+// A password stored by host ssh add --ask-password keeps its secret.set
+// record, with the secret's name.
+func TestAskPasswordThroughHostAddKeepsSecretSet(t *testing.T) {
+	invHome(t)
+	saved, savedTerminal := readPassword, tcl.terminal
+	t.Cleanup(func() { readPassword, tcl.terminal = saved, savedTerminal })
+	tcl.terminal = true
+	readPassword = func(*call, string) (string, error) { return "Typed-Pass-9", nil }
+	mustRun(t, "host", "ssh", "add", "vps9", "root@10.0.0.29", "--ask-password")
+	a := auditText(t)
+	for _, want := range []string{`"command":"secret.set"`, `"secret":"vps9-pass"`, `"for":"host vps9"`, `"replaced":false`} {
+		if !strings.Contains(a, want) {
+			t.Errorf("no %s in:\n%s", want, a)
+		}
+	}
+}
