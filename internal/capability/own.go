@@ -8,6 +8,9 @@ func own(typ, area, verb string) Key { return Key{Type: typ, Area: area, Verb: v
 // credentialStops: a credential a protected entry uses is protected too.
 var credentialStops = []string{"protectedUsers"}
 
+// passphraseOpt replaces today's --passphrase-ref (chief rule R2).
+var passphraseOpt = Option{Name: "passphrase-credential", Kind: Credential, Help: "the credential holding the key's passphrase (today's --passphrase-ref)"}
+
 // valueKinds hold one sealed value: a password with its user, or a token.
 var valueKinds = []string{"password", "token"}
 
@@ -20,9 +23,9 @@ var credentialLeaves = concat(
 	},
 	valueKindLeaves(),
 	[]Leaf{
-		{Key: own("credential", "key", "add"), Args: oneName, Today: []string{"key.add"}},
+		{Key: own("credential", "key", "add"), Args: oneName, Options: []Option{passphraseOpt}, Today: []string{"key.add"}},
 		{Key: own("credential", "key", "create"), Args: oneName, Today: []string{"key.gen"}},
-		{Key: own("credential", "key", "edit"), Args: oneName, Stops: credentialStops, Today: []string{"key.edit"}},
+		{Key: own("credential", "key", "edit"), Args: oneName, Options: []Option{passphraseOpt}, Stops: credentialStops, Today: []string{"key.edit"}},
 		// the --public-key-file form (C372) installs a device's key for a
 		// user, behind the server's own gate: no NAME then, person tier
 		{Key: own("credential", "key", "install"), Args: []Arg{{Name: "NAME", Optional: true}, {Name: "TARGET", Selector: true}},

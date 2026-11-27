@@ -3,9 +3,13 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/capability"
 )
 
 // Owner O-09: a reference is spelled credential:NAME. The spelling of
@@ -158,5 +162,86 @@ func TestCredentialWordNotSavedRefused(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--password-ref", "credential:"+word)
 	if d, _ := invRun(t, "doctor"); !strings.Contains(fmtAny(d), "not in the vault") || strings.Contains(fmtAny(d), word) {
 		t.Errorf("doctor on a missing secret: %v", d)
+	}
+}
+
+// Chief rule R2 names four credential options. Each one in the table is a
+// name that credentialRef checks before the body runs, so no option can
+// reach a body with a typed password.
+func TestEveryCredentialOptionIsASavedName(t *testing.T) {
+	seen := map[string]bool{}
+	for _, l := range capability.All() {
+		for _, o := range l.Options {
+			if o.Kind != capability.Credential {
+				continue
+			}
+			seen[o.Name] = true
+			if _, ok := credentialFlags[o.Name]; !ok {
+				t.Errorf("%s --%s does not go through credentialRef", l.Key, o.Name)
+			}
+		}
+	}
+	for _, name := range []string{"credential", "sudo-credential", "psk-credential", "passphrase-credential"} {
+		if !seen[name] {
+			t.Errorf("no leaf of the table has --%s", name)
+		}
+	}
+	for _, verb := range []string{"add", "edit"} {
+		l, _ := capability.Find(capability.Key{Type: "credential", Area: "key", Verb: verb})
+		if !slices.ContainsFunc(l.Options, func(o capability.Option) bool { return o.Name == "passphrase-credential" }) {
+			t.Errorf("credential key %s has no --passphrase-credential", verb)
+		}
+	}
+}
+
+// A vault komando cannot read proves no name: the value is refused (fail
+// closed) and not repeated.
+func TestCredentialRefRefusesWhenTheVaultCannotBeRead(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.WriteFile(home, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	setHome(t, home)
+	ref, err := credentialRef("credential", "Hunter2x")
+	if err == nil {
+		t.Fatalf("passed as %q", ref)
+	}
+	if strings.Contains(fmt.Sprintf("%+v", err), "Hunter2x") {
+		t.Errorf("the value is repeated: %+v", err)
+	}
+}
+
+// Host and credential key still take today's reference flags until the
+// cut moves them: a typed password stops with USAGE and is repeated
+// nowhere.
+func TestTypedPasswordOnHostAndKeyRefused(t *testing.T) {
+	const word = "Hunter2x"
+	invHome(t)
+	noAgent(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.5")
+	mustRun(t, "key", "gen", "k")
+	var stderr bytes.Buffer
+	saved := tcl.out.Err
+	tcl.out.Err = &stderr
+	t.Cleanup(func() { tcl.out.Err = saved })
+	for _, args := range [][]string{
+		{"host", "add", "web2", "u@10.0.0.6", "--password-ref", word},
+		{"host", "add", "web2", "u@10.0.0.6", "--sudo-ref", word},
+		{"host", "edit", "web1", "--password-ref", word},
+		{"host", "edit", "web1", "--sudo-ref", word},
+		{"key", "edit", "k", "--passphrase-ref", word},
+	} {
+		e := wantCode(t, "USAGE", args...)
+		if seen := fmt.Sprintf("%+v %s", *e, stderr.String()); strings.Contains(seen, word) {
+			t.Errorf("%v: the word is repeated: %s", args, seen)
+		}
+	}
+	if strings.Contains(auditText(t), word) {
+		t.Errorf("the word is in the audit log")
+	}
+	for _, show := range [][]string{{"host", "show", "web1"}, {"key", "show", "k"}} {
+		if d := mustRun(t, show...); strings.Contains(fmtAny(d), word) {
+			t.Errorf("the word is in the entry: %v", d)
+		}
 	}
 }

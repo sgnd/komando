@@ -3,7 +3,6 @@ package cli
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"regexp"
@@ -415,14 +414,19 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 }
 
 // credentialRef is the body's reference for the value of a credential
-// option (--credential, --psk-credential): the name of a saved secret and
-// nothing else (spec O-08, chief rule R2): no credential:, env:, op:// or
-// other form. A refusal never repeats the value: it may be the password.
+// option (credentialFlags): the name of a saved secret and nothing else
+// (spec O-08, chief rule R2): no credential:, env:, op:// or other form. A
+// refusal never repeats the value: it may be the password. A vault that
+// cannot be read proves no name, so the value is refused then too.
 func credentialRef(flag, v string) (string, error) {
 	if err := reservedSecret(v); err != nil {
 		return "", err
 	}
-	if _, err := vault.Get(v); v == "" || errors.Is(err, vault.ErrNotFound) {
+	saved, err := vault.List()
+	if err != nil {
+		return "", fmt.Errorf("--%s: the saved secrets cannot be read: %w", flag, err)
+	}
+	if v == "" || !slices.ContainsFunc(saved, func(i vault.Info) bool { return i.Name == v }) {
 		return "", out.Errf(out.ExitUsage, "USAGE",
 			"save the secret with `komando secret set NAME` (it asks for the value, hidden), then pass --"+flag+" NAME",
 			"--%s takes the name of a saved secret, and this is none", flag)
@@ -430,9 +434,14 @@ func credentialRef(flag, v string) (string, error) {
 	return "credential:" + v, nil
 }
 
-// credentialFlags are the credential options and the flag of today's bodies for
-// each; --unset takes the same words.
-var credentialFlags = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref"}
+// credentialFlags are the credential options of the table (rule R2) and the
+// flag of today's bodies for each; --unset takes the same words.
+var credentialFlags = map[string]string{
+	"credential":            "password-ref",
+	"sudo-credential":       "sudo-ref",
+	"psk-credential":        "psk-ref",
+	"passphrase-credential": "passphrase-ref",
+}
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.
