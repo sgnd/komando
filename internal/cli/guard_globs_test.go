@@ -86,13 +86,13 @@ func TestGuardGlobFormsTheGuardDoesNotReadAreRefused(t *testing.T) {
 // forms are checked as on the line; the rest of the body is text.
 func TestGuardGlobFormsInAHeredocCommandAreRefused(t *testing.T) {
 	home, repo := guardLineHome(t)
-	checkLines(t, home, home, []string{
+	checkRefusedBy(t, home, home, []string{
 		"cat <<EOF\n$(cat ~/.ss[!x]/*)\nEOF",
 		"cat <<EOF\n$(mv ~/.ss[!x] /tmp/k)\nEOF",
 		"cat <<EOF\n'$(cat ~/.ss[!x]/*)'\nEOF",
 		"cat <<EOF\n`cat ~/.ss[!x]/*`\nEOF",
-		"cat <<EOF\n$(echo x > ~/.koman(d|x)o/state.json)\nEOF",
-	}, true)
+	}, "has a [ ] list that komando's guard does not read")
+	checkRefusedBy(t, home, home, []string{"cat <<EOF\n$(echo x > ~/.koman(d|x)o/state.json)\nEOF"}, "a ( ) group in a word")
 	checkLines(t, home, repo, []string{
 		"cat >f <<EOF\n[!NOTE]\nEOF",
 		"cat >f <<EOF\n$(date)\n[!NOTE] see *(D)\nEOF",
@@ -113,15 +113,15 @@ func TestGuardBraceListPastTheLimitIsRefused(t *testing.T) {
 		}
 		return "{" + b.String() + last + "}"
 	}
-	checkLines(t, home, home, []string{
+	checkRefusedBy(t, home, home, []string{
 		"rm -rf " + many("~"),
 		"mv " + many("~/.ssh") + " /tmp/k",
 		"rm -rf " + strings.Repeat("{,}", 11) + "~/.ssh",
 		"cat " + many("~/.komando/state.json"),
 		"echo x > " + many("~/.claude/settings.json"),
-		"unset " + many("CLAUDECODE"),
-		"mv {x{/../.ssh,} /tmp/k",
-	}, true)
+	}, "more than 64 names")
+	checkRefusedBy(t, home, home, []string{"unset " + many("CLAUDECODE")}, "CLAUDECODE (or another agent variable)")
+	checkRefusedBy(t, home, home, []string{"mv {x{/../.ssh,} /tmp/k"}, treeRefusal)
 	checkRefusedBy(t, home, repo, []string{"touch " + many("65") + ".txt"}, "more than 64 names")
 	checkLines(t, home, repo, []string{
 		"rm -rf {build,dist}",
