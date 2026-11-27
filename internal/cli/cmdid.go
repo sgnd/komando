@@ -207,7 +207,7 @@ func withoutCompleteWord(root *cobra.Command, line []string) []string {
 		case w == "--":
 			return line
 		case strings.HasPrefix(w, "-") && len(w) > 1:
-			if !strings.Contains(w, "=") && takesValue(root, w) {
+			if !strings.Contains(w, "=") && flagTakesValue(root, w) {
 				i++ // its value
 			}
 		case w == cobra.ShellCompRequestCmd || w == cobra.ShellCompNoDescRequestCmd:
@@ -219,9 +219,9 @@ func withoutCompleteWord(root *cobra.Command, line []string) []string {
 	return line
 }
 
-// takesValue reports whether the global flag w (--name or -x) takes the
+// flagTakesValue reports whether the global flag w (--name or -x) takes the
 // next word as its value.
-func takesValue(root *cobra.Command, w string) bool {
+func flagTakesValue(root *cobra.Command, w string) bool {
 	pf := root.PersistentFlags()
 	if name, ok := strings.CutPrefix(w, "--"); ok {
 		f := pf.Lookup(name)
