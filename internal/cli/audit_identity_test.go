@@ -6,7 +6,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/fs"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -41,41 +41,46 @@ func wantIdentity(t *testing.T, r map[string]any, id, ev string) {
 // (audit) or a member of the closed list (auditEvent, with a literal).
 func TestAuditNamesAreIDsOrListedEvents(t *testing.T) {
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", func(fi fs.FileInfo) bool { return !strings.HasSuffix(fi.Name(), "_test.go") }, parser.SkipObjectResolution)
+	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)
 	}
 	calls := 0
-	for _, p := range pkgs {
-		for _, f := range p.Files {
-			ast.Inspect(f, func(n ast.Node) bool {
-				c, ok := n.(*ast.CallExpr)
-				if !ok || len(c.Args) < 3 {
-					return true
-				}
-				fn, ok := c.Fun.(*ast.Ident)
-				if !ok || fn.Name != "audit" && fn.Name != "auditEvent" {
-					return true
-				}
-				calls++
-				at := fset.Position(c.Pos())
-				lit, ok := c.Args[2].(*ast.BasicLit)
-				if !ok {
-					if fn.Name == "auditEvent" {
-						t.Errorf("%s: auditEvent names its event with a literal of auditEvents", at)
-					}
-					return true
-				}
-				name, _ := strconv.Unquote(lit.Value)
-				switch {
-				case fn.Name == "audit" && !hasSafetyKey(name):
-					t.Errorf("%s: audit(%q): not a command ID; an event goes through auditEvent", at, name)
-				case fn.Name == "auditEvent" && !slices.Contains(auditEvents, name):
-					t.Errorf("%s: auditEvent(%q): not in auditEvents", at, name)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, e.Name(), nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			c, ok := n.(*ast.CallExpr)
+			if !ok || len(c.Args) < 3 {
+				return true
+			}
+			fn, ok := c.Fun.(*ast.Ident)
+			if !ok || fn.Name != "audit" && fn.Name != "auditEvent" {
+				return true
+			}
+			calls++
+			at := fset.Position(c.Pos())
+			lit, ok := c.Args[2].(*ast.BasicLit)
+			if !ok {
+				if fn.Name == "auditEvent" {
+					t.Errorf("%s: auditEvent names its event with a literal of auditEvents", at)
 				}
 				return true
-			})
-		}
+			}
+			name, _ := strconv.Unquote(lit.Value)
+			switch {
+			case fn.Name == "audit" && !hasSafetyKey(name):
+				t.Errorf("%s: audit(%q): not a command ID; an event goes through auditEvent", at, name)
+			case fn.Name == "auditEvent" && !slices.Contains(auditEvents, name):
+				t.Errorf("%s: auditEvent(%q): not in auditEvents", at, name)
+			}
+			return true
+		})
 	}
 	if calls < 100 {
 		t.Fatalf("found %d audit calls: the scan is broken", calls)
