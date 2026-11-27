@@ -40,7 +40,7 @@ cluster.helm.values	plain=read	highest=read
 cluster.history	plain=read	highest=read
 cluster.kubernetes	plain=read	highest=read
 cluster.kubernetes.add	plain=change	highest=read
-cluster.kubernetes.edit	plain=change	highest=read
+cluster.kubernetes.edit	plain=change	highest=safety
 cluster.kubernetes.exec	plain=dangerous	highest=dangerous
 cluster.kubernetes.list	plain=read	highest=read
 cluster.kubernetes.raw	plain=dangerous	highest=dangerous
@@ -213,6 +213,7 @@ policy.edit	plain=safety	highest=safety
 policy.list	plain=read	highest=read
 policy.rm	plain=safety	highest=safety
 policy.show	plain=read	highest=read
+probe cluster kubernetes edit prod-k8s --protected=false	safety
 probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
 probe export --for-phone	person

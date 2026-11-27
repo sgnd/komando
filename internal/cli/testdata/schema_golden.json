@@ -1309,7 +1309,7 @@
         "path": "komando cluster kubernetes edit",
         "usage": "komando cluster kubernetes edit NAME [flags]",
         "short": "Change a saved kubernetes cluster (only the flags you pass change)",
-        "long": "Change a saved kubernetes cluster (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved kubernetes cluster (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando cluster kubernetes edit prod-k8s --add-tag critical\n  komando cluster kubernetes edit prod-k8s --notes 'main one' --dry-run",
         "flags": [
           {
@@ -1397,6 +1397,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -13194,8 +13199,8 @@
       {
         "code": "WRONG_KIND",
         "exit": 2,
-        "example": "… is a Kubernetes cluster, not a Swarm manager",
-        "hint": "use `komando cluster kubernetes raw …`"
+        "example": "… is a … …, not a … …",
+        "hint": "use the path the hint names: `komando TYPE PROVIDER VERB NAME` for an entry of another provider, `komando TYPE PROVIDER add` for a URL of another provider"
       },
       {
         "code": "WRONG_PASSPHRASE",

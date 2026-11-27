@@ -1465,7 +1465,8 @@ exit 0
 --- stdout
 Change a saved kubernetes cluster (only the flags you pass change).
 
-Safety: a change; try it with --dry-run first.
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
   komando cluster kubernetes edit NAME [flags]

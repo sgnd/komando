@@ -318,6 +318,24 @@ func TestClusterSwarmRawManager(t *testing.T) {
 	}
 }
 
+// A selector that picks an entry of another provider is WRONG_KIND, as its
+// name is: a group holding a cache, and a label on it.
+func TestClusterKubernetesSelectorsCheckProvider(t *testing.T) {
+	invHome(t)
+	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
+	mustRun(t, "cache", "redis", "add", "r1", "redis://127.0.0.1:6379")
+	mustRun(t, "conn", "edit", "r1", "--add-group", "mixed", "--label", "tier=db")
+	mustRun(t, "conn", "edit", "prod", "--add-group", "mixed")
+	for _, args := range [][]string{
+		{"cluster", "kubernetes", "test", "r1"}, {"cluster", "kubernetes", "test", "@mixed"}, {"cluster", "kubernetes", "test", "label:tier=db"},
+		{"cluster", "kubernetes", "remove", "@mixed"}, {"cluster", "kubernetes", "remove", "label:tier=db"},
+	} {
+		if e := wantCode(t, "WRONG_KIND", args...); !strings.Contains(e.Message, "r1 is a redis cache") {
+			t.Errorf("%v: %q", args, e.Message)
+		}
+	}
+}
+
 // Flags that cannot be right are refused before komando connects.
 func TestClusterFlagChecks(t *testing.T) {
 	invHome(t)

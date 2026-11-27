@@ -159,6 +159,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy edit` | unless it only switches the rule on | safety | `--yes` |
 | `conn edit` | with --protected=false | safety | `--yes` |
+| `cluster kubernetes edit` | with --protected=false | safety | `--yes` |
 | `host add` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
 | `host edit` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
 | `import` | SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer | safety | `--yes` |

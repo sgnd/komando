@@ -40,7 +40,7 @@ cluster.helm.values	kind=read|	target="clusters"
 cluster.history	kind=read|	target="clusters"	
 cluster.kubernetes	kind=read|	target="clusters"	
 cluster.kubernetes.add	kind=change|	target="clusters"	
-cluster.kubernetes.edit	kind=change|	target="clusters"	
+cluster.kubernetes.edit	kind=change|	target="clusters"	safety|with --protected=false|turns protection off||||
 cluster.kubernetes.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
 cluster.kubernetes.list	kind=read|	target="clusters"	
 cluster.kubernetes.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
@@ -213,6 +213,7 @@ policy.edit	kind=change|	target=""	safety|unless it only switches the rule on|sw
 policy.list	kind=read|	target=""	
 policy.rm	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
+probe cluster kubernetes edit prod-k8s --protected=false	safety|turns protection off||
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe conn edit app-db --protected=false	safety|turns protection off||
 probe export --for-phone	person|||
