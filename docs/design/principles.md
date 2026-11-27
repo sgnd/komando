@@ -266,8 +266,8 @@ komando export [--to FILE]
 - **People use commands, not a menu.** `komando` alone, for a person at a
   terminal, prints the commands by group with START first (and, with
   nothing added yet, how to add the first server). For agents and scripts
-  it prints the first steps; piped, one `USAGE` envelope. Help topics:
-  `komando help safety|environment|exit-codes|output`.
+  it prints the first steps; piped, one `USAGE` envelope. Each command's
+  own help is `komando COMMAND --help`.
 - **A typed command asks a person for what is missing**, and nobody else.
   It asks only when stdin, stdout and stderr are terminals, no AI agent
   runs komando, `CI` is not set, `TERM` is not `dumb` and the output is
