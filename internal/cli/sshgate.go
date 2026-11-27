@@ -641,7 +641,7 @@ db shell, secret passphrase ...) are refused (a --shell-access key may open
 of the server, outside these rules). The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
-no download or cp to a file here (download --to - and cp SRC - stream to
+no copy to a file here (copy SRC - streams to
 the key's own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
