@@ -817,7 +817,7 @@ title: Save an SSH server under a short name
 - flag:identity | --identity | The path of a private key file |  |  | optional,advanced,check
 - flag:key | --key | The name of a key in komando's key list |  |  | optional,advanced,free,choices
 - flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
 - flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
 - flag:os | --os | The server's OS: windows runs commands in PowerShell |  |  | optional,advanced,check
 - flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
@@ -847,7 +847,7 @@ title: Change saved SSH servers (only the flags you pass change)
 - flag:forward-agent | --forward-agent | Lend the server your ssh-agent while komando is connected (asks first) |  |  | advanced,default,choices
 - flag:identity | --identity | The path of a private key file |  |  | optional,advanced,check
 - flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
 - flag:os | --os | The server's OS: windows runs commands in PowerShell |  |  | optional,advanced,check
 - flag:proxy-command | --proxy-command | A program on this computer that makes the connection |  |  | optional,advanced,check
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
@@ -883,7 +883,7 @@ title: Rename a saved ssh server and every reference to it
 - arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
 ### komando host ssh shell
 title: Open a login shell on one server (a person at a terminal) (person only)
-- arg0 | Name | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+- arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
 - arg1 | Command | Command? (several: separate them with spaces) |  |  | optional
 - flag:attach | --attach | Come back to the session with this ID |  |  | optional,advanced,check
 ### komando host ssh show
@@ -905,7 +905,7 @@ title: Background tunnels through a server: start, list, stop
 title: List tunnels and whether each is up
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando host ssh tunnel start
-title: Start a background tunnel through a server, a VPN or an entry's --via path
+title: Start a background tunnel through a server, VPN or entry's --via
 - arg0 | Target (servers) | To which server or conn? | Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it. |  | free,choices,check
 - flag:port | --port | Which port on this computer? (for a conn) | Point your app at localhost and this port. Leave empty for a free one; komando shows which. | 15432 | optional,check
 - flag:local | --local | What should it forward? (for a server) | LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn. | 8080:localhost:80 | optional,check
@@ -913,7 +913,7 @@ title: Start a background tunnel through a server, a VPN or an entry's --via pat
 - flag:remote | --remote | Remote forward [rbind:]RPORT:LHOST:LPORT |  |  | optional,advanced,check
 ### komando host ssh tunnel stop
 title: Stop tunnels by ID
-- arg0 | ID | Which tunnels should stop? (leave empty with --all) | Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces. |  | optional,free,choices,check
+- arg0 | Tunnel | Which tunnels should stop? (leave empty with --all) | Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces. |  | optional,free,choices,check
 - flag:all | --all | Stop every tunnel instead? | Stop every tunnel |  | default,choices
 ### komando host ssh-command
 title: Print the OpenSSH command komando would use for a server (person only)
@@ -930,7 +930,7 @@ title: Save a Windows server over WinRM under a short name
 - flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
 - flag:group | --group | Put it in these groups |  |  | optional,advanced,check
 - flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
 - flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
 - flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
 - flag:port | --port | The port |  |  | optional,advanced,check
@@ -953,7 +953,7 @@ title: Change saved WinRM servers (only the flags you pass change)
 - flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
 - flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
 - flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in: ask at every connect, a stored password, a key, or the ssh-agent |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: user, credential, via, notes, port, protected |  |  | optional,advanced,check
@@ -984,7 +984,7 @@ title: Rename a saved winrm server and every reference to it
 - arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
 ### komando host winrm shell
 title: Say that a Windows server has no interactive shell here (person only)
-- arg0 | Name | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+- arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
 - arg1 | Command | Command? (several: separate them with spaces) |  |  | optional
 ### komando host winrm show
 title: Show a saved winrm server's settings (credentials as names)

@@ -4073,25 +4073,25 @@ Hint: for example: komando host ssh rename web1 web-01 --dry-run (more in `koman
 ### komando -o json host ssh shell (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.ssh.shell","error":{"code":"USAGE","message":"host ssh shell takes NAME [-- COMMAND...]","hint":"for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.shell","error":{"code":"USAGE","message":"host ssh shell takes SERVER [-- COMMAND...]","hint":"for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host ssh shell (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: host ssh shell takes NAME [-- COMMAND...]
+Error: host ssh shell takes SERVER [-- COMMAND...]
 Hint: for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)
 (code USAGE, exit 2)
 ### komando -o json host ssh shell (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.ssh.shell","error":{"code":"USAGE","message":"host ssh shell takes NAME [-- COMMAND...]","hint":"for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.shell","error":{"code":"USAGE","message":"host ssh shell takes SERVER [-- COMMAND...]","hint":"for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host ssh shell (script text)
 exit 2
 --- stdout
 --- stderr
-Error: host ssh shell takes NAME [-- COMMAND...]
+Error: host ssh shell takes SERVER [-- COMMAND...]
 Hint: for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)
 (code USAGE, exit 2)
 ### komando -o json host ssh show (agent json)
@@ -4361,25 +4361,25 @@ Hint: for example: komando host winrm rename web1 web-01 --dry-run (more in `kom
 ### komando -o json host winrm shell (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.winrm.shell","error":{"code":"USAGE","message":"host winrm shell takes NAME [-- COMMAND...]","hint":"for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.shell","error":{"code":"USAGE","message":"host winrm shell takes SERVER [-- COMMAND...]","hint":"for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host winrm shell (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: host winrm shell takes NAME [-- COMMAND...]
+Error: host winrm shell takes SERVER [-- COMMAND...]
 Hint: for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)
 (code USAGE, exit 2)
 ### komando -o json host winrm shell (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.winrm.shell","error":{"code":"USAGE","message":"host winrm shell takes NAME [-- COMMAND...]","hint":"for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.shell","error":{"code":"USAGE","message":"host winrm shell takes SERVER [-- COMMAND...]","hint":"for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host winrm shell (script text)
 exit 2
 --- stdout
 --- stderr
-Error: host winrm shell takes NAME [-- COMMAND...]
+Error: host winrm shell takes SERVER [-- COMMAND...]
 Hint: for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)
 (code USAGE, exit 2)
 ### komando -o json host winrm show (agent json)

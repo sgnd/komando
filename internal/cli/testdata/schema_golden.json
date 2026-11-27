@@ -5327,7 +5327,7 @@
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)"
           },
           {
             "name": "notes",
@@ -5414,18 +5414,16 @@
         "usage": "komando host ssh edit TARGET... [flags]",
         "short": "Change saved SSH servers (only the flags you pass change)",
         "long": "Change saved SSH servers (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.",
-        "example": "  komando host ssh edit web1 --add-tag canary --label env=prod\n  komando host ssh edit @web --user deploy --dry-run\n  komando host ssh edit db1 --protected",
+        "example": "  komando host ssh edit web1 --add-tag canary --label env=prod\n  komando host ssh edit @web --user deploy --dry-run\n  komando host ssh edit db1 --protected\n  komando host ssh edit web2 --login ask   # never store its password; type it at every connect",
         "flags": [
           {
             "name": "add-group",
-            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
             "usage": "put it in these groups"
           },
           {
             "name": "add-tag",
-            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
             "usage": "add these tags"
@@ -5478,7 +5476,7 @@
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)"
           },
           {
             "name": "notes",
@@ -5717,7 +5715,7 @@
       },
       {
         "path": "komando host ssh shell",
-        "usage": "komando host ssh shell NAME [-- COMMAND...] [flags]",
+        "usage": "komando host ssh shell SERVER [-- COMMAND...] [flags]",
         "short": "Open a login shell on one server (a person at a terminal) (person only)",
         "long": "Open a login shell on one server (a person at a terminal).\n\nSafety: only a person at a terminal can run it.",
         "example": "  komando host ssh shell web1\n  komando host ssh shell db1",
@@ -5854,8 +5852,8 @@
       {
         "path": "komando host ssh tunnel start",
         "usage": "komando host ssh tunnel start TARGET [flags]",
-        "short": "Start a background tunnel through a server, a VPN or an entry's --via path",
-        "long": "Start a background tunnel through a server, a VPN or an entry's --via path.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "short": "Start a background tunnel through a server, VPN or entry's --via",
+        "long": "Start a background tunnel through a server, VPN or entry's --via.\n\nSafety: a change; try it with --dry-run first; when it listens on an open\naddress: it weakens a safety check: a person's yes (--yes); on a protected\nserver or conn, a person's yes (--yes) as well.",
         "example": "  komando host ssh tunnel start prod-db --dry-run\n  komando host ssh tunnel start prod-db --port 15432\n  komando host ssh tunnel start web1 -L 8080:localhost:80\n  komando host ssh tunnel start bastion -D 1080",
         "flags": [
           {
@@ -5898,7 +5896,7 @@
       },
       {
         "path": "komando host ssh tunnel stop",
-        "usage": "komando host ssh tunnel stop [ID...] [flags]",
+        "usage": "komando host ssh tunnel stop [TUNNEL...] [flags]",
         "short": "Stop tunnels by ID",
         "long": "Stop tunnels by ID.\n\nSafety: a change; try it with --dry-run first.",
         "example": "  komando host ssh tunnel stop t1102\n  komando host ssh tunnel stop --all --dry-run",
@@ -5991,7 +5989,7 @@
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)"
           },
           {
             "name": "notes",
@@ -6057,18 +6055,16 @@
         "usage": "komando host winrm edit TARGET... [flags]",
         "short": "Change saved WinRM servers (only the flags you pass change)",
         "long": "Change saved WinRM servers (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; when --proxy-command matches\na destructive rule: dangerous, it cannot be undone: a person types the name\nto go on, and an AI agent or a script needs --allow-dangerous; with\n--proxy-command, when an AI agent runs it (the proxy command runs on this\ncomputer): it weakens a safety check: a person's yes (--yes); with\n--protected=false: it weakens a safety check: a person's yes (--yes); on a\nprotected server or conn, a person's yes (--yes) as well.",
-        "example": "  komando host winrm edit web1 --add-tag canary --label env=prod\n  komando host winrm edit @web --user deploy --dry-run\n  komando host winrm edit db1 --protected",
+        "example": "  komando host winrm edit web1 --add-tag canary --label env=prod\n  komando host winrm edit @web --user deploy --dry-run\n  komando host winrm edit db1 --protected\n  komando host winrm edit web2 --login ask   # never store its password; type it at every connect",
         "flags": [
           {
             "name": "add-group",
-            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
             "usage": "put it in these groups"
           },
           {
             "name": "add-tag",
-            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
             "usage": "add these tags"
@@ -6105,7 +6101,7 @@
           {
             "name": "login",
             "type": "string",
-            "usage": "how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent"
+            "usage": "how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)"
           },
           {
             "name": "notes",
@@ -6317,7 +6313,7 @@
       },
       {
         "path": "komando host winrm shell",
-        "usage": "komando host winrm shell NAME [-- COMMAND...] [flags]",
+        "usage": "komando host winrm shell SERVER [-- COMMAND...] [flags]",
         "short": "Say that a Windows server has no interactive shell here (person only)",
         "long": "Say that a Windows server has no interactive shell here.\n\nSafety: only a person at a terminal can run it.",
         "example": "  komando host winrm shell web1\n  komando host winrm shell win1",
@@ -8749,7 +8745,7 @@
         "path": "komando rename",
         "usage": "komando rename OLD NEW [flags]",
         "short": "Rename one entry, or all names starting with OLD (--starts-with)",
-        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host ssh rename` and the others do. When OLD\nnames two kinds of entry (a server and a secret), it says which commands to\nuse.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\nsecret:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
+        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host ssh rename` and the others do. When OLD\nnames two kinds of entry (a server and a secret), it says which commands to\nuse.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\nsecret:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host ssh rename, conn rename, vpn rename, secret\nrename, key rename or group rename.",
         "example": "  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is\n  komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference\n  komando rename --starts-with shop- acme-shop- --yes   # after a person's yes\n  komando rename --starts-with old-registry registry --kind conn,secret\n  komando rename --starts-with lab- test- --in-notes --in-labels --dry-run",
         "flags": [
           {

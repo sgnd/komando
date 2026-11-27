@@ -6,7 +6,7 @@ servers, databases, caches, queues, storage, clusters and VPNs,
 for people and AI agents alike.
 
 Start:
-  komando host ssh add NAME USER@ADDRESS   add a server
+  komando host ssh add NAME ADDRESS   add a server
   komando conn add NAME URL            add a database, cache, queue, storage,
                                        cluster or registry
   komando import ssh-config            bring in the servers you already have
@@ -4956,7 +4956,7 @@ Flags:
       --identity string             the path of a private key file
       --key string                  the name of a key in komando's key list
       --label stringArray           label KEY=VALUE (default [])
-      --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)
       --notes string                free-form notes, shown to people and agents
       --os string                   the server's OS: windows runs commands in PowerShell
       --overwrite[=true|false]      replace an entry that has the same name
@@ -4997,10 +4997,11 @@ Examples:
   komando host ssh edit web1 --add-tag canary --label env=prod
   komando host ssh edit @web --user deploy --dry-run
   komando host ssh edit db1 --protected
+  komando host ssh edit web2 --login ask   # never store its password; type it at every connect
 
 Flags:
-  -g, --add-group strings            put it in these groups
-  -t, --add-tag strings              add these tags
+      --add-group strings            put it in these groups
+      --add-tag strings              add these tags
       --address string               the host name or IP address, instead of the second word
       --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string            what it logs in with
@@ -5010,7 +5011,7 @@ Flags:
       --identity string              the path of a private key file
       --key string                   the name of a key in komando's key list
       --label stringArray            label KEY=VALUE (default [])
-      --login string                 how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --login string                 how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)
       --notes string                 free-form notes, shown to people and agents
       --os string                    the server's OS: windows runs commands in PowerShell
       --port int                     the port
@@ -5054,7 +5055,7 @@ Flags:
       --arg stringArray          an argument for the script, $1 and on
   -c, --cmd string               the command as one string, instead of the words after --
   -C, --dir string               the working folder on the server
-  -e, --env stringArray          export KEY=VALUE before the command
+  -e, --env stringArray          export KEY=VALUE before the command (default [])
       --fail-fast[=true|false]   start no more servers after the first failure
   -h, --help[=true|false]        help for exec
       --interpreter string       the interpreter on the server (default: from the #! line, else sh)
@@ -5161,7 +5162,7 @@ Open a login shell on one server (a person at a terminal).
 Safety: only a person at a terminal can run it.
 
 Usage:
-  komando host ssh shell NAME [-- COMMAND...] [flags]
+  komando host ssh shell SERVER [-- COMMAND...] [flags]
 
 Examples:
   komando host ssh shell web1
@@ -5276,7 +5277,7 @@ Examples:
 
 Available Commands:
   list        List tunnels and whether each is up
-  start       Start a background tunnel through a server, a VPN or an entry's --via path
+  start       Start a background tunnel through a server, VPN or entry's --via
   stop        Stop tunnels by ID
 
 Flags:
@@ -5322,7 +5323,7 @@ Global Flags (all of them: komando --help):
 ### komando host ssh tunnel start --help
 exit 0
 --- stdout
-Start a background tunnel through a server, a VPN or an entry's --via path.
+Start a background tunnel through a server, VPN or entry's --via.
 
 Safety: a change; try it with --dry-run first; when it listens on an open
 address: it weakens a safety check: a person's yes (--yes); on a protected
@@ -5360,7 +5361,7 @@ Stop tunnels by ID.
 Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando host ssh tunnel stop [ID...] [flags]
+  komando host ssh tunnel stop [TUNNEL...] [flags]
 
 Examples:
   komando host ssh tunnel stop t1102
@@ -5476,7 +5477,7 @@ Flags:
   -g, --group strings               put it in these groups
   -h, --help[=true|false]           help for add
       --label stringArray           label KEY=VALUE (default [])
-      --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)
       --notes string                free-form notes, shown to people and agents
       --overwrite[=true|false]      replace an entry that has the same name
       --port int                    the port
@@ -5513,17 +5514,18 @@ Examples:
   komando host winrm edit web1 --add-tag canary --label env=prod
   komando host winrm edit @web --user deploy --dry-run
   komando host winrm edit db1 --protected
+  komando host winrm edit web2 --login ask   # never store its password; type it at every connect
 
 Flags:
-  -g, --add-group strings           put it in these groups
-  -t, --add-tag strings             add these tags
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
       --address string              the host name or IP address, instead of the second word
       --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string           what it logs in with
   -e, --env stringArray             env KEY=VALUE exported before every command (default [])
   -h, --help[=true|false]           help for edit
       --label stringArray           label KEY=VALUE (default [])
-      --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
+      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only)
       --notes string                free-form notes, shown to people and agents
       --port int                    the port
       --protected[=true|false]      changes need a person's yes
@@ -5563,7 +5565,7 @@ Flags:
       --arg stringArray          an argument for the script, $1 and on
   -c, --cmd string               the command as one string, instead of the words after --
   -C, --dir string               the working folder on the server
-  -e, --env stringArray          export KEY=VALUE before the command
+  -e, --env stringArray          export KEY=VALUE before the command (default [])
       --fail-fast[=true|false]   start no more servers after the first failure
   -h, --help[=true|false]        help for exec
       --interpreter string       the interpreter on the server (default: from the #! line, else sh)
@@ -5667,7 +5669,7 @@ Say that a Windows server has no interactive shell here.
 Safety: only a person at a terminal can run it.
 
 Usage:
-  komando host winrm shell NAME [-- COMMAND...] [flags]
+  komando host winrm shell SERVER [-- COMMAND...] [flags]
 
 Examples:
   komando host winrm shell web1
@@ -8351,8 +8353,8 @@ are left alone, so a second run changes nothing.
 Renaming protected servers and conns needs --yes once, for all of them (an
 AI agent's --yes opens one window for a person). See what would change with
 --dry-run first. --kind renames only some kinds; references still follow. To
-rename one entry, use host rename, conn rename, vpn rename, secret rename,
-key rename or group rename.
+rename one entry, use host ssh rename, conn rename, vpn rename, secret
+rename, key rename or group rename.
 
 Usage:
   komando rename OLD NEW [flags]
