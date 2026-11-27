@@ -1137,3 +1137,25 @@ func TestBuiltinsThatRaiseThemselvesRefuseNoSudo(t *testing.T) {
 		t.Errorf("built-ins whose text raises itself: %v, want %v", self, want)
 	}
 }
+
+// The design counts 34 shaped built-in snippets (19 host, 5 database, 5
+// cache, 5 cluster) and 24 text built-ins that stay saved-command recipes.
+// The number is the contract with the apps and the docs: a snippet added
+// or taken out changes this test and the design in the same change.
+func TestShapedSnippetCounts(t *testing.T) {
+	byType := map[string]int{}
+	for _, name := range builtinSnippets.Names() {
+		b, _ := builtinSnippets.Lookup(name)
+		byType[b.Type]++
+	}
+	want := map[string]int{"host": 19, "database": 5, "cache": 5, "cluster": 5}
+	if !maps.Equal(byType, want) {
+		t.Errorf("shaped snippets by type: %v, want %v", byType, want)
+	}
+	if n := len(builtinSnippets.Names()); n != 34 {
+		t.Errorf("%d shaped snippets, want 34", n)
+	}
+	if n := len(recipes); n != 24 {
+		t.Errorf("%d text built-ins, want 24", n)
+	}
+}
