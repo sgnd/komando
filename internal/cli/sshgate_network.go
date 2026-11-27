@@ -299,7 +299,15 @@ func gateServerWords(c *cobra.Command) []string {
 // arguments, and each flag given as --name=value.
 func gateRiskWords(c *cobra.Command) []string {
 	w := slices.Clone(c.Flags().Args())
-	c.Flags().Visit(func(f *pflag.Flag) { w = append(w, "--"+f.Name+"="+f.Value.String()) })
+	c.Flags().Visit(func(f *pflag.Flag) {
+		if s, ok := f.Value.(pflag.SliceValue); ok { // a list's text has brackets and quotes
+			for _, v := range s.GetSlice() {
+				w = append(w, "--"+f.Name+"="+v)
+			}
+			return
+		}
+		w = append(w, "--"+f.Name+"="+f.Value.String())
+	})
 	return w
 }
 

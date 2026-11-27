@@ -378,6 +378,13 @@ func declareOption(fs *pflag.FlagSet, o capability.Option, vals map[string]any) 
 	}
 }
 
+// enumUsage is a value an enum option does not take. The value is not
+// echoed: a password typed into the wrong option stays out of the error.
+func enumUsage(o capability.Option) error {
+	return out.Errf(out.ExitUsage, "USAGE", "give one of them, for example --"+o.Name+" "+o.Enum[0],
+		"--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+}
+
 // checkOptions applies the table's rules for the options: required, one
 // of the enum, needs, conflicts and the pattern, before the handler runs.
 func checkOptions(l capability.Leaf, in leafInput) error {
@@ -394,11 +401,11 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 		case o.Kind == capability.Enum && o.Repeat:
 			for _, v := range in.Strings(o.Name) {
 				if !slices.Contains(o.Enum, v) {
-					return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+					return enumUsage(o)
 				}
 			}
 		case o.Kind == capability.Enum && !slices.Contains(o.Enum, in.String(o.Name)):
-			return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+			return enumUsage(o)
 		}
 		if o.Name == "unset" {
 			for _, w := range in.Strings(o.Name) {

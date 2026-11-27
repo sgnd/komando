@@ -229,8 +229,10 @@ func TestOldPathsNotWeaker(t *testing.T) {
 		}
 		gated++
 		kept := byID[l.Today[0]]
-		if kept == nil {
-			continue // the leaf has moved: its typed path is its own, today's is gone (step C)
+		if kept == nil || kept.HasSubCommands() {
+			// the leaf has moved: its typed path is its own, today's is gone
+			// (step C), or a bare noun keeps today's ID (audit)
+			continue
 		}
 		for _, k := range keys {
 			_, _, before := gateCheck(slices.Clone(typed), k)

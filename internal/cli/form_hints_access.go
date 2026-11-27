@@ -201,7 +201,7 @@ func vpnHint(key string) (formHint, bool) {
 	switch w[2] {
 	case "add":
 		return formHint{form: func(cl *call) []formGroup { return formKindOnly(cl, "VPN", vpnFormLabels[kind]) },
-			next: []string{cmd + "start {}", cmd + "test {}", "host add NAME USER@ADDRESS --via {}"}}, true
+			next: []string{cmd + "start {}", cmd + "test {}", "host ssh add NAME ADDRESS --via {}"}}, true
 	case "start":
 		return formHint{args: []formArg{{ask: "Which VPN should connect?", pick: "vpn",
 			help: "It stays up for later commands. When it asks for a login or a code, type it here."}},

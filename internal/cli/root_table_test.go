@@ -1052,7 +1052,7 @@ func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
 	// Value.String() is exact for a plain string flag and for the fallback of
 	// a flag already tried as a SliceValue: these uses, by file, are checked
 	// below (gateLocalFlags names plain string flags) or just above the call
-	valueStringUses := map[string]int{"risk.go": 1, "sshgate_localread.go": 1}
+	valueStringUses := map[string]int{"risk.go": 1, "sshgate_localread.go": 1, "sshgate_network.go": 2}
 	var files []string
 	for _, pat := range []string{"sshgate*.go", "risk*.go", "policy*.go", "guard*.go", "gate*.go",
 		"common.go", "flag_*.go", "kinds.go"} {

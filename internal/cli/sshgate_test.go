@@ -322,7 +322,7 @@ func TestGateLocalTargets(t *testing.T) {
 	for line, want := range map[string]string{
 		`database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`:  R,
 		`database sqlite query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:                R,
-		"database sqlite restore appdb --from x.sql":                                         R,
+		"database postgres restore pg --from x.sql":                                          R, // reads a file here
 		"db explain appdb --analyze 'select 1'":                                              R,
 		"db user add appdb x --password-ref secret:x":                                        R,
 		"database sqlite query appdb 'select 1'":                                             R, // a read of a file here

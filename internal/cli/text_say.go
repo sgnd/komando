@@ -207,13 +207,40 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 	default:
 		return "", ""
 	}
-	// `conn edit web1` for a server: the same verb under host
+	// `conn edit web1` for a server: the same verb where a server has it
 	if top := topCommand(cmd); cmd.HasParent() && (top == "host" || top == "conn" || top == "vpn") && top != kind {
-		if c, rest, err := cmd.Root().Find([]string{kind, cmd.Name()}); err == nil && len(rest) == 0 && c.Name() == cmd.Name() {
-			use = "use `komando " + kind + " " + cmd.Name() + " " + name + "`"
+		if words := sameVerbPath(cmd.Root(), st, kind, name, cmd.Name()); words != nil {
+			use = "use `komando " + strings.Join(words, " ") + " " + name + "`"
 		}
 	}
 	return fmt.Sprintf("%s is %s, not a %s.", name, what, one), strings.ToUpper(use[:1]) + use[1:] + "."
+}
+
+// sameVerbPath is the command that does verb for the entry name of kind: a
+// server's under its provider (host ssh edit), a VPN's under its kind, a
+// conn's remove spelled rm. nil when there is none.
+func sameVerbPath(root *cobra.Command, st *store.State, kind, name, verb string) []string {
+	words := []string{kind}
+	switch kind {
+	case "host":
+		if h := st.Hosts[name]; h != nil {
+			words = append(words, hostProvider(h))
+		}
+	case "vpn":
+		if v := st.Vpns[name]; v != nil {
+			words = append(words, v.Kind)
+		}
+	}
+	if verb == "rm" && kind != "conn" {
+		verb = "remove"
+	} else if verb == "remove" && kind == "conn" {
+		verb = "rm"
+	}
+	path := append(words, verb)
+	if c, rest, err := root.Find(path); err == nil && len(rest) == 0 && c.Name() == verb {
+		return path
+	}
+	return nil
 }
 
 // addHintProviders is the provider addHint names for a moved type of conns,

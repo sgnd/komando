@@ -284,6 +284,9 @@ func TestTierMatchesRuntime(t *testing.T) {
 	needed := tierNeeded()
 	tierProofsExist(t)
 	for _, r := range tierRuns {
+		if slices.Contains(connVerbsUntilStepD, r.id) {
+			continue // a conn verb kept until step D is still run as it was (C488)
+		}
 		if _, ok := needed[r.row+" | "+r.id]; !ok {
 			t.Errorf("run %q | %s proves no row the table has for that command: remove or rename it", r.row, r.id)
 		}

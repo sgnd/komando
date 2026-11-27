@@ -86,18 +86,18 @@ func TestGateServerRules(t *testing.T) {
 	// rule a: the gate protects itself; the first line is the phone's
 	// probe 5, which passes only on SSH_GATE_REFUSED with the policy exit
 	for line, word := range map[string]string{
-		"komando fs chmod localhost 600 ~/.ssh/authorized_keys":             "authorized_keys",
-		"komando upload localhost - ~/.ssh/authorized_keys":                 "authorized_keys",
-		"komando upload localhost - .ssh/authorized_keys2":                  "authorized_keys2",
-		"komando fs write localhost ~/.ssh/authorized_keys --from -":        "authorized_keys",
-		"komando fs write localhost .bashrc --from -":                       ".bashrc",
-		"komando fs write localhost ~/.zshrc --from -":                      ".zshrc",
-		"komando fs mv localhost ~/.ssh ~/old":                              ".ssh",
-		"komando fs mv localhost ~ /tmp/x":                                  "holds",
-		"komando fs chmod localhost 777 ~/.ssh":                             ".ssh",
-		"komando cp - localhost:.profile":                                   ".profile",
-		"komando download localhost /etc/hosts --to ~/.ssh/authorized_keys": "authorized_keys", // a read that saves a file
-		"komando fs rm localhost " + os.Getenv("KOMANDO_HOME") + "/audit":   "komando's own folder",
+		"komando fs chmod localhost 600 ~/.ssh/authorized_keys":           "authorized_keys",
+		"komando copy - localhost:~/.ssh/authorized_keys":                 "authorized_keys",
+		"komando copy - localhost:.ssh/authorized_keys2":                  "authorized_keys2",
+		"komando fs write localhost ~/.ssh/authorized_keys --from -":      "authorized_keys",
+		"komando fs write localhost .bashrc --from -":                     ".bashrc",
+		"komando fs write localhost ~/.zshrc --from -":                    ".zshrc",
+		"komando fs mv localhost ~/.ssh ~/old":                            ".ssh",
+		"komando fs mv localhost ~ /tmp/x":                                "holds",
+		"komando fs chmod localhost 777 ~/.ssh":                           ".ssh",
+		"komando copy - localhost:.profile":                               ".profile",
+		"komando copy localhost:/etc/hosts ~/.ssh/authorized_keys":        "authorized_keys", // a read that saves a file
+		"komando fs rm localhost " + os.Getenv("KOMANDO_HOME") + "/audit": "komando's own folder",
 	} {
 		code, msg := serverAnswer(t, line, hereKey)
 		if code != "SSH_GATE_REFUSED" || !strings.Contains(msg, word) || !strings.Contains(msg, "no key changes it") {
@@ -150,7 +150,7 @@ func TestGateServerProtectsTheRealSSHFolder(t *testing.T) {
 		if name == "dir" {
 			target = p + "/authorized_keys"
 		}
-		if code, msg := serverAnswer(t, "komando upload localhost - "+target, hereKey); code != "SSH_GATE_REFUSED" || !strings.Contains(msg, "no key changes it") {
+		if code, msg := serverAnswer(t, "komando copy - localhost:"+target, hereKey); code != "SSH_GATE_REFUSED" || !strings.Contains(msg, "no key changes it") {
 			t.Errorf("%s: %s %q, want rule a's refusal", name, code, msg)
 		}
 	}

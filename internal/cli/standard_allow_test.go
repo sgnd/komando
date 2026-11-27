@@ -73,9 +73,7 @@ var (
 	allowSampleNames = []string{
 		"app1",
 		"bastion",
-		"mongo-db",
 		"shop-2",
-		"vps1",
 		"web3",
 	}
 	// S-6.10: group rename's Long shows a merge with the old and the new name;

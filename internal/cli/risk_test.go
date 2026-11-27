@@ -242,7 +242,7 @@ func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
 			}
 		}
 	}
-	want := []string{"conn.edit", "host.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"}
+	want := []string{"conn.edit", "host.ssh.edit", "host.winrm.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"}
 	for _, p := range []string{"postgres", "mysql", "sqlserver", "oracle", "sqlite", "mongodb", "clickhouse", "snowflake", "bigquery"} {
 		want = append(want, "database."+p+".edit")
 	}
