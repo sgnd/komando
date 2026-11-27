@@ -1,5 +1,5 @@
 agent	kind=read|	target=""	
-agent.skill	kind=read|	target=""	
+agent.skill	kind=none	target=""	
 agent.skill.install	kind=change|	target=""	
 agent.skill.uninstall	kind=change|	target=""	safety|||it removes komando's guard from an AI agent's settings|||
 audit	kind=read|	target=""	
@@ -11,7 +11,7 @@ cache.info	kind=read|	target=""
 cache.keys	kind=read|	target=""	
 cache.memcached	kind=read|	target=""	
 cache.memcached.add	kind=change|	target=""	
-cache.memcached.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+cache.memcached.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 cache.memcached.list	kind=read|	target=""	
 cache.memcached.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.memcached.remove	kind=change|	target=""	
@@ -20,7 +20,7 @@ cache.memcached.show	kind=read|	target=""
 cache.memcached.test	kind=read|	target=""	
 cache.redis	kind=read|	target=""	
 cache.redis.add	kind=change|	target=""	
-cache.redis.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+cache.redis.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 cache.redis.list	kind=read|	target=""	
 cache.redis.raw	kind=depends|only reads unless --write	target=""	dangerous|||the cache command deletes data (DEL, FLUSHALL, ...)|||
 cache.redis.remove	kind=change|	target=""	
@@ -45,7 +45,7 @@ cluster.helm.values	kind=read|	target="clusters"
 cluster.history	kind=read|	target="clusters"	
 cluster.kubernetes	kind=read|	target="clusters"	
 cluster.kubernetes.add	kind=change|	target="clusters"	
-cluster.kubernetes.edit	kind=change|	target="clusters"	safety|with --protected=false|turns protection off||||
+cluster.kubernetes.edit	kind=change|	target="clusters"	safety|with --protected=false or --unset protected|turns protection off||||
 cluster.kubernetes.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="clusters"	dangerous|||the command matches a destructive rule|||
 cluster.kubernetes.list	kind=read|	target="clusters"	
 cluster.kubernetes.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
@@ -88,6 +88,128 @@ conn.rm	kind=change|	target="conns"
 conn.show	kind=read|	target="conns"	
 conn.test	kind=read|	target="conns"	
 copy	kind=depends|changes the destination: a server or bucket when it is the DESTINATION, only this computer when it is the SOURCE	target="servers or file storage"	dangerous|with --sync --delete|deletes the files in the destination that the source does not have||||
+credential	kind=read|	target=""	
+credential.certificate	kind=read|	target="servers"	
+credential.certificate.add	kind=change|	target="servers"	person||trusts every server the CA signs||||
+credential.certificate.list	kind=read|	target="servers"	
+credential.certificate.remove	kind=change|	target="servers"	
+credential.key	kind=read|	target="servers"	
+credential.key.add	kind=change|	target="servers"	
+credential.key.create	kind=change|	target="servers"	
+credential.key.edit	kind=change|	target="servers"	
+credential.key.install	kind=change|	target="servers"	person|with --public-key-file|lets a device's key log in to the server through komando's gate||||
+credential.key.list	kind=read|	target="servers"	
+credential.key.remove	kind=change|	target="servers"	dangerous|with --delete-file|deletes the private key komando keeps||||
+credential.key.rename	kind=change|	target="servers"	
+credential.key.show	kind=read|	target="servers"	
+credential.key.uninstall	kind=change|	target="servers"	dangerous|||it is the key komando logs in with|||
+credential.list	kind=read|	target=""	
+credential.password	kind=read|	target="servers"	
+credential.password.add	kind=change|	target="servers"	
+credential.password.remove	kind=change|	target="servers"	dangerous||deletes the saved password||||
+credential.password.rename	kind=change|	target="servers"	
+credential.password.show	kind=read|	target="servers"	
+credential.run	kind=depends|decided by the program it starts on this computer	target=""	safety|||an AI agent hands a saved secret to a program|||
+credential.token	kind=read|	target="servers"	
+credential.token.add	kind=change|	target="servers"	
+credential.token.remove	kind=change|	target="servers"	dangerous||deletes the saved token||||
+credential.token.rename	kind=change|	target="servers"	
+credential.token.show	kind=read|	target="servers"	
+database	kind=read|	target=""	
+database.bigquery	kind=read|	target=""	
+database.bigquery.add	kind=change|	target=""	
+database.bigquery.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.bigquery.list	kind=read|	target=""	
+database.bigquery.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.bigquery.remove	kind=change|	target=""	
+database.bigquery.rename	kind=change|	target=""	
+database.bigquery.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.bigquery.show	kind=read|	target=""	
+database.bigquery.test	kind=read|	target=""	
+database.clickhouse	kind=read|	target=""	
+database.clickhouse.add	kind=change|	target=""	
+database.clickhouse.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.clickhouse.list	kind=read|	target=""	
+database.clickhouse.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.clickhouse.remove	kind=change|	target=""	
+database.clickhouse.rename	kind=change|	target=""	
+database.clickhouse.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.clickhouse.show	kind=read|	target=""	
+database.clickhouse.test	kind=read|	target=""	
+database.mongodb	kind=read|	target=""	
+database.mongodb.add	kind=change|	target=""	
+database.mongodb.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.mongodb.list	kind=read|	target=""	
+database.mongodb.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.mongodb.remove	kind=change|	target=""	
+database.mongodb.rename	kind=change|	target=""	
+database.mongodb.show	kind=read|	target=""	
+database.mongodb.test	kind=read|	target=""	
+database.mysql	kind=read|	target=""	
+database.mysql.add	kind=change|	target=""	
+database.mysql.backup	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
+database.mysql.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.mysql.list	kind=read|	target=""	
+database.mysql.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.mysql.remove	kind=change|	target=""	
+database.mysql.rename	kind=change|	target=""	
+database.mysql.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
+database.mysql.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.mysql.show	kind=read|	target=""	
+database.mysql.test	kind=read|	target=""	
+database.oracle	kind=read|	target=""	
+database.oracle.add	kind=change|	target=""	
+database.oracle.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.oracle.list	kind=read|	target=""	
+database.oracle.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.oracle.remove	kind=change|	target=""	
+database.oracle.rename	kind=change|	target=""	
+database.oracle.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.oracle.show	kind=read|	target=""	
+database.oracle.test	kind=read|	target=""	
+database.postgres	kind=read|	target=""	
+database.postgres.add	kind=change|	target=""	
+database.postgres.backup	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
+database.postgres.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.postgres.list	kind=read|	target=""	
+database.postgres.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.postgres.remove	kind=change|	target=""	
+database.postgres.rename	kind=change|	target=""	
+database.postgres.restore	kind=change|	target=""	dangerous||replaces what is in the database now||||
+database.postgres.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.postgres.show	kind=read|	target=""	
+database.postgres.test	kind=read|	target=""	
+database.snowflake	kind=read|	target=""	
+database.snowflake.add	kind=change|	target=""	
+database.snowflake.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.snowflake.list	kind=read|	target=""	
+database.snowflake.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.snowflake.remove	kind=change|	target=""	
+database.snowflake.rename	kind=change|	target=""	
+database.snowflake.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.snowflake.show	kind=read|	target=""	
+database.snowflake.test	kind=read|	target=""	
+database.sqlite	kind=read|	target=""	
+database.sqlite.add	kind=change|	target=""	
+database.sqlite.backup	kind=read|	target=""	person|||an AI agent runs it (the file holds every row, secrets included)|||
+database.sqlite.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.sqlite.list	kind=read|	target=""	
+database.sqlite.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.sqlite.remove	kind=change|	target=""	
+database.sqlite.rename	kind=change|	target=""	
+database.sqlite.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.sqlite.show	kind=read|	target=""	
+database.sqlite.test	kind=read|	target=""	
+database.sqlserver	kind=read|	target=""	
+database.sqlserver.add	kind=change|	target=""	
+database.sqlserver.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
+database.sqlserver.list	kind=read|	target=""	
+database.sqlserver.query	kind=depends|only reads unless --write	target=""	dangerous|||the query deletes data (DROP, DELETE without WHERE, KILL, ...)|||
+database.sqlserver.remove	kind=change|	target=""	
+database.sqlserver.rename	kind=change|	target=""	
+database.sqlserver.shell	kind=depends|an shellNote shell for a person: whatever they type; read-only unless --write	target=""	person||||||
+database.sqlserver.show	kind=read|	target=""	
+database.sqlserver.test	kind=read|	target=""	
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
 db.explain	kind=depends|only plans the query; --analyze runs it, and a write needs --write too	target=""	dangerous|with --analyze||the SQL deletes data|||
@@ -146,14 +268,10 @@ help	kind=none	target=""
 host	kind=read|	target="servers"	
 host.ca	kind=read|	target="servers"	
 host.ca.revoke	kind=change|	target="servers"	
-host.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
-host.list	kind=read|	target="servers"	
-host.rename	kind=change|	target="servers"	
-host.rm	kind=change|	target="servers"	
-host.show	kind=read|	target="servers"	
+host.ssh	kind=read|	target="servers"	
 host.ssh-command	kind=read|	target="servers"	person||||||
 host.ssh.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
-host.ssh.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
+host.ssh.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false or --unset protected|turns protection off||||
 host.ssh.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 host.ssh.list	kind=read|	target="servers"	
 host.ssh.remove	kind=change|	target="servers"	
@@ -168,7 +286,7 @@ host.ssh.tunnel.start	kind=change|	target="servers"	safety|||it listens on an op
 host.ssh.tunnel.stop	kind=change|	target="servers"	
 host.winrm	kind=read|	target="servers"	
 host.winrm.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
-host.winrm.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
+host.winrm.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false or --unset protected|turns protection off||||
 host.winrm.exec	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 host.winrm.list	kind=read|	target="servers"	
 host.winrm.remove	kind=change|	target="servers"	
@@ -177,14 +295,6 @@ host.winrm.shell	kind=depends|an shellNote shell for a person: whatever they typ
 host.winrm.show	kind=read|	target="servers"	
 host.winrm.test	kind=read|	target="servers"	
 import	kind=change|	target=""	safety|SOURCE kubeconfig||an AI agent imports a context whose login runs a program or sends a file of this computer||| ; person|SOURCE komando||the file is sealed (export --sealed): a person types its passphrase||| ; dangerous|||an imported proxy command matches a destructive rule||| ; safety|||an AI agent imports a server with a proxy command|||
-job	kind=read|	target="servers"	
-job.kill	kind=change|	target="servers"	
-job.list	kind=read|	target="servers"	
-job.logs	kind=read|	target="servers"	
-job.rm	kind=change|	target="servers"	
-job.start	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
-job.status	kind=read|	target="servers"	
-job.wait	kind=read|	target="servers"	
 komando	kind=none	target=""	
 list	kind=read|	target=""	
 login	kind=change|	target=""	person||||||
@@ -217,13 +327,16 @@ probe cluster scale c1 web 0	dangerous|stops every copy of the app||
 probe config vault keychain	person|moves the key into the keychain||
 probe conn edit app-db --protected=false	safety|turns protection off||
 probe copy ./site web1:/srv --sync --delete	dangerous|deletes the files in the destination that the source does not have||
+probe credential key install web1 --user anna --public-key-file k.pub	person|lets a device's key log in to the server through komando's gate||
+probe credential key remove k1 --delete-file	dangerous|deletes the private key komando keeps||
+probe database postgres edit prod-db --protected=false	safety|turns protection off||
 probe export --for-phone	person|||
 probe export --sealed	person|||
 probe group remove big	change|||deleting a group of more than 3 members
-probe host add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
-probe host edit web1 --protected=false	safety|turns protection off||
-probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
-probe host trust web1 --reset	person|replaces a pinned host key||
+probe host ssh add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host ssh edit web1 --protected=false	safety|turns protection off||
+probe host ssh edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host ssh trust web1 --reset	person|replaces a pinned host key||
 probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
 probe import kubeconfig	safety||an AI agent imports a context whose login runs a program or sends a file of this computer|
 probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
@@ -231,18 +344,17 @@ probe pkg upgrade web1 --security	dangerous||an update would remove a package th
 probe policy edit rm-root --off	safety|switches a rule off||
 probe queue kafka edit prod-kafka --protected=false	safety|turns protection off||
 probe registry oci edit ghcr --protected=false	safety|turns protection off||
-probe secret keychain	person|moves the key into the keychain||
 probe snippet create r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
-probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
-probe vpn edit kantor --protected=false	safety|turns protection off||
+probe vpn socks edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
+probe vpn socks edit kantor --protected=false	safety|turns protection off||
 queue	kind=read|	target=""	
 queue.kafka	kind=read|	target=""	
 queue.kafka.add	kind=change|	target=""	
 queue.kafka.consumer	kind=read|	target=""	
 queue.kafka.consumer.list	kind=read|	target=""	
 queue.kafka.consumer.show	kind=read|	target=""	
-queue.kafka.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.kafka.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 queue.kafka.info	kind=read|	target=""	
 queue.kafka.list	kind=read|	target=""	
 queue.kafka.message	kind=read|	target=""	
@@ -263,7 +375,7 @@ queue.nats.add	kind=change|	target=""
 queue.nats.consumer	kind=read|	target=""	
 queue.nats.consumer.list	kind=read|	target=""	
 queue.nats.consumer.show	kind=read|	target=""	
-queue.nats.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.nats.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 queue.nats.info	kind=read|	target=""	
 queue.nats.list	kind=read|	target=""	
 queue.nats.message	kind=read|	target=""	
@@ -283,7 +395,7 @@ queue.pubsub	kind=read|	target=""
 queue.pubsub.add	kind=change|	target=""	
 queue.pubsub.consumer	kind=read|	target=""	
 queue.pubsub.consumer.list	kind=read|	target=""	
-queue.pubsub.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.pubsub.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 queue.pubsub.info	kind=read|	target=""	
 queue.pubsub.list	kind=read|	target=""	
 queue.pubsub.message	kind=read|	target=""	
@@ -301,7 +413,7 @@ queue.pubsub.topic.list	kind=read|	target=""
 queue.pubsub.topic.show	kind=read|	target=""	
 queue.rabbitmq	kind=read|	target=""	
 queue.rabbitmq.add	kind=change|	target=""	
-queue.rabbitmq.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.rabbitmq.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 queue.rabbitmq.info	kind=read|	target=""	
 queue.rabbitmq.list	kind=read|	target=""	
 queue.rabbitmq.message	kind=read|	target=""	
@@ -319,7 +431,7 @@ queue.rabbitmq.topic.list	kind=read|	target=""
 queue.rabbitmq.topic.show	kind=read|	target=""	
 queue.sqs	kind=read|	target=""	
 queue.sqs.add	kind=change|	target=""	
-queue.sqs.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+queue.sqs.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 queue.sqs.info	kind=read|	target=""	
 queue.sqs.list	kind=read|	target=""	
 queue.sqs.message	kind=read|	target=""	
@@ -338,7 +450,7 @@ queue.sqs.topic.show	kind=read|	target=""
 registry	kind=read|	target=""	
 registry.oci	kind=read|	target=""	
 registry.oci.add	kind=change|	target=""	safety|||the address turns TLS off (plain HTTP)|||
-registry.oci.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+registry.oci.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 registry.oci.image	kind=read|	target=""	
 registry.oci.image.copy	kind=change|	target=""	
 registry.oci.image.delete	kind=change|	target=""	dangerous||deletes the images||||
@@ -356,7 +468,6 @@ schema	kind=read|	target=""
 secret	kind=read|	target=""	
 secret.check	kind=read|	target=""	person||||||
 secret.cp	kind=change|	target=""	
-shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
 snippet	kind=read|	target="servers"	
 snippet.create	kind=change|	target="servers"	safety|with --overwrite --read-only||it makes an existing snippet read-only|||
 snippet.exec	kind=depends|decided by the recipe's command, like exec	target="servers"	dangerous|||a step matches a destructive rule|||
@@ -370,7 +481,7 @@ status	kind=read|	target=""
 storage	kind=read|	target=""	
 storage.azblob	kind=read|	target=""	
 storage.azblob.add	kind=change|	target=""	
-storage.azblob.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.azblob.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.azblob.list	kind=read|	target=""	
 storage.azblob.object	kind=read|	target=""	
 storage.azblob.object.create	kind=change|	target=""	
@@ -385,7 +496,7 @@ storage.azblob.show	kind=read|	target=""
 storage.azblob.test	kind=read|	target=""	
 storage.ftp	kind=read|	target=""	
 storage.ftp.add	kind=change|	target=""	
-storage.ftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.ftp.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.ftp.list	kind=read|	target=""	
 storage.ftp.object	kind=read|	target=""	
 storage.ftp.object.create	kind=change|	target=""	
@@ -399,7 +510,7 @@ storage.ftp.show	kind=read|	target=""
 storage.ftp.test	kind=read|	target=""	
 storage.gcs	kind=read|	target=""	
 storage.gcs.add	kind=change|	target=""	
-storage.gcs.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.gcs.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.gcs.list	kind=read|	target=""	
 storage.gcs.object	kind=read|	target=""	
 storage.gcs.object.create	kind=change|	target=""	
@@ -414,7 +525,7 @@ storage.gcs.show	kind=read|	target=""
 storage.gcs.test	kind=read|	target=""	
 storage.s3	kind=read|	target=""	
 storage.s3.add	kind=change|	target=""	
-storage.s3.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.s3.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.s3.list	kind=read|	target=""	
 storage.s3.object	kind=read|	target=""	
 storage.s3.object.create	kind=change|	target=""	
@@ -429,7 +540,7 @@ storage.s3.show	kind=read|	target=""
 storage.s3.test	kind=read|	target=""	
 storage.sftp	kind=read|	target=""	
 storage.sftp.add	kind=change|	target=""	
-storage.sftp.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.sftp.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.sftp.list	kind=read|	target=""	
 storage.sftp.object	kind=read|	target=""	
 storage.sftp.object.create	kind=change|	target=""	
@@ -443,7 +554,7 @@ storage.sftp.show	kind=read|	target=""
 storage.sftp.test	kind=read|	target=""	
 storage.smb	kind=read|	target=""	
 storage.smb.add	kind=change|	target=""	
-storage.smb.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.smb.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.smb.list	kind=read|	target=""	
 storage.smb.object	kind=read|	target=""	
 storage.smb.object.create	kind=change|	target=""	
@@ -457,7 +568,7 @@ storage.smb.show	kind=read|	target=""
 storage.smb.test	kind=read|	target=""	
 storage.webdav	kind=read|	target=""	
 storage.webdav.add	kind=change|	target=""	
-storage.webdav.edit	kind=change|	target=""	safety|with --protected=false|turns protection off||||
+storage.webdav.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
 storage.webdav.list	kind=read|	target=""	
 storage.webdav.object	kind=read|	target=""	
 storage.webdav.object.create	kind=change|	target=""	
@@ -477,7 +588,7 @@ version	kind=read|	target=""
 vpn	kind=read|	target="VPNs"	
 vpn.anyconnect	kind=read|	target="VPNs"	
 vpn.anyconnect.add	kind=change|	target="VPNs"	
-vpn.anyconnect.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.anyconnect.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.anyconnect.list	kind=read|	target="VPNs"	
 vpn.anyconnect.remove	kind=change|	target="VPNs"	
 vpn.anyconnect.rename	kind=change|	target="VPNs"	
@@ -488,7 +599,7 @@ vpn.anyconnect.stop	kind=change|	target="VPNs"
 vpn.anyconnect.test	kind=read|	target="VPNs"	
 vpn.f5	kind=read|	target="VPNs"	
 vpn.f5.add	kind=change|	target="VPNs"	
-vpn.f5.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.f5.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.f5.list	kind=read|	target="VPNs"	
 vpn.f5.remove	kind=change|	target="VPNs"	
 vpn.f5.rename	kind=change|	target="VPNs"	
@@ -499,7 +610,7 @@ vpn.f5.stop	kind=change|	target="VPNs"
 vpn.f5.test	kind=read|	target="VPNs"	
 vpn.fortinet	kind=read|	target="VPNs"	
 vpn.fortinet.add	kind=change|	target="VPNs"	
-vpn.fortinet.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.fortinet.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.fortinet.list	kind=read|	target="VPNs"	
 vpn.fortinet.remove	kind=change|	target="VPNs"	
 vpn.fortinet.rename	kind=change|	target="VPNs"	
@@ -510,7 +621,7 @@ vpn.fortinet.stop	kind=change|	target="VPNs"
 vpn.fortinet.test	kind=read|	target="VPNs"	
 vpn.globalprotect	kind=read|	target="VPNs"	
 vpn.globalprotect.add	kind=change|	target="VPNs"	
-vpn.globalprotect.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.globalprotect.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.globalprotect.list	kind=read|	target="VPNs"	
 vpn.globalprotect.remove	kind=change|	target="VPNs"	
 vpn.globalprotect.rename	kind=change|	target="VPNs"	
@@ -521,7 +632,7 @@ vpn.globalprotect.stop	kind=change|	target="VPNs"
 vpn.globalprotect.test	kind=read|	target="VPNs"	
 vpn.ikev2	kind=read|	target="VPNs"	
 vpn.ikev2.add	kind=change|	target="VPNs"	
-vpn.ikev2.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.ikev2.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.ikev2.list	kind=read|	target="VPNs"	
 vpn.ikev2.remove	kind=change|	target="VPNs"	
 vpn.ikev2.rename	kind=change|	target="VPNs"	
@@ -532,7 +643,7 @@ vpn.ikev2.stop	kind=change|	target="VPNs"
 vpn.ikev2.test	kind=read|	target="VPNs"	
 vpn.ipsec	kind=read|	target="VPNs"	
 vpn.ipsec.add	kind=change|	target="VPNs"	
-vpn.ipsec.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.ipsec.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.ipsec.list	kind=read|	target="VPNs"	
 vpn.ipsec.remove	kind=change|	target="VPNs"	
 vpn.ipsec.rename	kind=change|	target="VPNs"	
@@ -543,7 +654,7 @@ vpn.ipsec.stop	kind=change|	target="VPNs"
 vpn.ipsec.test	kind=read|	target="VPNs"	
 vpn.l2tp	kind=read|	target="VPNs"	
 vpn.l2tp.add	kind=change|	target="VPNs"	
-vpn.l2tp.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.l2tp.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.l2tp.list	kind=read|	target="VPNs"	
 vpn.l2tp.remove	kind=change|	target="VPNs"	
 vpn.l2tp.rename	kind=change|	target="VPNs"	
@@ -554,7 +665,7 @@ vpn.l2tp.stop	kind=change|	target="VPNs"
 vpn.l2tp.test	kind=read|	target="VPNs"	
 vpn.openvpn	kind=read|	target="VPNs"	
 vpn.openvpn.add	kind=change|	target="VPNs"	
-vpn.openvpn.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.openvpn.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.openvpn.list	kind=read|	target="VPNs"	
 vpn.openvpn.remove	kind=change|	target="VPNs"	
 vpn.openvpn.rename	kind=change|	target="VPNs"	
@@ -565,7 +676,7 @@ vpn.openvpn.stop	kind=change|	target="VPNs"
 vpn.openvpn.test	kind=read|	target="VPNs"	
 vpn.proxy	kind=read|	target="VPNs"	
 vpn.proxy.add	kind=change|	target="VPNs"	
-vpn.proxy.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.proxy.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.proxy.list	kind=read|	target="VPNs"	
 vpn.proxy.remove	kind=change|	target="VPNs"	
 vpn.proxy.rename	kind=change|	target="VPNs"	
@@ -576,7 +687,7 @@ vpn.proxy.stop	kind=change|	target="VPNs"
 vpn.proxy.test	kind=read|	target="VPNs"	
 vpn.pulse	kind=read|	target="VPNs"	
 vpn.pulse.add	kind=change|	target="VPNs"	
-vpn.pulse.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.pulse.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.pulse.list	kind=read|	target="VPNs"	
 vpn.pulse.remove	kind=change|	target="VPNs"	
 vpn.pulse.rename	kind=change|	target="VPNs"	
@@ -588,7 +699,7 @@ vpn.pulse.test	kind=read|	target="VPNs"
 vpn.serve	kind=none	target="VPNs"	
 vpn.socks	kind=read|	target="VPNs"	
 vpn.socks.add	kind=change|	target="VPNs"	
-vpn.socks.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.socks.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.socks.list	kind=read|	target="VPNs"	
 vpn.socks.remove	kind=change|	target="VPNs"	
 vpn.socks.rename	kind=change|	target="VPNs"	
@@ -599,7 +710,7 @@ vpn.socks.stop	kind=change|	target="VPNs"
 vpn.socks.test	kind=read|	target="VPNs"	
 vpn.system	kind=read|	target="VPNs"	
 vpn.system.add	kind=change|	target="VPNs"	
-vpn.system.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.system.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.system.list	kind=read|	target="VPNs"	
 vpn.system.remove	kind=change|	target="VPNs"	
 vpn.system.rename	kind=change|	target="VPNs"	
@@ -610,7 +721,7 @@ vpn.system.stop	kind=change|	target="VPNs"
 vpn.system.test	kind=read|	target="VPNs"	
 vpn.tailscale	kind=read|	target="VPNs"	
 vpn.tailscale.add	kind=change|	target="VPNs"	
-vpn.tailscale.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.tailscale.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.tailscale.list	kind=read|	target="VPNs"	
 vpn.tailscale.remove	kind=change|	target="VPNs"	
 vpn.tailscale.rename	kind=change|	target="VPNs"	
@@ -621,7 +732,7 @@ vpn.tailscale.stop	kind=change|	target="VPNs"
 vpn.tailscale.test	kind=read|	target="VPNs"	
 vpn.wireguard	kind=read|	target="VPNs"	
 vpn.wireguard.add	kind=change|	target="VPNs"	
-vpn.wireguard.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false|turns protection off||||
+vpn.wireguard.edit	kind=change|	target="VPNs"	safety|with --mfa=false|turns --mfa off (komando may then connect it without a person)|||| ; safety|with --protected=false or --unset protected|turns protection off||||
 vpn.wireguard.list	kind=read|	target="VPNs"	
 vpn.wireguard.remove	kind=change|	target="VPNs"	
 vpn.wireguard.rename	kind=change|	target="VPNs"	

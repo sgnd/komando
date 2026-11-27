@@ -18,7 +18,7 @@ title: Show the audit log: who did what, where, and the result
 - flag:target | --target | Only for which servers or conns? | Leave empty for everything. |  | optional,free,choices
 - flag:failed | --failed | Only what failed or was blocked? | Only actions that failed or were blocked |  | default,choices
 - flag:actor | --actor | Only what one person or AI agent did? | Part of the name, like claude or codex. Leave empty for everyone. | claude | optional,check
-- flag:command | --command | Only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key |  |  | optional,advanced,check
+- flag:command | --command | Only commands that start with this (like exec, fs.) |  |  | optional,advanced,check
 - flag:limit | --limit | The newest N entries (0 = all; with --since or --until, all unless given) |  |  | optional,advanced,default,check
 - flag:until | --until | Only entries before this time (the same forms as --since) |  |  | optional,advanced,check
 ### komando cache
@@ -428,7 +428,7 @@ title: Add a conn (the URL scheme sets its kind)
 - flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
 - flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
 - flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
+- flag:password-ref | --password-ref | Where the password is: credential:NAME (saved with komando credential password add NAME) |  |  | optional,advanced,check
 - flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
 - flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
@@ -445,7 +445,7 @@ title: Change a conn (only the flags you pass change)
 - flag:label | --label | Set label KEY=VALUE (an empty value removes it) |  |  | optional,advanced,check
 - flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
 - flag:option | --option | Set an option of this kind, KEY=VALUE (an empty value removes it) |  |  | optional,advanced,check
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
+- flag:password-ref | --password-ref | Where the password is: credential:NAME (saved with komando credential password add NAME) |  |  | optional,advanced,check
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
 - flag:unset | --unset | Clear these settings: via,password-ref,notes,protected |  |  | optional,advanced,check
@@ -486,15 +486,116 @@ title: Copy files between this computer, servers and file storage
 - flag:parents | --parents | To a server: create missing parent folders |  |  | advanced,default,choices
 - flag:progress | --progress | Show how far the copy is |  |  | advanced,default,choices
 - flag:size | --size | From stdin (-): how many bytes it sends, like 10MiB |  |  | optional,advanced,check
-### komando db
-title: Databases: query safely, look at the schema, back up, restore
-### komando db activity
-title: Sessions running something now: pid, user, how long, what
-- arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando db add`. |  | choices,check
-- flag:all | --all | Show idle sessions too? | No shows only sessions running something now. |  | default,choices
-- flag:limit | --limit | Show at most this many sessions (0 = all) |  |  | optional,advanced,check
-### komando db add
-title: Add a database
+### komando credential
+title: Saved passwords, tokens, SSH keys and server CAs
+### komando credential certificate
+title: Server CAs: trust the CA that signs servers' host keys
+### komando credential certificate add
+title: Trust a CA for the servers its patterns match (person only)
+- arg0 | Name | A short name for this CA? |  | corp | check
+- flag:key | --key | The CA's public key file (.pub)? | Check its fingerprint with the people who run the CA first: it will vouch for every server it signs. | ~/corp-ca.pub | optional,free,choices
+- flag:hosts | --hosts | Which server names may it vouch for? | Name at least the domain: *.corp.example or 10.1.2.*. A lone * is refused. | *.corp.example | optional,check
+- flag:from | --from | Or read a known_hosts file's @cert-authority lines? | A known_hosts file: read its @cert-authority and @revoked lines | ~/.ssh/known_hosts | optional,check
+### komando credential certificate list
+title: List the trusted server CAs
+- flag:limit | --limit | The first N CAs (0 = all) |  |  | optional,advanced,check
+### komando credential certificate remove
+title: Stop trusting a server CA
+- arg0 | Name | Which CA should komando stop trusting? | See them with `komando credential certificate list`. |  | check
+### komando credential key
+title: SSH keys: make, add, install on servers, uninstall
+### komando credential key add
+title: Add a private key file you already have (komando keeps its path)
+- arg0 | Name | What name should the key have in komando? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | personal | check
+- arg1 | File | Where is the private key file on this computer? | The file without .pub at the end. It stays where it is. ~/ means your home folder. | ~/.ssh/id_ed25519 | check
+- flag:passphrase-credential | --passphrase-credential | Which saved password opens the key? | Only for a key that has a passphrase. Save it first with `komando credential password add NAME` (it asks hidden), then type its NAME here. Leave empty for a key without one. | work-key-pass | optional,check
+- flag:cert | --cert | An OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there) |  |  | optional,advanced,check
+### komando credential key create
+title: Make a new SSH key pair (ed25519 by default)
+- arg0 | Name | What name should the new key have? | Letters, digits, dot, dash and underscore, starting with a letter or digit. Next, `komando credential key install` puts it on your servers. | deploy | check
+- flag:type | --type | Which kind of key? | ed25519 is short and safe; pick rsa only for an old server that does not take ed25519. |  | optional,default,choices
+- flag:bits | --bits | Key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521 |  |  | optional,advanced,check
+- flag:comment | --comment | Public key comment (default komando-NAME) |  |  | optional,advanced,check
+### komando credential key edit
+title: Change a key's passphrase credential or certificate
+- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
+- flag:passphrase-credential | --passphrase-credential | Which saved password opens the key? | Only for a key that has a passphrase. Save it first with `komando credential password add NAME` (it asks hidden), then type its NAME here. Leave empty for a key without one. | work-key-pass | optional,check
+- flag:cert | --cert | An OpenSSH user certificate for the key |  |  | optional,advanced,check
+- flag:unset | --unset | Clear this setting: passphrase-credential, cert |  |  | optional,advanced,check
+### komando credential key install
+title: Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)
+- arg0 | Name | Which key? | One of your komando SSH keys, or type the path of a .pub file on this computer. | ~/.ssh/id_ed25519.pub | optional,free,choices,check
+- arg1 | Target (servers) | On which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:set-default | --set-default | Should komando log in with this key from now on? | Yes switches each server where it worked to this key. |  | default,choices
+### komando credential key list
+title: List the SSH keys and the servers that use them
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando credential key remove
+title: Remove a key (from komando only)
+- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
+- flag:delete-file | --delete-file | Also delete the private key? | Only for a key komando made. A deleted private key cannot be brought back. |  | default,choices
+### komando credential key rename
+title: Rename a key, and every server that uses it
+- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | deploy-2026 | check
+### komando credential key show
+title: Show a key's public part, or a person its private key
+- arg0 | Name | Which key? | One of your komando SSH keys. `komando credential key list` shows them. |  | choices,check
+### komando credential key uninstall
+title: Take a public key off servers' authorized_keys
+- arg0 | Name | Which key? | One of your komando SSH keys, or type the path of a .pub file on this computer. | ~/.ssh/id_ed25519.pub | free,choices,check
+- arg1 | Target (servers) | On which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:user | --user | Whose login should lose the key? | Leave empty for the user komando logs in as. Another user's file is changed with sudo. | deploy | optional,check
+- flag:all-users | --all-users | Edit every user's authorized_keys on the server (uses sudo) |  |  | advanced,default,choices
+### komando credential list
+title: List the saved passwords and tokens and what uses them
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando credential password
+title: Saved passwords: add, show, rename, remove
+### komando credential password add
+title: Save a password, typed hidden or from a variable or a pipe
+- arg0 | Name | What name should it have? | Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste. | db-pass | free,choices,check
+- flag:from-env | --from-env | Read the value from this environment variable |  |  | optional,advanced,check
+- flag:new | --new | Only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS |  |  | advanced,default,choices
+### komando credential password remove
+title: Delete saved passwords for good
+- arg0 | Name | Which ones? | Their names. Several: separate them with spaces. One still in use is not deleted. | old-pass | free,choices,check
+### komando credential password rename
+title: Rename a password and every reference to it (value never shown)
+- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | db-pass-old | check
+- flag:overwrite | --overwrite | Replace the new name if it exists already? | No stops when a secret with the new name is there, so nothing is lost by mistake. |  | default,choices
+### komando credential password show
+title: Show that a password is saved and what uses it, its value hidden
+- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
+### komando credential run
+title: Run a command here with saved credentials in its environment
+- arg0 | Command | Which program should run on this computer? | The program and its arguments, as you would type them here. Its secrets go in the next question, never here. | terraform plan | 
+- flag:env | --env | Which variable gets which secret? | KEY=credential:NAME reads NAME from the vault right before the program starts. KEY=VALUE sets a plain value. | TOKEN=credential:gh-token | optional,check
+### komando credential token
+title: Saved tokens: add, show, rename, remove
+### komando credential token add
+title: Save a token, typed hidden or from a variable or a pipe
+- arg0 | Name | What name should it have? | Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste. | db-pass | free,choices,check
+- flag:from-env | --from-env | Read the value from this environment variable |  |  | optional,advanced,check
+- flag:new | --new | Only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS |  |  | advanced,default,choices
+### komando credential token remove
+title: Delete saved tokens for good
+- arg0 | Name | Which ones? | Their names. Several: separate them with spaces. One still in use is not deleted. | old-pass | free,choices,check
+### komando credential token rename
+title: Rename a token and every reference to it (value never shown)
+- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | db-pass-old | check
+- flag:overwrite | --overwrite | Replace the new name if it exists already? | No stops when a secret with the new name is there, so nothing is lost by mistake. |  | default,choices
+### komando credential token show
+title: Show that a token is saved and what uses it, its value hidden
+- arg0 | Name | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
+### komando database
+title: Databases: save them, query them, back them up and restore them
+### komando database bigquery
+title: BigQuery: save a project and query it
+### komando database bigquery add
+title: Save a bigquery database under a short name
 - arg0 | Name | Name? |  |  | check
 - arg1 | URL | URL? |  |  | optional,check
 - flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
@@ -1157,7 +1258,7 @@ title: Database users: see, add, change passwords, remove
 title: Create a user with a password from a secret reference
 - arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | What is the new user's name? | The name a program or person logs in to the database with. Letters, digits and underscore. | app_ro | check
-- flag:password-ref | --password-ref | Where is the password kept? | A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type secret:app-ro-pass. Leave empty only with a user that cannot log in. | secret:app-ro-pass | optional,check
+- flag:password-ref | --password-ref | Where is the password kept? | A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type credential:app-ro-pass. Leave empty only with a user that cannot log in. | credential:app-ro-pass | optional,check
 - flag:no-login | --no-login | A role that cannot log in (a group)? | Yes makes a group of rights you give to other users later. It needs no password. |  | default,choices
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db user list
@@ -1168,7 +1269,7 @@ title: List the users and roles of a database
 title: Set a user's password from a secret reference (rotation)
 - arg0 | Conn | Which database? | A database from your list (`komando list kind:db`). Add one with `komando database KIND add` (postgres, mysql, sqlite ...). |  | choices,check
 - arg1 | User | Which database user? | The user name inside the database, not your SSH user. `komando db user list` shows them. | app_ro | check
-- flag:password-ref | --password-ref | Where is the password kept? | A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type secret:app-ro-pass. | secret:app-ro-pass | check
+- flag:password-ref | --password-ref | Where is the password kept? | A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type credential:app-ro-pass. | credential:app-ro-pass | check
 - flag:from-host | --from-host | MySQL only: from where does this user connect? | The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL. | 10.0.0.% | optional,check
 ### komando db user rm
 title: Remove a database user
@@ -1270,29 +1371,6 @@ title: Stop running containers (docker stop)
 title: Check komando's setup, your list and its security
 - flag:accept-old-copy | --accept-old-copy | Use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only) |  |  | advanced,default,choices
 - flag:reseal-meta | --reseal-meta | Check the store with your key and seal its settings row again, after STATE_CORRUPT for a changed settings row (a person only) |  |  | advanced,default,choices
-### komando exec
-title: Run a shell command on one or many servers in parallel
-- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- arg1 | Command | What command should it run? | Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead. | df -h / | optional
-- flag:script | --script | Which script on this computer? | A file on this computer. komando sends it to the server and runs it there; nothing is left on disk. | ./deploy.sh | optional,show,check
-- flag:arg | --arg | Anything to pass to the script? | One value the script gets as its first argument. Leave empty for none. | v1.2.3 | optional,show,check
-- flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
-- flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
-- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
-- flag:attach | --attach | Read the rest of these sessions on one server, and their exit codes |  |  | optional,advanced,check
-- flag:env | --env | Export KEY=VALUE before the command (repeatable) |  |  | optional,advanced,check
-- flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
-- flag:interpreter | --interpreter | With --script: the interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
-- flag:log-max | --log-max | Bytes of output the server keeps for the run, like 100MiB; more is dropped |  |  | optional,advanced,default,check
-- flag:offset | --offset | With --attach: start at this byte of the log (next_from of the last read) |  |  | optional,advanced,check
-- flag:pty | --pty | Allocate a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
-- flag:remove | --remove | With --attach ID: delete a finished session's folder on the server |  |  | advanced,default,choices
-- flag:signal | --signal | With --stop: TERM, INT, HUP, QUIT or KILL |  |  | optional,advanced,default,check
-- flag:stdin-file | --stdin-file | Send this file on this computer as stdin ('-' = komando's stdin) |  |  | optional,advanced,check
-- flag:stop | --stop | With --attach ID: stop the run, from the computer that started it |  |  | advanced,default,choices
-- flag:stream | --stream | Stream output as NDJSON events while it runs |  |  | advanced,default,choices
-- flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
-- flag:wait | --wait | Wait this long for the run to end; it goes on after (exit 7); 0 returns at once |  |  | optional,advanced,default,check
 ### komando export
 title: Save servers, conns, VPNs, recipes and settings to a file
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
@@ -1415,37 +1493,39 @@ title: Show the help of a command
 - arg0 | Command | Command? |  |  | optional,check
 ### komando host
 title: Servers in komando's list: add, change, check, remove
-### komando host add
-title: Add a server to your list
-- arg0 | Name | Name? |  |  | check
-- arg1 | Address | Address? |  |  | optional,check
-- flag:address | --address | Host name or IP address (winrm://USER@HOST for a Windows server over WinRM) |  |  | optional,advanced,check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:env | --env | Env KEY=VALUE exported before every command (repeatable) |  |  | optional,advanced,check
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:identity | --identity | Path to a private key file |  |  | optional,advanced,check
-- flag:key | --key | Name of a key in komando's key list (see komando credential key list) |  |  | optional,advanced,free,choices
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando host show shows them to people and agents) |  |  | optional,advanced,check
-- flag:os | --os | The server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a server that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:port | --port | SSH port (default 22) |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:proxy-command | --proxy-command | A command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r) |  |  | optional,advanced,check
-- flag:ssm | --ssm | Reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed) |  |  | advanced,default,choices
-- flag:sudo-ref | --sudo-ref | Where the sudo password is, written like --password-ref |  |  | optional,advanced,check
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
-- flag:user | --user | The user to log in as |  |  | optional,advanced,check
-- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion |  |  | optional,advanced,free,choices
 ### komando host ca
 title: Never trust a host key or a CA key again
 ### komando host ca revoke
 title: Never trust a host key or a CA key again
 - flag:key | --key | Which public key file (.pub) should never be trusted? | The public key file (.pub) never to trust |  | free,choices
-### komando host edit
-title: Change one or more servers (only the flags you pass change)
+### komando host ssh
+title: SSH servers: save them, run commands on them, tunnel through them
+### komando host ssh add
+title: Save an SSH server under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | Address | Address? |  |  | optional,check
+- flag:address | --address | The host name or IP address, instead of the second word |  |  | optional,advanced,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:identity | --identity | The path of a private key file |  |  | optional,advanced,check
+- flag:key | --key | The name of a key in komando's key list |  |  | optional,advanced,free,choices
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:os | --os | The server's OS: windows runs commands in PowerShell |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:port | --port | The port |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:proxy-command | --proxy-command | A program on this computer that makes the connection |  |  | optional,advanced,check
+- flag:ssm | --ssm | Reach it through AWS Systems Manager; the address is the instance ID |  |  | advanced,default,choices
+- flag:sudo-credential | --sudo-credential | The password sudo asks for (today's --sudo-ref) |  |  | optional,advanced,check
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | The user to log in as |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando host ssh edit
+title: Change saved SSH servers (only the flags you pass change)
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:address | --address | New address? | The server's IP address or host name. Leave empty to keep it. | 203.0.113.20 | optional,check
 - flag:user | --user | New login user? | The user name you log in with. Leave empty to keep it. | deploy | optional,check
@@ -1456,98 +1536,172 @@ title: Change one or more servers (only the flags you pass change)
 - flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
 - flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
 - flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
-- flag:add-tag | --add-tag | Add these tags (comma-separated) |  |  | optional,advanced,check
-- flag:env | --env | Set KEY=VALUE, exported before every command (an empty value removes it; repeatable) |  |  | optional,advanced,check
-- flag:forward-agent | --forward-agent | Lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first) |  |  | advanced,default,choices
-- flag:identity | --identity | Path to a private key file |  |  | optional,advanced,check
-- flag:label | --label | Set label KEY=VALUE (an empty value removes it) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:os | --os | The server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes) |  |  | optional,advanced,check
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:proxy-command | --proxy-command | A command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r) |  |  | optional,advanced,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:forward-agent | --forward-agent | Lend the server your ssh-agent while komando is connected (asks first) |  |  | advanced,default,choices
+- flag:identity | --identity | The path of a private key file |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
+- flag:os | --os | The server's OS: windows runs commands in PowerShell |  |  | optional,advanced,check
+- flag:proxy-command | --proxy-command | A program on this computer that makes the connection |  |  | optional,advanced,check
 - flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
 - flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
-- flag:ssm | --ssm | Reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed) |  |  | advanced,default,choices
-- flag:sudo-ref | --sudo-ref | Where the sudo password is, written like --password-ref |  |  | optional,advanced,check
-- flag:unset | --unset | Clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,forward-agent,os,transport (transport: back to SSH from WinRM) |  |  | optional,advanced,check
-### komando host list
-title: List servers
+- flag:sudo-credential | --sudo-credential | The password sudo asks for (today's --sudo-ref) |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: user, key, identity, credential, sudo-credential, via, proxy-command, notes, port, protected, forward-agent, os, transport |  |  | optional,advanced,check
+### komando host ssh exec
+title: Run a command on saved servers, in parallel
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg1 | Command | What command should it run? | Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead. | df -h / | optional
+- flag:script | --script | Which script on this computer? | A file on this computer. komando sends it to the server and runs it there; nothing is left on disk. | ./deploy.sh | optional,show,check
+- flag:arg | --arg | Anything to pass to the script? | One value the script gets as its first argument. Leave empty for none. | v1.2.3 | optional,show,check
+- flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
+- flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
+- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
+- flag:attach | --attach | Read the rest of these sessions on one server, and their exit codes |  |  | optional,advanced,check
+- flag:env | --env | Export KEY=VALUE before the command |  |  | optional,advanced,check
+- flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
+- flag:interpreter | --interpreter | The interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
+- flag:log-max | --log-max | Bytes of output the server keeps for the run; more is dropped |  |  | optional,advanced,default,check
+- flag:offset | --offset | Start at this byte of the log (next_from of the last read) |  |  | optional,advanced,check
+- flag:pty | --pty | Ask for a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
+- flag:remove | --remove | Remove a finished session's log from the server |  |  | advanced,default,choices
+- flag:signal | --signal | The signal --stop sends |  |  | optional,advanced,default,check
+- flag:stdin-file | --stdin-file | Send this file as stdin ('-' is komando's stdin) |  |  | optional,advanced,check
+- flag:stop | --stop | Stop the session's command |  |  | advanced,default,choices
+- flag:stream | --stream | Print the output as NDJSON events while it runs |  |  | advanced,default,choices
+- flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
+- flag:wait | --wait | Wait this long for the run to end; it goes on after (exit 7); 0 returns at once |  |  | optional,advanced,default,check
+### komando host ssh list
+title: List the saved SSH servers
 - arg0 | Target (servers) | Which servers? (pick all for every server) | Pick one, or type @group, tag:prod or several names separated by spaces or commas. |  | optional,free,choices,check
-- flag:limit | --limit | Show at most this many items (0 = all) |  |  | optional,advanced,check
-### komando host rename
-title: Rename a server and every reference to it
-- arg0 | Old | Which server do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
-- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
-### komando host rm
-title: Remove servers (from komando only)
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando host ssh remove
+title: Forget saved SSH servers (the servers are not touched)
 - arg0 | Target (servers) | Which servers should come off your list? | Only komando's list changes; the servers themselves are not touched. |  | free,choices,check
-### komando host show
-title: Show all settings of a server (secrets as references, never values)
+### komando host ssh rename
+title: Rename a saved ssh server and every reference to it
+- arg0 | Name | Which server do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando host ssh shell
+title: Open a login shell on one server (a person at a terminal) (person only)
+- arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+- arg1 | Command | Command? (several: separate them with spaces) |  |  | optional
+- flag:attach | --attach | Come back to the session with this ID |  |  | optional,advanced,check
+### komando host ssh show
+title: Show a saved ssh server's settings (credentials as names)
 - arg0 | Name | Which server? | Pick one from your list. |  | choices,check
-### komando host ssh-command
-title: Print the OpenSSH command komando would use for a server (person only)
-- arg0 | Name | Which server? | Pick one from your list. |  | choices,check
-### komando host test
-title: Check that servers answer and let you in
+### komando host ssh test
+title: Check that saved SSH servers answer and let you in
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
-- flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
-### komando host trust
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando host ssh trust
 title: Pin the SSH host keys of servers (--reset after a rebuild)
 - arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
 - flag:reset | --reset | Replace a key komando saved before? | Only after you rebuilt or reinstalled the server. A changed key can also mean someone pretends to be your server: ask its admin first. |  | default,choices
-- flag:fingerprint | --fingerprint | Pin only if the server shows the key with this SHA256: fingerprint (one server) |  |  | optional,advanced,check
+- flag:fingerprint | --fingerprint | Pin the key only when the server shows this fingerprint (SHA256:...) |  |  | optional,advanced,check
+### komando host ssh tunnel
+title: Background tunnels through a server: start, list, stop
+### komando host ssh tunnel list
+title: List tunnels and whether each is up
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando host ssh tunnel start
+title: Start a background tunnel through a saved server, VPN or entry
+- arg0 | Target (servers) | To which server or conn? | Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it. |  | free,choices,check
+- flag:port | --port | Which port on this computer? (for a conn) | Point your app at localhost and this port. Leave empty for a free one; komando shows which. | 15432 | optional,check
+- flag:local | --local | What should it forward? (for a server) | LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn. | 8080:localhost:80 | optional,check
+- flag:dynamic | --dynamic | SOCKS5 proxy [bind:]PORT |  |  | optional,advanced,check
+- flag:remote | --remote | Remote forward [rbind:]RPORT:LHOST:LPORT |  |  | optional,advanced,check
+### komando host ssh tunnel stop
+title: Stop tunnels by ID
+- arg0 | Tunnel | Which tunnels should stop? (leave empty with --all) | Their IDs: `komando host ssh tunnel list` shows them. Several: separate them with spaces. |  | optional,free,choices,check
+- flag:all | --all | Stop every tunnel instead? | Stop every tunnel |  | default,choices
+### komando host ssh-command
+title: Print the OpenSSH command komando would use for a server (person only)
+- arg0 | Name | Which server? | Pick one from your list. |  | choices,check
+### komando host winrm
+title: Windows servers over WinRM: save them and run commands on them
+### komando host winrm add
+title: Save a Windows server over WinRM under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | Address | Address? |  |  | optional,check
+- flag:address | --address | The host name or IP address, instead of the second word |  |  | optional,advanced,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:port | --port | The port |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:user | --user | The user to log in as |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando host winrm edit
+title: Change saved WinRM servers (only the flags you pass change)
+- arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:address | --address | New address? | The server's IP address or host name. Leave empty to keep it. | 203.0.113.20 | optional,check
+- flag:user | --user | New login user? | The user name you log in with. Leave empty to keep it. | deploy | optional,check
+- flag:port | --port | New SSH port? | Usually 22. Leave empty to keep it. | 2222 | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:env | --env | Env KEY=VALUE exported before every command |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one), key (with --key or --identity) or agent (ssh-agent and ~/.ssh only) |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: user, credential, via, notes, port, protected, transport |  |  | optional,advanced,check
+### komando host winrm exec
+title: Run a command on saved servers, in parallel (PowerShell)
+- arg0 | Target (servers) | Which server? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- arg1 | Command | What command should it run? | Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead. | df -h / | optional
+- flag:script | --script | Which script on this computer? | A file on this computer. komando sends it to the server and runs it there; nothing is left on disk. | ./deploy.sh | optional,show,check
+- flag:arg | --arg | Anything to pass to the script? | One value the script gets as its first argument. Leave empty for none. | v1.2.3 | optional,show,check
+- flag:read-only | --read-only | Does it only look, and change nothing on the server? | Not sure? Say no. Yes is only for commands that read, like df -h or cat. |  | default,choices
+- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
+- flag:env | --env | Export KEY=VALUE before the command |  |  | optional,advanced,check
+- flag:fail-fast | --fail-fast | Start no more servers after the first failure |  |  | advanced,default,choices
+- flag:interpreter | --interpreter | The interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
+- flag:pty | --pty | Ask for a pseudo-terminal (some tools need one) |  |  | advanced,default,choices
+- flag:stdin-file | --stdin-file | Send this file as stdin ('-' is komando's stdin) |  |  | optional,advanced,check
+- flag:stream | --stream | Print the output as NDJSON events while it runs |  |  | advanced,default,choices
+### komando host winrm list
+title: List the saved WinRM servers
+- arg0 | Target (servers) | Which servers? (pick all for every server) | Pick one, or type @group, tag:prod or several names separated by spaces or commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando host winrm remove
+title: Forget saved WinRM servers (the servers are not touched)
+- arg0 | Target (servers) | Which servers should come off your list? | Only komando's list changes; the servers themselves are not touched. |  | free,choices,check
+### komando host winrm rename
+title: Rename a saved winrm server and every reference to it
+- arg0 | Name | Which server do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando host winrm shell
+title: Say that a Windows server has no interactive shell here (person only)
+- arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
+- arg1 | Command | Command? (several: separate them with spaces) |  |  | optional
+### komando host winrm show
+title: Show a saved winrm server's settings (credentials as names)
+- arg0 | Name | Which server? | Pick one from your list. |  | choices,check
+### komando host winrm test
+title: Check that saved WinRM servers answer and let you in
+- arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando import
 title: Bring in what you have: ssh config, .pgpass, my.cnf, .env
 - arg0 | Source | What do you want to bring in? | One of: ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando (a file from komando export), csv. | ssh-config | choices,check
 - arg1 | File | From which file? (leave empty for the usual place) | Empty reads the usual file, like ~/.ssh/config. komando and csv need a file. | ./app/.env | optional,check
 - flag:group | --group | Put everything it adds in a group? | A group lets you pick them all later with @name. Leave empty for none. | imported | optional,free,choices
 - flag:overwrite | --overwrite | Replace entries that have the same name? | No skips a name that is in your list already. |  | default,choices
-### komando job
-title: Long-running jobs on servers: start, follow, wait for, stop
-### komando job kill
-title: Stop a job: send a signal to its process group (default TERM)
-- arg0 | Job | Which job? | A job started with `komando job start`. `komando job list` shows them. |  | free,choices,check
-- flag:signal | --signal | How should it stop? | TERM asks it to stop and clean up. KILL stops it at once, use it when TERM did not work. |  | optional,default,choices
-- flag:sudo | --sudo | Was the job started with sudo? | Then stopping it needs sudo too. |  | default,choices
-### komando job list
-title: List the jobs komando started (--refresh asks the servers)
-- flag:target | --target | Only the jobs on which servers? | Leave empty for every job komando knows. |  | optional,free,choices
-- flag:refresh | --refresh | Ask the servers whether each job still runs? | No shows what komando saw last time, which is quicker. |  | default,choices
-- flag:limit | --limit | Show at most this many jobs, newest first (0 = all) |  |  | optional,advanced,check
-### komando job logs
-title: Read a job's output, piece by piece or its last lines
-- arg0 | Job | Which job? | A job started with `komando job start`. `komando job list` shows them. |  | free,choices,check
-- flag:limit | --limit | Only the last how many lines? | Leave empty to read the output from the start. | 50 | optional,check
-- flag:max-bytes | --max-bytes | The most bytes to return, like 1MiB |  |  | optional,advanced,default,check
-- flag:offset | --offset | Byte offset to read from (use next_offset from the previous call) |  |  | optional,advanced,check
-### komando job rm
-title: Forget jobs and delete their logs on the server
-- arg0 | Job | Which jobs? | Several: separate them with spaces. `komando job list` shows them. |  | free,choices,check
-- flag:kill | --kill | Stop it first if it still runs? | No refuses to remove a job that still runs. |  | default,choices
-- flag:keep-remote | --keep-remote | Keep the job's log folder on the server |  |  | advanced,default,choices
-### komando job start
-title: Start a background job on each server TARGET picks
-- arg0 | Target (servers) | Which servers? | Pick one from your list, or type @group, tag:prod or several names separated by spaces or commas. |  | free,choices,check
-- arg1 | Command | What command should it run? | A long task that keeps running when your connection drops. Type it as you would on the server. | apt-get -y upgrade | 
-- flag:sudo | --sudo | Run it with sudo (as root)? | Say yes when it needs admin rights, like changing system files or services. |  | default,choices
-- flag:read-only | --read-only | Does it only look, without changing anything? | Yes lets it run on a production server without asking you first. Say yes only when that is true. |  | default,choices
-- flag:dir | --dir | In which folder on the server should it run? | Leave empty for the login user's home folder. | /srv/app | optional,check
-- flag:arg | --arg | With --script: an argument for the script, $1 ... (repeatable) |  |  | optional,advanced,check
-- flag:env | --env | Export KEY=VALUE before the command (repeatable) |  |  | optional,advanced,check
-- flag:interpreter | --interpreter | With --script: the interpreter on the server (default: from the #! line, else sh) |  |  | optional,advanced,check
-- flag:script | --script | Run this script from this computer as the job ('-' = komando's stdin) |  |  | optional,advanced,check
-- flag:stdin-file | --stdin-file | Send this file on this computer as the command's input ('-' = komando's stdin) |  |  | optional,advanced,check
-- flag:sudo-user | --sudo-user | Run as this user with sudo -u |  |  | optional,advanced,check
-### komando job status
-title: Show a job's state, exit code, run time and last lines
-- arg0 | Job | Which job? | A job started with `komando job start`. `komando job list` shows them. |  | free,choices,check
-- flag:tail | --tail | How many of its last output lines to show? | 0 shows none. | 20 | optional,default,check
-### komando job wait
-title: Wait until the jobs end
-- arg0 | Job | Which jobs? | Several: separate them with spaces. `komando job list` shows them. |  | free,choices,check
-- flag:interval | --interval | How often to check |  |  | optional,advanced,default,check
-- flag:tail | --tail | Also show the last N lines of output |  |  | optional,advanced,default,check
 ### komando list
 title: List servers, conns and VPNs
 - arg0 | Target | Which ones? (pick all for everything) | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | optional,free,choices,check
@@ -2300,9 +2454,6 @@ title: Copy a secret to a new name in the vault (value never shown)
 - arg0 | Old | Which secret? | The name you saved it under. komando credential list shows your saved passwords. | db-pass | free,choices,check
 - arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | db-pass-old | check
 - flag:overwrite | --overwrite | Replace the new name if it exists already? | No stops when a secret with the new name is there, so nothing is lost by mistake. |  | default,choices
-### komando shell
-title: Open a login shell on one server (person only)
-- arg0 | Server | Which server? | One server. You type on it as if you were there; type exit to come back. |  | choices,check
 ### komando snippet
 title: Ready-made and saved commands: run them, save your own
 ### komando snippet create
@@ -2337,7 +2488,7 @@ title: Print the authorized_keys line that limits a key to komando
 - flag:name | --name | What do you want to call this key? | It shows in `komando audit list` for every command the key runs. Letters, digits, dot, dash, underscore. | phone | check
 - flag:read-only | --read-only | Should the key only run commands that look, without changing anything? | Yes is safer for a phone or a shared key. |  | default,choices
 - flag:network | --network | Should this read-only key also run network checks and programs on servers? | No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only. |  | default,choices
-- flag:shell-access | --shell-access | Should this key also open a login shell on a server (ssh -t HOST komando shell SERVER)? | No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer. |  | default,choices,show
+- flag:shell-access | --shell-access | Should this key also open a login shell on a server (ssh -t HOST komando host ssh shell SERVER)? | No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer. |  | default,choices,show
 ### komando ssh-gate status
 title: Say which ssh-gate key runs this, and what it may do
 ### komando status
@@ -2984,22 +3135,6 @@ title: Check that servers, conns and VPNs answer and let you in
 - arg0 | Target | Which ones? | A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the kept sessions of the servers named (every server when none is named), instead of testing |  |  | advanced,default,choices
-### komando tunnel
-title: Background port forwarding: start, see, stop
-### komando tunnel list
-title: List tunnels and whether each is up
-- flag:limit | --limit | Show at most this many tunnels (0 = all) |  |  | optional,advanced,check
-### komando tunnel start
-title: Start a background tunnel
-- arg0 | Target (servers) | To which server or conn? | Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it. |  | free,choices,check
-- flag:port | --port | Which port on this computer? (for a conn) | Point your app at localhost and this port. Leave empty for a free one; komando shows which. | 15432 | optional,check
-- flag:local | --local | What should it forward? (for a server) | LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn. | 8080:localhost:80 | optional,check
-- flag:dynamic | --dynamic | SOCKS5 proxy [bind:]PORT |  |  | optional,advanced,check
-- flag:remote | --remote | Remote forward [rbind:]RPORT:LHOST:LPORT |  |  | optional,advanced,check
-### komando tunnel stop
-title: Stop tunnels by ID (--all for every tunnel)
-- arg0 | Tunnel | Which tunnels should stop? (leave empty with --all) | Their IDs: `komando tunnel list` shows them. Several: separate them with spaces. |  | optional,free,choices,check
-- flag:all | --all | Stop every tunnel instead? | Stop all tunnels |  | default,choices
 ### komando update
 title: Update komando to the newest release
 - arg0 | Version | Which version? (leave empty for the newest) | Empty installs the newest release. | v0.6.0 | optional,check
@@ -3012,36 +3147,24 @@ title: Cisco AnyConnect: save a VPN, connect it and check it
 ### komando vpn anyconnect add
 title: Save a Cisco AnyConnect VPN under a short name
 - arg0 | Name | Name? |  |  | check
-- arg1 | Kind | Kind? |  |  | check
-- flag:allow-pap | --allow-pap | L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (needs a person's yes) |  |  | advanced,default,choices
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:ask-psk | --ask-psk | L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref |  |  | advanced,default,choices
-- flag:ca | --ca | IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one |  |  | optional,advanced,check
-- flag:check | --check | Host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn) |  |  | optional,advanced,check
-- flag:config | --config | WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault) |  |  | optional,advanced,check
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:id | --id | IPsec: the group name; IKEv2: your identity (default: --user, or your address) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:legacy-crypto | --legacy-crypto | L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes) |  |  | advanced,default,choices
-- flag:mfa | --mfa | The login needs a person (MFA, SSO): only 'vpn up' run by a person connects it |  |  | advanced,default,choices
-- flag:notes | --notes | Free-form notes |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a VPN with the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is (Tailscale: the auth key): secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:portal | --portal | GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal |  |  | optional,advanced,check
-- flag:protected | --protected | Komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window |  |  | advanced,default,choices
-- flag:proxy-address | --proxy-address | SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port |  |  | optional,advanced,check
-- flag:psk-ref | --psk-ref | L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password), as a reference like --password-ref |  |  | optional,advanced,check
-- flag:remote-id | --remote-id | IKEv2: the server's identity, if not its --server name |  |  | optional,advanced,check
-- flag:server | --server | L2TP, IPsec, IKEv2: the VPN server (host or host:port); Tailscale: a Headscale login server URL |  |  | optional,advanced,check
-- flag:service | --service | System VPN: its name in your computer's settings, so 'vpn up' can connect it |  |  | optional,advanced,check
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:check | --check | Host:port reachable only through this VPN (start and test connect to it) |  |  | optional,advanced,check
+- flag:credential | --credential | The credential holding the login password |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:mfa | --mfa | A person answers the second factor at each connect |  |  | advanced,default,choices
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:portal | --portal | The VPN server or portal |  |  | optional,advanced,check
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
 - flag:user | --user | User name for the VPN login |  |  | optional,advanced,check
 ### komando vpn anyconnect edit
 title: Change saved Cisco AnyConnect VPNs (only the flags you give)
 - arg0 | Target (VPNs) | Which VPN? | One from your list. `komando list` shows them. |  | free,choices,check
 - flag:check | --check | Which address can only be reached through this VPN? | An address and port inside the private network. komando connects to it to see that the VPN works. Leave empty to keep it. | 10.0.0.5:22 | optional,check
 - flag:user | --user | New user name for the VPN login? | Leave empty to keep it. | alice | optional,check
-- flag:password-ref | --password-ref | Where is the new password kept? | Store it first with `komando credential password add NAME` (it asks hidden), then type secret:NAME here. Leave empty to keep it. | secret:office-pass | optional,check
+- flag:credential | --credential | Which credential holds the new password? | Save it first as a credential (it asks hidden), then type its name here. Leave empty to keep it. | office-pass | optional,check
 - flag:notes | --notes | Notes about this VPN? | Anything to remember. Leave empty to keep them. | office in Jakarta, ask Budi for access | optional,check
 - flag:add-group | --add-group | Put it in these groups |  |  | optional,advanced,check
 - flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
@@ -3986,7 +4109,7 @@ title: Add a Snowflake database
 - user | User | Which Snowflake user do you log in as? | A user for komando that may only read is safest. Names are usually in capitals. | APP_RO | check
 - login | Login | How does this user log in? | Snowflake takes no passwords here: a key pair or a programmatic access token. Browser sign-in (SSO) does not work. |  | default,choices
 - keyfile | Key file | Where is the private key file? | A .p8 or .pem file without a passphrase. komando reads it each time, so leave it where it is. | ~/keys/rsa_key.p8 | show,check
-- secret | Saved key | Which saved secret holds the key or the token? | A name from komando credential list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
+- secret | Saved key | Which saved secret holds the key or the token? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - warehouse | Warehouse | Which warehouse runs the queries? | Most queries need one. Empty is fine for a first test. | REPORTING | optional,check
 - database | Database | Which database should commands use? | Empty for none: then write DATABASE.SCHEMA.TABLE in queries. | ANALYTICS | optional,check
 - schema | Schema | Which schema inside it? | Empty for none. | PUBLIC | optional,show,check
@@ -4022,7 +4145,7 @@ title: Add a Redis cache
 - port | Port | Which port does it listen on? | The usual Redis port is 6379. Change it only if your provider shows another (Azure uses 6380). |  | default,check
 - tls | Encryption | Does the cache use TLS (an encrypted connection)? | Cloud caches usually do: their connection string starts with rediss://. Not sure? Ask your provider. |  | default,choices,show
 - password | Password | Does the cache need a password? | The requirepass or ACL password, from your provider or redis.conf. |  | default,choices
-- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
+- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - protected | Production | Can a mistake on this cache hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - tlsvia | Encryption | Does the cache use TLS (an encrypted connection)? | Usually not through a server. Yes only when the cache itself asks for TLS. |  | advanced,default,choices,show
 - user | User | Which user do you log in as? | Only for Redis 6 or newer with ACL users. Empty when you only have a password. | app | optional,advanced,check
@@ -4044,7 +4167,7 @@ title: Add a Memcached cache
 - protected | Production | Can a mistake on this cache hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - tlsvia | Encryption | Does the cache use TLS (an encrypted connection)? | Usually not through a server. Yes only when the cache itself asks for TLS. |  | advanced,default,choices,show
 - password | Password | Does the cache need a login? | Only for Memcached started with -Y (a file of users), version 1.5.15 or newer. Most have none. |  | advanced,default,choices
-- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or where it is kept, like secret:NAME or env:VAR. |  | advanced,free,choices,show,check
+- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or credential:NAME. |  | advanced,free,choices,show,check
 - user | User | Which user do you log in as? | A user name from the file Memcached was started with (-Y). | app | advanced,show,check
 - ca | CA certificate | Which saved CA certificate should komando trust? | Only for a certificate from your own CA. Save it first: komando credential token add NAME < ca.crt. Empty for none. |  | optional,advanced,free,choices,show,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4060,7 +4183,7 @@ title: Add a Kafka cluster
 - user | User | Which user do you log in as? | The SASL user. With Confluent Cloud: the API key. | app | show,check
 - sasl | Login method | Which login method do the brokers want? | Shown in the cluster's client settings as sasl.mechanism. Confluent Cloud uses PLAIN. |  | default,choices,show
 - password | Password | How does komando get the password? | Either way it never shows here. With Confluent Cloud the password is the API secret. |  | default,choices,show
-- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
+- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - protected | Production | Can a mistake on this Kafka cluster hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - ca | CA certificate | Which saved CA certificate should komando trust? | Only for a certificate from your own CA. Save it first: komando credential token add NAME < ca.crt. Empty for none. |  | optional,advanced,free,choices,show,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4076,7 +4199,7 @@ title: Add a RabbitMQ server
 - vhost | Virtual host | Which virtual host (vhost)? | One server holds several vhosts. Most use the default, /. | / | default
 - user | User | Which user do you log in as? | Empty logs in as guest, which RabbitMQ lets in only from the server itself. | app | optional,check
 - password | Password | How does komando get the password? | Either way it never shows here. With Confluent Cloud the password is the API secret. |  | default,choices,show
-- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
+- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - management | Management port | Which port does the management plugin use? | topic list and message list need it: message list reads a queue's type and delivery limit there, so it never makes a quorum queue drop a message. Usually 15671 with TLS, 15672 without; empty when the plugin is off. |  | optional,default,check
 - protected | Production | Can a mistake on this RabbitMQ server hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - ca | CA certificate | Which saved CA certificate should komando trust? | Only for a certificate from your own CA. Save it first: komando credential token add NAME < ca.crt. Empty for none. |  | optional,advanced,free,choices,show,check
@@ -4092,7 +4215,7 @@ title: Add a NATS server
 - login | Login | How do you log in? | Whoever runs the server gave you one of these. |  | default,choices
 - user | User | Which user do you log in as? |  | app | show,check
 - password | Password | How does komando get the password? | Either way it never shows here. With Confluent Cloud the password is the API secret. |  | default,choices,show
-- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or where it is kept, like secret:NAME or env:VAR. |  | free,choices,show,check
+- secret | Saved password | Which saved secret holds the password? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - creds | Creds file | Which saved secret holds the .creds file? | Save it first with komando credential token add NAME < user.creds, then pick it here. |  | free,choices,show,check
 - protected | Production | Can a mistake on this NATS server hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - domain | JetStream domain | Which JetStream domain? | Only for a leaf node with its own JetStream. Empty for the usual one. | hub | optional,advanced,check
@@ -4365,7 +4488,7 @@ title: Add a GlobalProtect VPN
 - portal | Address | What is the VPN's address? | The Portal address in the GlobalProtect app. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4376,7 +4499,7 @@ title: Add a FortiClient VPN
 - portal | Address | What is the VPN's address? | The Remote Gateway in FortiClient. Add :port when FortiClient shows one, like :10443. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4387,7 +4510,7 @@ title: Add a Cisco AnyConnect VPN
 - portal | Address | What is the VPN's address? | The address in the AnyConnect connect box, sometimes with /group at the end. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4398,7 +4521,7 @@ title: Add a Pulse Secure or Ivanti VPN
 - portal | Address | What is the VPN's address? | The server URL in the Pulse Secure or Ivanti app. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4409,7 +4532,7 @@ title: Add a F5 BIG-IP VPN
 - portal | Address | What is the VPN's address? | The server address in the F5 Access app, or the page you sign in on. Your company's IT team knows it too. | vpn.example.com | addr,check
 - user | User | What is your VPN user name? | Usually your work login. Empty to type it each time you connect. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4428,7 +4551,7 @@ title: Add an OpenVPN VPN
 - check | Test address | Which address can only be reached through this VPN? | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. | 10.8.0.1:22 | check
 - user | User | What is your VPN user name? | This file logs in with a user name and password. | budi | show,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - mfa | Extra sign-in step | After the password, does logging in need one more step? | With an extra step you connect it yourself with komando vpn KIND start NAME; later commands reuse that connection. |  | default,choices,show
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
@@ -4445,10 +4568,10 @@ title: Add an L2TP/IPsec VPN
 - name | Name | What do you want to call this VPN? | A short name you type later, like komando test office. Letters, digits, dot, dash, underscore. | office | check
 - server | Server | What is the VPN server's address? | A host name or IP address from your admin, or from the VPN settings on your phone or laptop. | vpn.example.com | addr,check
 - psk | Shared secret | How should komando get the shared secret (pre-shared key)? | One password for the whole office, often called IPsec secret or PSK. Your admin gives it to you. |  | default,choices
-- pskref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- pskref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - user | User | What is your VPN user name? | Your own login on the VPN, from your admin. | budi | check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - legacy | Old encryption | Is it an old server that needs old, weak encryption (3DES)? | Only when connecting fails and your admin says the server is old. komando asks you to confirm it. |  | advanced,default,choices
 - pap | Weak login | Does the old server only take a weak login (PAP, CHAP-MD5 or none)? | These do not prove the server is real, and PAP hands it your password itself. Only when your admin says so; komando asks you to confirm it. |  | advanced,default,choices
@@ -4460,10 +4583,10 @@ title: Add a Cisco IPsec VPN
 - server | Server | What is the VPN server's address? | A host name or IP address from your admin, or from the VPN settings on your phone or laptop. | vpn.example.com | addr,check
 - id | Group | What is the group name? | In the Cisco VPN settings it is called Group or Group name. Empty if you have none. | staff | optional
 - psk | Group password | How should komando get the group password? | The password that belongs to the group name, not your own. Your admin gives it to you. |  | default,choices
-- pskref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- pskref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - user | User | What is your VPN user name? | Your own login on the VPN. Empty if it has none. | budi | optional,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - legacy | Old encryption | Is it an old server that needs old, weak encryption (3DES)? | Only when connecting fails and your admin says the server is old. komando asks you to confirm it. |  | advanced,default,choices
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4474,10 +4597,10 @@ title: Add an IKEv2 VPN
 - server | Server | What is the VPN server's address? | A host name or IP address from your admin, or from the VPN settings on your phone or laptop. | vpn.example.com | addr,check
 - auth | Login | How do you log in? |  |  | default,choices
 - psk | Shared secret | How should komando get the shared secret (pre-shared key)? | Your admin gives it to you; it is often called PSK. |  | default,choices,show
-- pskref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- pskref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - user | User | What is your VPN user name? | Your own login on the VPN. | budi | show,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
 - check | Test address | Which address can only be reached through this VPN? (optional) | An address and port inside the private network, like a server's private IP and port 22. komando connects to it to see that the VPN works. Enter skips it. | 10.0.0.5:22 | optional,check
 - ca | Certificate | Did your admin give you the server's certificate file? | A .pem or .crt file. Empty when the server has a normal public certificate. | ~/Downloads/vpn-ca.pem | optional,advanced,check
 - id | Your identity | Does the server know you by another name than your user name? | Only when your admin gives you an identity. Empty uses your user name. | budi@example.com | optional,advanced
@@ -4497,7 +4620,7 @@ title: Add a SOCKS proxy
 - address | Address | What is the proxy's address? | Its address and port. For komando host ssh tunnel start web1 -D 1080 it is 127.0.0.1:1080. | 127.0.0.1:1080 | addr,check
 - user | User | What is your VPN user name? | Only when the proxy asks for a login. Empty for none. | budi | optional,advanced,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | advanced,default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | advanced,free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | advanced,free,choices,show,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced
 ### add form: VPN / HTTP proxy
@@ -4506,6 +4629,6 @@ title: Add an HTTP proxy
 - address | Address | What is the proxy's address? | Its address and port, from your browser's proxy settings or your IT team. | proxy.example.com:3128 | addr,check
 - user | User | What is your VPN user name? | Only when the proxy asks for a login. Empty for none. | budi | optional,advanced,check
 - pass | Password | How should komando get your VPN password? | The password is never shown and never written in the command. |  | advanced,default,choices,show
-- ref | Saved secret | Which saved secret holds it? | A name from komando secret list, or credential:NAME. |  | advanced,free,choices,show,check
+- ref | Saved secret | Which saved secret holds it? | A name from komando credential list, or credential:NAME. |  | advanced,free,choices,show,check
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
 - notes | Notes | Any notes for later? | Free text, shown in komando show and to AI agents. Never put a password here. |  | optional,advanced

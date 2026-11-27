@@ -460,6 +460,42 @@
     },
     "ok": "bool"
   },
+  "copy web:/etc/hosts - --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "copy web:/etc/hosts web:/tmp/hosts --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "credential key list": {
     "command": "string",
     "data": {
@@ -511,24 +547,6 @@
     },
     "ok": "bool"
   },
-  "copy web:/etc/hosts - --dry-run": {
-    "command": "string",
-    "data": {
-      "direction": "string",
-      "dst": "string",
-      "hosts": [
-        "string"
-      ],
-      "src": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "credential password add pg-pass --new --from-env PG_PASS": {
     "command": "string",
     "error": {
@@ -555,58 +573,6 @@
     },
     "meta": {
       "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "copy web:/etc/hosts web:/tmp/hosts --dry-run": {
-    "command": "string",
-    "data": {
-      "direction": "string",
-      "dst": "string",
-      "hosts": [
-        "string"
-      ],
-      "src": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "exec web -- rm -rf /": {
-    "command": "string",
-    "error": {
-      "code": "code POLICY_BLOCKED",
-      "hint": "string",
-      "message": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "exec web --dry-run -- uptime": {
-    "command": "string",
-    "data": {
-      "would_run": [
-        {
-          "address": "string",
-          "host": "string",
-          "remote_command": "string",
-          "stdin_bytes": "number"
-        }
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },
@@ -707,6 +673,137 @@
     },
     "ok": "bool"
   },
+  "facts web (recorded)": {
+    "command": "string",
+    "data": {
+      "results": [
+        {
+          "data": {
+            "arch": "string",
+            "cpus": "number",
+            "custom_units": [
+              {
+                "active": "string",
+                "enabled": "string",
+                "unit": "string"
+              }
+            ],
+            "disk_root_total_gb": "number",
+            "disk_root_used_pct": "number",
+            "disks": [
+              {
+                "avail_mb": "number",
+                "device": "string",
+                "mount": "string",
+                "size_mb": "number",
+                "used_mb": "number",
+                "used_pct": "number"
+              }
+            ],
+            "docker": {
+              "containers_running": "number",
+              "daemon_reachable": "bool",
+              "installed": "bool",
+              "server_version": "string",
+              "swarm": "string",
+              "version": "string"
+            },
+            "failed_units": "number",
+            "hostname": "string",
+            "init": "string",
+            "ips": [
+              "string"
+            ],
+            "kernel": "string",
+            "listening": {
+              "ports": [
+                {
+                  "address": "string",
+                  "pid": "number",
+                  "port": "number",
+                  "process": "string",
+                  "proto": "string"
+                }
+              ],
+              "process_names": "string",
+              "source": "string"
+            },
+            "load": [
+              "number"
+            ],
+            "login_user": "string",
+            "mem_available_mb": "number",
+            "mem_total_mb": "number",
+            "os": "string",
+            "os_pretty": "string",
+            "os_support": {
+              "dates_checked": "string",
+              "esm_enabled": "bool",
+              "extended_by": "string",
+              "extended_support_until": "string",
+              "past_standard_support": "bool",
+              "standard_support_until": "string",
+              "status": "string"
+            },
+            "os_version": "string",
+            "pkg_manager": "string",
+            "pm2": {
+              "apps": [
+                {
+                  "cpu_pct": "number",
+                  "memory_mb": "number",
+                  "mode": "string",
+                  "name": "string",
+                  "pid": "number",
+                  "restarts": "number",
+                  "status": "string"
+                }
+              ],
+              "apps_of": "string",
+              "daemon_users": [
+                "string"
+              ],
+              "pm2_in_path": "bool"
+            },
+            "reboot_packages": [
+              "string"
+            ],
+            "reboot_required": "bool",
+            "services_need_restart": [
+              "string"
+            ],
+            "sudo_nopasswd": "bool",
+            "time_utc": "string",
+            "timezone": "string",
+            "tools": [
+              "string"
+            ],
+            "updates": {
+              "index_age_days": "number",
+              "security": "null",
+              "source": "string",
+              "total": "number"
+            },
+            "uptime_sec": "number",
+            "users_logged_in": "number",
+            "virt": "string",
+            "warnings": [
+              "string"
+            ]
+          },
+          "exit_code": "number",
+          "host": "string",
+          "ok": "bool"
+        }
+      ],
+      "summary": {
+        "failed": "number",
+        "ok": "number",
+        "total": "number"
+      }
+    },
+    "ok": "bool"
+  },
   "group list": {
     "command": "string",
     "data": {
@@ -728,7 +825,7 @@
     },
     "ok": "bool"
   },
-  "host edit web --port 2222 --dry-run": {
+  "host ssh edit web --port 2222 --dry-run": {
     "command": "string",
     "data": {
       "address": "string",
@@ -754,7 +851,41 @@
     },
     "ok": "bool"
   },
-  "host list": {
+  "host ssh exec web -- rm -rf /": {
+    "command": "string",
+    "error": {
+      "code": "code POLICY_BLOCKED",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh exec web --dry-run -- uptime": {
+    "command": "string",
+    "data": {
+      "would_run": [
+        {
+          "address": "string",
+          "host": "string",
+          "remote_command": "string",
+          "stdin_bytes": "number"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh list": {
     "command": "string",
     "data": {
       "count": "number",
@@ -781,7 +912,7 @@
     },
     "ok": "bool"
   },
-  "host rm web --dry-run": {
+  "host ssh remove web --dry-run": {
     "command": "string",
     "data": {
       "would_remove": [
@@ -796,7 +927,7 @@
     },
     "ok": "bool"
   },
-  "host show nope": {
+  "host ssh show nope": {
     "command": "string",
     "error": {
       "code": "code TARGET_NOT_FOUND",
@@ -810,7 +941,7 @@
     },
     "ok": "bool"
   },
-  "host show web": {
+  "host ssh show web": {
     "command": "string",
     "data": {
       "address": "string",
@@ -833,22 +964,7 @@
     },
     "ok": "bool"
   },
-  "host ssh-command web": {
-    "command": "string",
-    "data": {
-      "argv": [
-        "string"
-      ],
-      "command": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "host trust web --dry-run": {
+  "host ssh trust web --dry-run": {
     "command": "string",
     "data": {
       "results": [
@@ -867,7 +983,7 @@
     },
     "ok": "bool"
   },
-  "host trust web --fingerprint SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc --dry-run": {
+  "host ssh trust web --fingerprint SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc --dry-run": {
     "command": "string",
     "data": {
       "results": [
@@ -882,6 +998,34 @@
     "meta": {
       "contract": "number",
       "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh tunnel list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "tunnels": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh-command web": {
+    "command": "string",
+    "data": {
+      "argv": [
+        "string"
+      ],
+      "command": "string"
+    },
+    "meta": {
+      "contract": "number",
       "duration_ms": "number",
       "version": "string"
     },
@@ -1144,137 +1288,6 @@
     },
     "ok": "bool"
   },
-  "facts web (recorded)": {
-    "command": "string",
-    "data": {
-      "results": [
-        {
-          "data": {
-            "arch": "string",
-            "cpus": "number",
-            "custom_units": [
-              {
-                "active": "string",
-                "enabled": "string",
-                "unit": "string"
-              }
-            ],
-            "disk_root_total_gb": "number",
-            "disk_root_used_pct": "number",
-            "disks": [
-              {
-                "avail_mb": "number",
-                "device": "string",
-                "mount": "string",
-                "size_mb": "number",
-                "used_mb": "number",
-                "used_pct": "number"
-              }
-            ],
-            "docker": {
-              "containers_running": "number",
-              "daemon_reachable": "bool",
-              "installed": "bool",
-              "server_version": "string",
-              "swarm": "string",
-              "version": "string"
-            },
-            "failed_units": "number",
-            "hostname": "string",
-            "init": "string",
-            "ips": [
-              "string"
-            ],
-            "kernel": "string",
-            "listening": {
-              "ports": [
-                {
-                  "address": "string",
-                  "pid": "number",
-                  "port": "number",
-                  "process": "string",
-                  "proto": "string"
-                }
-              ],
-              "process_names": "string",
-              "source": "string"
-            },
-            "load": [
-              "number"
-            ],
-            "login_user": "string",
-            "mem_available_mb": "number",
-            "mem_total_mb": "number",
-            "os": "string",
-            "os_pretty": "string",
-            "os_support": {
-              "dates_checked": "string",
-              "esm_enabled": "bool",
-              "extended_by": "string",
-              "extended_support_until": "string",
-              "past_standard_support": "bool",
-              "standard_support_until": "string",
-              "status": "string"
-            },
-            "os_version": "string",
-            "pkg_manager": "string",
-            "pm2": {
-              "apps": [
-                {
-                  "cpu_pct": "number",
-                  "memory_mb": "number",
-                  "mode": "string",
-                  "name": "string",
-                  "pid": "number",
-                  "restarts": "number",
-                  "status": "string"
-                }
-              ],
-              "apps_of": "string",
-              "daemon_users": [
-                "string"
-              ],
-              "pm2_in_path": "bool"
-            },
-            "reboot_packages": [
-              "string"
-            ],
-            "reboot_required": "bool",
-            "services_need_restart": [
-              "string"
-            ],
-            "sudo_nopasswd": "bool",
-            "time_utc": "string",
-            "timezone": "string",
-            "tools": [
-              "string"
-            ],
-            "updates": {
-              "index_age_days": "number",
-              "security": "null",
-              "source": "string",
-              "total": "number"
-            },
-            "uptime_sec": "number",
-            "users_logged_in": "number",
-            "virt": "string",
-            "warnings": [
-              "string"
-            ]
-          },
-          "exit_code": "number",
-          "host": "string",
-          "ok": "bool"
-        }
-      ],
-      "summary": {
-        "failed": "number",
-        "ok": "number",
-        "total": "number"
-      }
-    },
-    "ok": "bool"
-  },
   "snippet list": {
     "command": "string",
     "data": {
@@ -1407,19 +1420,6 @@
       "code": "code STORAGE_UNSUPPORTED",
       "hint": "string",
       "message": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "tunnel list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "tunnels": []
     },
     "meta": {
       "contract": "number",

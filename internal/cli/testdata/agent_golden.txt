@@ -2225,49 +2225,25 @@ Hint: for example: komando credential key edit work --passphrase-credential work
 ### komando -o json credential key install (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes [NAME] TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text credential key install (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: credential key install takes NAME TARGET
+Error: credential key install takes [NAME] TARGET
 Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
 (code USAGE, exit 2)
 ### komando -o json credential key install (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes [NAME] TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text credential key install (script text)
 exit 2
 --- stdout
 --- stderr
-Error: credential key install takes NAME TARGET
-Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
-(code USAGE, exit 2)
-### komando -o json credential key install x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text credential key install x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: credential key install takes NAME TARGET
-Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
-(code USAGE, exit 2)
-### komando -o json credential key install x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text credential key install x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: credential key install takes NAME TARGET
+Error: credential key install takes [NAME] TARGET
 Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
 (code USAGE, exit 2)
 ### komando -o json credential key remove (agent json)
@@ -2537,26 +2513,26 @@ Hint: for example: komando credential password show db-pass (more in `komando cr
 ### komando -o json credential run (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"credential.run","error":{"code":"USAGE","message":"credential run takes -- COMMAND...","hint":"for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.run","error":{"code":"USAGE","message":"credential run takes -- COMMAND...","hint":"for example: komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh (more in `komando credential run --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text credential run (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: credential run takes -- COMMAND...
-Hint: for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)
+Hint: for example: komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh (more in `komando credential run --help`)
 (code USAGE, exit 2)
 ### komando -o json credential run (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"credential.run","error":{"code":"USAGE","message":"credential run takes -- COMMAND...","hint":"for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.run","error":{"code":"USAGE","message":"credential run takes -- COMMAND...","hint":"for example: komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh (more in `komando credential run --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text credential run (script text)
 exit 2
 --- stdout
 --- stderr
 Error: credential run takes -- COMMAND...
-Hint: for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)
+Hint: for example: komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh (more in `komando credential run --help`)
 (code USAGE, exit 2)
 ### komando -o json credential token add (agent json)
 exit 2
@@ -5822,30 +5798,6 @@ exit 2
 Error: missing arguments; usage: komando docker stop TARGET CONTAINER...
 Hint: for example: komando docker stop web1 api
 (code USAGE, exit 2)
-### komando -o json exec (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"missing arguments; usage: komando exec TARGET [-- COMMAND...]","hint":"for example: komando exec web1 -- uptime"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text exec (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando exec TARGET [-- COMMAND...]
-Hint: for example: komando exec web1 -- uptime
-(code USAGE, exit 2)
-### komando -o json exec (script json)
-exit 2
---- stdout
-{"ok":false,"command":"exec","error":{"code":"USAGE","message":"missing arguments; usage: komando exec TARGET [-- COMMAND...]","hint":"for example: komando exec web1 -- uptime"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text exec (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando exec TARGET [-- COMMAND...]
-Hint: for example: komando exec web1 -- uptime
-(code USAGE, exit 2)
 ### komando -o json fs cat (agent json)
 exit 2
 --- stdout
@@ -6446,149 +6398,269 @@ exit 2
 Error: group show takes GROUP
 Hint: for example: komando group show web (more in `komando group show --help`)
 (code USAGE, exit 2)
-### komando -o json host add (agent json)
+### komando -o json host ssh add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"komando host add needs a name and what to add","hint":"for example: komando host add web1 deploy@10.0.0.5. A person can type `komando host add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"komando host ssh add needs a name and what to add","hint":"for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host add (agent text)
+### komando -o text host ssh add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: komando host add needs a name and what to add
-Hint: for example: komando host add web1 deploy@10.0.0.5. A person can type `komando host add` alone at a terminal to be asked step by step
+Error: komando host ssh add needs a name and what to add
+Hint: for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
-### komando -o json host add (script json)
+### komando -o json host ssh add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.add","error":{"code":"USAGE","message":"komando host add needs a name and what to add","hint":"for example: komando host add web1 deploy@10.0.0.5. A person can type `komando host add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.add","error":{"code":"USAGE","message":"komando host ssh add needs a name and what to add","hint":"for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host add (script text)
+### komando -o text host ssh add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: komando host add needs a name and what to add
-Hint: for example: komando host add web1 deploy@10.0.0.5. A person can type `komando host add` alone at a terminal to be asked step by step
+Error: komando host ssh add needs a name and what to add
+Hint: for example: komando host ssh add web1 deploy@10.0.0.5. A person can type `komando host ssh add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
-### komando -o json host edit (agent json)
+### komando -o json host ssh edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.edit","error":{"code":"USAGE","message":"host ssh edit takes TARGET...","hint":"for example: komando host ssh edit web1 --add-tag canary --label env=prod (more in `komando host ssh edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host edit (agent text)
+### komando -o text host ssh edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host edit TARGET...
-Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo
+Error: host ssh edit takes TARGET...
+Hint: for example: komando host ssh edit web1 --add-tag canary --label env=prod (more in `komando host ssh edit --help`)
 (code USAGE, exit 2)
-### komando -o json host edit (script json)
+### komando -o json host ssh edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando host edit TARGET...","hint":"for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.edit","error":{"code":"USAGE","message":"host ssh edit takes TARGET...","hint":"for example: komando host ssh edit web1 --add-tag canary --label env=prod (more in `komando host ssh edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host edit (script text)
+### komando -o text host ssh edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host edit TARGET...
-Hint: for example: komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo
+Error: host ssh edit takes TARGET...
+Hint: for example: komando host ssh edit web1 --add-tag canary --label env=prod (more in `komando host ssh edit --help`)
 (code USAGE, exit 2)
-### komando -o json host rename (agent json)
+### komando -o json host ssh exec (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"host ssh exec takes TARGET [-- COMMAND...]","hint":"for example: komando host ssh exec web1 -- uptime (more in `komando host ssh exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rename (agent text)
+### komando -o text host ssh exec (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rename OLD NEW
-Hint: for example: komando host rename web1 web-01
+Error: host ssh exec takes TARGET [-- COMMAND...]
+Hint: for example: komando host ssh exec web1 -- uptime (more in `komando host ssh exec --help`)
 (code USAGE, exit 2)
-### komando -o json host rename (script json)
+### komando -o json host ssh exec (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"USAGE","message":"host ssh exec takes TARGET [-- COMMAND...]","hint":"for example: komando host ssh exec web1 -- uptime (more in `komando host ssh exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rename (script text)
+### komando -o text host ssh exec (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rename OLD NEW
-Hint: for example: komando host rename web1 web-01
+Error: host ssh exec takes TARGET [-- COMMAND...]
+Hint: for example: komando host ssh exec web1 -- uptime (more in `komando host ssh exec --help`)
 (code USAGE, exit 2)
-### komando -o json host rename x1 (agent json)
+### komando -o json host ssh remove (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.remove","error":{"code":"USAGE","message":"host ssh remove takes TARGET...","hint":"for example: komando host ssh remove web3 --dry-run (more in `komando host ssh remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rename x1 (agent text)
+### komando -o text host ssh remove (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rename OLD NEW
-Hint: for example: komando host rename web1 web-01
+Error: host ssh remove takes TARGET...
+Hint: for example: komando host ssh remove web3 --dry-run (more in `komando host ssh remove --help`)
 (code USAGE, exit 2)
-### komando -o json host rename x1 (script json)
+### komando -o json host ssh remove (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.remove","error":{"code":"USAGE","message":"host ssh remove takes TARGET...","hint":"for example: komando host ssh remove web3 --dry-run (more in `komando host ssh remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rename x1 (script text)
+### komando -o text host ssh remove (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rename OLD NEW
-Hint: for example: komando host rename web1 web-01
+Error: host ssh remove takes TARGET...
+Hint: for example: komando host ssh remove web3 --dry-run (more in `komando host ssh remove --help`)
 (code USAGE, exit 2)
-### komando -o json host rm (agent json)
+### komando -o json host ssh rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host rm TARGET...","hint":"for example: komando host rm web3"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.rename","error":{"code":"USAGE","message":"host ssh rename takes NAME NEW","hint":"for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rm (agent text)
+### komando -o text host ssh rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rm TARGET...
-Hint: for example: komando host rm web3
+Error: host ssh rename takes NAME NEW
+Hint: for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)
 (code USAGE, exit 2)
-### komando -o json host rm (script json)
+### komando -o json host ssh rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host rm TARGET...","hint":"for example: komando host rm web3"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.rename","error":{"code":"USAGE","message":"host ssh rename takes NAME NEW","hint":"for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host rm (script text)
+### komando -o text host ssh rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host rm TARGET...
-Hint: for example: komando host rm web3
+Error: host ssh rename takes NAME NEW
+Hint: for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)
 (code USAGE, exit 2)
-### komando -o json host show (agent json)
+### komando -o json host ssh rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.show","error":{"code":"USAGE","message":"missing arguments; usage: komando host show NAME","hint":"for example: komando host show web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.rename","error":{"code":"USAGE","message":"host ssh rename takes NAME NEW","hint":"for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host show (agent text)
+### komando -o text host ssh rename x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host show NAME
-Hint: for example: komando host show web1
+Error: host ssh rename takes NAME NEW
+Hint: for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)
 (code USAGE, exit 2)
-### komando -o json host show (script json)
+### komando -o json host ssh rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.show","error":{"code":"USAGE","message":"missing arguments; usage: komando host show NAME","hint":"for example: komando host show web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.rename","error":{"code":"USAGE","message":"host ssh rename takes NAME NEW","hint":"for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host show (script text)
+### komando -o text host ssh rename x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host show NAME
-Hint: for example: komando host show web1
+Error: host ssh rename takes NAME NEW
+Hint: for example: komando host ssh rename web1 web-01 --dry-run (more in `komando host ssh rename --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.shell","error":{"code":"USAGE","message":"host ssh shell takes SERVER [-- COMMAND...]","hint":"for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh shell takes SERVER [-- COMMAND...]
+Hint: for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.shell","error":{"code":"USAGE","message":"host ssh shell takes SERVER [-- COMMAND...]","hint":"for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh shell takes SERVER [-- COMMAND...]
+Hint: for example: komando host ssh shell web1 (more in `komando host ssh shell --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.show","error":{"code":"USAGE","message":"host ssh show takes NAME","hint":"for example: komando host ssh show web1 (more in `komando host ssh show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh show takes NAME
+Hint: for example: komando host ssh show web1 (more in `komando host ssh show --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.show","error":{"code":"USAGE","message":"host ssh show takes NAME","hint":"for example: komando host ssh show web1 (more in `komando host ssh show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh show takes NAME
+Hint: for example: komando host ssh show web1 (more in `komando host ssh show --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.test","error":{"code":"USAGE","message":"host ssh test takes TARGET","hint":"for example: komando host ssh test @web (more in `komando host ssh test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh test takes TARGET
+Hint: for example: komando host ssh test @web (more in `komando host ssh test --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.test","error":{"code":"USAGE","message":"host ssh test takes TARGET","hint":"for example: komando host ssh test @web (more in `komando host ssh test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh test takes TARGET
+Hint: for example: komando host ssh test @web (more in `komando host ssh test --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh trust (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.trust","error":{"code":"USAGE","message":"host ssh trust takes TARGET","hint":"for example: komando host ssh trust web1 (more in `komando host ssh trust --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh trust (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh trust takes TARGET
+Hint: for example: komando host ssh trust web1 (more in `komando host ssh trust --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh trust (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.trust","error":{"code":"USAGE","message":"host ssh trust takes TARGET","hint":"for example: komando host ssh trust web1 (more in `komando host ssh trust --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh trust (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh trust takes TARGET
+Hint: for example: komando host ssh trust web1 (more in `komando host ssh trust --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh tunnel start (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.tunnel.start","error":{"code":"USAGE","message":"host ssh tunnel start takes TARGET","hint":"for example: komando host ssh tunnel start prod-db --dry-run (more in `komando host ssh tunnel start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh tunnel start (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh tunnel start takes TARGET
+Hint: for example: komando host ssh tunnel start prod-db --dry-run (more in `komando host ssh tunnel start --help`)
+(code USAGE, exit 2)
+### komando -o json host ssh tunnel start (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ssh.tunnel.start","error":{"code":"USAGE","message":"host ssh tunnel start takes TARGET","hint":"for example: komando host ssh tunnel start prod-db --dry-run (more in `komando host ssh tunnel start --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ssh tunnel start (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host ssh tunnel start takes TARGET
+Hint: for example: komando host ssh tunnel start prod-db --dry-run (more in `komando host ssh tunnel start --help`)
 (code USAGE, exit 2)
 ### komando -o json host ssh-command (agent json)
 exit 2
@@ -6614,53 +6686,221 @@ exit 2
 Error: missing arguments; usage: komando host ssh-command NAME
 Hint: for example: komando host ssh-command web1
 (code USAGE, exit 2)
-### komando -o json host test (agent json)
+### komando -o json host winrm add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"test","error":{"code":"USAGE","message":"missing arguments; usage: komando host test TARGET","hint":"for example: komando host test web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.add","error":{"code":"USAGE","message":"komando host winrm add needs a name and what to add","hint":"for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host test (agent text)
+### komando -o text host winrm add (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host test TARGET
-Hint: for example: komando host test web1
+Error: komando host winrm add needs a name and what to add
+Hint: for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
-### komando -o json host test (script json)
+### komando -o json host winrm add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"test","error":{"code":"USAGE","message":"missing arguments; usage: komando host test TARGET","hint":"for example: komando host test web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.add","error":{"code":"USAGE","message":"komando host winrm add needs a name and what to add","hint":"for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host test (script text)
+### komando -o text host winrm add (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host test TARGET
-Hint: for example: komando host test web1
+Error: komando host winrm add needs a name and what to add
+Hint: for example: komando host winrm add web1 deploy@10.0.0.5. A person can type `komando host winrm add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
-### komando -o json host trust (agent json)
+### komando -o json host winrm edit (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.trust","error":{"code":"USAGE","message":"missing arguments; usage: komando host trust TARGET","hint":"for example: komando host trust web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.edit","error":{"code":"USAGE","message":"host winrm edit takes TARGET...","hint":"for example: komando host winrm edit web1 --add-tag canary --label env=prod (more in `komando host winrm edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host trust (agent text)
+### komando -o text host winrm edit (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host trust TARGET
-Hint: for example: komando host trust web1
+Error: host winrm edit takes TARGET...
+Hint: for example: komando host winrm edit web1 --add-tag canary --label env=prod (more in `komando host winrm edit --help`)
 (code USAGE, exit 2)
-### komando -o json host trust (script json)
+### komando -o json host winrm edit (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.trust","error":{"code":"USAGE","message":"missing arguments; usage: komando host trust TARGET","hint":"for example: komando host trust web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.winrm.edit","error":{"code":"USAGE","message":"host winrm edit takes TARGET...","hint":"for example: komando host winrm edit web1 --add-tag canary --label env=prod (more in `komando host winrm edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text host trust (script text)
+### komando -o text host winrm edit (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando host trust TARGET
-Hint: for example: komando host trust web1
+Error: host winrm edit takes TARGET...
+Hint: for example: komando host winrm edit web1 --add-tag canary --label env=prod (more in `komando host winrm edit --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm exec (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.exec","error":{"code":"USAGE","message":"host winrm exec takes TARGET [-- COMMAND...]","hint":"for example: komando host winrm exec web1 -- uptime (more in `komando host winrm exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm exec (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm exec takes TARGET [-- COMMAND...]
+Hint: for example: komando host winrm exec web1 -- uptime (more in `komando host winrm exec --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm exec (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.exec","error":{"code":"USAGE","message":"host winrm exec takes TARGET [-- COMMAND...]","hint":"for example: komando host winrm exec web1 -- uptime (more in `komando host winrm exec --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm exec (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm exec takes TARGET [-- COMMAND...]
+Hint: for example: komando host winrm exec web1 -- uptime (more in `komando host winrm exec --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.remove","error":{"code":"USAGE","message":"host winrm remove takes TARGET...","hint":"for example: komando host winrm remove web3 --dry-run (more in `komando host winrm remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm remove takes TARGET...
+Hint: for example: komando host winrm remove web3 --dry-run (more in `komando host winrm remove --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.remove","error":{"code":"USAGE","message":"host winrm remove takes TARGET...","hint":"for example: komando host winrm remove web3 --dry-run (more in `komando host winrm remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm remove takes TARGET...
+Hint: for example: komando host winrm remove web3 --dry-run (more in `komando host winrm remove --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.rename","error":{"code":"USAGE","message":"host winrm rename takes NAME NEW","hint":"for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm rename takes NAME NEW
+Hint: for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.rename","error":{"code":"USAGE","message":"host winrm rename takes NAME NEW","hint":"for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm rename takes NAME NEW
+Hint: for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.rename","error":{"code":"USAGE","message":"host winrm rename takes NAME NEW","hint":"for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm rename takes NAME NEW
+Hint: for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.rename","error":{"code":"USAGE","message":"host winrm rename takes NAME NEW","hint":"for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm rename takes NAME NEW
+Hint: for example: komando host winrm rename web1 web-01 --dry-run (more in `komando host winrm rename --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm shell (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.shell","error":{"code":"USAGE","message":"host winrm shell takes SERVER [-- COMMAND...]","hint":"for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm shell (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm shell takes SERVER [-- COMMAND...]
+Hint: for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm shell (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.shell","error":{"code":"USAGE","message":"host winrm shell takes SERVER [-- COMMAND...]","hint":"for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm shell (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm shell takes SERVER [-- COMMAND...]
+Hint: for example: komando host winrm shell web1 (more in `komando host winrm shell --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.show","error":{"code":"USAGE","message":"host winrm show takes NAME","hint":"for example: komando host winrm show web1 (more in `komando host winrm show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm show takes NAME
+Hint: for example: komando host winrm show web1 (more in `komando host winrm show --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.show","error":{"code":"USAGE","message":"host winrm show takes NAME","hint":"for example: komando host winrm show web1 (more in `komando host winrm show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm show takes NAME
+Hint: for example: komando host winrm show web1 (more in `komando host winrm show --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm test (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.test","error":{"code":"USAGE","message":"host winrm test takes TARGET","hint":"for example: komando host winrm test @web (more in `komando host winrm test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm test (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm test takes TARGET
+Hint: for example: komando host winrm test @web (more in `komando host winrm test --help`)
+(code USAGE, exit 2)
+### komando -o json host winrm test (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.winrm.test","error":{"code":"USAGE","message":"host winrm test takes TARGET","hint":"for example: komando host winrm test @web (more in `komando host winrm test --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host winrm test (script text)
+exit 2
+--- stdout
+--- stderr
+Error: host winrm test takes TARGET
+Hint: for example: komando host winrm test @web (more in `komando host winrm test --help`)
 (code USAGE, exit 2)
 ### komando -o json import (agent json)
 exit 2
@@ -6685,150 +6925,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando import SOURCE [FILE]
 Hint: for example: komando import ssh-config --dry-run
-(code USAGE, exit 2)
-### komando -o json job kill (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job kill (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job kill JOB
-Hint: for example: komando job kill j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job kill (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.kill","error":{"code":"USAGE","message":"missing arguments; usage: komando job kill JOB","hint":"for example: komando job kill j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job kill (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job kill JOB
-Hint: for example: komando job kill j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job logs (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job logs (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job logs JOB
-Hint: for example: komando job logs j1103-101500-ab12cd34 --limit 100
-(code USAGE, exit 2)
-### komando -o json job logs (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job logs (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job logs JOB
-Hint: for example: komando job logs j1103-101500-ab12cd34 --limit 100
-(code USAGE, exit 2)
-### komando -o json job rm (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job rm (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job rm JOB...
-Hint: for example: komando job rm j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job rm (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando job rm JOB...","hint":"for example: komando job rm j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job rm (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job rm JOB...
-Hint: for example: komando job rm j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job start (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET -- COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job start TARGET -- COMMAND...
-Hint: for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-(code USAGE, exit 2)
-### komando -o json job start (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET -- COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job start TARGET -- COMMAND...
-Hint: for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-(code USAGE, exit 2)
-### komando -o json job status (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job status (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job status JOB
-Hint: for example: komando job status j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job status (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.status","error":{"code":"USAGE","message":"missing arguments; usage: komando job status JOB","hint":"for example: komando job status j1103-101500-ab12cd34"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job status (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job status JOB
-Hint: for example: komando job status j1103-101500-ab12cd34
-(code USAGE, exit 2)
-### komando -o json job wait (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job wait (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job wait JOB...
-Hint: for example: komando job wait j1103-101500-ab12cd34 --timeout 30m
-(code USAGE, exit 2)
-### komando -o json job wait (script json)
-exit 2
---- stdout
-{"ok":false,"command":"job.wait","error":{"code":"USAGE","message":"missing arguments; usage: komando job wait JOB...","hint":"for example: komando job wait j1103-101500-ab12cd34 --timeout 30m"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job wait (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando job wait JOB...
-Hint: for example: komando job wait j1103-101500-ab12cd34 --timeout 30m
 (code USAGE, exit 2)
 ### komando -o json logs (agent json)
 exit 2
@@ -10382,30 +10478,6 @@ exit 2
 Error: missing arguments; usage: komando secret cp OLD NEW
 Hint: for example: komando secret cp db-pass db-pass-old
 (code USAGE, exit 2)
-### komando -o json shell (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"shell","error":{"code":"USAGE","message":"missing arguments; usage: komando shell SERVER","hint":"for example: komando shell web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text shell (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando shell SERVER
-Hint: for example: komando shell web1
-(code USAGE, exit 2)
-### komando -o json shell (script json)
-exit 2
---- stdout
-{"ok":false,"command":"shell","error":{"code":"USAGE","message":"missing arguments; usage: komando shell SERVER","hint":"for example: komando shell web1"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text shell (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando shell SERVER
-Hint: for example: komando shell web1
-(code USAGE, exit 2)
 ### komando -o json snippet create (agent json)
 exit 2
 --- stdout
@@ -13262,31 +13334,7 @@ exit 2
 Error: missing arguments; usage: komando test TARGET
 Hint: for example: komando test @prod
 (code USAGE, exit 2)
-### komando -o json tunnel start (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"USAGE","message":"missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)","hint":"for example: komando tunnel start prod-db"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text tunnel start (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)
-Hint: for example: komando tunnel start prod-db
-(code USAGE, exit 2)
-### komando -o json tunnel start (script json)
-exit 2
---- stdout
-{"ok":false,"command":"tunnel.start","error":{"code":"USAGE","message":"missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)","hint":"for example: komando tunnel start prod-db"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text tunnel start (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)
-Hint: for example: komando tunnel start prod-db
-(code USAGE, exit 2)
-### komando -o json vpn add (agent json)
+### komando -o json vpn anyconnect add (agent json)
 exit 2
 --- stdout
 {"ok":false,"command":"vpn.anyconnect.add","error":{"code":"USAGE","message":"vpn anyconnect add takes NAME","hint":"for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
@@ -16766,96 +16814,72 @@ exit 6
 Stopped: this can delete or break things (matches your deny rule foo.*bar), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json job start web1 -- reboot (agent json, gate inventory)
+### komando -o json host ssh exec prod1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text job start web1 -- reboot (agent text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
-Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
-(code POLICY_BLOCKED, exit 6)
-### komando -o json job start web1 -- reboot (script json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start web1 -- reboot (script text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
-Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
-(code POLICY_BLOCKED, exit 6)
-### komando -o json exec prod1 -- reboot (agent json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text exec prod1 -- reboot (agent text, gate inventory)
+### komando -o text host ssh exec prod1 -- reboot (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec prod1 -- reboot (script json, gate inventory)
+### komando -o json host ssh exec prod1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec prod1 -- reboot (script text, gate inventory)
+### komando -o text host ssh exec prod1 -- reboot (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- systemctl stop sshd (agent json, gate inventory)
+### komando -o json host ssh exec web1 -- systemctl stop sshd (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop]: stops sshd (locks out remote access)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop]: stops sshd (locks out remote access)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- systemctl stop sshd (agent text, gate inventory)
+### komando -o text host ssh exec web1 -- systemctl stop sshd (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (stops sshd (locks out remote access)), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- systemctl stop sshd (script json, gate inventory)
+### komando -o json host ssh exec web1 -- systemctl stop sshd (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop]: stops sshd (locks out remote access)","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [sshd-stop]: stops sshd (locks out remote access)","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- systemctl stop sshd (script text, gate inventory)
+### komando -o text host ssh exec web1 -- systemctl stop sshd (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (stops sshd (locks out remote access)), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- userdel bob (agent json, gate inventory)
+### komando -o json host ssh exec web1 -- userdel bob (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- userdel bob (agent text, gate inventory)
+### komando -o text host ssh exec web1 -- userdel bob (agent text, gate inventory)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes a user account), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json exec web1 -- userdel bob (script json, gate inventory)
+### komando -o json host ssh exec web1 -- userdel bob (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.ssh.exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [userdel]: deletes a user account","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text exec web1 -- userdel bob (script text, gate inventory)
+### komando -o text host ssh exec web1 -- userdel bob (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -17336,30 +17360,6 @@ exit 6
 {"ok":false,"command":"host.ssh.exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host ssh exec prod1 -- touch /tmp/x (script text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
-Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_TARGET, exit 6)
-### komando -o json job start prod1 -- touch x (agent json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start prod1 -- touch x (agent text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
-Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_TARGET, exit 6)
-### komando -o json job start prod1 -- touch x (script json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text job start prod1 -- touch x (script text, gate inventory)
 exit 6
 --- stdout
 --- stderr
@@ -18381,10 +18381,8 @@ exit 0
 komando storage s3 object link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
   --endpoint type=string
   --expires type=duration default=1h
-### komando schema cluster kubernetes tunnel start (schema values)
-exit 0
-komando cluster kubernetes tunnel start kind=change confirm=[{"tier":"change"}]
-  --namespace shorthand=n type=string
+### komando schema cluster kubernetes host ssh tunnel start (schema values)
+exit 3
 ### komando schema host ssh add (schema values)
 exit 0
 komando host ssh add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"},{"flag":"--yes","tier":"safety","when":"with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"}]
@@ -18477,8 +18475,8 @@ komando host ssh exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-d
   --env shorthand=e type=stringArray default=[]
   --fail-fast type=bool default=false
   --interpreter type=string
-  --log-max type=bytes default=1073741824
-  --offset type=int64 default=0
+  --log-max type=bytes default=1GiB
+  --offset type=int default=0
   --pty type=bool default=false
   --read-only type=bool default=false
   --remove type=bool default=false
@@ -18489,6 +18487,7 @@ komando host ssh exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-d
   --stream type=bool default=false
   --sudo shorthand=s type=bool default=false
   --sudo-user type=string
+  --wait type=duration default=1m
 ### komando schema queue kafka topic create (schema values)
 exit 0
 komando queue kafka topic create kind=change confirm=[{"tier":"change"}]

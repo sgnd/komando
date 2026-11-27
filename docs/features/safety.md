@@ -164,7 +164,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `storage s3 object delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image delete` | always | dangerous | `--allow-dangerous` |
 | `registry oci image prune` | always | dangerous | `--allow-dangerous` |
-| `database KIND restore` | always | dangerous | `--allow-dangerous` |
+| `database postgres restore` | always | dangerous | `--allow-dangerous` |
 | `credential password remove` | always | dangerous | `--allow-dangerous` |
 | `credential token remove` | always | dangerous | `--allow-dangerous` |
 | `credential key remove` | with --delete-file | dangerous | `--allow-dangerous` |
@@ -173,7 +173,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `cluster kubernetes exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `cluster kubernetes raw` | when the cluster command deletes something or scales to 0 | dangerous | `--allow-dangerous` |
 | `cache redis raw` | when the cache command deletes data (DEL, FLUSHALL, ...) | dangerous | `--allow-dangerous` |
-| `database KIND query` | when the query deletes data (DROP, DELETE without WHERE, KILL, ...) | dangerous | `--allow-dangerous` |
+| `database postgres query` | when the query deletes data (DROP, DELETE without WHERE, KILL, ...) | dangerous | `--allow-dangerous` |
 | `credential key uninstall` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `import` | when an imported proxy command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `policy remove` | always | safety | `--yes` |
@@ -194,7 +194,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `config vault passphrase` | always | person |  |
 | `config vault keychain` | without --off | person |  |
 | `host ssh shell` | always | person |  |
-| `database KIND shell` | always | person |  |
+| `database postgres shell` | always | person |  |
 | `cluster kubernetes shell` | always | person |  |
 | `credential certificate add` | always | person |  |
 | `credential key install` | with --public-key-file | person |  |
@@ -202,13 +202,14 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `database postgres backup` | when an AI agent runs it (the file holds every row, secrets included) | person |  |
 | `export` | with --sealed | person |  |
 | `export` | with --for-phone | person |  |
-| `host ssh edit` | with --protected=false | safety | `--yes` |
-| `cache redis edit` | with --protected=false | safety | `--yes` |
-| `queue kafka edit` | with --protected=false | safety | `--yes` |
-| `storage s3 edit` | with --protected=false | safety | `--yes` |
-| `cluster kubernetes edit` | with --protected=false | safety | `--yes` |
-| `registry oci edit` | with --protected=false | safety | `--yes` |
-| `vpn wireguard edit` | with --protected=false | safety | `--yes` |
+| `host ssh edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `database postgres edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `cache redis edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `queue kafka edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `storage s3 edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `cluster kubernetes edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `registry oci edit` | with --protected=false or --unset protected | safety | `--yes` |
+| `vpn wireguard edit` | with --protected=false or --unset protected | safety | `--yes` |
 
 <!-- end of tiers -->
 

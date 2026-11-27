@@ -826,6 +826,1146 @@
 "copy"	netread	copy	SSH_GATE_READ_ONLY|komando copy is refused for a read-only key: it writes the files at its destination (copy SOURCE - streams one file to the key's own output)
 "copy"	read	copy	SSH_GATE_READ_ONLY|komando copy is refused for a read-only key: it writes the files at its destination (copy SOURCE - streams one file to the key's own output)
 "copy"	shell	copy	runs
+"credential --help"	full	credential	runs
+"credential --help"	netread	credential	runs
+"credential --help"	read	credential	runs
+"credential --help"	shell	credential	runs
+"credential certificate --help"	full	credential.certificate	runs
+"credential certificate --help"	netread	credential.certificate	runs
+"credential certificate --help"	read	credential.certificate	runs
+"credential certificate --help"	shell	credential.certificate	runs
+"credential certificate add --help"	full	credential.certificate.add	runs
+"credential certificate add --help"	netread	credential.certificate.add	runs
+"credential certificate add --help"	read	credential.certificate.add	runs
+"credential certificate add --help"	shell	credential.certificate.add	runs
+"credential certificate add"	full	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate add"	netread	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate add"	read	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate add"	shell	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate list --help"	full	credential.certificate.list	runs
+"credential certificate list --help"	netread	credential.certificate.list	runs
+"credential certificate list --help"	read	credential.certificate.list	runs
+"credential certificate list --help"	shell	credential.certificate.list	runs
+"credential certificate list"	full	credential.certificate.list	runs
+"credential certificate list"	netread	credential.certificate.list	runs
+"credential certificate list"	read	credential.certificate.list	runs
+"credential certificate list"	shell	credential.certificate.list	runs
+"credential certificate remove --help"	full	credential.certificate.remove	runs
+"credential certificate remove --help"	netread	credential.certificate.remove	runs
+"credential certificate remove --help"	read	credential.certificate.remove	runs
+"credential certificate remove --help"	shell	credential.certificate.remove	runs
+"credential certificate remove"	full	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate remove"	netread	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate remove"	read	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate remove"	shell	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate"	full	credential.certificate	runs
+"credential certificate"	netread	credential.certificate	runs
+"credential certificate"	read	credential.certificate	runs
+"credential certificate"	shell	credential.certificate	runs
+"credential key --help"	full	credential.key	runs
+"credential key --help"	netread	credential.key	runs
+"credential key --help"	read	credential.key	runs
+"credential key --help"	shell	credential.key	runs
+"credential key add --help"	full	credential.key.add	runs
+"credential key add --help"	netread	credential.key.add	runs
+"credential key add --help"	read	credential.key.add	runs
+"credential key add --help"	shell	credential.key.add	runs
+"credential key add"	full	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key add"	netread	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key add"	read	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key add"	shell	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create --help"	full	credential.key.create	runs
+"credential key create --help"	netread	credential.key.create	runs
+"credential key create --help"	read	credential.key.create	runs
+"credential key create --help"	shell	credential.key.create	runs
+"credential key create"	full	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create"	netread	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create"	read	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create"	shell	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit --help"	full	credential.key.edit	runs
+"credential key edit --help"	netread	credential.key.edit	runs
+"credential key edit --help"	read	credential.key.edit	runs
+"credential key edit --help"	shell	credential.key.edit	runs
+"credential key edit"	full	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit"	netread	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit"	read	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit"	shell	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key install --help"	full	credential.key.install	runs
+"credential key install --help"	netread	credential.key.install	runs
+"credential key install --help"	read	credential.key.install	runs
+"credential key install --help"	shell	credential.key.install	runs
+"credential key install web"	full	credential.key.install	runs
+"credential key install web"	netread	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install web"	read	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install web"	shell	credential.key.install	runs
+"credential key install"	full	credential.key.install	runs
+"credential key install"	netread	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install"	read	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install"	shell	credential.key.install	runs
+"credential key list --help"	full	credential.key.list	runs
+"credential key list --help"	netread	credential.key.list	runs
+"credential key list --help"	read	credential.key.list	runs
+"credential key list --help"	shell	credential.key.list	runs
+"credential key list"	full	credential.key.list	runs
+"credential key list"	netread	credential.key.list	runs
+"credential key list"	read	credential.key.list	runs
+"credential key list"	shell	credential.key.list	runs
+"credential key remove --help"	full	credential.key.remove	runs
+"credential key remove --help"	netread	credential.key.remove	runs
+"credential key remove --help"	read	credential.key.remove	runs
+"credential key remove --help"	shell	credential.key.remove	runs
+"credential key remove"	full	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key remove"	netread	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key remove"	read	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key remove"	shell	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename --help"	full	credential.key.rename	runs
+"credential key rename --help"	netread	credential.key.rename	runs
+"credential key rename --help"	read	credential.key.rename	runs
+"credential key rename --help"	shell	credential.key.rename	runs
+"credential key rename"	full	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename"	netread	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename"	read	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename"	shell	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key show --help"	full	credential.key.show	runs
+"credential key show --help"	netread	credential.key.show	runs
+"credential key show --help"	read	credential.key.show	runs
+"credential key show --help"	shell	credential.key.show	runs
+"credential key show"	full	credential.key.show	runs
+"credential key show"	netread	credential.key.show	runs
+"credential key show"	read	credential.key.show	runs
+"credential key show"	shell	credential.key.show	runs
+"credential key uninstall --help"	full	credential.key.uninstall	runs
+"credential key uninstall --help"	netread	credential.key.uninstall	runs
+"credential key uninstall --help"	read	credential.key.uninstall	runs
+"credential key uninstall --help"	shell	credential.key.uninstall	runs
+"credential key uninstall web"	full	credential.key.uninstall	runs
+"credential key uninstall web"	netread	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall web"	read	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall web"	shell	credential.key.uninstall	runs
+"credential key uninstall"	full	credential.key.uninstall	runs
+"credential key uninstall"	netread	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall"	read	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall"	shell	credential.key.uninstall	runs
+"credential key"	full	credential.key	runs
+"credential key"	netread	credential.key	runs
+"credential key"	read	credential.key	runs
+"credential key"	shell	credential.key	runs
+"credential list --help"	full	credential.list	runs
+"credential list --help"	netread	credential.list	runs
+"credential list --help"	read	credential.list	runs
+"credential list --help"	shell	credential.list	runs
+"credential list"	full	credential.list	runs
+"credential list"	netread	credential.list	runs
+"credential list"	read	credential.list	runs
+"credential list"	shell	credential.list	runs
+"credential password --help"	full	credential.password	runs
+"credential password --help"	netread	credential.password	runs
+"credential password --help"	read	credential.password	runs
+"credential password --help"	shell	credential.password	runs
+"credential password add --help"	full	credential.password.add	runs
+"credential password add --help"	netread	credential.password.add	runs
+"credential password add --help"	read	credential.password.add	runs
+"credential password add --help"	shell	credential.password.add	runs
+"credential password add"	full	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password add"	netread	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password add"	read	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password add"	shell	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove --help"	full	credential.password.remove	runs
+"credential password remove --help"	netread	credential.password.remove	runs
+"credential password remove --help"	read	credential.password.remove	runs
+"credential password remove --help"	shell	credential.password.remove	runs
+"credential password remove"	full	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove"	netread	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove"	read	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove"	shell	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename --help"	full	credential.password.rename	runs
+"credential password rename --help"	netread	credential.password.rename	runs
+"credential password rename --help"	read	credential.password.rename	runs
+"credential password rename --help"	shell	credential.password.rename	runs
+"credential password rename"	full	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename"	netread	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename"	read	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename"	shell	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password show --help"	full	credential.password.show	runs
+"credential password show --help"	netread	credential.password.show	runs
+"credential password show --help"	read	credential.password.show	runs
+"credential password show --help"	shell	credential.password.show	runs
+"credential password show"	full	credential.password.show	runs
+"credential password show"	netread	credential.password.show	runs
+"credential password show"	read	credential.password.show	runs
+"credential password show"	shell	credential.password.show	runs
+"credential password"	full	credential.password	runs
+"credential password"	netread	credential.password	runs
+"credential password"	read	credential.password	runs
+"credential password"	shell	credential.password	runs
+"credential run --help"	full	credential.run	runs
+"credential run --help"	netread	credential.run	runs
+"credential run --help"	read	credential.run	runs
+"credential run --help"	shell	credential.run	runs
+"credential run"	full	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential run"	netread	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential run"	read	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential run"	shell	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token --help"	full	credential.token	runs
+"credential token --help"	netread	credential.token	runs
+"credential token --help"	read	credential.token	runs
+"credential token --help"	shell	credential.token	runs
+"credential token add --help"	full	credential.token.add	runs
+"credential token add --help"	netread	credential.token.add	runs
+"credential token add --help"	read	credential.token.add	runs
+"credential token add --help"	shell	credential.token.add	runs
+"credential token add"	full	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token add"	netread	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token add"	read	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token add"	shell	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove --help"	full	credential.token.remove	runs
+"credential token remove --help"	netread	credential.token.remove	runs
+"credential token remove --help"	read	credential.token.remove	runs
+"credential token remove --help"	shell	credential.token.remove	runs
+"credential token remove"	full	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove"	netread	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove"	read	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove"	shell	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename --help"	full	credential.token.rename	runs
+"credential token rename --help"	netread	credential.token.rename	runs
+"credential token rename --help"	read	credential.token.rename	runs
+"credential token rename --help"	shell	credential.token.rename	runs
+"credential token rename"	full	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename"	netread	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename"	read	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename"	shell	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token show --help"	full	credential.token.show	runs
+"credential token show --help"	netread	credential.token.show	runs
+"credential token show --help"	read	credential.token.show	runs
+"credential token show --help"	shell	credential.token.show	runs
+"credential token show"	full	credential.token.show	runs
+"credential token show"	netread	credential.token.show	runs
+"credential token show"	read	credential.token.show	runs
+"credential token show"	shell	credential.token.show	runs
+"credential token"	full	credential.token	runs
+"credential token"	netread	credential.token	runs
+"credential token"	read	credential.token	runs
+"credential token"	shell	credential.token	runs
+"credential"	full	credential	runs
+"credential"	netread	credential	runs
+"credential"	read	credential	runs
+"credential"	shell	credential	runs
+"database --help"	full	database	runs
+"database --help"	netread	database	runs
+"database --help"	read	database	runs
+"database --help"	shell	database	runs
+"database bigquery --help"	full	database.bigquery	runs
+"database bigquery --help"	netread	database.bigquery	runs
+"database bigquery --help"	read	database.bigquery	runs
+"database bigquery --help"	shell	database.bigquery	runs
+"database bigquery add --help"	full	database.bigquery.add	runs
+"database bigquery add --help"	netread	database.bigquery.add	runs
+"database bigquery add --help"	read	database.bigquery.add	runs
+"database bigquery add --help"	shell	database.bigquery.add	runs
+"database bigquery add"	full	database.bigquery.add	SSH_GATE_REFUSED|komando database bigquery add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery add"	netread	database.bigquery.add	SSH_GATE_REFUSED|komando database bigquery add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery add"	read	database.bigquery.add	SSH_GATE_REFUSED|komando database bigquery add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery add"	shell	database.bigquery.add	SSH_GATE_REFUSED|komando database bigquery add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery edit --help"	full	database.bigquery.edit	runs
+"database bigquery edit --help"	netread	database.bigquery.edit	runs
+"database bigquery edit --help"	read	database.bigquery.edit	runs
+"database bigquery edit --help"	shell	database.bigquery.edit	runs
+"database bigquery edit"	full	database.bigquery.edit	SSH_GATE_REFUSED|komando database bigquery edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery edit"	netread	database.bigquery.edit	SSH_GATE_REFUSED|komando database bigquery edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery edit"	read	database.bigquery.edit	SSH_GATE_REFUSED|komando database bigquery edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery edit"	shell	database.bigquery.edit	SSH_GATE_REFUSED|komando database bigquery edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery list --help"	full	database.bigquery.list	runs
+"database bigquery list --help"	netread	database.bigquery.list	runs
+"database bigquery list --help"	read	database.bigquery.list	runs
+"database bigquery list --help"	shell	database.bigquery.list	runs
+"database bigquery list"	full	database.bigquery.list	runs
+"database bigquery list"	netread	database.bigquery.list	runs
+"database bigquery list"	read	database.bigquery.list	runs
+"database bigquery list"	shell	database.bigquery.list	runs
+"database bigquery query --analyze"	full	database.bigquery.query	runs
+"database bigquery query --analyze"	netread	database.bigquery.query	runs
+"database bigquery query --analyze"	read	database.bigquery.query	runs
+"database bigquery query --analyze"	shell	database.bigquery.query	runs
+"database bigquery query --help"	full	database.bigquery.query	runs
+"database bigquery query --help"	netread	database.bigquery.query	runs
+"database bigquery query --help"	read	database.bigquery.query	runs
+"database bigquery query --help"	shell	database.bigquery.query	runs
+"database bigquery query --read-only"	full	database.bigquery.query	runs
+"database bigquery query --read-only"	netread	database.bigquery.query	runs
+"database bigquery query --read-only"	read	database.bigquery.query	runs
+"database bigquery query --read-only"	shell	database.bigquery.query	runs
+"database bigquery query --refresh"	full	database.bigquery.query	runs
+"database bigquery query --refresh"	netread	database.bigquery.query	runs
+"database bigquery query --refresh"	read	database.bigquery.query	runs
+"database bigquery query --refresh"	shell	database.bigquery.query	runs
+"database bigquery query --write"	full	database.bigquery.query	runs
+"database bigquery query --write"	netread	database.bigquery.query	SSH_GATE_READ_ONLY|komando database bigquery query is refused for a read-only key: with --write it can change something
+"database bigquery query --write"	read	database.bigquery.query	SSH_GATE_READ_ONLY|komando database bigquery query is refused for a read-only key: with --write it can change something
+"database bigquery query --write"	shell	database.bigquery.query	runs
+"database bigquery query"	full	database.bigquery.query	runs
+"database bigquery query"	netread	database.bigquery.query	runs
+"database bigquery query"	read	database.bigquery.query	runs
+"database bigquery query"	shell	database.bigquery.query	runs
+"database bigquery remove --help"	full	database.bigquery.remove	runs
+"database bigquery remove --help"	netread	database.bigquery.remove	runs
+"database bigquery remove --help"	read	database.bigquery.remove	runs
+"database bigquery remove --help"	shell	database.bigquery.remove	runs
+"database bigquery remove"	full	database.bigquery.remove	SSH_GATE_REFUSED|komando database bigquery remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery remove"	netread	database.bigquery.remove	SSH_GATE_REFUSED|komando database bigquery remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery remove"	read	database.bigquery.remove	SSH_GATE_REFUSED|komando database bigquery remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery remove"	shell	database.bigquery.remove	SSH_GATE_REFUSED|komando database bigquery remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery rename --help"	full	database.bigquery.rename	runs
+"database bigquery rename --help"	netread	database.bigquery.rename	runs
+"database bigquery rename --help"	read	database.bigquery.rename	runs
+"database bigquery rename --help"	shell	database.bigquery.rename	runs
+"database bigquery rename"	full	database.bigquery.rename	SSH_GATE_REFUSED|komando database bigquery rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery rename"	netread	database.bigquery.rename	SSH_GATE_REFUSED|komando database bigquery rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery rename"	read	database.bigquery.rename	SSH_GATE_REFUSED|komando database bigquery rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery rename"	shell	database.bigquery.rename	SSH_GATE_REFUSED|komando database bigquery rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database bigquery shell --help"	full	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell --help"	netread	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell --help"	read	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell --help"	shell	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell"	full	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell"	netread	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell"	read	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery shell"	shell	database.bigquery.shell	SSH_GATE_REFUSED|komando database bigquery shell needs a person at a terminal on this computer; a key cannot run it
+"database bigquery show --help"	full	database.bigquery.show	runs
+"database bigquery show --help"	netread	database.bigquery.show	runs
+"database bigquery show --help"	read	database.bigquery.show	runs
+"database bigquery show --help"	shell	database.bigquery.show	runs
+"database bigquery show"	full	database.bigquery.show	runs
+"database bigquery show"	netread	database.bigquery.show	runs
+"database bigquery show"	read	database.bigquery.show	runs
+"database bigquery show"	shell	database.bigquery.show	runs
+"database bigquery test --help"	full	database.bigquery.test	runs
+"database bigquery test --help"	netread	database.bigquery.test	runs
+"database bigquery test --help"	read	database.bigquery.test	runs
+"database bigquery test --help"	shell	database.bigquery.test	runs
+"database bigquery test"	full	database.bigquery.test	runs
+"database bigquery test"	netread	database.bigquery.test	runs
+"database bigquery test"	read	database.bigquery.test	runs
+"database bigquery test"	shell	database.bigquery.test	runs
+"database bigquery"	full	database.bigquery	runs
+"database bigquery"	netread	database.bigquery	runs
+"database bigquery"	read	database.bigquery	runs
+"database bigquery"	shell	database.bigquery	runs
+"database clickhouse --help"	full	database.clickhouse	runs
+"database clickhouse --help"	netread	database.clickhouse	runs
+"database clickhouse --help"	read	database.clickhouse	runs
+"database clickhouse --help"	shell	database.clickhouse	runs
+"database clickhouse add --help"	full	database.clickhouse.add	runs
+"database clickhouse add --help"	netread	database.clickhouse.add	runs
+"database clickhouse add --help"	read	database.clickhouse.add	runs
+"database clickhouse add --help"	shell	database.clickhouse.add	runs
+"database clickhouse add"	full	database.clickhouse.add	SSH_GATE_REFUSED|komando database clickhouse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse add"	netread	database.clickhouse.add	SSH_GATE_REFUSED|komando database clickhouse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse add"	read	database.clickhouse.add	SSH_GATE_REFUSED|komando database clickhouse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse add"	shell	database.clickhouse.add	SSH_GATE_REFUSED|komando database clickhouse add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse edit --help"	full	database.clickhouse.edit	runs
+"database clickhouse edit --help"	netread	database.clickhouse.edit	runs
+"database clickhouse edit --help"	read	database.clickhouse.edit	runs
+"database clickhouse edit --help"	shell	database.clickhouse.edit	runs
+"database clickhouse edit"	full	database.clickhouse.edit	SSH_GATE_REFUSED|komando database clickhouse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse edit"	netread	database.clickhouse.edit	SSH_GATE_REFUSED|komando database clickhouse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse edit"	read	database.clickhouse.edit	SSH_GATE_REFUSED|komando database clickhouse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse edit"	shell	database.clickhouse.edit	SSH_GATE_REFUSED|komando database clickhouse edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse list --help"	full	database.clickhouse.list	runs
+"database clickhouse list --help"	netread	database.clickhouse.list	runs
+"database clickhouse list --help"	read	database.clickhouse.list	runs
+"database clickhouse list --help"	shell	database.clickhouse.list	runs
+"database clickhouse list"	full	database.clickhouse.list	runs
+"database clickhouse list"	netread	database.clickhouse.list	runs
+"database clickhouse list"	read	database.clickhouse.list	runs
+"database clickhouse list"	shell	database.clickhouse.list	runs
+"database clickhouse query --analyze"	full	database.clickhouse.query	runs
+"database clickhouse query --analyze"	netread	database.clickhouse.query	runs
+"database clickhouse query --analyze"	read	database.clickhouse.query	runs
+"database clickhouse query --analyze"	shell	database.clickhouse.query	runs
+"database clickhouse query --help"	full	database.clickhouse.query	runs
+"database clickhouse query --help"	netread	database.clickhouse.query	runs
+"database clickhouse query --help"	read	database.clickhouse.query	runs
+"database clickhouse query --help"	shell	database.clickhouse.query	runs
+"database clickhouse query --read-only"	full	database.clickhouse.query	runs
+"database clickhouse query --read-only"	netread	database.clickhouse.query	runs
+"database clickhouse query --read-only"	read	database.clickhouse.query	runs
+"database clickhouse query --read-only"	shell	database.clickhouse.query	runs
+"database clickhouse query --refresh"	full	database.clickhouse.query	runs
+"database clickhouse query --refresh"	netread	database.clickhouse.query	runs
+"database clickhouse query --refresh"	read	database.clickhouse.query	runs
+"database clickhouse query --refresh"	shell	database.clickhouse.query	runs
+"database clickhouse query --write"	full	database.clickhouse.query	runs
+"database clickhouse query --write"	netread	database.clickhouse.query	SSH_GATE_READ_ONLY|komando database clickhouse query is refused for a read-only key: with --write it can change something
+"database clickhouse query --write"	read	database.clickhouse.query	SSH_GATE_READ_ONLY|komando database clickhouse query is refused for a read-only key: with --write it can change something
+"database clickhouse query --write"	shell	database.clickhouse.query	runs
+"database clickhouse query"	full	database.clickhouse.query	runs
+"database clickhouse query"	netread	database.clickhouse.query	runs
+"database clickhouse query"	read	database.clickhouse.query	runs
+"database clickhouse query"	shell	database.clickhouse.query	runs
+"database clickhouse remove --help"	full	database.clickhouse.remove	runs
+"database clickhouse remove --help"	netread	database.clickhouse.remove	runs
+"database clickhouse remove --help"	read	database.clickhouse.remove	runs
+"database clickhouse remove --help"	shell	database.clickhouse.remove	runs
+"database clickhouse remove"	full	database.clickhouse.remove	SSH_GATE_REFUSED|komando database clickhouse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse remove"	netread	database.clickhouse.remove	SSH_GATE_REFUSED|komando database clickhouse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse remove"	read	database.clickhouse.remove	SSH_GATE_REFUSED|komando database clickhouse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse remove"	shell	database.clickhouse.remove	SSH_GATE_REFUSED|komando database clickhouse remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse rename --help"	full	database.clickhouse.rename	runs
+"database clickhouse rename --help"	netread	database.clickhouse.rename	runs
+"database clickhouse rename --help"	read	database.clickhouse.rename	runs
+"database clickhouse rename --help"	shell	database.clickhouse.rename	runs
+"database clickhouse rename"	full	database.clickhouse.rename	SSH_GATE_REFUSED|komando database clickhouse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse rename"	netread	database.clickhouse.rename	SSH_GATE_REFUSED|komando database clickhouse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse rename"	read	database.clickhouse.rename	SSH_GATE_REFUSED|komando database clickhouse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse rename"	shell	database.clickhouse.rename	SSH_GATE_REFUSED|komando database clickhouse rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database clickhouse shell --help"	full	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell --help"	netread	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell --help"	read	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell --help"	shell	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell"	full	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell"	netread	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell"	read	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse shell"	shell	database.clickhouse.shell	SSH_GATE_REFUSED|komando database clickhouse shell needs a person at a terminal on this computer; a key cannot run it
+"database clickhouse show --help"	full	database.clickhouse.show	runs
+"database clickhouse show --help"	netread	database.clickhouse.show	runs
+"database clickhouse show --help"	read	database.clickhouse.show	runs
+"database clickhouse show --help"	shell	database.clickhouse.show	runs
+"database clickhouse show"	full	database.clickhouse.show	runs
+"database clickhouse show"	netread	database.clickhouse.show	runs
+"database clickhouse show"	read	database.clickhouse.show	runs
+"database clickhouse show"	shell	database.clickhouse.show	runs
+"database clickhouse test --help"	full	database.clickhouse.test	runs
+"database clickhouse test --help"	netread	database.clickhouse.test	runs
+"database clickhouse test --help"	read	database.clickhouse.test	runs
+"database clickhouse test --help"	shell	database.clickhouse.test	runs
+"database clickhouse test"	full	database.clickhouse.test	runs
+"database clickhouse test"	netread	database.clickhouse.test	runs
+"database clickhouse test"	read	database.clickhouse.test	runs
+"database clickhouse test"	shell	database.clickhouse.test	runs
+"database clickhouse"	full	database.clickhouse	runs
+"database clickhouse"	netread	database.clickhouse	runs
+"database clickhouse"	read	database.clickhouse	runs
+"database clickhouse"	shell	database.clickhouse	runs
+"database mongodb --help"	full	database.mongodb	runs
+"database mongodb --help"	netread	database.mongodb	runs
+"database mongodb --help"	read	database.mongodb	runs
+"database mongodb --help"	shell	database.mongodb	runs
+"database mongodb add --help"	full	database.mongodb.add	runs
+"database mongodb add --help"	netread	database.mongodb.add	runs
+"database mongodb add --help"	read	database.mongodb.add	runs
+"database mongodb add --help"	shell	database.mongodb.add	runs
+"database mongodb add"	full	database.mongodb.add	SSH_GATE_REFUSED|komando database mongodb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb add"	netread	database.mongodb.add	SSH_GATE_REFUSED|komando database mongodb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb add"	read	database.mongodb.add	SSH_GATE_REFUSED|komando database mongodb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb add"	shell	database.mongodb.add	SSH_GATE_REFUSED|komando database mongodb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb edit --help"	full	database.mongodb.edit	runs
+"database mongodb edit --help"	netread	database.mongodb.edit	runs
+"database mongodb edit --help"	read	database.mongodb.edit	runs
+"database mongodb edit --help"	shell	database.mongodb.edit	runs
+"database mongodb edit"	full	database.mongodb.edit	SSH_GATE_REFUSED|komando database mongodb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb edit"	netread	database.mongodb.edit	SSH_GATE_REFUSED|komando database mongodb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb edit"	read	database.mongodb.edit	SSH_GATE_REFUSED|komando database mongodb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb edit"	shell	database.mongodb.edit	SSH_GATE_REFUSED|komando database mongodb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb list --help"	full	database.mongodb.list	runs
+"database mongodb list --help"	netread	database.mongodb.list	runs
+"database mongodb list --help"	read	database.mongodb.list	runs
+"database mongodb list --help"	shell	database.mongodb.list	runs
+"database mongodb list"	full	database.mongodb.list	runs
+"database mongodb list"	netread	database.mongodb.list	runs
+"database mongodb list"	read	database.mongodb.list	runs
+"database mongodb list"	shell	database.mongodb.list	runs
+"database mongodb query --analyze"	full	database.mongodb.query	runs
+"database mongodb query --analyze"	netread	database.mongodb.query	runs
+"database mongodb query --analyze"	read	database.mongodb.query	runs
+"database mongodb query --analyze"	shell	database.mongodb.query	runs
+"database mongodb query --help"	full	database.mongodb.query	runs
+"database mongodb query --help"	netread	database.mongodb.query	runs
+"database mongodb query --help"	read	database.mongodb.query	runs
+"database mongodb query --help"	shell	database.mongodb.query	runs
+"database mongodb query --read-only"	full	database.mongodb.query	runs
+"database mongodb query --read-only"	netread	database.mongodb.query	runs
+"database mongodb query --read-only"	read	database.mongodb.query	runs
+"database mongodb query --read-only"	shell	database.mongodb.query	runs
+"database mongodb query --refresh"	full	database.mongodb.query	runs
+"database mongodb query --refresh"	netread	database.mongodb.query	runs
+"database mongodb query --refresh"	read	database.mongodb.query	runs
+"database mongodb query --refresh"	shell	database.mongodb.query	runs
+"database mongodb query --write"	full	database.mongodb.query	runs
+"database mongodb query --write"	netread	database.mongodb.query	SSH_GATE_READ_ONLY|komando database mongodb query is refused for a read-only key: with --write it can change something
+"database mongodb query --write"	read	database.mongodb.query	SSH_GATE_READ_ONLY|komando database mongodb query is refused for a read-only key: with --write it can change something
+"database mongodb query --write"	shell	database.mongodb.query	runs
+"database mongodb query"	full	database.mongodb.query	runs
+"database mongodb query"	netread	database.mongodb.query	runs
+"database mongodb query"	read	database.mongodb.query	runs
+"database mongodb query"	shell	database.mongodb.query	runs
+"database mongodb remove --help"	full	database.mongodb.remove	runs
+"database mongodb remove --help"	netread	database.mongodb.remove	runs
+"database mongodb remove --help"	read	database.mongodb.remove	runs
+"database mongodb remove --help"	shell	database.mongodb.remove	runs
+"database mongodb remove"	full	database.mongodb.remove	SSH_GATE_REFUSED|komando database mongodb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb remove"	netread	database.mongodb.remove	SSH_GATE_REFUSED|komando database mongodb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb remove"	read	database.mongodb.remove	SSH_GATE_REFUSED|komando database mongodb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb remove"	shell	database.mongodb.remove	SSH_GATE_REFUSED|komando database mongodb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb rename --help"	full	database.mongodb.rename	runs
+"database mongodb rename --help"	netread	database.mongodb.rename	runs
+"database mongodb rename --help"	read	database.mongodb.rename	runs
+"database mongodb rename --help"	shell	database.mongodb.rename	runs
+"database mongodb rename"	full	database.mongodb.rename	SSH_GATE_REFUSED|komando database mongodb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb rename"	netread	database.mongodb.rename	SSH_GATE_REFUSED|komando database mongodb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb rename"	read	database.mongodb.rename	SSH_GATE_REFUSED|komando database mongodb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb rename"	shell	database.mongodb.rename	SSH_GATE_REFUSED|komando database mongodb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mongodb show --help"	full	database.mongodb.show	runs
+"database mongodb show --help"	netread	database.mongodb.show	runs
+"database mongodb show --help"	read	database.mongodb.show	runs
+"database mongodb show --help"	shell	database.mongodb.show	runs
+"database mongodb show"	full	database.mongodb.show	runs
+"database mongodb show"	netread	database.mongodb.show	runs
+"database mongodb show"	read	database.mongodb.show	runs
+"database mongodb show"	shell	database.mongodb.show	runs
+"database mongodb test --help"	full	database.mongodb.test	runs
+"database mongodb test --help"	netread	database.mongodb.test	runs
+"database mongodb test --help"	read	database.mongodb.test	runs
+"database mongodb test --help"	shell	database.mongodb.test	runs
+"database mongodb test"	full	database.mongodb.test	runs
+"database mongodb test"	netread	database.mongodb.test	runs
+"database mongodb test"	read	database.mongodb.test	runs
+"database mongodb test"	shell	database.mongodb.test	runs
+"database mongodb"	full	database.mongodb	runs
+"database mongodb"	netread	database.mongodb	runs
+"database mongodb"	read	database.mongodb	runs
+"database mongodb"	shell	database.mongodb	runs
+"database mysql --help"	full	database.mysql	runs
+"database mysql --help"	netread	database.mysql	runs
+"database mysql --help"	read	database.mysql	runs
+"database mysql --help"	shell	database.mysql	runs
+"database mysql add --help"	full	database.mysql.add	runs
+"database mysql add --help"	netread	database.mysql.add	runs
+"database mysql add --help"	read	database.mysql.add	runs
+"database mysql add --help"	shell	database.mysql.add	runs
+"database mysql add"	full	database.mysql.add	SSH_GATE_REFUSED|komando database mysql add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql add"	netread	database.mysql.add	SSH_GATE_REFUSED|komando database mysql add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql add"	read	database.mysql.add	SSH_GATE_REFUSED|komando database mysql add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql add"	shell	database.mysql.add	SSH_GATE_REFUSED|komando database mysql add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql backup --help"	full	database.mysql.backup	runs
+"database mysql backup --help"	netread	database.mysql.backup	runs
+"database mysql backup --help"	read	database.mysql.backup	runs
+"database mysql backup --help"	shell	database.mysql.backup	runs
+"database mysql backup --to /tmp/x"	full	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup --to /tmp/x"	netread	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup --to /tmp/x"	read	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup --to /tmp/x"	shell	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup"	full	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup"	netread	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup"	read	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql backup"	shell	database.mysql.backup	SSH_GATE_REFUSED|komando database mysql backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database mysql edit --help"	full	database.mysql.edit	runs
+"database mysql edit --help"	netread	database.mysql.edit	runs
+"database mysql edit --help"	read	database.mysql.edit	runs
+"database mysql edit --help"	shell	database.mysql.edit	runs
+"database mysql edit"	full	database.mysql.edit	SSH_GATE_REFUSED|komando database mysql edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql edit"	netread	database.mysql.edit	SSH_GATE_REFUSED|komando database mysql edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql edit"	read	database.mysql.edit	SSH_GATE_REFUSED|komando database mysql edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql edit"	shell	database.mysql.edit	SSH_GATE_REFUSED|komando database mysql edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql list --help"	full	database.mysql.list	runs
+"database mysql list --help"	netread	database.mysql.list	runs
+"database mysql list --help"	read	database.mysql.list	runs
+"database mysql list --help"	shell	database.mysql.list	runs
+"database mysql list"	full	database.mysql.list	runs
+"database mysql list"	netread	database.mysql.list	runs
+"database mysql list"	read	database.mysql.list	runs
+"database mysql list"	shell	database.mysql.list	runs
+"database mysql query --analyze"	full	database.mysql.query	runs
+"database mysql query --analyze"	netread	database.mysql.query	runs
+"database mysql query --analyze"	read	database.mysql.query	runs
+"database mysql query --analyze"	shell	database.mysql.query	runs
+"database mysql query --help"	full	database.mysql.query	runs
+"database mysql query --help"	netread	database.mysql.query	runs
+"database mysql query --help"	read	database.mysql.query	runs
+"database mysql query --help"	shell	database.mysql.query	runs
+"database mysql query --read-only"	full	database.mysql.query	runs
+"database mysql query --read-only"	netread	database.mysql.query	runs
+"database mysql query --read-only"	read	database.mysql.query	runs
+"database mysql query --read-only"	shell	database.mysql.query	runs
+"database mysql query --refresh"	full	database.mysql.query	runs
+"database mysql query --refresh"	netread	database.mysql.query	runs
+"database mysql query --refresh"	read	database.mysql.query	runs
+"database mysql query --refresh"	shell	database.mysql.query	runs
+"database mysql query --write"	full	database.mysql.query	runs
+"database mysql query --write"	netread	database.mysql.query	SSH_GATE_READ_ONLY|komando database mysql query is refused for a read-only key: with --write it can change something
+"database mysql query --write"	read	database.mysql.query	SSH_GATE_READ_ONLY|komando database mysql query is refused for a read-only key: with --write it can change something
+"database mysql query --write"	shell	database.mysql.query	runs
+"database mysql query"	full	database.mysql.query	runs
+"database mysql query"	netread	database.mysql.query	runs
+"database mysql query"	read	database.mysql.query	runs
+"database mysql query"	shell	database.mysql.query	runs
+"database mysql remove --help"	full	database.mysql.remove	runs
+"database mysql remove --help"	netread	database.mysql.remove	runs
+"database mysql remove --help"	read	database.mysql.remove	runs
+"database mysql remove --help"	shell	database.mysql.remove	runs
+"database mysql remove"	full	database.mysql.remove	SSH_GATE_REFUSED|komando database mysql remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql remove"	netread	database.mysql.remove	SSH_GATE_REFUSED|komando database mysql remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql remove"	read	database.mysql.remove	SSH_GATE_REFUSED|komando database mysql remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql remove"	shell	database.mysql.remove	SSH_GATE_REFUSED|komando database mysql remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql rename --help"	full	database.mysql.rename	runs
+"database mysql rename --help"	netread	database.mysql.rename	runs
+"database mysql rename --help"	read	database.mysql.rename	runs
+"database mysql rename --help"	shell	database.mysql.rename	runs
+"database mysql rename"	full	database.mysql.rename	SSH_GATE_REFUSED|komando database mysql rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql rename"	netread	database.mysql.rename	SSH_GATE_REFUSED|komando database mysql rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql rename"	read	database.mysql.rename	SSH_GATE_REFUSED|komando database mysql rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql rename"	shell	database.mysql.rename	SSH_GATE_REFUSED|komando database mysql rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database mysql restore --help"	full	database.mysql.restore	runs
+"database mysql restore --help"	netread	database.mysql.restore	runs
+"database mysql restore --help"	read	database.mysql.restore	runs
+"database mysql restore --help"	shell	database.mysql.restore	runs
+"database mysql restore"	full	database.mysql.restore	runs
+"database mysql restore"	netread	database.mysql.restore	SSH_GATE_READ_ONLY|komando database mysql restore is refused for a read-only key: it changes something
+"database mysql restore"	read	database.mysql.restore	SSH_GATE_READ_ONLY|komando database mysql restore is refused for a read-only key: it changes something
+"database mysql restore"	shell	database.mysql.restore	runs
+"database mysql shell --help"	full	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell --help"	netread	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell --help"	read	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell --help"	shell	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell"	full	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell"	netread	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell"	read	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql shell"	shell	database.mysql.shell	SSH_GATE_REFUSED|komando database mysql shell needs a person at a terminal on this computer; a key cannot run it
+"database mysql show --help"	full	database.mysql.show	runs
+"database mysql show --help"	netread	database.mysql.show	runs
+"database mysql show --help"	read	database.mysql.show	runs
+"database mysql show --help"	shell	database.mysql.show	runs
+"database mysql show"	full	database.mysql.show	runs
+"database mysql show"	netread	database.mysql.show	runs
+"database mysql show"	read	database.mysql.show	runs
+"database mysql show"	shell	database.mysql.show	runs
+"database mysql test --help"	full	database.mysql.test	runs
+"database mysql test --help"	netread	database.mysql.test	runs
+"database mysql test --help"	read	database.mysql.test	runs
+"database mysql test --help"	shell	database.mysql.test	runs
+"database mysql test"	full	database.mysql.test	runs
+"database mysql test"	netread	database.mysql.test	runs
+"database mysql test"	read	database.mysql.test	runs
+"database mysql test"	shell	database.mysql.test	runs
+"database mysql"	full	database.mysql	runs
+"database mysql"	netread	database.mysql	runs
+"database mysql"	read	database.mysql	runs
+"database mysql"	shell	database.mysql	runs
+"database oracle --help"	full	database.oracle	runs
+"database oracle --help"	netread	database.oracle	runs
+"database oracle --help"	read	database.oracle	runs
+"database oracle --help"	shell	database.oracle	runs
+"database oracle add --help"	full	database.oracle.add	runs
+"database oracle add --help"	netread	database.oracle.add	runs
+"database oracle add --help"	read	database.oracle.add	runs
+"database oracle add --help"	shell	database.oracle.add	runs
+"database oracle add"	full	database.oracle.add	SSH_GATE_REFUSED|komando database oracle add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle add"	netread	database.oracle.add	SSH_GATE_REFUSED|komando database oracle add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle add"	read	database.oracle.add	SSH_GATE_REFUSED|komando database oracle add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle add"	shell	database.oracle.add	SSH_GATE_REFUSED|komando database oracle add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle edit --help"	full	database.oracle.edit	runs
+"database oracle edit --help"	netread	database.oracle.edit	runs
+"database oracle edit --help"	read	database.oracle.edit	runs
+"database oracle edit --help"	shell	database.oracle.edit	runs
+"database oracle edit"	full	database.oracle.edit	SSH_GATE_REFUSED|komando database oracle edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle edit"	netread	database.oracle.edit	SSH_GATE_REFUSED|komando database oracle edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle edit"	read	database.oracle.edit	SSH_GATE_REFUSED|komando database oracle edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle edit"	shell	database.oracle.edit	SSH_GATE_REFUSED|komando database oracle edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle list --help"	full	database.oracle.list	runs
+"database oracle list --help"	netread	database.oracle.list	runs
+"database oracle list --help"	read	database.oracle.list	runs
+"database oracle list --help"	shell	database.oracle.list	runs
+"database oracle list"	full	database.oracle.list	runs
+"database oracle list"	netread	database.oracle.list	runs
+"database oracle list"	read	database.oracle.list	runs
+"database oracle list"	shell	database.oracle.list	runs
+"database oracle query --analyze"	full	database.oracle.query	runs
+"database oracle query --analyze"	netread	database.oracle.query	runs
+"database oracle query --analyze"	read	database.oracle.query	runs
+"database oracle query --analyze"	shell	database.oracle.query	runs
+"database oracle query --help"	full	database.oracle.query	runs
+"database oracle query --help"	netread	database.oracle.query	runs
+"database oracle query --help"	read	database.oracle.query	runs
+"database oracle query --help"	shell	database.oracle.query	runs
+"database oracle query --read-only"	full	database.oracle.query	runs
+"database oracle query --read-only"	netread	database.oracle.query	runs
+"database oracle query --read-only"	read	database.oracle.query	runs
+"database oracle query --read-only"	shell	database.oracle.query	runs
+"database oracle query --refresh"	full	database.oracle.query	runs
+"database oracle query --refresh"	netread	database.oracle.query	runs
+"database oracle query --refresh"	read	database.oracle.query	runs
+"database oracle query --refresh"	shell	database.oracle.query	runs
+"database oracle query --write"	full	database.oracle.query	runs
+"database oracle query --write"	netread	database.oracle.query	SSH_GATE_READ_ONLY|komando database oracle query is refused for a read-only key: with --write it can change something
+"database oracle query --write"	read	database.oracle.query	SSH_GATE_READ_ONLY|komando database oracle query is refused for a read-only key: with --write it can change something
+"database oracle query --write"	shell	database.oracle.query	runs
+"database oracle query"	full	database.oracle.query	runs
+"database oracle query"	netread	database.oracle.query	runs
+"database oracle query"	read	database.oracle.query	runs
+"database oracle query"	shell	database.oracle.query	runs
+"database oracle remove --help"	full	database.oracle.remove	runs
+"database oracle remove --help"	netread	database.oracle.remove	runs
+"database oracle remove --help"	read	database.oracle.remove	runs
+"database oracle remove --help"	shell	database.oracle.remove	runs
+"database oracle remove"	full	database.oracle.remove	SSH_GATE_REFUSED|komando database oracle remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle remove"	netread	database.oracle.remove	SSH_GATE_REFUSED|komando database oracle remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle remove"	read	database.oracle.remove	SSH_GATE_REFUSED|komando database oracle remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle remove"	shell	database.oracle.remove	SSH_GATE_REFUSED|komando database oracle remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle rename --help"	full	database.oracle.rename	runs
+"database oracle rename --help"	netread	database.oracle.rename	runs
+"database oracle rename --help"	read	database.oracle.rename	runs
+"database oracle rename --help"	shell	database.oracle.rename	runs
+"database oracle rename"	full	database.oracle.rename	SSH_GATE_REFUSED|komando database oracle rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle rename"	netread	database.oracle.rename	SSH_GATE_REFUSED|komando database oracle rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle rename"	read	database.oracle.rename	SSH_GATE_REFUSED|komando database oracle rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle rename"	shell	database.oracle.rename	SSH_GATE_REFUSED|komando database oracle rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database oracle shell --help"	full	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell --help"	netread	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell --help"	read	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell --help"	shell	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell"	full	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell"	netread	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell"	read	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle shell"	shell	database.oracle.shell	SSH_GATE_REFUSED|komando database oracle shell needs a person at a terminal on this computer; a key cannot run it
+"database oracle show --help"	full	database.oracle.show	runs
+"database oracle show --help"	netread	database.oracle.show	runs
+"database oracle show --help"	read	database.oracle.show	runs
+"database oracle show --help"	shell	database.oracle.show	runs
+"database oracle show"	full	database.oracle.show	runs
+"database oracle show"	netread	database.oracle.show	runs
+"database oracle show"	read	database.oracle.show	runs
+"database oracle show"	shell	database.oracle.show	runs
+"database oracle test --help"	full	database.oracle.test	runs
+"database oracle test --help"	netread	database.oracle.test	runs
+"database oracle test --help"	read	database.oracle.test	runs
+"database oracle test --help"	shell	database.oracle.test	runs
+"database oracle test"	full	database.oracle.test	runs
+"database oracle test"	netread	database.oracle.test	runs
+"database oracle test"	read	database.oracle.test	runs
+"database oracle test"	shell	database.oracle.test	runs
+"database oracle"	full	database.oracle	runs
+"database oracle"	netread	database.oracle	runs
+"database oracle"	read	database.oracle	runs
+"database oracle"	shell	database.oracle	runs
+"database postgres --help"	full	database.postgres	runs
+"database postgres --help"	netread	database.postgres	runs
+"database postgres --help"	read	database.postgres	runs
+"database postgres --help"	shell	database.postgres	runs
+"database postgres add --help"	full	database.postgres.add	runs
+"database postgres add --help"	netread	database.postgres.add	runs
+"database postgres add --help"	read	database.postgres.add	runs
+"database postgres add --help"	shell	database.postgres.add	runs
+"database postgres add"	full	database.postgres.add	SSH_GATE_REFUSED|komando database postgres add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres add"	netread	database.postgres.add	SSH_GATE_REFUSED|komando database postgres add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres add"	read	database.postgres.add	SSH_GATE_REFUSED|komando database postgres add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres add"	shell	database.postgres.add	SSH_GATE_REFUSED|komando database postgres add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres backup --help"	full	database.postgres.backup	runs
+"database postgres backup --help"	netread	database.postgres.backup	runs
+"database postgres backup --help"	read	database.postgres.backup	runs
+"database postgres backup --help"	shell	database.postgres.backup	runs
+"database postgres backup --to /tmp/x"	full	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup --to /tmp/x"	netread	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup --to /tmp/x"	read	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup --to /tmp/x"	shell	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup"	full	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup"	netread	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup"	read	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres backup"	shell	database.postgres.backup	SSH_GATE_REFUSED|komando database postgres backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database postgres edit --help"	full	database.postgres.edit	runs
+"database postgres edit --help"	netread	database.postgres.edit	runs
+"database postgres edit --help"	read	database.postgres.edit	runs
+"database postgres edit --help"	shell	database.postgres.edit	runs
+"database postgres edit"	full	database.postgres.edit	SSH_GATE_REFUSED|komando database postgres edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres edit"	netread	database.postgres.edit	SSH_GATE_REFUSED|komando database postgres edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres edit"	read	database.postgres.edit	SSH_GATE_REFUSED|komando database postgres edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres edit"	shell	database.postgres.edit	SSH_GATE_REFUSED|komando database postgres edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres list --help"	full	database.postgres.list	runs
+"database postgres list --help"	netread	database.postgres.list	runs
+"database postgres list --help"	read	database.postgres.list	runs
+"database postgres list --help"	shell	database.postgres.list	runs
+"database postgres list"	full	database.postgres.list	runs
+"database postgres list"	netread	database.postgres.list	runs
+"database postgres list"	read	database.postgres.list	runs
+"database postgres list"	shell	database.postgres.list	runs
+"database postgres query --analyze"	full	database.postgres.query	runs
+"database postgres query --analyze"	netread	database.postgres.query	runs
+"database postgres query --analyze"	read	database.postgres.query	runs
+"database postgres query --analyze"	shell	database.postgres.query	runs
+"database postgres query --help"	full	database.postgres.query	runs
+"database postgres query --help"	netread	database.postgres.query	runs
+"database postgres query --help"	read	database.postgres.query	runs
+"database postgres query --help"	shell	database.postgres.query	runs
+"database postgres query --read-only"	full	database.postgres.query	runs
+"database postgres query --read-only"	netread	database.postgres.query	runs
+"database postgres query --read-only"	read	database.postgres.query	runs
+"database postgres query --read-only"	shell	database.postgres.query	runs
+"database postgres query --refresh"	full	database.postgres.query	runs
+"database postgres query --refresh"	netread	database.postgres.query	runs
+"database postgres query --refresh"	read	database.postgres.query	runs
+"database postgres query --refresh"	shell	database.postgres.query	runs
+"database postgres query --write"	full	database.postgres.query	runs
+"database postgres query --write"	netread	database.postgres.query	SSH_GATE_READ_ONLY|komando database postgres query is refused for a read-only key: with --write it can change something
+"database postgres query --write"	read	database.postgres.query	SSH_GATE_READ_ONLY|komando database postgres query is refused for a read-only key: with --write it can change something
+"database postgres query --write"	shell	database.postgres.query	runs
+"database postgres query"	full	database.postgres.query	runs
+"database postgres query"	netread	database.postgres.query	runs
+"database postgres query"	read	database.postgres.query	runs
+"database postgres query"	shell	database.postgres.query	runs
+"database postgres remove --help"	full	database.postgres.remove	runs
+"database postgres remove --help"	netread	database.postgres.remove	runs
+"database postgres remove --help"	read	database.postgres.remove	runs
+"database postgres remove --help"	shell	database.postgres.remove	runs
+"database postgres remove"	full	database.postgres.remove	SSH_GATE_REFUSED|komando database postgres remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres remove"	netread	database.postgres.remove	SSH_GATE_REFUSED|komando database postgres remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres remove"	read	database.postgres.remove	SSH_GATE_REFUSED|komando database postgres remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres remove"	shell	database.postgres.remove	SSH_GATE_REFUSED|komando database postgres remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres rename --help"	full	database.postgres.rename	runs
+"database postgres rename --help"	netread	database.postgres.rename	runs
+"database postgres rename --help"	read	database.postgres.rename	runs
+"database postgres rename --help"	shell	database.postgres.rename	runs
+"database postgres rename"	full	database.postgres.rename	SSH_GATE_REFUSED|komando database postgres rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres rename"	netread	database.postgres.rename	SSH_GATE_REFUSED|komando database postgres rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres rename"	read	database.postgres.rename	SSH_GATE_REFUSED|komando database postgres rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres rename"	shell	database.postgres.rename	SSH_GATE_REFUSED|komando database postgres rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database postgres restore --help"	full	database.postgres.restore	runs
+"database postgres restore --help"	netread	database.postgres.restore	runs
+"database postgres restore --help"	read	database.postgres.restore	runs
+"database postgres restore --help"	shell	database.postgres.restore	runs
+"database postgres restore"	full	database.postgres.restore	runs
+"database postgres restore"	netread	database.postgres.restore	SSH_GATE_READ_ONLY|komando database postgres restore is refused for a read-only key: it changes something
+"database postgres restore"	read	database.postgres.restore	SSH_GATE_READ_ONLY|komando database postgres restore is refused for a read-only key: it changes something
+"database postgres restore"	shell	database.postgres.restore	runs
+"database postgres shell --help"	full	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell --help"	netread	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell --help"	read	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell --help"	shell	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell"	full	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell"	netread	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell"	read	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres shell"	shell	database.postgres.shell	SSH_GATE_REFUSED|komando database postgres shell needs a person at a terminal on this computer; a key cannot run it
+"database postgres show --help"	full	database.postgres.show	runs
+"database postgres show --help"	netread	database.postgres.show	runs
+"database postgres show --help"	read	database.postgres.show	runs
+"database postgres show --help"	shell	database.postgres.show	runs
+"database postgres show"	full	database.postgres.show	runs
+"database postgres show"	netread	database.postgres.show	runs
+"database postgres show"	read	database.postgres.show	runs
+"database postgres show"	shell	database.postgres.show	runs
+"database postgres test --help"	full	database.postgres.test	runs
+"database postgres test --help"	netread	database.postgres.test	runs
+"database postgres test --help"	read	database.postgres.test	runs
+"database postgres test --help"	shell	database.postgres.test	runs
+"database postgres test"	full	database.postgres.test	runs
+"database postgres test"	netread	database.postgres.test	runs
+"database postgres test"	read	database.postgres.test	runs
+"database postgres test"	shell	database.postgres.test	runs
+"database postgres"	full	database.postgres	runs
+"database postgres"	netread	database.postgres	runs
+"database postgres"	read	database.postgres	runs
+"database postgres"	shell	database.postgres	runs
+"database snowflake --help"	full	database.snowflake	runs
+"database snowflake --help"	netread	database.snowflake	runs
+"database snowflake --help"	read	database.snowflake	runs
+"database snowflake --help"	shell	database.snowflake	runs
+"database snowflake add --help"	full	database.snowflake.add	runs
+"database snowflake add --help"	netread	database.snowflake.add	runs
+"database snowflake add --help"	read	database.snowflake.add	runs
+"database snowflake add --help"	shell	database.snowflake.add	runs
+"database snowflake add"	full	database.snowflake.add	SSH_GATE_REFUSED|komando database snowflake add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake add"	netread	database.snowflake.add	SSH_GATE_REFUSED|komando database snowflake add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake add"	read	database.snowflake.add	SSH_GATE_REFUSED|komando database snowflake add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake add"	shell	database.snowflake.add	SSH_GATE_REFUSED|komando database snowflake add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake edit --help"	full	database.snowflake.edit	runs
+"database snowflake edit --help"	netread	database.snowflake.edit	runs
+"database snowflake edit --help"	read	database.snowflake.edit	runs
+"database snowflake edit --help"	shell	database.snowflake.edit	runs
+"database snowflake edit"	full	database.snowflake.edit	SSH_GATE_REFUSED|komando database snowflake edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake edit"	netread	database.snowflake.edit	SSH_GATE_REFUSED|komando database snowflake edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake edit"	read	database.snowflake.edit	SSH_GATE_REFUSED|komando database snowflake edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake edit"	shell	database.snowflake.edit	SSH_GATE_REFUSED|komando database snowflake edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake list --help"	full	database.snowflake.list	runs
+"database snowflake list --help"	netread	database.snowflake.list	runs
+"database snowflake list --help"	read	database.snowflake.list	runs
+"database snowflake list --help"	shell	database.snowflake.list	runs
+"database snowflake list"	full	database.snowflake.list	runs
+"database snowflake list"	netread	database.snowflake.list	runs
+"database snowflake list"	read	database.snowflake.list	runs
+"database snowflake list"	shell	database.snowflake.list	runs
+"database snowflake query --analyze"	full	database.snowflake.query	runs
+"database snowflake query --analyze"	netread	database.snowflake.query	runs
+"database snowflake query --analyze"	read	database.snowflake.query	runs
+"database snowflake query --analyze"	shell	database.snowflake.query	runs
+"database snowflake query --help"	full	database.snowflake.query	runs
+"database snowflake query --help"	netread	database.snowflake.query	runs
+"database snowflake query --help"	read	database.snowflake.query	runs
+"database snowflake query --help"	shell	database.snowflake.query	runs
+"database snowflake query --read-only"	full	database.snowflake.query	runs
+"database snowflake query --read-only"	netread	database.snowflake.query	runs
+"database snowflake query --read-only"	read	database.snowflake.query	runs
+"database snowflake query --read-only"	shell	database.snowflake.query	runs
+"database snowflake query --refresh"	full	database.snowflake.query	runs
+"database snowflake query --refresh"	netread	database.snowflake.query	runs
+"database snowflake query --refresh"	read	database.snowflake.query	runs
+"database snowflake query --refresh"	shell	database.snowflake.query	runs
+"database snowflake query --write"	full	database.snowflake.query	runs
+"database snowflake query --write"	netread	database.snowflake.query	SSH_GATE_READ_ONLY|komando database snowflake query is refused for a read-only key: with --write it can change something
+"database snowflake query --write"	read	database.snowflake.query	SSH_GATE_READ_ONLY|komando database snowflake query is refused for a read-only key: with --write it can change something
+"database snowflake query --write"	shell	database.snowflake.query	runs
+"database snowflake query"	full	database.snowflake.query	runs
+"database snowflake query"	netread	database.snowflake.query	runs
+"database snowflake query"	read	database.snowflake.query	runs
+"database snowflake query"	shell	database.snowflake.query	runs
+"database snowflake remove --help"	full	database.snowflake.remove	runs
+"database snowflake remove --help"	netread	database.snowflake.remove	runs
+"database snowflake remove --help"	read	database.snowflake.remove	runs
+"database snowflake remove --help"	shell	database.snowflake.remove	runs
+"database snowflake remove"	full	database.snowflake.remove	SSH_GATE_REFUSED|komando database snowflake remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake remove"	netread	database.snowflake.remove	SSH_GATE_REFUSED|komando database snowflake remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake remove"	read	database.snowflake.remove	SSH_GATE_REFUSED|komando database snowflake remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake remove"	shell	database.snowflake.remove	SSH_GATE_REFUSED|komando database snowflake remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake rename --help"	full	database.snowflake.rename	runs
+"database snowflake rename --help"	netread	database.snowflake.rename	runs
+"database snowflake rename --help"	read	database.snowflake.rename	runs
+"database snowflake rename --help"	shell	database.snowflake.rename	runs
+"database snowflake rename"	full	database.snowflake.rename	SSH_GATE_REFUSED|komando database snowflake rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake rename"	netread	database.snowflake.rename	SSH_GATE_REFUSED|komando database snowflake rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake rename"	read	database.snowflake.rename	SSH_GATE_REFUSED|komando database snowflake rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake rename"	shell	database.snowflake.rename	SSH_GATE_REFUSED|komando database snowflake rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database snowflake shell --help"	full	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell --help"	netread	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell --help"	read	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell --help"	shell	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell"	full	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell"	netread	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell"	read	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake shell"	shell	database.snowflake.shell	SSH_GATE_REFUSED|komando database snowflake shell needs a person at a terminal on this computer; a key cannot run it
+"database snowflake show --help"	full	database.snowflake.show	runs
+"database snowflake show --help"	netread	database.snowflake.show	runs
+"database snowflake show --help"	read	database.snowflake.show	runs
+"database snowflake show --help"	shell	database.snowflake.show	runs
+"database snowflake show"	full	database.snowflake.show	runs
+"database snowflake show"	netread	database.snowflake.show	runs
+"database snowflake show"	read	database.snowflake.show	runs
+"database snowflake show"	shell	database.snowflake.show	runs
+"database snowflake test --help"	full	database.snowflake.test	runs
+"database snowflake test --help"	netread	database.snowflake.test	runs
+"database snowflake test --help"	read	database.snowflake.test	runs
+"database snowflake test --help"	shell	database.snowflake.test	runs
+"database snowflake test"	full	database.snowflake.test	runs
+"database snowflake test"	netread	database.snowflake.test	runs
+"database snowflake test"	read	database.snowflake.test	runs
+"database snowflake test"	shell	database.snowflake.test	runs
+"database snowflake"	full	database.snowflake	runs
+"database snowflake"	netread	database.snowflake	runs
+"database snowflake"	read	database.snowflake	runs
+"database snowflake"	shell	database.snowflake	runs
+"database sqlite --help"	full	database.sqlite	runs
+"database sqlite --help"	netread	database.sqlite	runs
+"database sqlite --help"	read	database.sqlite	runs
+"database sqlite --help"	shell	database.sqlite	runs
+"database sqlite add --help"	full	database.sqlite.add	runs
+"database sqlite add --help"	netread	database.sqlite.add	runs
+"database sqlite add --help"	read	database.sqlite.add	runs
+"database sqlite add --help"	shell	database.sqlite.add	runs
+"database sqlite add"	full	database.sqlite.add	SSH_GATE_REFUSED|komando database sqlite add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite add"	netread	database.sqlite.add	SSH_GATE_REFUSED|komando database sqlite add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite add"	read	database.sqlite.add	SSH_GATE_REFUSED|komando database sqlite add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite add"	shell	database.sqlite.add	SSH_GATE_REFUSED|komando database sqlite add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite backup --help"	full	database.sqlite.backup	runs
+"database sqlite backup --help"	netread	database.sqlite.backup	runs
+"database sqlite backup --help"	read	database.sqlite.backup	runs
+"database sqlite backup --help"	shell	database.sqlite.backup	runs
+"database sqlite backup --to /tmp/x"	full	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup --to /tmp/x"	netread	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup --to /tmp/x"	read	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup --to /tmp/x"	shell	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup"	full	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup"	netread	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup"	read	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite backup"	shell	database.sqlite.backup	SSH_GATE_REFUSED|komando database sqlite backup is refused for a key: it saves a file on this computer; the gate runs commands on servers, not on this computer
+"database sqlite edit --help"	full	database.sqlite.edit	runs
+"database sqlite edit --help"	netread	database.sqlite.edit	runs
+"database sqlite edit --help"	read	database.sqlite.edit	runs
+"database sqlite edit --help"	shell	database.sqlite.edit	runs
+"database sqlite edit"	full	database.sqlite.edit	SSH_GATE_REFUSED|komando database sqlite edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite edit"	netread	database.sqlite.edit	SSH_GATE_REFUSED|komando database sqlite edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite edit"	read	database.sqlite.edit	SSH_GATE_REFUSED|komando database sqlite edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite edit"	shell	database.sqlite.edit	SSH_GATE_REFUSED|komando database sqlite edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite list --help"	full	database.sqlite.list	runs
+"database sqlite list --help"	netread	database.sqlite.list	runs
+"database sqlite list --help"	read	database.sqlite.list	runs
+"database sqlite list --help"	shell	database.sqlite.list	runs
+"database sqlite list"	full	database.sqlite.list	runs
+"database sqlite list"	netread	database.sqlite.list	runs
+"database sqlite list"	read	database.sqlite.list	runs
+"database sqlite list"	shell	database.sqlite.list	runs
+"database sqlite query --analyze"	full	database.sqlite.query	runs
+"database sqlite query --analyze"	netread	database.sqlite.query	runs
+"database sqlite query --analyze"	read	database.sqlite.query	runs
+"database sqlite query --analyze"	shell	database.sqlite.query	runs
+"database sqlite query --help"	full	database.sqlite.query	runs
+"database sqlite query --help"	netread	database.sqlite.query	runs
+"database sqlite query --help"	read	database.sqlite.query	runs
+"database sqlite query --help"	shell	database.sqlite.query	runs
+"database sqlite query --read-only"	full	database.sqlite.query	runs
+"database sqlite query --read-only"	netread	database.sqlite.query	runs
+"database sqlite query --read-only"	read	database.sqlite.query	runs
+"database sqlite query --read-only"	shell	database.sqlite.query	runs
+"database sqlite query --refresh"	full	database.sqlite.query	runs
+"database sqlite query --refresh"	netread	database.sqlite.query	runs
+"database sqlite query --refresh"	read	database.sqlite.query	runs
+"database sqlite query --refresh"	shell	database.sqlite.query	runs
+"database sqlite query --write"	full	database.sqlite.query	runs
+"database sqlite query --write"	netread	database.sqlite.query	SSH_GATE_READ_ONLY|komando database sqlite query is refused for a read-only key: with --write it can change something
+"database sqlite query --write"	read	database.sqlite.query	SSH_GATE_READ_ONLY|komando database sqlite query is refused for a read-only key: with --write it can change something
+"database sqlite query --write"	shell	database.sqlite.query	runs
+"database sqlite query"	full	database.sqlite.query	runs
+"database sqlite query"	netread	database.sqlite.query	runs
+"database sqlite query"	read	database.sqlite.query	runs
+"database sqlite query"	shell	database.sqlite.query	runs
+"database sqlite remove --help"	full	database.sqlite.remove	runs
+"database sqlite remove --help"	netread	database.sqlite.remove	runs
+"database sqlite remove --help"	read	database.sqlite.remove	runs
+"database sqlite remove --help"	shell	database.sqlite.remove	runs
+"database sqlite remove"	full	database.sqlite.remove	SSH_GATE_REFUSED|komando database sqlite remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite remove"	netread	database.sqlite.remove	SSH_GATE_REFUSED|komando database sqlite remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite remove"	read	database.sqlite.remove	SSH_GATE_REFUSED|komando database sqlite remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite remove"	shell	database.sqlite.remove	SSH_GATE_REFUSED|komando database sqlite remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite rename --help"	full	database.sqlite.rename	runs
+"database sqlite rename --help"	netread	database.sqlite.rename	runs
+"database sqlite rename --help"	read	database.sqlite.rename	runs
+"database sqlite rename --help"	shell	database.sqlite.rename	runs
+"database sqlite rename"	full	database.sqlite.rename	SSH_GATE_REFUSED|komando database sqlite rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite rename"	netread	database.sqlite.rename	SSH_GATE_REFUSED|komando database sqlite rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite rename"	read	database.sqlite.rename	SSH_GATE_REFUSED|komando database sqlite rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite rename"	shell	database.sqlite.rename	SSH_GATE_REFUSED|komando database sqlite rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlite shell --help"	full	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell --help"	netread	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell --help"	read	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell --help"	shell	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell"	full	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell"	netread	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell"	read	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite shell"	shell	database.sqlite.shell	SSH_GATE_REFUSED|komando database sqlite shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlite show --help"	full	database.sqlite.show	runs
+"database sqlite show --help"	netread	database.sqlite.show	runs
+"database sqlite show --help"	read	database.sqlite.show	runs
+"database sqlite show --help"	shell	database.sqlite.show	runs
+"database sqlite show"	full	database.sqlite.show	runs
+"database sqlite show"	netread	database.sqlite.show	runs
+"database sqlite show"	read	database.sqlite.show	runs
+"database sqlite show"	shell	database.sqlite.show	runs
+"database sqlite test --help"	full	database.sqlite.test	runs
+"database sqlite test --help"	netread	database.sqlite.test	runs
+"database sqlite test --help"	read	database.sqlite.test	runs
+"database sqlite test --help"	shell	database.sqlite.test	runs
+"database sqlite test"	full	database.sqlite.test	runs
+"database sqlite test"	netread	database.sqlite.test	runs
+"database sqlite test"	read	database.sqlite.test	runs
+"database sqlite test"	shell	database.sqlite.test	runs
+"database sqlite"	full	database.sqlite	runs
+"database sqlite"	netread	database.sqlite	runs
+"database sqlite"	read	database.sqlite	runs
+"database sqlite"	shell	database.sqlite	runs
+"database sqlserver --help"	full	database.sqlserver	runs
+"database sqlserver --help"	netread	database.sqlserver	runs
+"database sqlserver --help"	read	database.sqlserver	runs
+"database sqlserver --help"	shell	database.sqlserver	runs
+"database sqlserver add --help"	full	database.sqlserver.add	runs
+"database sqlserver add --help"	netread	database.sqlserver.add	runs
+"database sqlserver add --help"	read	database.sqlserver.add	runs
+"database sqlserver add --help"	shell	database.sqlserver.add	runs
+"database sqlserver add"	full	database.sqlserver.add	SSH_GATE_REFUSED|komando database sqlserver add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver add"	netread	database.sqlserver.add	SSH_GATE_REFUSED|komando database sqlserver add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver add"	read	database.sqlserver.add	SSH_GATE_REFUSED|komando database sqlserver add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver add"	shell	database.sqlserver.add	SSH_GATE_REFUSED|komando database sqlserver add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver edit --help"	full	database.sqlserver.edit	runs
+"database sqlserver edit --help"	netread	database.sqlserver.edit	runs
+"database sqlserver edit --help"	read	database.sqlserver.edit	runs
+"database sqlserver edit --help"	shell	database.sqlserver.edit	runs
+"database sqlserver edit"	full	database.sqlserver.edit	SSH_GATE_REFUSED|komando database sqlserver edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver edit"	netread	database.sqlserver.edit	SSH_GATE_REFUSED|komando database sqlserver edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver edit"	read	database.sqlserver.edit	SSH_GATE_REFUSED|komando database sqlserver edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver edit"	shell	database.sqlserver.edit	SSH_GATE_REFUSED|komando database sqlserver edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver list --help"	full	database.sqlserver.list	runs
+"database sqlserver list --help"	netread	database.sqlserver.list	runs
+"database sqlserver list --help"	read	database.sqlserver.list	runs
+"database sqlserver list --help"	shell	database.sqlserver.list	runs
+"database sqlserver list"	full	database.sqlserver.list	runs
+"database sqlserver list"	netread	database.sqlserver.list	runs
+"database sqlserver list"	read	database.sqlserver.list	runs
+"database sqlserver list"	shell	database.sqlserver.list	runs
+"database sqlserver query --analyze"	full	database.sqlserver.query	runs
+"database sqlserver query --analyze"	netread	database.sqlserver.query	runs
+"database sqlserver query --analyze"	read	database.sqlserver.query	runs
+"database sqlserver query --analyze"	shell	database.sqlserver.query	runs
+"database sqlserver query --help"	full	database.sqlserver.query	runs
+"database sqlserver query --help"	netread	database.sqlserver.query	runs
+"database sqlserver query --help"	read	database.sqlserver.query	runs
+"database sqlserver query --help"	shell	database.sqlserver.query	runs
+"database sqlserver query --read-only"	full	database.sqlserver.query	runs
+"database sqlserver query --read-only"	netread	database.sqlserver.query	runs
+"database sqlserver query --read-only"	read	database.sqlserver.query	runs
+"database sqlserver query --read-only"	shell	database.sqlserver.query	runs
+"database sqlserver query --refresh"	full	database.sqlserver.query	runs
+"database sqlserver query --refresh"	netread	database.sqlserver.query	runs
+"database sqlserver query --refresh"	read	database.sqlserver.query	runs
+"database sqlserver query --refresh"	shell	database.sqlserver.query	runs
+"database sqlserver query --write"	full	database.sqlserver.query	runs
+"database sqlserver query --write"	netread	database.sqlserver.query	SSH_GATE_READ_ONLY|komando database sqlserver query is refused for a read-only key: with --write it can change something
+"database sqlserver query --write"	read	database.sqlserver.query	SSH_GATE_READ_ONLY|komando database sqlserver query is refused for a read-only key: with --write it can change something
+"database sqlserver query --write"	shell	database.sqlserver.query	runs
+"database sqlserver query"	full	database.sqlserver.query	runs
+"database sqlserver query"	netread	database.sqlserver.query	runs
+"database sqlserver query"	read	database.sqlserver.query	runs
+"database sqlserver query"	shell	database.sqlserver.query	runs
+"database sqlserver remove --help"	full	database.sqlserver.remove	runs
+"database sqlserver remove --help"	netread	database.sqlserver.remove	runs
+"database sqlserver remove --help"	read	database.sqlserver.remove	runs
+"database sqlserver remove --help"	shell	database.sqlserver.remove	runs
+"database sqlserver remove"	full	database.sqlserver.remove	SSH_GATE_REFUSED|komando database sqlserver remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver remove"	netread	database.sqlserver.remove	SSH_GATE_REFUSED|komando database sqlserver remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver remove"	read	database.sqlserver.remove	SSH_GATE_REFUSED|komando database sqlserver remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver remove"	shell	database.sqlserver.remove	SSH_GATE_REFUSED|komando database sqlserver remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver rename --help"	full	database.sqlserver.rename	runs
+"database sqlserver rename --help"	netread	database.sqlserver.rename	runs
+"database sqlserver rename --help"	read	database.sqlserver.rename	runs
+"database sqlserver rename --help"	shell	database.sqlserver.rename	runs
+"database sqlserver rename"	full	database.sqlserver.rename	SSH_GATE_REFUSED|komando database sqlserver rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver rename"	netread	database.sqlserver.rename	SSH_GATE_REFUSED|komando database sqlserver rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver rename"	read	database.sqlserver.rename	SSH_GATE_REFUSED|komando database sqlserver rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver rename"	shell	database.sqlserver.rename	SSH_GATE_REFUSED|komando database sqlserver rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"database sqlserver shell --help"	full	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell --help"	netread	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell --help"	read	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell --help"	shell	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell"	full	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell"	netread	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell"	read	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver shell"	shell	database.sqlserver.shell	SSH_GATE_REFUSED|komando database sqlserver shell needs a person at a terminal on this computer; a key cannot run it
+"database sqlserver show --help"	full	database.sqlserver.show	runs
+"database sqlserver show --help"	netread	database.sqlserver.show	runs
+"database sqlserver show --help"	read	database.sqlserver.show	runs
+"database sqlserver show --help"	shell	database.sqlserver.show	runs
+"database sqlserver show"	full	database.sqlserver.show	runs
+"database sqlserver show"	netread	database.sqlserver.show	runs
+"database sqlserver show"	read	database.sqlserver.show	runs
+"database sqlserver show"	shell	database.sqlserver.show	runs
+"database sqlserver test --help"	full	database.sqlserver.test	runs
+"database sqlserver test --help"	netread	database.sqlserver.test	runs
+"database sqlserver test --help"	read	database.sqlserver.test	runs
+"database sqlserver test --help"	shell	database.sqlserver.test	runs
+"database sqlserver test"	full	database.sqlserver.test	runs
+"database sqlserver test"	netread	database.sqlserver.test	runs
+"database sqlserver test"	read	database.sqlserver.test	runs
+"database sqlserver test"	shell	database.sqlserver.test	runs
+"database sqlserver"	full	database.sqlserver	runs
+"database sqlserver"	netread	database.sqlserver	runs
+"database sqlserver"	read	database.sqlserver	runs
+"database sqlserver"	shell	database.sqlserver	runs
+"database"	full	database	runs
+"database"	netread	database	runs
+"database"	read	database	runs
+"database"	shell	database	runs
 "db --help"	full	db	runs
 "db --help"	netread	db	runs
 "db --help"	read	db	runs
@@ -1574,94 +2714,6 @@
 "import"	netread	import	SSH_GATE_REFUSED|komando import is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "import"	read	import	SSH_GATE_REFUSED|komando import is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "import"	shell	import	SSH_GATE_REFUSED|komando import is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"job --help"	full	job	runs
-"job --help"	netread	job	runs
-"job --help"	read	job	runs
-"job --help"	shell	job	runs
-"job kill --help"	full	job.kill	runs
-"job kill --help"	netread	job.kill	runs
-"job kill --help"	read	job.kill	runs
-"job kill --help"	shell	job.kill	runs
-"job kill web"	full	job.kill	runs
-"job kill web"	netread	job.kill	SSH_GATE_READ_ONLY|komando job kill is refused for a read-only key: it changes something
-"job kill web"	read	job.kill	SSH_GATE_READ_ONLY|komando job kill is refused for a read-only key: it changes something
-"job kill web"	shell	job.kill	runs
-"job kill"	full	job.kill	runs
-"job kill"	netread	job.kill	SSH_GATE_READ_ONLY|komando job kill is refused for a read-only key: it changes something
-"job kill"	read	job.kill	SSH_GATE_READ_ONLY|komando job kill is refused for a read-only key: it changes something
-"job kill"	shell	job.kill	runs
-"job list --help"	full	job.list	runs
-"job list --help"	netread	job.list	runs
-"job list --help"	read	job.list	runs
-"job list --help"	shell	job.list	runs
-"job list"	full	job.list	runs
-"job list"	netread	job.list	runs
-"job list"	read	job.list	runs
-"job list"	shell	job.list	runs
-"job logs --help"	full	job.logs	runs
-"job logs --help"	netread	job.logs	runs
-"job logs --help"	read	job.logs	runs
-"job logs --help"	shell	job.logs	runs
-"job logs"	full	job.logs	runs
-"job logs"	netread	job.logs	runs
-"job logs"	read	job.logs	runs
-"job logs"	shell	job.logs	runs
-"job rm --help"	full	job.rm	runs
-"job rm --help"	netread	job.rm	runs
-"job rm --help"	read	job.rm	runs
-"job rm --help"	shell	job.rm	runs
-"job rm web"	full	job.rm	runs
-"job rm web"	netread	job.rm	SSH_GATE_READ_ONLY|komando job rm is refused for a read-only key: it changes something
-"job rm web"	read	job.rm	SSH_GATE_READ_ONLY|komando job rm is refused for a read-only key: it changes something
-"job rm web"	shell	job.rm	runs
-"job rm"	full	job.rm	runs
-"job rm"	netread	job.rm	SSH_GATE_READ_ONLY|komando job rm is refused for a read-only key: it changes something
-"job rm"	read	job.rm	SSH_GATE_READ_ONLY|komando job rm is refused for a read-only key: it changes something
-"job rm"	shell	job.rm	runs
-"job start --analyze"	full	job.start	runs
-"job start --analyze"	netread	job.start	runs
-"job start --analyze"	read	job.start	runs
-"job start --analyze"	shell	job.start	runs
-"job start --help"	full	job.start	runs
-"job start --help"	netread	job.start	runs
-"job start --help"	read	job.start	runs
-"job start --help"	shell	job.start	runs
-"job start --read-only"	full	job.start	runs
-"job start --read-only"	netread	job.start	runs
-"job start --read-only"	read	job.start	SSH_GATE_NETWORK_REQUIRED|komando job start is refused for a read key without network: it runs a program of your choosing, which can connect anywhere
-"job start --read-only"	shell	job.start	runs
-"job start --refresh"	full	job.start	runs
-"job start --refresh"	netread	job.start	runs
-"job start --refresh"	read	job.start	runs
-"job start --refresh"	shell	job.start	runs
-"job start --write"	full	job.start	runs
-"job start --write"	netread	job.start	runs
-"job start --write"	read	job.start	runs
-"job start --write"	shell	job.start	runs
-"job start"	full	job.start	runs
-"job start"	netread	job.start	SSH_GATE_READ_ONLY|komando job start is refused for a read-only key: without --read-only it can change something
-"job start"	read	job.start	SSH_GATE_READ_ONLY|komando job start is refused for a read-only key: without --read-only it can change something
-"job start"	shell	job.start	runs
-"job status --help"	full	job.status	runs
-"job status --help"	netread	job.status	runs
-"job status --help"	read	job.status	runs
-"job status --help"	shell	job.status	runs
-"job status"	full	job.status	runs
-"job status"	netread	job.status	runs
-"job status"	read	job.status	runs
-"job status"	shell	job.status	runs
-"job wait --help"	full	job.wait	runs
-"job wait --help"	netread	job.wait	runs
-"job wait --help"	read	job.wait	runs
-"job wait --help"	shell	job.wait	runs
-"job wait"	full	job.wait	runs
-"job wait"	netread	job.wait	runs
-"job wait"	read	job.wait	runs
-"job wait"	shell	job.wait	runs
-"job"	full	job	runs
-"job"	netread	job	runs
-"job"	read	job	runs
-"job"	shell	job	runs
 "list --help"	full	list	runs
 "list --help"	netread	list	runs
 "list --help"	read	list	runs
@@ -2858,14 +3910,6 @@
 "secret"	netread	secret	runs
 "secret"	read	secret	runs
 "secret"	shell	secret	runs
-"shell --help"	full	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
-"shell --help"	netread	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
-"shell --help"	read	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
-"shell --help"	shell	shell	SSH_GATE_REFUSED|a key opens a shell only as `komando shell SERVER`, with no other word or flag
-"shell"	full	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
-"shell"	netread	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
-"shell"	read	shell	SSH_GATE_REFUSED|komando shell needs a person at a terminal on this computer; a key cannot run it
-"shell"	shell	shell	SSH_GATE_REFUSED|a key opens a shell only as `komando shell SERVER`, with no other word or flag
 "snippet --help"	full	snippet	runs
 "snippet --help"	netread	snippet	runs
 "snippet --help"	read	snippet	runs
