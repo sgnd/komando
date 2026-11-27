@@ -42,7 +42,7 @@ func TestVpnEditOptIns(t *testing.T) {
 	if v := vpn("kantor"); v.LegacyCrypto || v.AllowPAP {
 		t.Fatalf("turning them off: %+v", v)
 	}
-	if _, e := cliRun(t, "vpn", "ipsec", "edit", "asa", "--allow-pap", "--yes"); e == nil || !strings.Contains(e.Message, "--allow-pap is not used by ipsec") {
+	if _, e := cliRun(t, "vpn", "ipsec", "edit", "asa", "--allow-pap", "--yes"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "unknown flag: --allow-pap") {
 		t.Errorf("--allow-pap on ipsec: %+v", e)
 	}
 	windows := asAgent(t, false, true)
@@ -81,7 +81,7 @@ func TestVpnAddOptIns(t *testing.T) {
 		{"vpn", "ipsec", "add", "asa", "--server", "asa.example.com", "--psk-credential", "g", "--allow-pap", "--yes"},
 		{"vpn", "ikev2", "add", "cloud", "--server", "vpn.example.com", "--user", "alice", "--legacy-crypto", "--yes"},
 	} {
-		if _, e := cliRun(t, bad...); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "is not used by") {
+		if _, e := cliRun(t, bad...); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "unknown flag") {
 			t.Errorf("%v: %+v", bad, e)
 		}
 	}
