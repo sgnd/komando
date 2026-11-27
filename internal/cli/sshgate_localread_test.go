@@ -55,13 +55,11 @@ var localReadUsage = regexp.MustCompile(`(?i)this computer|\('-'|stdin|file to s
 // gateLocalNotRead are flags whose help matches localReadUsage but which
 // read nothing here, and why.
 var gateLocalNotRead = map[string]string{
-	"cp.overwrite":        "a download replaces files here: cp to here is refused anyway",
-	"sync.sudo":           "writes as root on the servers",
-	"fs.mv.SRC":           "a path on the servers",
-	"storage.mv.SRC":      "a key in the conn",
-	"cp.size":             "a number of bytes",
-	"upload.size":         "a number of bytes",
-	"storage.upload.size": "a number of bytes",
+	"cp.overwrite":   "a download replaces files here: cp to here is refused anyway",
+	"sync.sudo":      "writes as root on the servers",
+	"fs.mv.SRC":      "a path on the servers",
+	"storage.mv.SRC": "a key in the conn",
+	"copy.size":      "a number of bytes",
 }
 
 // Every flag or argument a key can reach that names a file on this

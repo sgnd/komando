@@ -231,6 +231,10 @@ func childNamed(c *cobra.Command, name string) *cobra.Command {
 
 // buildLeaf is the cobra command of one leaf.
 func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
+	var group string
+	if len(l.Key.Path()) == 1 {
+		group = topGroups[l.Key.Verb]
+	}
 	use := []string{l.Key.Path()[len(l.Key.Path())-1]}
 	least, most := 0, 0
 	for _, a := range l.Args {
@@ -257,6 +261,7 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Short:   l.Short,
 		Example: l.Example,
 		Aliases: slices.Clone(l.Synonyms),
+		GroupID: group,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < least || most >= 0 && len(args) > most {
 				return out.Usage("%s takes %s", strings.Join(l.Key.Path(), " "), strings.Join(use[1:], " "))
@@ -686,9 +691,9 @@ func noCheck(v any) bool {
 // that a type not moved yet still names keeps them.
 func moveType(typ string) { moveLeaves(typ, capability.All()) }
 
-// moveTop is moveType for one top-level leaf (copy): the commands it carries
-// are gone from the tree, so their entries leave the tables with them.
+// moveTop is moveType for a top-level leaf (copy): what it carries leaves the tables.
 func moveTop(verb string) {
+	movedTop = append(movedTop, verb)
 	moveWhere("", capability.All(), true, func(l capability.Leaf) bool { return l.Type == "" && l.Verb == verb })
 }
 
@@ -699,8 +704,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 	moveWhere(typ, leaves, false, func(l capability.Leaf) bool { return l.Type == typ })
 }
 
-// moveWhere moves the built leaves that pick selects. retire also takes the
-// entries of the IDs they carry (not only those they keep under Today).
+// moveWhere moves the built leaves pick selects; retire also drops the IDs they carry.
 func moveWhere(typ string, leaves []capability.Leaf, retire bool, pick func(capability.Leaf) bool) {
 	tables := idTables()
 	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries

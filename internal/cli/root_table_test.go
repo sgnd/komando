@@ -208,7 +208,7 @@ func TestEveryHandlerHasLeaf(t *testing.T) {
 		if !built[k] {
 			t.Errorf("handler for %s: no built leaf has that key", k)
 		}
-		if !slices.Contains(movedTypes, k.Type) {
+		if !slices.Contains(movedTypes, k.Type) && !(k.Type == "" && slices.Contains(movedTop, k.Verb)) {
 			t.Errorf("handler for %s: its type is not in movedTypes", k)
 		}
 	}
@@ -611,7 +611,7 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 	gone := map[string]bool{}
 	byKey := map[string]map[string]string{} // a key's entries, by the leaf that has them
 	for _, l := range capability.All() {
-		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) {
+		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) && !(l.Type == "" && slices.Contains(movedTop, l.Verb)) {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
@@ -633,7 +633,11 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			byKey[key] = map[string]string{}
 		}
 		byKey[key][id] = strings.Join(has, " ")
-		for _, old := range l.Today {
+		olds := l.Today
+		if l.Type == "" {
+			olds = slices.Concat(l.Today, l.Carries) // a moved top-level leaf retires what it carries
+		}
+		for _, old := range olds {
 			if !stays[old] {
 				gone[old] = true
 			}

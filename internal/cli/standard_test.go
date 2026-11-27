@@ -148,7 +148,7 @@ func TestStandardNounAliases(t *testing.T) {
 
 // verbTable is S-3.1's verbs, toolWords S-3.3's.
 var (
-	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "check",
+	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "cp", "check",
 		"describe", "get", "info", "status", "logs", "history", "events", "create", "set",
 		"start", "stop", "restart", "reload", "enable", "disable", "kill", "wait", "purge", "prune",
 		"exec", "run", "query", "shell", "dump", "restore", "up", "down",
@@ -248,7 +248,7 @@ var useWords = []string{"TARGET", "SERVER", "CONN", "NAME", "GROUP", "USER", "JO
 	// an item of the command's own kind
 	"MODE", "PID", "SQL", "TABLE", "TOPIC", "UNIT", "PACKAGE", "RELEASE", "REPLICAS", "SECTION", "SOURCE",
 	"VERSION", "KIND", "OLD", "NEW", "VALUE", "TEXT", "PATTERN", "PREFIX", "REGEX", "PUBLIC_KEY", "SRC", "DST",
-	"DEST", "CONTAINER", "REPO", "LOCAL", "REMOTE", "SPEC", "SCHEDULE", "REF", "SRC_CONN", "DST_CONN", "TYPE"}
+	"DEST", "DESTINATION", "CONTAINER", "REPO", "LOCAL", "REMOTE", "SPEC", "SCHEDULE", "REF", "SRC_CONN", "DST_CONN", "TYPE"}
 
 var useToken = regexp.MustCompile(`[A-Z][A-Z_]*(/[A-Z]+)?`)
 

@@ -331,7 +331,7 @@ func TestRemoteCopyFolderNeedsR(t *testing.T) {
 	src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
 	dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: &memBucket{objs: map[string]string{}}}
 	_, err := remoteCopy(tcl, context.Background(), src, dst, "app", "", cpOpts{})
-	if e := toErr(err); e.Code != "IS_A_DIRECTORY" || e.Exit != out.ExitUsage || e.Hint != "copy the folder and everything in it with -r: `komando cp -r bk:app bk2:`" {
+	if e := toErr(err); e.Code != "IS_A_DIRECTORY" || e.Exit != out.ExitUsage || e.Hint != "copy the folder and everything in it with -r: `komando copy -r bk:app bk2:`" {
 		t.Fatalf("a folder without -r: %v (exit %d, hint %q)", err, e.Exit, e.Hint)
 	}
 }

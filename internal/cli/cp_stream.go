@@ -72,15 +72,12 @@ func streamsToStdout(cl *call, cmd *cobra.Command) bool {
 	if cl.dryRun() {
 		return false
 	}
-	switch cmd.Name() {
-	case "download":
-		f := cmd.Flags().Lookup("to")
-		return f != nil && f.Value.String() == "-"
-	case "cp":
-		a := cmd.Flags().Args()
-		return len(a) == 2 && a[1] == "-"
+	if cmd.Name() != "copy" {
+		return false
 	}
-	return false
+	a := cmd.Flags().Args()
+	sync, _ := cmd.Flags().GetBool("sync")
+	return len(a) == 2 && a[1] == "-" && !sync
 }
 
 // streamTo writes what get writes to w. For an AI agent it keeps what a

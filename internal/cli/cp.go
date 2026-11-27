@@ -262,7 +262,7 @@ func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
 func cpCmd() *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
-		Use:  "copy SRC DST",
+		Use:  "cp SRC DST",
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), o.progress)

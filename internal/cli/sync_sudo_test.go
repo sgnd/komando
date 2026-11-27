@@ -14,7 +14,7 @@ func TestSyncSudoWhere(t *testing.T) {
 	if e := wantCode(t, "USAGE", "copy", "web1:/etc/nginx", dir, "--sync", "--sudo"); e.Hint == "" && e.Message == "" {
 		t.Error("no message")
 	}
-	if _, e := invRun(t, "copy", "web1:/etc/nginx", dir, "--sync", "--sudo"); e == nil || !strings.Contains(e.Message, "download") {
+	if _, e := invRun(t, "copy", "web1:/etc/nginx", dir, "--sync", "--sudo"); e == nil || !strings.Contains(e.Message, "copy") {
 		t.Errorf("down: %+v", e)
 	}
 }

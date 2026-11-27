@@ -701,10 +701,10 @@ func init() {
 // Next: lines for the storage commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"storage list":  {next: []string{"storage cat {} OBJECT --tail 50", "copy {}:OBJECT ./", "storage list {} PREFIX/ --recursive"}},
-		"storage cat":   {next: []string{"copy {}:OBJECT ./"}},
+		"storage list":  {next: []string{"storage cat {} OBJECT --tail 50", "copy {}:reports/q3.pdf ./", "storage list {} PREFIX/ --recursive"}},
+		"storage cat":   {next: []string{"copy {}:logs/app.log ./"}},
 		"storage rm":    {next: []string{"storage list {} --recursive"}},
-		"storage mkdir": {next: []string{"copy ./FILE {}:OBJECT", "storage list {} PREFIX/"}},
+		"storage mkdir": {next: []string{"copy ./report.pdf {}:reports/", "storage list {} PREFIX/"}},
 		"storage mv":    {next: []string{"storage list {} PREFIX/"}},
 		"storage chmod": {next: []string{"storage list {} PREFIX/"}},
 	})
