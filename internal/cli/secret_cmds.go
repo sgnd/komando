@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"slices"
@@ -137,7 +136,7 @@ at a terminal can add --reveal to print it; from a program without a terminal
 (the Komando Mac app), komando first asks the person in its own window. AI
 agents never get the value (they reference it as secret:NAME instead). A warning says when the value
 starts or ends with a space, tab or line break, a common cause of a failing
-login; 'komando secret check NAME' lets a person compare it.`,
+login.`,
 		Example: `  komando secret show db-pass
   komando secret show db-pass --reveal | pbcopy   # a person, at a terminal`,
 		Args: cobra.ExactArgs(1),
@@ -175,55 +174,6 @@ login; 'komando secret check NAME' lets a person compare it.`,
 		}),
 	}
 	return get
-}
-
-// secretCheckCmd is `secret check`.
-func secretCheckCmd() *cobra.Command {
-	check := &cobra.Command{
-		Use:   "check NAME",
-		Short: "Compare a typed value to a secret without showing either",
-		Long: `Asks for a value (hidden, or from --from-env VAR or a pipe) and says whether it
-is the stored one. When it is not, it says how they differ (only spaces at
-the ends, only upper and lower case, or the number of characters), but never
-shows either value.
-
-Only a person can run it: for an AI agent, a yes/no answer about a value it
-picks would be a way to guess the secret one try at a time.`,
-		Example: "  komando secret check vpn-pass            # type or paste it after the prompt\n  pbpaste | komando secret check vpn-pass",
-		Args:    cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if cl.isAgent() {
-				return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando secret show "+args[0]+"` says whether the value starts or ends with a space",
-					"only a person can check a secret's value: for an AI agent it would be a way to guess it")
-			}
-			stored, err := vault.Get(args[0])
-			if err == vault.ErrNotFound {
-				return notFoundSuggest(cl, "secret", args[0], secretNames())
-			}
-			if err != nil {
-				return err
-			}
-			given, err := secretInput(cmd, args[0], "Paste or type the value to compare with "+args[0]+", then press Enter (it stays hidden): ")
-			if err != nil {
-				return err
-			}
-			match := subtle.ConstantTimeCompare([]byte(stored), []byte(given)) == 1
-			audit(cl, nil, "secret.check", nil, "", true, map[string]any{"secret": args[0], "match": match})
-			res := map[string]any{"name": args[0], "match": match}
-			if match {
-				cl.out.Print("secret.check", res, nil)
-				return nil
-			}
-			res["difference"] = secretDiff(stored, given)
-			cl.out.Print("secret.check", res, &out.Error{Code: "SECRET_MISMATCH", Exit: out.ExitError,
-				Message: "the value is not the one stored in " + args[0],
-				Hint:    "if the stored one is wrong, store the right one with `komando secret set " + args[0] + "`"})
-			return exitCode(out.ExitError)
-		}),
-	}
-	check.Flags().String("from-env", "", "read the value to compare from this environment variable")
-	return check
 }
 
 // secretListCmd is `secret list`.

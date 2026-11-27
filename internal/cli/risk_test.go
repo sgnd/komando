@@ -139,8 +139,6 @@ type agentStop struct {
 }
 
 var agentStops = []agentStop{
-	{args: []string{"host", "ssh-command", "web1"}, code: "NEEDS_PERSON",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"secret", "keychain"}, code: "NEEDS_PERSON"},
 	{args: []string{"host", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
 	{args: []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",

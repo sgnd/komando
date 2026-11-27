@@ -186,8 +186,8 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 	for _, c := range st.SortedConns() {
 		name := "conn:" + c.Name
 		if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && !c.Protected && len(prot[n]) > 0 {
-			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret cp %s NEW` and `komando conn edit %s --password-ref secret:NEW`",
-				c.PasswordRef, strings.Join(prot[n], ", "), n, c.Name))
+			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret set NEW` and `komando conn edit %s --password-ref secret:NEW`",
+				c.PasswordRef, strings.Join(prot[n], ", "), c.Name))
 		}
 		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
 		if first, ok := same[key]; ok {

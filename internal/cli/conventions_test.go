@@ -84,7 +84,7 @@ func TestChangeCommandsOwnText(t *testing.T) {
 		{"vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080"}, {"vpn", "edit", "office", "--notes", "x"}, {"vpn", "rename", "office", "off2"},
 		{"group", "add", "g1", "web2"}, {"group", "rename", "g1", "g2"}, {"group", "rm", "g2", "web2"},
 		{"key", "gen", "k1"}, {"key", "add", "k3", pub}, {"key", "rename", "k1", "k2"},
-		{"secret", "set", "s4", "--from-env", "PATH"}, {"secret", "rename", "s1", "s2"}, {"secret", "cp", "s2", "s3"},
+		{"secret", "set", "s4", "--from-env", "PATH"}, {"secret", "rename", "s1", "s2"},
 		{"recipe", "add", "r1", "uptime", "--read-only"}, {"recipe", "rm", "r1"}, {"policy", "deny", "foo bar"},
 		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "trust", "web2"},
 		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "secret", "rm", "s3"},

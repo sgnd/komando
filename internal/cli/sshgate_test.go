@@ -162,7 +162,6 @@ func TestGateCheck(t *testing.T) {
 		{"db shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config approval-code", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"ssh-gate --name x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -388,10 +387,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"fs cat me /home/u/.ssh/id_ed25519":                                 R,
 		"fs ls me /home/u/.ssh":                                             R,
 		"fs stat lh /home/u/.ssh/id_ed25519":                                R,
-		"cert check me --path /home/u/.ssh/id_ed25519":                      R,
-		"cert check https://localhost:8443":                                 R,
-		"cert check https://shop.example.com":                               "", // a website, not in the inventory
-		"logs u@127.0.0.1":                                                  R,  // ad hoc
+		"logs u@127.0.0.1":                                                  R, // ad hoc
 		"logs web --file /var/log/syslog":                                   "",
 		"logs behind --file /var/log/syslog":                                "", // 127.0.0.1 of bastion
 		"cache get redislocal a":                                            R,

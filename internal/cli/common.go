@@ -798,3 +798,15 @@ func checkRegex(s string) error {
 	_, err := regexp.Compile(s)
 	return err
 }
+
+// shellLine joins argv for a shell, quoting what needs it.
+func shellLine(parts []string) string {
+	line := make([]string, len(parts))
+	for i, p := range parts {
+		line[i] = p
+		if p == "" || strings.ContainsAny(p, " '\"$\\|&;<>()*?[]{}!`~#") {
+			line[i] = sshx.Q(p)
+		}
+	}
+	return strings.Join(line, " ")
+}

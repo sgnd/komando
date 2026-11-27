@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// What `komando facts` and `komando pkg security` both read on a server:
+// What the facts snippet and `komando pkg security` both read on a server:
 // the OS and its support dates, failed units, whether a reboot is needed
 // and which services run old code. One shell fragment and one parser, so
-// the two commands give the same answer on the same server.
+// the two give the same answer on the same server.
 
 // osShell prints os=, os_version=, os_pretty= and, on Ubuntu, pro_json=
 // (`pro status`, for ESM). It needs $T20 (a timeout prefix, may be empty).

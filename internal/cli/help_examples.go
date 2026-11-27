@@ -25,32 +25,16 @@ var examples = map[string]string{
 		"  komando cache memcached raw prod-mc -- stats\n" +
 		"  komando cache memcached raw prod-mc --write -- flush_all --dry-run",
 	// the groups: the usual journey, in order
-	"komando svc": "  komando svc list web1 --failed                    # what is broken?\n" +
-		"  komando svc status web1 nginx\n" +
-		"  komando logs web1 --unit nginx --since 30m        # why?\n" +
-		"  komando svc restart web1 nginx --wait 10s --dry-run\n" +
-		"  komando svc restart web1 nginx --wait 10s",
 	"komando pkg": "  komando pkg upgradable @web --refresh\n" +
 		"  komando pkg upgrade @web --security --dry-run\n" +
 		"  komando pkg upgrade web1 --dry-run\n" +
 		"  komando pkg install web1 htop jq\n" +
 		"  komando pkg rm web1 telnet",
-	"komando user": "  komando user list web1\n" +
-		"  komando user add web1 alice --key alice --admin\n" +
-		"  komando user lock web1 alice                      # keep the account, stop logins\n" +
-		"  komando user rm web1 alice --remove-home --dry-run",
 	"komando docker": "  komando docker ps web1 --all\n" +
 		"  komando docker logs web1 api --since 10m\n" +
 		"  komando docker restart web1 api\n" +
 		"  komando docker compose web1 --dir /srv/shop -- up -d\n" +
 		"  komando docker prune web1 --dry-run               # what would be freed",
-	"komando cron": "  komando cron list web1\n" +
-		"  komando cron set web1 nightly-backup '/usr/local/bin/backup.sh' --schedule '0 2 * * *'\n" +
-		"  komando cron rm web1 nightly-backup",
-	"komando net": "  komando net ports web1 --sudo                     # what listens, and which program\n" +
-		"  komando net check @web db.internal:5432           # can the servers reach it?\n" +
-		"  komando net dns web1 db.internal\n" +
-		"  komando net http web1 http://localhost:8080/health --expect 200",
 	"komando cluster helm": "  komando cluster helm list prod-k8s -A\n" +
 		"  komando cluster helm status prod-k8s shop --namespace shop\n" +
 		"  komando cluster helm history prod-k8s shop --namespace shop\n" +
@@ -101,9 +85,6 @@ var examples = map[string]string{
 		"  komando vpn test office\n" +
 		"  komando host edit db1 --via office --dry-run\n" +
 		"  komando vpn up office",
-	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
-		"  komando cert check @web --warn 30d\n" +
-		"  komando cert check https://shop.example.com --warn 14d",
 	"komando recipe": "  komando recipe list\n" +
 		"  komando recipe run health @web\n" +
 		"  komando recipe add app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n" +
@@ -116,8 +97,6 @@ var examples = map[string]string{
 	"komando conn list":    "  komando conn list\n  komando conn list @prod",
 	"komando conn show":    "  komando conn show prod-db",
 	"komando conn test":    "  komando conn test prod-db\n  komando conn test kind:postgres",
-	"komando cron list":    "  komando cron list web1",
-	"komando cron rm":      "  komando cron rm web1 nightly-backup",
 
 	"komando docker images":  "  komando docker images web1",
 	"komando docker inspect": "  komando docker inspect web1 api",
@@ -154,9 +133,6 @@ var examples = map[string]string{
 	"komando key list": "  komando key list",
 	"komando key rm":   "  komando key rm old-deploy",
 
-	"komando net http":  "  komando net http web1 http://localhost:8080/health --expect 200",
-	"komando net ports": "  komando net ports web1",
-
 	"komando pkg install":    "  komando pkg install web1 htop jq",
 	"komando pkg installed":  "  komando pkg installed @web nginx openssl",
 	"komando pkg rm":         "  komando pkg rm web1 telnet",
@@ -169,19 +145,8 @@ var examples = map[string]string{
 	"komando secret list": "  komando secret list",
 	"komando shell":       "  komando shell web1",
 
-	"komando svc disable": "  komando svc disable web1 apache2 --now",
-	"komando svc enable":  "  komando svc enable web1 nginx --now",
-	"komando svc list":    "  komando svc list web1 --failed\n  komando svc list web1 --state running",
-	"komando svc logs":    "  komando svc logs web1 nginx --since 30m --grep error",
-	"komando svc stop":    "  komando svc stop web1 nginx",
-
 	"komando tunnel list": "  komando tunnel list",
 	"komando tunnel stop": "  komando tunnel stop t1102-101500-ab12cd34\n  komando tunnel stop --all",
-
-	"komando user list":   "  komando user list web1",
-	"komando user lock":   "  komando user lock web1 alice",
-	"komando user rm":     "  komando user rm web1 alice --dry-run\n  komando user rm web1 alice --remove-home --allow-dangerous",
-	"komando user unlock": "  komando user unlock web1 alice",
 
 	"komando version": "  komando version",
 
@@ -197,29 +162,24 @@ var examples = map[string]string{
 // cut to fit 80 columns: the full sentence stays in --help. A command that
 // sets its own Long keeps it.
 var details = map[string]string{
-	"komando cluster describe":  "One object in short: state, images, conditions, its pods or tasks, and recent events.",
-	"komando cluster events":    "Recent events, oldest first (--warnings for problems only, --for TYPE/NAME for one object).",
-	"komando cluster list":      "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks).",
-	"komando cluster rm":        "Delete an object (Kubernetes) or a service or stack (Swarm); needs --allow-dangerous.",
-	"komando db activity":       "Sessions running something now (pid, user, how long, what); --all includes idle ones.",
-	"komando export":            "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
-	"komando fs replace":        "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
-	"komando guide":             "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
-	"komando host rm":           "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
-	"komando job kill":          "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
-	"komando job logs":          "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
-	"komando job rm":            "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",
-	"komando list":              "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
-	"komando logs":              "Read logs from journald (--unit), a file (--file) or a container (--container).",
-	"komando net ports":         "Listening sockets as structured rows: proto, address, port, process, pid (read with ss or netstat).",
-	"komando pkg":               "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
-	"komando policy check":      "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
-	"komando recipe":            "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
-	"komando schema":            "Machine-readable reference of every command, flag, exit code and selector.",
-	"komando svc":               "Services on servers: systemd units on Linux, Windows services on Windows servers. status, list, start, stop, restart, enable and disable work on both; reload, daemon-reload and logs are for systemd.",
-	"komando svc daemon-reload": "Reload systemd's unit files (after writing a unit), and say which units still need it.",
-	"komando svc status":        "Structured unit status (active_state, sub_state, main_pid, n_restarts, memory ...).",
-	"komando user lock":         "Lock an account (password + expire, so SSH keys stop working too) without deleting it.",
-	"komando vpn rm":            "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`).",
-	"komando vpn up":            "Connect a VPN now and keep it up for later commands (a person logs in here, MFA included).",
+	"komando cluster describe": "One object in short: state, images, conditions, its pods or tasks, and recent events.",
+	"komando cluster events":   "Recent events, oldest first (--warnings for problems only, --for TYPE/NAME for one object).",
+	"komando cluster list":     "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks).",
+	"komando cluster rm":       "Delete an object (Kubernetes) or a service or stack (Swarm); needs --allow-dangerous.",
+	"komando db activity":      "Sessions running something now (pid, user, how long, what); --all includes idle ones.",
+	"komando export":           "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
+	"komando fs replace":       "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
+	"komando guide":            "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
+	"komando host rm":          "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
+	"komando job kill":         "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
+	"komando job logs":         "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
+	"komando job rm":           "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",
+	"komando list":             "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
+	"komando logs":             "Read logs from journald (--unit), a file (--file) or a container (--container).",
+	"komando pkg":              "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
+	"komando policy check":     "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
+	"komando recipe":           "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
+	"komando schema":           "Machine-readable reference of every command, flag, exit code and selector.",
+	"komando vpn rm":           "Remove VPNs from komando (their keys stay in the vault until `komando secret rm`).",
+	"komando vpn up":           "Connect a VPN now and keep it up for later commands (a person logs in here, MFA included).",
 }

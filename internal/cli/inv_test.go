@@ -410,35 +410,6 @@ func TestInvSelectors(t *testing.T) {
 	}
 }
 
-func TestInvSSHCommand(t *testing.T) {
-	invHome(t)
-	st := &store.State{Hosts: map[string]*store.Host{}, Keys: map[string]*store.Key{}, Vpns: map[string]*store.Vpn{}, Sessions: map[string]*store.VpnSession{}}
-	st.Keys["k"] = &store.Key{Name: "k", Path: "/keys/k"}
-	st.Hosts["b"] = &store.Host{Name: "b", Address: "10.0.0.1", Port: 2222, User: "jump", Key: "k"}
-	st.Hosts["t"] = &store.Host{Name: "t", Address: "10.0.0.2", User: "app", Key: "k", Via: "b"}
-	parts, err := sshCommandFor(tcl, st, st.Hosts["t"])
-	if err != nil {
-		t.Fatal(err)
-	}
-	line := strings.Join(parts, " ")
-	// the known_hosts path is quoted when it needs it (a Windows path)
-	for _, want := range []string{"ProxyCommand=ssh -o ", "UserKnownHostsFile=", "-p 2222 -i /keys/k -W 10.0.0.2:22 jump@10.0.0.1", "app@10.0.0.2"} {
-		if !strings.Contains(line, want) {
-			t.Errorf("missing %q in %s", want, line)
-		}
-	}
-	st.Vpns["v"] = &store.Vpn{Name: "v", Kind: "socks", Address: "127.0.0.1:1080"}
-	st.Hosts["b"].Via = "v"
-	parts, _ = sshCommandFor(tcl, st, st.Hosts["t"])
-	if line = strings.Join(parts, " "); !strings.Contains(line, "nc -X 5 -x 127.0.0.1:1080 %%h %%p") {
-		t.Errorf("socks first hop, escaped once for nesting: %s", line)
-	}
-	st.Vpns["v"].Kind = "wireguard"
-	if _, err := sshCommandFor(tcl, st, st.Hosts["t"]); toErr(err).Code != "VPN_NOT_FOR_OPENSSH" {
-		t.Errorf("wireguard: %v", err)
-	}
-}
-
 func TestInvSSHConfigNotes(t *testing.T) {
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "config")

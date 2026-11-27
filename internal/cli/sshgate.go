@@ -97,15 +97,12 @@ var gateNotForReadKey = map[safetyKey]string{
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
-	{"host", "", "exec"}: nil, {"host", "", "restart"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
+	{"host", "", "exec"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
 	{"", "cp", "copy"}: gateLocalDst, {"", "sync", "copy"}: gateLocalDst,
 	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
 	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
-	{"host", "service", "daemon-reload"}: nil, {"host", "service", "disable"}: nil, {"host", "service", "enable"}: nil, {"host", "service", "reload"}: nil,
-	{"host", "service", "restart"}: nil, {"host", "service", "start"}: nil, {"host", "service", "stop"}: nil,
 	{"host", "package", "install"}: nil, {"host", "package", "rm"}: nil, {"host", "package", "security"}: nil, {"host", "package", "update"}: nil, {"host", "package", "upgradable"}: nil, {"host", "package", "upgrade"}: nil,
-	{"host", "user", "add"}: nil, {"host", "user", "lock"}: nil, {"host", "user", "rm"}: nil, {"host", "user", "unlock"}: nil,
-	{"host", "cron", "rm"}: nil, {"host", "cron", "set"}: nil, {"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
+	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
 	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
 	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
 	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "chmod"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
@@ -241,7 +238,7 @@ func noFlag(names ...string) func(c *cobra.Command) string {
 // (a shell, a login, the vault's passphrase): a key never runs them.
 var gateNeedsPerson = map[safetyKey]bool{
 	{"host", "", "shell"}: true, {"database", "", "shell"}: true, {"cluster", "", "shell"}: true, {"login", "", "aws"}: true,
-	{"config", "", "approval-code"}: true, {"config", "vault", "passphrase"}: true, {"credential", "", "check"}: true,
+	{"config", "", "approval-code"}: true, {"config", "vault", "passphrase"}: true,
 	{"", "", "ssh-gate"}: true, {"ssh-gate", "", "line"}: true,
 }
 
@@ -638,7 +635,7 @@ the key's own output), no change to servers, VPNs, settings, rules, secrets, key
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache redis raw without --write), and only those that stay on the
-servers and conns in your list: no net, no cert check of a website, no
+servers and conns in your list: no net, no
 exec, job start, docker exec, cluster exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit`" + `, with --name, even when the

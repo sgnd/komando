@@ -195,12 +195,11 @@ var showKinds = map[string]string{
 // item; the show commands in showKinds list them for a person. A conn
 // gets its family's (or its kind's, db:sqlite) list, then the conn list.
 var itemCommands = map[string][]string{
-	"server": {"facts {}", "logs {} --since 30m", "exec {} -- uptime", "shell {}", "svc list {} --failed",
+	"server": {"logs {} --since 30m", "exec {} -- uptime", "shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "upload {} ./FILE /tmp/FILE",
 		"download {} /var/log/syslog --to ./", "job start {} -- make", "tunnel start {} -L 8080:localhost:80",
 		"key deploy KEY {}", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
-	"server:windows": {"facts {}", "svc list {} --state running", "svc status {} NAME", "svc restart {} NAME --wait 10s",
-		"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
+	"server:windows": {"exec {} -- Get-Date", "audit --target {}", "host edit {}", "host rename {} NEW", "host rm {}", "test {}"},
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster status {}", "cluster list {} services", "cluster logs {} service/NAME",
 		"cluster deploy {} service/NAME --image IMAGE --wait", "cluster apply {} --file compose.yml --stack STACK"},
@@ -236,7 +235,7 @@ var itemCommands = map[string][]string{
 		"group add {} TARGET", "group rm {} TARGET", "group rename {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key rename {} NEW", "key rm {}"},
 	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
-	"secret":  {"secret check {}", "secret set {}", "secret rename {} NEW", "secret cp {} NEW", "secret rm {}"},
+	"secret":  {"secret set {}", "secret rename {} NEW", "secret rm {}"},
 	"setting": {"config set {} VALUE"},
 	"tunnel":  {"tunnel stop {}", "tunnel list"},
 	"recipe":  {"recipe run {} TARGET", "recipe add {} COMMAND --overwrite --dry-run", "recipe rm {}"},

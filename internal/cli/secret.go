@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -60,7 +59,7 @@ func reservedSecret(name string) error {
 	return nil
 }
 
-// secretInput reads a value the way `secret set` and `secret check` take it:
+// secretInput reads a value the way `secret set` takes it:
 // from --from-env VAR, from a pipe, or typed hidden at the terminal. name is
 // the secret's name, for the hint when there is no value.
 func secretInput(cmd *cobra.Command, name, label string) (string, error) {
@@ -135,43 +134,7 @@ func valueWarning(name, v string) string {
 		return ""
 	}
 	return "the value of " + name + " " + strings.Join(what, " and ") +
-		"; if that is not part of it, set it again (a person can compare it with `komando secret check " + name + "`)"
-}
-
-// secretDiff says how a value a person entered differs from the stored
-// one, without either value. Only `secret check` uses it, for a person.
-func secretDiff(stored, given string) string {
-	ends := func(s string) string {
-		var e []string
-		if strings.TrimLeft(s, " \t\r\n") != s {
-			e = append(e, "starts")
-		}
-		if strings.TrimRight(s, " \t\r\n") != s {
-			e = append(e, "ends")
-		}
-		if len(e) == 0 {
-			return ""
-		}
-		return strings.Join(e, " and ") + " with a space, tab or line break"
-	}
-	switch {
-	case strings.TrimSpace(stored) == strings.TrimSpace(given):
-		d := "they differ only in spaces, tabs or line breaks at the start or end"
-		if e := ends(stored); e != "" {
-			d += "; the stored value " + e
-		}
-		if e := ends(given); e != "" {
-			d += "; the value you entered " + e
-		}
-		return d
-	case strings.EqualFold(stored, given):
-		return "they differ only in upper and lower case"
-	}
-	ns, ng := utf8.RuneCountInString(stored), utf8.RuneCountInString(given)
-	if ns == ng {
-		return fmt.Sprintf("both have %d characters, but they are different", ns)
-	}
-	return fmt.Sprintf("the stored value has %d characters, the one you entered %d", ns, ng)
+		"; if that is not part of it, set it again"
 }
 
 const secretLong = `Save a password once, then point to it as secret:NAME instead of typing it:
@@ -180,8 +143,7 @@ const secretLong = `Save a password once, then point to it as secret:NAME instea
 
 komando shows a saved value only to a person: at a terminal with
 ` + "`secret show --reveal`" + `, or after "Allow once" in komando's window; never
-to an AI agent. ` + "`secret check`" + ` compares a value with the saved one
-without showing either. ` + "`secret rename`" + ` and ` + "`secret cp`" + ` rename and copy.
+to an AI agent. ` + "`secret rename`" + ` renames one.
 
 How it is stored: each secret sealed with AES-256-GCM in ~/.komando/store.db.
 The random key is in the OS keychain (or in store.key where there is none,
@@ -197,41 +159,34 @@ func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Saved passwords and tokens: store, check, use as secret:NAME",
+		Short:   "Saved passwords and tokens: store and use as secret:NAME",
 		Long:    secretLong,
 	}
-	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true), runCmd(),
-		addAliases(secretCopyCmd(false), "copy"), secretRmCmd(), secretKeychainCmd(), addAliases(secretPassphraseCmd(), "passwd"))
+	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretListCmd(), secretRenameCmd(), runCmd(),
+		secretRmCmd(), secretKeychainCmd(), addAliases(secretPassphraseCmd(), "passwd"))
 	return c
 }
 
-// secretCopyCmd is `secret mv` (move) or `secret cp`. The value is copied
-// inside the vault and never printed, so an AI agent can rename a secret it
-// cannot read. mv also points every server, conn, key and VPN that used the
-// old name at the new one, in the same step.
-func secretCopyCmd(move bool) *cobra.Command {
+// secretRenameCmd is `secret rename`. The value is copied inside the vault
+// and never printed, so an AI agent can rename a secret it cannot read. It
+// also points every server, conn, key and VPN that used the old name at the
+// new one, in the same step.
+func secretRenameCmd() *cobra.Command {
 	var overwrite bool
-	verb, command := "cp", "secret.cp"
-	short := "Copy a secret to a new name in the vault (value never shown)"
-	long := `Stores the value of OLD under NEW as well. The value stays inside the vault:
-it is never printed, so an AI agent can do this too. Nothing that uses OLD
-changes.`
-	example := "  komando secret cp db-pass db-pass-old\n  komando secret cp web-pass shared-pass --overwrite"
-	if move {
-		verb, command = "rename", "secret.rename"
-		short = "Rename a secret and every reference to it (value never shown)"
-		long = `Renames OLD to NEW inside the vault, and points every server, conn, key and
+	const command = "secret.rename"
+	c := &cobra.Command{
+		Use:   "rename OLD NEW",
+		Short: "Rename a secret and every reference to it (value never shown)",
+		Long: `Renames OLD to NEW inside the vault, and points every server, conn, key and
 VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
 working and nobody types the value again. The value is never printed, so an
 AI agent can do this too. Scripts or notes of your own that name secret:OLD
-are not changed.`
-		example = "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass"
-	}
-	c := &cobra.Command{
-		Use:     verb + " OLD NEW",
-		Short:   short,
-		Long:    long + "\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
-		Example: example,
+are not changed.
+
+When NEW exists already, --overwrite replaces its value; when a protected
+server or conn uses NEW, that also needs --yes.`,
+		Example: "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass",
+		Aliases: []string{"mv"}, // a plain synonym
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			from, to := args[0], args[1]
@@ -255,7 +210,7 @@ are not changed.`
 				return err
 			}
 			replaced := slices.Contains(have, to)
-			if err := secretCopyStops(cl, st, from, to, replaced, overwrite); err != nil {
+			if err := secretRenameStops(cl, st, from, to, replaced, overwrite); err != nil {
 				return err
 			}
 			// what uses NEW gets the value of OLD: for a profile or a CA
@@ -265,24 +220,13 @@ are not changed.`
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
 			if cl.dryRun() {
-				res[map[bool]string{true: "would_move", false: "would_copy"}[move]] = true
-				if move {
-					res["would_update"] = orEmpty(inventory.SecretUsers(st, from))
-				}
-				cl.out.Print(command, textAs{res, secretCopyText(cl, move, res)}, nil)
+				res["would_move"] = true
+				res["would_update"] = orEmpty(inventory.SecretUsers(st, from))
+				cl.out.Print(command, textAs{res, secretRenameText(cl, res)}, nil)
 				return nil
 			}
-			var updated []string
-			if move {
-				updated, err = moveSecret(cl, from, to, overwrite)
-			} else {
-				err = vault.Copy(cl.storeWrite(), from, to, overwrite)
-			}
-			rec := map[string]any{"from": from, "to": to, "replaced": replaced}
-			if move {
-				rec["updated"] = orEmpty(updated)
-			}
-			audit(cl, nil, command, nil, "", err == nil, rec)
+			updated, err := moveSecret(cl, from, to, overwrite)
+			audit(cl, nil, command, nil, "", err == nil, map[string]any{"from": from, "to": to, "replaced": replaced, "updated": orEmpty(updated)})
 			switch {
 			case errors.Is(err, vault.ErrExists): // made by another komando meanwhile
 				return secretExists(from, to)
@@ -291,21 +235,16 @@ are not changed.`
 			case err != nil:
 				return err
 			}
-			if move {
-				res["updated"] = orEmpty(updated)
-			}
-			cl.out.Print(command, textAs{res, secretCopyText(cl, move, res)}, nil)
+			res["updated"] = orEmpty(updated)
+			cl.out.Print(command, textAs{res, secretRenameText(cl, res)}, nil)
 			return nil
 		}),
 	}
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace NEW when it exists (what uses NEW then gets the value of OLD)")
-	if move {
-		c.Aliases = []string{"mv"} // a plain synonym
-	}
 	return c
 }
 
-// guardCopyTrust is guardTrustSecret for secret cp and rename: what uses
+// guardCopyTrust is guardTrustSecret for secret rename: what uses
 // TO gets the value of FROM, which the agent may not read, so the window
 // names FROM, never what is in it.
 func guardCopyTrust(cl *call, st *store.State, from, to string, replaced bool) error {
@@ -437,13 +376,13 @@ func secretSetAction(cl *call, replaced bool) string {
 	return map[bool]string{false: "stored", true: "replaced"}[replaced]
 }
 
-// secretCopyText is secret rename's and secret cp's text: what moved
-// where, and what follows the new name.
-func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
+// secretRenameText is secret rename's text: what moved and what now points
+// at it.
+func secretRenameText(cl *call, res map[string]any) out.Texter {
 	return textFn(func() string {
-		verb := map[bool]string{true: "renamed", false: "copied"}[move]
+		verb := "renamed"
 		if cl.dryRun() {
-			verb = map[bool]string{true: "would rename", false: "would copy"}[move]
+			verb = "would rename"
 		}
 		s := fmt.Sprintf("%s secret %v to %v", verb, res["from"], res["to"])
 		if res["replaced"] == true {
@@ -460,10 +399,10 @@ func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 	})
 }
 
-// secretCopyStops are the stops before secret cp/mv writes to: a name
+// secretRenameStops are the stops before secret rename writes to: a name
 // taken without --overwrite, a secret on the way to a login-ask server or
 // conn (loginPlaceStop), and one a protected entry uses.
-func secretCopyStops(cl *call, st *store.State, from, to string, replaced, overwrite bool) error {
+func secretRenameStops(cl *call, st *store.State, from, to string, replaced, overwrite bool) error {
 	if replaced && !overwrite {
 		return secretExists(from, to)
 	}

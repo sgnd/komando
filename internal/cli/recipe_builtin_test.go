@@ -221,51 +221,6 @@ func TestSnippetSamplesMatchGoldens(t *testing.T) {
 	}
 }
 
-// A filled variable gives the text and the result today's command gives
-// for the same unit.
-func TestSnippetFilledLikeTheReplacedCommand(t *testing.T) {
-	in, err := os.ReadFile(filepath.Join("testdata", "snippets", "svc-status", "systemd.in"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	run := func(args ...string) (string, json.RawMessage) {
-		rs := startReplayServerWith(t, nil, replayStep{stdout: string(in)})
-		var data json.RawMessage
-		got := captureOutput(t, func() error { return runRoot(t, append([]string{"-o", "json"}, args...)...) })
-		var env struct {
-			Data json.RawMessage `json:"data"`
-		}
-		_ = json.Unmarshal([]byte(got[strings.Index(got, "{"):]), &env)
-		data = env.Data
-		rs.mu.Lock()
-		defer rs.mu.Unlock()
-		return strings.Join(rs.sent, "\n----\n"), data
-	}
-	wantSent, today := run("svc", "status", "dev", "nginx")
-	withSnippets(t, samples...)
-	gotSent, mine := run("recipe", "run", "svc-status", "dev", "--var", "unit=nginx")
-	if gotSent != wantSent {
-		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
-	}
-	var a struct {
-		Results []struct {
-			Data json.RawMessage `json:"data"`
-		} `json:"results"`
-	}
-	var b struct {
-		Result json.RawMessage `json:"result"`
-	}
-	if err := json.Unmarshal(today, &a); err != nil || len(a.Results) != 1 {
-		t.Fatalf("today: %v %s", err, today)
-	}
-	if err := json.Unmarshal(mine, &b); err != nil {
-		t.Fatal(err)
-	}
-	if g, w := compact(t, b.Result), compact(t, a.Results[0].Data); g != w {
-		t.Errorf("result\n got:  %s\n want: %s", g, w)
-	}
-}
-
 // previewReads are the command lines a written rule rates as reads where
 // the static rating of a line gives the worst case: a dry-run preview
 // that only reads (rule 3.8, decided by the chief with apps N9, accepted

@@ -35,7 +35,6 @@ var shapeCases = [][]string{
 	{"host", "list"},
 	{"host", "show", "web"},
 	{"host", "show", "nope"},
-	{"host", "ssh-command", "web"},
 	{"export"},
 	{"export", "--sealed", "--to", "never-written.kmdseal", "--dry-run"},
 	{"conn", "list"},
@@ -76,36 +75,6 @@ var shapeCases = [][]string{
 	{"schema", "conn", "add"},
 	// what an app checks its key with (typed here: not through a key)
 	{"ssh-gate", "status"},
-}
-
-// recordedShapeCases are answers that need a server, kept from a recorded
-// run of its script: the facts the phone app reads its numbers from.
-var recordedShapeCases = map[string]func() any{
-	"facts web (recorded)": func() any {
-		code := 0
-		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code,
-			Data: parseFactsAt(factsFocal+"disk=/dev/sda1\t81264764\t51086560\t30161820\t63\t/\n", factsNow)}}}
-		d.Summary.Total, d.Summary.OK = 1, 1
-		return map[string]any{"ok": true, "command": "facts", "data": d}
-	},
-	"facts web --only load,mem,disks (recorded)": func() any {
-		_, keys, _ := factsOnly([]string{"load", "mem", "disks"})
-		f, _ := factsOnlyParse(keys)(&store.Host{Name: "web"}, "load=0.12 0.10 0.05\ncpus=4\nmem_total_mb=7962\nmem_available_mb=5120\n"+
-			"swap_total_mb=2047\nswap_free_mb=2047\ndisk_root_total_gb=78\ndisk_root_used_pct=63\n"+
-			"disk=/dev/sda1\t81264764\t51086560\t30161820\t63\t/\n")
-		code := 0
-		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: f}}}
-		d.Summary.Total, d.Summary.OK = 1, 1
-		return map[string]any{"ok": true, "command": "facts", "data": d}
-	},
-	"facts web --only system (recorded)": func() any {
-		_, keys, _ := factsOnly([]string{"system"})
-		f, _ := factsOnlyParse(keys)(&store.Host{Name: "web"}, "os=ubuntu\nos_version=24.04\nos_pretty=Ubuntu 24.04.1 LTS\nuptime_sec=86400\n")
-		code := 0
-		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: f}}}
-		d.Summary.Total, d.Summary.OK = 1, 1
-		return map[string]any{"ok": true, "command": "facts", "data": d}
-	},
 }
 
 // serverShapeCases read the fake memcached conn "mc".
@@ -199,19 +168,9 @@ func TestOutputShapes(t *testing.T) {
 		}
 		got[strings.Join(args, " ")] = sh
 	}
-	keys := make([]string, 0, len(cases)+len(recordedShapeCases))
+	keys := make([]string, 0, len(cases))
 	for _, args := range cases {
 		keys = append(keys, strings.Join(args, " "))
-	}
-	for key, run := range recordedShapeCases {
-		b, err := json.Marshal(run())
-		if err != nil {
-			t.Fatal(err)
-		}
-		var v any
-		_ = json.Unmarshal(b, &v)
-		got[key] = shapeOf(v)
-		keys = append(keys, key)
 	}
 	path := filepath.Join("testdata", "shapes.json")
 	if *updateShapes {

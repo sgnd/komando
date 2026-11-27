@@ -1,4 +1,4 @@
-# A disposable server with systemd as PID 1, for the svc and logs checks
+# A disposable server with systemd as PID 1, for the logs checks
 # against the real systemctl and journalctl. Never use in production.
 FROM debian:13-slim
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends \

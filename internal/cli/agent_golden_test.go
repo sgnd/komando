@@ -191,7 +191,7 @@ var goldenGateKeys = []string{
 var goldenSchema = [][]string{
 	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
-	{"cache", "set"}, {"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
+	{"cache", "set"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
 	{"fs", "cat"}, {"exec"}, // C-F09: bytes

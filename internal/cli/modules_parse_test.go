@@ -75,7 +75,7 @@ func TestSnake(t *testing.T) {
 	for in, want := range map[string]string{
 		"Id":                   "id",
 		"LoadState":            "load_state",
-		"NRestarts":            "nrestarts", // pinned as it is today: consecutive capitals get no underscore (svc.go:58 reads n_restarts, so the text table shows no restarts)
+		"NRestarts":            "nrestarts", // pinned as it is today: consecutive capitals get no underscore (modules_svc.go:58 reads n_restarts, so the text table shows no restarts)
 		"MainPID":              "main_pid",
 		"ActiveEnterTimestamp": "active_enter_timestamp",
 		"ExecMainStatus":       "exec_main_status",
