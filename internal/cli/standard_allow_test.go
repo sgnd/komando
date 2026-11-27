@@ -10,13 +10,12 @@ var (
 		"docker stats",
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
-		"storage cat",
-		"storage link",
 	}
 	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
 	allowPairs = []string{
 		"host ca grant/revoke",
+		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}
@@ -50,6 +49,8 @@ var (
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
+		"audit",
+		"audit check",
 		"cluster helm history",
 		"cluster helm status",
 		"cluster history",
@@ -73,6 +74,7 @@ var (
 		"job status",
 		"key list",
 		"pkg installed",
+		"policy list",
 		"secret list",
 		"shell",
 		"ssh-gate",
@@ -90,7 +92,6 @@ var (
 		"bastion",
 		"bq",
 		"client-x",
-		"config",
 		"lab",
 		"local",
 		"mongo-db",

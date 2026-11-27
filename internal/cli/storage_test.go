@@ -2,15 +2,19 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
@@ -95,7 +99,7 @@ func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit
 func (m *memBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
 	v, ok := m.objs[key]
 	if !ok {
-		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "object not found")
+		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage s3 object list NAME [PREFIX]`", "object not found")
 	}
 	n, err := io.WriteString(w, v)
 	return int64(n), err
@@ -109,7 +113,7 @@ func (m *memBucket) Exists(_ context.Context, key string) (bool, error) {
 func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
 	v, ok := m.objs[key]
 	if !ok {
-		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", key)
+		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage s3 object list NAME [PREFIX]`", "%s not found", key)
 	}
 	return storex.Object{Key: key, Size: int64(len(v))}, nil
 }
@@ -215,7 +219,7 @@ func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
 	withMemBucket(t, m)
 	typing(t, "bk\n")
 	var e *out.Error
-	said := stderrOf(t, func() { _, e = invRun(t, "storage", "rm", "bk", "--prefix", "daily") })
+	said := stderrOf(t, func() { _, e = invRun(t, "storage", "s3", "object", "delete", "bk", "--prefix", "daily") })
 	if e == nil || e.Code != "POLICY_BLOCKED" || len(m.objs) != 3 {
 		t.Fatalf("a wrong name: %+v, %d objects left", e, len(m.objs))
 	}
@@ -224,7 +228,7 @@ func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
 		t.Errorf("the list comes before the question:\n%s", said)
 	}
 	typing(t, "2\n")
-	stderrOf(t, func() { mustRun(t, "storage", "rm", "bk", "--prefix", "daily/") })
+	stderrOf(t, func() { mustRun(t, "storage", "s3", "object", "delete", "bk", "--prefix", "daily/") })
 	if _, ok := m.objs["keep.txt"]; len(m.objs) != 1 || !ok {
 		t.Errorf("after the right name: %v", m.objs)
 	}
@@ -237,7 +241,7 @@ func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = false
 	t.Cleanup(func() { tcl.terminal = saved })
-	if e := wantCode(t, "POLICY_BLOCKED", "storage", "rm", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
+	if e := wantCode(t, "POLICY_BLOCKED", "storage", "s3", "object", "delete", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
 		t.Errorf("exit %d, listed %d, %d objects", e.Exit, m.listed, len(m.objs))
 	}
 }
@@ -245,8 +249,8 @@ func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
 // Storage errors name the conn in the command they suggest.
 func TestStorageHintNamesTheConn(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{}})
-	e := wantCode(t, "OBJECT_NOT_FOUND", "storage", "cat", "bk", "nope.txt")
-	if e.Hint != "list objects with `komando storage list bk [PREFIX]`" {
+	e := wantCode(t, "OBJECT_NOT_FOUND", "storage", "s3", "object", "read", "bk", "nope.txt")
+	if e.Hint != "list objects with `komando storage s3 object list bk [PREFIX]`" {
 		t.Errorf("hint: %q", e.Hint)
 	}
 	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test NAME`", "x")
@@ -255,7 +259,7 @@ func TestStorageHintNamesTheConn(t *testing.T) {
 	}
 }
 
-// storage ls CONN db lists what is in the folder db/ on a bucket too, as
+// storage s3 object list CONN db lists what is in the folder db/ on a bucket too, as
 // on a file server; a prefix that names no folder still lists by prefix.
 func TestStorageLsFolderWithoutSlash(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"db/a.sql": "a", "db/b.sql": "b", "dbx.txt": "x"}})
@@ -266,14 +270,14 @@ func TestStorageLsFolderWithoutSlash(t *testing.T) {
 		}
 		return strings.Join(k, ",")
 	}
-	if got := keys(mustRun(t, "storage", "ls", "bk", "db/")); got != "db/a.sql,db/b.sql" {
+	if got := keys(mustRun(t, "storage", "s3", "object", "list", "bk", "db/")); got != "db/a.sql,db/b.sql" {
 		t.Errorf("db/: %s", got)
 	}
-	d := mustRun(t, "storage", "ls", "bk", "db")
+	d := mustRun(t, "storage", "s3", "object", "list", "bk", "db")
 	if got := keys(d); got != "db/a.sql,db/b.sql" || d["prefix"] != "db/" {
 		t.Errorf("db: %s (prefix %v)", got, d["prefix"])
 	}
-	if got := keys(mustRun(t, "storage", "ls", "bk", "d")); got != "db/,dbx.txt" {
+	if got := keys(mustRun(t, "storage", "s3", "object", "list", "bk", "d")); got != "db/,dbx.txt" {
 		t.Errorf("d: %s", got)
 	}
 }
@@ -297,7 +301,7 @@ func TestStorageLinkTemporaryKeysWarns(t *testing.T) {
 		return tempKeyBucket{&memBucket{objs: map[string]string{"a.txt": "a"}}}, nil
 	}
 	t.Cleanup(func() { openBucket = saved })
-	d := mustRun(t, "storage", "link", "bk", "a.txt", "--expires", "24h")
+	d := mustRun(t, "storage", "s3", "object", "link", "bk", "a.txt", "--expires", "24h")
 	if w, _ := d["warning"].(string); !strings.Contains(w, "temporary AWS keys (profile dev)") {
 		t.Errorf("warning: %q", w)
 	}
@@ -309,44 +313,111 @@ func TestStorageJourneyCommands(t *testing.T) {
 	if d := mustRun(t, "list", "kind:storage"); !strings.Contains(fmt.Sprint(d), "bk") {
 		t.Errorf("list kind:storage: %v", d)
 	}
-	e := wantCode(t, "USAGE", "storage", "rm", "bk")
-	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage list bk") {
+	e := wantCode(t, "USAGE", "storage", "s3", "object", "delete", "bk")
+	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage s3 object list bk") {
 		t.Errorf("rm without keys: %q", e.Hint)
 	}
 	mustRun(t, "conn", "edit", "bk", "--add-tag", "backup")
 	mustRun(t, "conn", "rm", "bk")
 }
 
-// C-F03: storage rm's cap is --max-remove, with no short form, so it is
+// C-F03: storage s3 object delete's cap is --max-remove, with no short form, so it is
 // not taken for a list's --limit.
 func TestStorageRmMaxRemove(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb"}}
 	withMemBucket(t, m)
 	defer func() { setGate(tcl, false, gateDryRun) }()
 	tcl.out.Reset()
-	e := wantCode(t, "TOO_MANY", "storage", "rm", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
+	e := wantCode(t, "TOO_MANY", "storage", "s3", "object", "delete", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
 	if !strings.Contains(e.Message, "more than --max-remove 1") || !strings.Contains(e.Hint, "raise --max-remove") {
 		t.Errorf("--max-remove 1: %+v", e)
 	}
 	if len(m.objs) != 2 {
 		t.Errorf("a dry run removed objects: %v", m.objs)
 	}
-	c, _, _ := newRoot(tcl).Find([]string{"storage", "rm"})
+	c, _, _ := newRoot(tcl).Find([]string{"storage", "s3", "object", "delete"})
 	if c.Flags().ShorthandLookup("n") != nil || c.Flags().Lookup("limit") != nil || c.Flags().Lookup("max-remove").Shorthand != "" {
-		t.Error("storage rm has -n or --limit, or a short --max-remove")
+		t.Error("storage s3 object delete has -n or --limit, or a short --max-remove")
 	}
 }
 
 // A folder given where a file goes is IS_A_DIRECTORY, as fs cat says it
-// (C79): storage download without -r, storage rm without --prefix. A
+// (C79): storage download without -r, storage s3 object delete without --prefix. A
 // pattern is a usage error.
 func TestStorageFolderIsADirectory(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"logs/a.txt": "x"}})
 	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "download", "bk", "logs/", "--to", t.TempDir()); e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "-r") {
 		t.Errorf("download: %+v", e)
 	}
-	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "rm", "bk", "logs/"); !strings.Contains(e.Hint, "--prefix") {
+	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "s3", "object", "delete", "bk", "logs/"); !strings.Contains(e.Hint, "--prefix") {
 		t.Errorf("rm: %+v", e)
 	}
-	wantCode(t, "USAGE", "storage", "rm", "bk", "logs/*.txt")
+	wantCode(t, "USAGE", "storage", "s3", "object", "delete", "bk", "logs/*.txt")
+}
+
+// An AI agent's read of an object on a protected storage conn hides personal
+// data in the reply, the same way for every built provider of the type.
+func TestStorageReadHidesPersonalDataForEveryProvider(t *testing.T) {
+	invHome(t)
+	const email = "ada@example.com"
+	saved := openBucket
+	openBucket = func(*call, context.Context, *store.State, *store.Conn) (storex.Bucket, error) {
+		return &memBucket{objs: map[string]string{"a.txt": "contact " + email + "\n"}}, nil
+	}
+	t.Cleanup(func() { openBucket = saved })
+	urls := map[string]string{"s3": "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1"} // the first provider; tierProviders has the others
+	maps.Copy(urls, tierProviders["storage"])
+	var providers []string
+	for _, l := range capability.All() {
+		if l.Type != "storage" || l.Area != "object" || l.Verb != "read" || handlers[l.Key] == nil {
+			continue
+		}
+		if urls[l.Provider] == "" {
+			t.Errorf("storage %s object read: no conn URL here; add one", l.Provider)
+			continue
+		}
+		providers = append(providers, l.Provider)
+		mustRun(t, "conn", "add", l.Provider+"-c", urls[l.Provider], "--protected")
+	}
+	if len(providers) < 2 {
+		t.Fatalf("want every built provider of storage, got %v", providers)
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	hidden := map[string]int{}
+	for _, p := range providers {
+		b, _ := json.Marshal(mustRun(t, "storage", p, "object", "read", p+"-c", "a.txt"))
+		if s := string(b); strings.Contains(s, email) || !strings.Contains(s, "[hidden: email]") {
+			t.Errorf("storage %s object read: %s", p, s)
+		}
+		hidden[p] = strings.Count(string(b), "[hidden: email]")
+	}
+	if len(slices.Compact(slices.Sorted(maps.Values(hidden)))) > 1 {
+		t.Errorf("the providers hide differently: %v", hidden)
+	}
+}
+
+// A selector names conns, not one conn: `storage s3 object delete @grp` is
+// refused when the group holds an entry of another provider, as a plain name
+// is, so the run never reaches it under the wrong provider's ID.
+func TestStorageObjectRefusesAnotherProvidersSelector(t *testing.T) {
+	invHome(t)
+	mustRun(t, "storage", "sftp", "add", "files1", "sftp://deploy@10.0.0.5/uploads", "--label", "k=v")
+	mustRun(t, "group", "create", "grp", "files1")
+	for _, sel := range []string{"files1", "@grp", "label:k=v"} {
+		wantCode(t, "WRONG_KIND", "storage", "s3", "object", "delete", sel, "a.txt", "--dry-run")
+	}
+}
+
+// A Next: line suggests object link only where the provider has the leaf
+// (s3, gcs, azblob); sftp, ftp, smb and webdav have none.
+func TestNextLinkLineOnlyWhereTheLeafExists(t *testing.T) {
+	const line = "storage {P} object link {} OBJECT --expires 24h"
+	for p, want := range map[string]bool{"s3": false, "gcs": false, "azblob": false, "sftp": true, "ftp": true, "smb": true, "webdav": true, "PROVIDER": false} {
+		if got := noLinkLeaf(line, p); got != want {
+			t.Errorf("noLinkLeaf(link line, %s) = %v, want %v", p, got, want)
+		}
+	}
+	if noLinkLeaf("storage {P} object list {}", "sftp") {
+		t.Error("only the link line is dropped")
+	}
 }

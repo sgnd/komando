@@ -58,11 +58,11 @@ not know? Set `KOMANDO_AGENT=1`.
    `KOMANDO_HOME` set to another folder every command stops, a dry run
    too, and no flag clears it.) Declare read-only shell commands
    with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
-   `cache redis raw` and `cluster run` are the other way round: they only read
+   `cache redis raw` and `cluster kubernetes raw` are the other way round: they only read
    unless you add `--write`.
    Every command that hands words to another program (`exec`, `job start`,
-   `docker exec`, `docker compose`, `docker raw`, `cluster exec`, `cluster
-   shell`, `cluster run`, `cache redis raw`) takes them only after `--`, and
+   `docker exec`, `docker compose`, `docker raw`, `cluster kubernetes exec`,
+   `cluster kubernetes shell`, `cluster kubernetes raw`, `cache redis raw`) takes them only after `--`, and
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**

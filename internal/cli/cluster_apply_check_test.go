@@ -142,12 +142,12 @@ func TestClusterApplyConflictNeedsForceConflicts(t *testing.T) {
 	if len(l.real) != 0 || len(l.forced) != 0 {
 		t.Fatalf("without --force-conflicts: applied %v, forced %v", l.real, l.forced)
 	}
-	// the same through `cluster run -- apply`, which fails as kubectl does
-	if _, e := cliRun(t, "cluster", "run", "prod", "--write", "--", "apply", "-f", file); e == nil || !strings.Contains(e.Message, "K8S_CONFLICT") {
-		t.Fatalf("cluster run -- apply: want K8S_CONFLICT, got %+v", e)
+	// the same through `cluster kubernetes raw -- apply`, which fails as kubectl does
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file); e == nil || !strings.Contains(e.Message, "K8S_CONFLICT") {
+		t.Fatalf("cluster kubernetes raw -- apply: want K8S_CONFLICT, got %+v", e)
 	}
 	if len(l.real) != 0 || len(l.forced) != 0 {
-		t.Fatalf("cluster run -- apply: applied %v, forced %v", l.real, l.forced)
+		t.Fatalf("cluster kubernetes raw -- apply: applied %v, forced %v", l.real, l.forced)
 	}
 
 	d, e := cliRun(t, "cluster", "apply", "prod", "--file", file, "--force-conflicts")

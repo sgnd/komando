@@ -173,22 +173,7 @@ title: Check when the certificates of servers and websites expire
 - flag:path | --path | Also check this certificate file (or folder) on the servers |  |  | optional,advanced,check
 - flag:via | --via | Reach websites through this server or VPN (a --via path) |  |  | optional,advanced,free,choices
 ### komando cluster
-title: Kubernetes and Docker Swarm: check, read logs, roll out, scale
-### komando cluster add
-title: Add a cluster
-- arg0 | Name | Name? |  |  | check
-- arg1 | URL | URL? |  |  | check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
-- flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
-- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+title: Kubernetes clusters: save, check, read logs, roll out, scale
 ### komando cluster apply
 title: Apply Kubernetes YAML or deploy a Swarm stack
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
@@ -216,20 +201,6 @@ title: Recent events, oldest first (--warnings for problems only)
 - flag:all-namespaces | --all-namespaces | Every namespace |  |  | advanced,default,choices
 - flag:for | --for | Only events about this object, like deployment/api |  |  | optional,advanced,check
 - flag:limit | --limit | The most events to show (the newest) |  |  | optional,advanced,default,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster exec
-title: Run a command in a pod, checked by the policy
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
-- arg2 | Command | Which command should run in the pod? |  | env | 
-- flag:read-only | --read-only | Does the command only look, changing nothing? | Declare that the command only looks: only commands komando knows only read run (protected clusters: no --yes) |  | default,choices
-- flag:container | --container | Container in the pod |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster forward
-title: Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Type/name | Which pod or service? | A kind and name, like service/web or deployment/api. | service/web | check
-- arg2 | Port | Which port of it? | The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL. | 80 or 9000:80 | default,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 ### komando cluster get
 title: Show one object in full, Secret values hidden
@@ -269,6 +240,87 @@ title: Revisions of a deployment, newest first, with their images
 - arg1 | Type/name | Which deployment? | Written deployment/NAME. komando cluster list TARGET deployments shows them. | deployment/api | check
 - flag:limit | --limit | Show at most this many revisions, newest first (0 = all) |  |  | optional,advanced,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+### komando cluster kubernetes
+title: Kubernetes clusters: save them, and run commands on them
+### komando cluster kubernetes add
+title: Save a kubernetes cluster under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando cluster kubernetes edit
+title: Change a saved kubernetes cluster (only the flags you pass change)
+- arg0 | Name | Which cluster? | A cluster from your list. Add one first: komando cluster kubernetes add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando cluster kubernetes exec
+title: Run a command in a pod, checked by the policy
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
+- arg2 | Command | Which command should run in the pod? |  | env | 
+- flag:read-only | --read-only | Does the command only look, changing nothing? | The command only reads (the policy checks it either way) |  | default,choices
+- flag:container | --container | Container in the pod |  |  | optional,advanced,check
+- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+### komando cluster kubernetes list
+title: List the saved kubernetes clusters
+- arg0 | Target (clusters) | Which clusters? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando cluster kubernetes raw
+title: Run one kubectl command and show the result
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Command | Which kubectl or docker command? (without kubectl or docker in front) | It runs as the cluster's own tool would run it. | get pods -o wide | 
+- flag:write | --write | Does it change the cluster? | No: komando refuses a command that would change something. |  | default,choices
+### komando cluster kubernetes remove
+title: Forget a saved kubernetes cluster (the cluster is not touched)
+- arg0 | Target (clusters) | Which clusters should come off your list? | Only komando's list changes; the cluster itself is not touched. |  | free,choices,check
+### komando cluster kubernetes rename
+title: Rename a saved kubernetes cluster and every reference to it
+- arg0 | Name | Which cluster do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando cluster kubernetes shell
+title: Open a shell in a pod, like kubectl exec (person only)
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
+- arg2 | Command | A command instead of a shell? (leave empty for the usual shell) | Empty: the usual shell of the container. | bash | optional
+- flag:container | --container | Container in the pod |  |  | optional,advanced,check
+- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
+### komando cluster kubernetes show
+title: Show a saved kubernetes cluster's settings (credentials as names)
+- arg0 | Name | Which cluster? | A cluster from your list. Add one first: komando cluster kubernetes add. |  | choices,check
+### komando cluster kubernetes test
+title: Check that a saved kubernetes cluster answers and lets you in
+- arg0 | Target (clusters) | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando cluster kubernetes tunnel
+title: Reach a port of a pod or service from this computer: start
+### komando cluster kubernetes tunnel start
+title: Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
+- arg0 | Name | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
+- arg1 | Object | Which pod or service? | A kind and name, like service/web or deployment/api. | service/web | check
+- arg2 | Port | Which port of it? | The port it listens on. LOCAL:REMOTE picks the port on this computer too; you then open 127.0.0.1:LOCAL. | 80 or 9000:80 | default,check
+- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 ### komando cluster list
 title: List pods, deployments, services, nodes ... (Swarm: services, tasks)
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
@@ -307,11 +359,6 @@ title: Go back to an earlier version of a workload
 - flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 - flag:revision | --revision | The revision to go back to (default: the previous one with other images) |  |  | optional,advanced,check
-### komando cluster run
-title: Run any kubectl or docker command (read only by default)
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Args | Which kubectl or docker command? (without kubectl or docker in front) | It runs as the cluster's own tool would run it. | get pods -o wide | 
-- flag:write | --write | Does it change the cluster? | No: komando refuses a command that would change something. |  | default,choices
 ### komando cluster scale
 title: Set the number of replicas
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
@@ -319,19 +366,19 @@ title: Set the number of replicas
 - arg2 | Replicas | How many copies (replicas) should run? | 0 stops every copy, and the app is down until you scale it up again. komando asks a person first. | 3 | check
 - flag:wait | --wait | Wait until it is done? | Yes: komando stays until every copy runs the new version, or says what went wrong. |  | default,choices
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
-### komando cluster shell
-title: Open a shell in a pod, like kubectl exec (person only)
-- arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
-- arg1 | Pod | Which pod or workload? | A pod's name, or a kind and name like deployment/api (komando picks one of its pods). | deployment/api or api-7d9f8c6b5-x2k4q | check
-- arg2 | Command | A command instead of a shell? (leave empty for the usual shell) | Empty: the usual shell of the container. | bash | optional
-- flag:container | --container | Container in the pod |  |  | optional,advanced,check
-- flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 ### komando cluster status
 title: Show the version, the nodes and what is not healthy
 - arg0 | Target (clusters) | Which cluster? | A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several. |  | free,choices,check
 - arg1 | Type/name | One workload to check its rollout? (leave empty for the whole cluster) | Empty: the whole cluster, its nodes and what is not healthy. | deployment/api | optional,check
 - flag:namespace | --namespace | Kubernetes namespace (default: the context's, else default) |  |  | optional,advanced,check
 - flag:wait | --wait | With TYPE/NAME: wait until it has rolled out (--timeout, default 5m) |  |  | advanced,default,choices
+### komando cluster swarm
+title: Docker Swarm: run docker commands on a manager server
+### komando cluster swarm raw
+title: Run one docker command on a Swarm manager and show the result
+- arg0 | Name | Which Swarm manager server? | A server that is a Swarm manager. |  | choices,check
+- arg1 | Command | Which docker command? (without docker in front) | It runs as docker would run it on the manager. | service ls | 
+- flag:write | --write | Does it change the Swarm? | No: komando refuses a command that would change something. |  | default,choices
 ### komando completion
 title: Print a tab-completion script for your shell
 ### komando completion bash
@@ -1676,7 +1723,7 @@ title: Delete an image from a registry
 title: List the repositories of a registry, or the tags of one
 - arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
 - arg1 | Repo | Which repository? (leave empty to list them all) | Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one. | acme/api | optional,check
-- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,default,check
 ### komando registry oci image prune
 title: Delete old tags of a repository, keeping the newest
 - arg0 | Name | Which registry? | A registry from your list. Add one first with Add, Images (registries). |  | choices,check
@@ -1804,82 +1851,658 @@ title: What komando left running: VPNs, logins, tunnels, jobs
 - flag:short | --short | One line for your shell prompt, like vpn:1 tun:2 (no JSON, never fails) |  |  | advanced,default,choices
 ### komando storage
 title: Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
-### komando storage add
-title: Add a file storage
+### komando storage azblob
+title: Save azblob storage, and look after its objects
+### komando storage azblob add
+title: Save a azblob storage under a short name
 - arg0 | Name | Name? |  |  | check
-- arg1 | URL | URL? |  |  | check
-- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref |  |  | advanced,default,choices
-- flag:group | --group | Put it in these groups (comma-separated) |  |  | optional,advanced,check
-- flag:label | --label | Label KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:login | --login | How komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own) |  |  | optional,advanced,check
-- flag:notes | --notes | Free-form notes (komando conn show shows them to people and agents) |  |  | optional,advanced,check
-- flag:option | --option | An option of this kind, KEY=VALUE (repeatable) |  |  | optional,advanced,check
-- flag:overwrite | --overwrite | Replace a conn that has the same name |  |  | advanced,default,choices
-- flag:password-ref | --password-ref | Where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://... |  |  | optional,advanced,check
-- flag:protected | --protected | Production: komando asks you before every change, and an AI agent needs your yes in a window |  |  | advanced,default,choices
-- flag:tag | --tag | Tags, like prod (comma-separated) |  |  | optional,advanced,check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
 - flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
-### komando storage cat
-title: Show the text of an object
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Object | Which file? | Its name inside the storage, as storage list shows it. | logs/app.log | check
+### komando storage azblob edit
+title: Change a saved azblob storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage azblob add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage azblob list
+title: List the saved azblob storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage azblob object
+title: Files and folders of azblob storage
+### komando storage azblob object create
+title: Make a folder in an azblob storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
+### komando storage azblob object delete
+title: Delete objects from an azblob storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
+- flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
+- flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage azblob object link
+title: Make a time-limited link to an object in an azblob storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file to share? | Its name inside the storage. Anyone with the link can download it until it ends. | reports/q3.pdf | check
+- flag:expires | --expires | How long should the link work? | Like 30m or 24h; at most 168h (7 days). |  | optional,default,check
+- flag:endpoint | --endpoint | Sign the link for this address, like https://files.example.com |  |  | optional,advanced,check
+### komando storage azblob object list
+title: List the objects under a folder of a azblob storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage azblob object move
+title: Move or rename an object in an azblob storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+### komando storage azblob object read
+title: Show the text of an object in an azblob storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
 - flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
 - flag:head | --head | Only the first N lines |  |  | optional,advanced,check
-- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB (1048576 is 1 MiB) |  |  | optional,advanced,default,check
-### komando storage chmod
-title: Change the mode of a file or folder on an SFTP conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Mode | Which permissions? (as a number) | 640: owner reads and writes, group reads, others nothing. 755: everyone can read and open, only the owner writes. SFTP storage only. | 640 | check
-- arg2 | Path | Which file or folder? | Its name inside the storage, as storage list shows it. | config/app.yml | check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage azblob remove
+title: Forget a saved azblob storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage azblob rename
+title: Rename a saved azblob storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage azblob show
+title: Show a saved azblob storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage azblob add. |  | choices,check
+### komando storage azblob test
+title: Check that a saved azblob storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage download
 title: Download an object from a storage conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Object | Which file (or folder) to download? | Its name inside the storage, as storage list shows it. A folder ends in /. | reports/q3.pdf | check
+- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file (or folder) to download? | Its name inside the storage, as object list shows it. A folder ends in /. | reports/q3.pdf | check
 - flag:to | --to | Where to save it on this computer? | A file or a folder. Empty saves it in the current folder with its own name. | ~/Downloads/ | optional,check
 - flag:recursive | --recursive | Is it a folder? Download everything in it? | Download a folder (servers) or every object under a prefix (storage) |  | default,choices
 - flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
 - flag:overwrite | --overwrite | Replace files that already exist on this computer |  |  | advanced,default,choices
 - flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
-### komando storage link
-title: Make a temporary download link that works without a login
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Object | Which file to share? | Its name inside the storage. Anyone with the link can download it until it ends. | reports/q3.pdf | check
-- flag:expires | --expires | How long should the link work? | Like 30m or 24h; at most 168h (7 days). |  | optional,default,check
-- flag:endpoint | --endpoint | Sign the link for this address, like https://files.example.com (when komando reaches the storage through --via) |  |  | optional,advanced,check
-### komando storage list
-title: List the objects and folders of a storage conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
-- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
-- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix (a bucket with versioning keeps old ones) |  |  | advanced,default,choices
-- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
-### komando storage mkdir
-title: Create a folder in a storage conn, with any missing parents
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
+### komando storage ftp
+title: Save ftp storage, and look after its objects
+### komando storage ftp add
+title: Save a ftp storage under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando storage ftp edit
+title: Change a saved ftp storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage ftp add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage ftp list
+title: List the saved ftp storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage ftp object
+title: Files and folders of ftp storage
+### komando storage ftp object create
+title: Make a folder in a ftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
-### komando storage mv
-title: Move or rename a file or folder inside a storage conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
-- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | check
-- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
-### komando storage rm
-title: Delete objects by name or prefix
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
-- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+### komando storage ftp object delete
+title: Delete objects from a ftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
 - flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
 - flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
-- flag:all-versions | --all-versions | S3: also remove every old version and delete marker of the keys, so they are really gone |  |  | advanced,default,choices
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
 - flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage ftp object list
+title: List the objects under a folder of a ftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage ftp object move
+title: Move or rename an object in a ftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+### komando storage ftp object read
+title: Show the text of an object in a ftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
+- flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
+- flag:head | --head | Only the first N lines |  |  | optional,advanced,check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage ftp remove
+title: Forget a saved ftp storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage ftp rename
+title: Rename a saved ftp storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage ftp show
+title: Show a saved ftp storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage ftp add. |  | choices,check
+### komando storage ftp test
+title: Check that a saved ftp storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando storage gcs
+title: Save gcs storage, and look after its objects
+### komando storage gcs add
+title: Save a gcs storage under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando storage gcs edit
+title: Change a saved gcs storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage gcs add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage gcs list
+title: List the saved gcs storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage gcs object
+title: Files and folders of gcs storage
+### komando storage gcs object create
+title: Make a folder in a gcs storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
+### komando storage gcs object delete
+title: Delete objects from a gcs storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
+- flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
+- flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage gcs object link
+title: Make a time-limited link to an object in a gcs storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file to share? | Its name inside the storage. Anyone with the link can download it until it ends. | reports/q3.pdf | check
+- flag:expires | --expires | How long should the link work? | Like 30m or 24h; at most 168h (7 days). |  | optional,default,check
+- flag:endpoint | --endpoint | Sign the link for this address, like https://files.example.com |  |  | optional,advanced,check
+### komando storage gcs object list
+title: List the objects under a folder of a gcs storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage gcs object move
+title: Move or rename an object in a gcs storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+### komando storage gcs object read
+title: Show the text of an object in a gcs storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
+- flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
+- flag:head | --head | Only the first N lines |  |  | optional,advanced,check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage gcs remove
+title: Forget a saved gcs storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage gcs rename
+title: Rename a saved gcs storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage gcs show
+title: Show a saved gcs storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage gcs add. |  | choices,check
+### komando storage gcs test
+title: Check that a saved gcs storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando storage s3
+title: Save s3 storage, and look after its objects
+### komando storage s3 add
+title: Save a s3 storage under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando storage s3 edit
+title: Change a saved s3 storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage s3 add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage s3 list
+title: List the saved s3 storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage s3 object
+title: Files and folders of s3 storage
+### komando storage s3 object create
+title: Make a folder in a s3 storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
+### komando storage s3 object delete
+title: Delete objects from a s3 storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
+- flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
+- flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage s3 object link
+title: Make a time-limited link to an object in a s3 storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file to share? | Its name inside the storage. Anyone with the link can download it until it ends. | reports/q3.pdf | check
+- flag:expires | --expires | How long should the link work? | Like 30m or 24h; at most 168h (7 days). |  | optional,default,check
+- flag:endpoint | --endpoint | Sign the link for this address, like https://files.example.com |  |  | optional,advanced,check
+### komando storage s3 object list
+title: List the objects under a folder of a s3 storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage s3 object move
+title: Move or rename an object in a s3 storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+### komando storage s3 object read
+title: Show the text of an object in a s3 storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
+- flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
+- flag:head | --head | Only the first N lines |  |  | optional,advanced,check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage s3 remove
+title: Forget a saved s3 storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage s3 rename
+title: Rename a saved s3 storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage s3 show
+title: Show a saved s3 storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage s3 add. |  | choices,check
+### komando storage s3 test
+title: Check that a saved s3 storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando storage sftp
+title: Save sftp storage, and look after its objects
+### komando storage sftp add
+title: Save a sftp storage under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando storage sftp edit
+title: Change a saved sftp storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage sftp add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage sftp list
+title: List the saved sftp storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage sftp object
+title: Files and folders of sftp storage
+### komando storage sftp object create
+title: Make a folder in a sftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
+### komando storage sftp object delete
+title: Delete objects from a sftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
+- flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
+- flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage sftp object list
+title: List the objects under a folder of a sftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage sftp object move
+title: Move or rename an object in a sftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change its permissions instead? (as a number) | Like 0644 or 0750. Then the file is not moved. | 0640 | optional,check
+### komando storage sftp object read
+title: Show the text of an object in a sftp storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
+- flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
+- flag:head | --head | Only the first N lines |  |  | optional,advanced,check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage sftp remove
+title: Forget a saved sftp storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage sftp rename
+title: Rename a saved sftp storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage sftp show
+title: Show a saved sftp storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage sftp add. |  | choices,check
+### komando storage sftp test
+title: Check that a saved sftp storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
+### komando storage smb
+title: Save smb storage, and look after its objects
+### komando storage smb add
+title: Save a smb storage under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando storage smb edit
+title: Change a saved smb storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage smb add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage smb list
+title: List the saved smb storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage smb object
+title: Files and folders of smb storage
+### komando storage smb object create
+title: Make a folder in a smb storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
+### komando storage smb object delete
+title: Delete objects from a smb storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
+- flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
+- flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage smb object list
+title: List the objects under a folder of a smb storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage smb object move
+title: Move or rename an object in a smb storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+### komando storage smb object read
+title: Show the text of an object in a smb storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
+- flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
+- flag:head | --head | Only the first N lines |  |  | optional,advanced,check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage smb remove
+title: Forget a saved smb storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage smb rename
+title: Rename a saved smb storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage smb show
+title: Show a saved smb storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage smb add. |  | choices,check
+### komando storage smb test
+title: Check that a saved smb storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage upload
 title: Upload a file to a storage conn
-- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add. |  | choices,check
+- arg0 | Conn | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
 - arg1 | File | Which file on this computer? | Its path; ~/ means your home folder. | ./report.pdf | check
 - arg2 | Object | Where in the storage? | Empty keeps its name, at the top. A folder ends in /, like reports/2026/. | reports/2026/ | optional,check
 - flag:continue | --continue | Go on with a copy that was cut off: keep the part already at the destination when it matches the source, send the rest, then check the whole file (sha256) |  |  | advanced,default,choices
 - flag:progress | --progress | With -o json, write progress to the error output (stderr), one JSON object per line |  |  | advanced,default,choices
 - flag:recursive | --recursive | Upload a folder (new and changed files, like komando sync) |  |  | advanced,default,choices
 - flag:size | --size | An upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT) |  |  | optional,advanced,check
+### komando storage webdav
+title: Save webdav storage, and look after its objects
+### komando storage webdav add
+title: Save a webdav storage under a short name
+- arg0 | Name | Name? |  |  | check
+- arg1 | URL | URL? |  |  | optional,check
+- flag:ask-password | --ask-password | Type the password now (hidden, a person at a terminal); it is stored as a password credential |  |  | advanced,default,choices
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:group | --group | Put it in these groups |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:notes | --notes | Free-form notes, shown to people and agents |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:overwrite | --overwrite | Replace an entry that has the same name |  |  | advanced,default,choices
+- flag:protected | --protected | Changes need a person's yes |  |  | advanced,default,choices
+- flag:tag | --tag | Tags, like prod |  |  | optional,advanced,check
+- flag:via | --via | Reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened |  |  | optional,advanced,free,choices
+### komando storage webdav edit
+title: Change a saved webdav storage (only the flags you pass change)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage webdav add. |  | choices,check
+- flag:url | --url | New address (URL)? | Like the one you added it with, without the password. Leave empty to keep it. | postgres://app@10.0.0.5:5432/shop | optional,check
+- flag:ask-password | --ask-password | Change the password? | Yes makes the command ask for it, hidden, when it runs. It is saved as a saved password, never on the command line. |  | default,choices
+- flag:protected | --protected | Can a mistake on it hurt real users or real data? | Yes means komando asks you before every change there, also changes an AI agent wants to make. No takes that away. |  | optional,choices
+- flag:via | --via | Reach it through which server or VPN? | The name of a server or VPN in your list, when it only answers inside that network. Leave empty to keep how it is reached now. | bastion | optional,free,choices
+- flag:add-group | --add-group | Add it to a group? | A group lets you pick many at once with @name. Leave empty for none. | web | optional,free,choices
+- flag:notes | --notes | Any notes to keep with it? | Free text, like who owns it or what runs there. AI agents read it too. Leave empty to keep the old notes. | main shop database | optional,check
+- flag:add-tag | --add-tag | Add these tags |  |  | optional,advanced,check
+- flag:credential | --credential | What it logs in with |  |  | optional,advanced,check
+- flag:label | --label | Label KEY=VALUE |  |  | optional,advanced,check
+- flag:login | --login | How the password is used: ask at every connect, a stored one, or none |  |  | optional,advanced,check
+- flag:option | --option | An option of this provider, KEY=VALUE |  |  | optional,advanced,check
+- flag:rm-group | --rm-group | Take it out of these groups |  |  | optional,advanced,check
+- flag:rm-tag | --rm-tag | Remove these tags |  |  | optional,advanced,check
+- flag:unset | --unset | Clear these settings: via, credential, notes, protected |  |  | optional,advanced,check
+### komando storage webdav list
+title: List the saved webdav storages
+- arg0 | Target | Which storages? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
+### komando storage webdav object
+title: Files and folders of webdav storage
+### komando storage webdav object create
+title: Make a folder in a webdav storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Path | Which folder should be made? | Its path inside the storage; missing folders on the way are made too. | reports/2026 | check
+### komando storage webdav object delete
+title: Delete objects from a webdav storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which files to delete? (several: separate them with spaces) | Exact names as object list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first. | tmp/old.sql.gz | optional,check
+- flag:prefix | --prefix | Delete everything in a folder? | Empty when you named the files above. A folder ends in /, like daily/. | daily/ | optional,check
+- flag:older-than | --older-than | Only files older than? | With a folder: newer ones are kept. Like 30d (days) or 12h (hours). | 30d | optional,check
+- flag:all-versions | --all-versions | S3: also remove every old version and delete marker |  |  | advanced,default,choices
+- flag:max-remove | --max-remove | Refuse when more than this many objects would be removed |  |  | optional,advanced,default,check
+### komando storage webdav object list
+title: List the objects under a folder of a webdav storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Prefix | Which folder inside it? | Empty lists the top. A folder ends in /, like db/2026-11/. | db/ | optional,check
+- flag:recursive | --recursive | List everything below it too, not only one level? | Include everything below the prefix, not just one level |  | default,choices
+- flag:all-versions | --all-versions | S3: every version and delete marker under the prefix |  |  | advanced,default,choices
+- flag:limit | --limit | The most entries to show |  |  | optional,advanced,default,check
+### komando storage webdav object move
+title: Move or rename an object in a webdav storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Src | Which file (or folder) do you want to move or rename? | Its name inside the storage, as object list shows it. On S3, Google Cloud and Azure only one file at a time. | db/old.sql.gz | check
+- arg2 | Dst | Where to? (the new name) | A new name, or a folder ending in / to move it into with its own name. | archive/ | optional,check
+- flag:overwrite | --overwrite | Replace a file that is already there? | Replace a file already at DST (never a folder) |  | default,choices
+- flag:mode | --mode | Change the mode of PATH, as chmod does (SFTP only); no DST then |  |  | optional,advanced,check
+### komando storage webdav object read
+title: Show the text of an object in a webdav storage
+- arg0 | Name | Which file storage? | A bucket or file server from your list (komando list kind:storage). Add one first with komando storage s3 add. |  | choices,check
+- arg1 | Object | Which file? | Its name inside the storage, as object list shows it. | logs/app.log | check
+- flag:tail | --tail | Show only the last how many lines? | Empty shows the whole file, up to 1 MiB. | 50 | optional,check
+- flag:head | --head | Only the first N lines |  |  | optional,advanced,check
+- flag:max-bytes | --max-bytes | Read at most this many bytes, like 4MiB |  |  | optional,advanced,default,check
+### komando storage webdav remove
+title: Forget a saved webdav storage (the storage is not touched)
+- arg0 | Target | Which storages should come off your list? | Only komando's list changes; the storage itself is not touched. |  | free,choices,check
+### komando storage webdav rename
+title: Rename a saved webdav storage and every reference to it
+- arg0 | Name | Which storage do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
+- arg1 | New | What should the new name be? | Letters, digits, dot, dash and underscore, starting with a letter or digit. | web2 | check
+### komando storage webdav show
+title: Show a saved webdav storage's settings (credentials as names)
+- arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage webdav add. |  | choices,check
+### komando storage webdav test
+title: Check that a saved webdav storage answers and lets you in
+- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
+- flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando sync
 title: Copy a folder one way, sending only new and changed files
 - arg0 | Src | Copy from where? | A folder on this computer, SERVER:PATH on a server, or STORAGE:PREFIX in file storage. | ./site | check

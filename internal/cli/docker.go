@@ -34,7 +34,7 @@ func dockerCmd() *cobra.Command {
 		Long: `Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,
 compose up and a docker run through ` + "`docker raw`" + ` change things (protected
 servers need --yes); rm, prune, compose down -v and other deletes need
---allow-dangerous. The same rules apply to ` + "`docker raw`" + `, ` + "`docker compose`" + ` and ` + "`cluster run`" + ` on a Swarm manager.`,
+--allow-dangerous. The same rules apply to ` + "`docker raw`" + ` and ` + "`docker compose`" + `.`,
 	}
 	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "run docker with sudo")
 	c.AddCommand(dockerListCmds(&sudo)...)
@@ -302,8 +302,8 @@ func parseJSONLines(_ *store.Host, s string) any {
 }
 
 // guardDocker rates a docker command line (docker raw, compose, the
-// start/stop/rm verbs) with the same rules as `cluster run` on a Swarm
-// manager: reads stay reads, changes need --yes on protected servers, and
+// start/stop/rm verbs) with the same rules as a Swarm
+// manager's raw command: reads stay reads, changes need --yes on protected servers, and
 // deletes and anything that runs arbitrary code need --allow-dangerous. A
 // person at a terminal confirms a delete by typing the server's name (the
 // number of servers for several), the same answer the server guard
@@ -403,7 +403,7 @@ func dockerVerbArgs(args []string) ([]string, error) {
 
 // classifyDocker rates a docker command by verb, subcommand and flags. It
 // is the one rule set for docker raw, docker compose, the docker verbs and
-// `cluster run` on a Swarm manager.
+// a Swarm manager's raw command.
 func classifyDocker(args []string) driver.Risk {
 	args, err := dockerVerbArgs(args)
 	if err != nil {

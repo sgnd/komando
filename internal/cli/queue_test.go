@@ -13,7 +13,6 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/sgnd/komando/internal/capability"
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -304,8 +303,8 @@ func TestQueueProvidersCarryEqualTableEntries(t *testing.T) {
 
 // TestQueueLeavesRefuseAnotherProvidersConn: a queue leaf takes the conn of
 // its own provider only; a conn of another provider is WRONG_KIND with the
-// path that fits, before anything connects. A group (one name expected) is
-// not found; a group given to test or remove is checked conn by conn.
+// path that fits, before anything connects. A group (or a label selector) is
+// checked conn by conn, for a verb that takes one name as for test and remove.
 func TestQueueLeavesRefuseAnotherProvidersConn(t *testing.T) {
 	invHome(t)
 	mustRun(t, "queue", "kafka", "add", "k1", "kafka://broker.example.com:9092?insecure=1")
@@ -321,10 +320,10 @@ func TestQueueLeavesRefuseAnotherProvidersConn(t *testing.T) {
 		{[]string{"queue", "pubsub", "message", "list", "k1", "t"}, "komando queue kafka message list k1"},
 		{[]string{"queue", "kafka", "remove", "n1", "--dry-run"}, "komando queue nats remove n1"},
 		{[]string{"queue", "kafka", "test", "@grp"}, "komando queue nats test n1"},
+		{[]string{"queue", "kafka", "message", "list", "@grp", "t"}, "komando queue nats message list n1"},
 	} {
 		if e := wantCode(t, "WRONG_KIND", c.args...); !strings.Contains(e.Hint, c.hint) {
 			t.Errorf("%v: the hint names the path that fits (%q): %q", c.args, c.hint, e.Hint)
 		}
 	}
-	wantCode(t, out.NotFoundCode("conn"), "queue", "kafka", "message", "list", "@grp", "t")
 }

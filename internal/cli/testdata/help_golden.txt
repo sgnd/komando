@@ -46,7 +46,7 @@ Data:
   storage      Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Platform:
-  cluster      Kubernetes and Docker Swarm: check, read logs, roll out, scale
+  cluster      Kubernetes clusters: save, check, read logs, roll out, scale
   registry     Container registries: see images, copy them, clean up
 
 Inventory:
@@ -1174,51 +1174,47 @@ Global Flags (all of them: komando --help):
 ### komando cluster --help
 exit 0
 --- stdout
-TARGET is a Kubernetes cluster (bring yours in with `komando import
-kubeconfig`) or a Swarm manager server. The same verbs work on both. Reads
-need nothing; restart, scale and apply change the cluster (protected targets
-need --yes; try --dry-run); rm needs --allow-dangerous. Anything else:
-`cluster run` passes the native kubectl or docker command, read-only unless
---write.
+TARGET is a Kubernetes cluster saved with `komando cluster kubernetes add`
+or a Swarm manager server. Reads need nothing; restart, scale and apply
+change the cluster (protected targets need --yes; try --dry-run); rm needs
+--allow-dangerous. Anything else: `cluster kubernetes raw` passes the native
+kubectl command, read-only unless --write.
 
 A cluster's usual namespace is its kubeconfig context's; change it with
-`komando conn edit NAME --option namespace=shop`, or name one per command
-with --namespace.
+`komando cluster kubernetes edit NAME --option namespace=shop`, or name one
+per command with --namespace.
 
 Usage:
   komando cluster [flags]
   komando cluster [command]
 
 Aliases:
-  cluster, k8s, kube, swarm, clusters
+  cluster, clusters
 
 Examples:
-  komando import kubeconfig                       # one cluster per kubeconfig context
+  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
   komando cluster status prod-k8s                     # version, nodes, what is not healthy
   komando cluster list prod-k8s pods --namespace shop
   komando cluster logs prod-k8s deploy/api --namespace shop -f
   komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
 
 Available Commands:
-  add         Add a cluster
   apply       Apply Kubernetes YAML or deploy a Swarm stack
   deploy      Roll out a new image
   describe    One object in short: state, images, conditions, pods, events
   events      Recent events, oldest first (--warnings for problems only)
-  exec        Run a command in a pod, checked by the policy
-  forward     Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
   get         Show one object in full, Secret values hidden
   helm        Helm releases, read only: see their state, history and values
   history     Revisions of a deployment, newest first, with their images
+  kubernetes  Kubernetes clusters: save them, and run commands on them
   list        List pods, deployments, services, nodes ... (Swarm: services, tasks)
   logs        Logs of a pod, a workload, a label (-l) or a Swarm service
   restart     Restart a workload with a rolling restart, or a Swarm service
   rm          Delete an object, service or stack
   rollback    Go back to an earlier version of a workload
-  run         Run any kubectl or docker command (read only by default)
   scale       Set the number of replicas
-  shell       Open a shell in a pod, like kubectl exec (person only)
   status      Show the version, the nodes and what is not healthy
+  swarm       Docker Swarm: run docker commands on a manager server
 
 Flags:
   -h, --help[=true|false]   help for cluster
@@ -1232,49 +1228,6 @@ Global Flags (all of them: komando --help):
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 
 Use "komando cluster [command] --help" for more information about a command.
---- stderr
-### komando cluster add --help
-exit 0
---- stdout
-Same as `komando conn add NAME URL`, for a cluster.
-
-Safety: a change; try it with --dry-run first.
-
-Saves a cluster under a short name. Typed alone at a terminal, it asks
-step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
-
-A Kubernetes cluster usually comes in with `komando import kubeconfig FILE`
-(one conn per context). Here its kubeconfig must be in the vault already
-(--password-ref). A Docker Swarm manager is a server: `komando host add`.
-
-Usage:
-  komando cluster add NAME URL [flags]
-
-Examples:
-  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig
-  komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig --dry-run
-
-Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
-  -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
-      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando cluster apply --help
 exit 0
@@ -1401,73 +1354,6 @@ Flags:
       --limit int                     the most events to show (the newest) (default 100)
   -n, --namespace string              Kubernetes namespace (default: the context's, else default)
       --warnings[=true|false]         only Warning events
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster exec --help
-exit 0
---- stdout
-Runs COMMAND in the pod (for TYPE/NAME, in one of its pods) and returns its
-output. Commands that only look can say so with --read-only: it runs only
-commands komando knows only read (cat, ls, printenv ...) and refuses any
-other; a protected cluster then needs no --yes. For an
-interactive shell use `komando cluster shell TARGET POD`.
-
-Safety: a change; try it with --dry-run first; when the command matches a
-destructive rule: dangerous, it cannot be undone: a person types the name to
-go on, and an AI agent or a script needs --allow-dangerous; on a protected
-server or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cluster exec TARGET POD|TYPE/NAME -- COMMAND... [flags]
-
-Examples:
-  komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-  komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear
-
-Flags:
-  -c, --container string         container in the pod
-  -h, --help[=true|false]        help for exec
-  -n, --namespace string         Kubernetes namespace (default: the context's, else default)
-      --read-only[=true|false]   declare that the command only looks: only commands komando knows only read run (protected clusters: no --yes)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster forward --help
-exit 0
---- stdout
-Forwards 127.0.0.1:LOCAL on this computer to REMOTE on a pod, deployment or
-service, through the conn's --via path. It runs until Ctrl-C (or --timeout).
-Only this computer can use it. For a service, REMOTE is the service's port;
-komando forwards to the pod's port behind it.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-Usage:
-  komando cluster forward TARGET TYPE/NAME [LOCAL:]REMOTE [flags]
-
-Examples:
-  komando cluster forward prod-k8s svc/api 8080:80 --namespace shop
-  komando cluster forward prod-k8s svc/api 8080:80 --namespace shop --dry-run
-  komando cluster forward prod-k8s deploy/db 15432:5432 --namespace shop
-  komando cluster forward prod-k8s svc/api :80 --namespace shop   # any free local port
-
-Flags:
-  -h, --help[=true|false]   help for forward
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -1666,6 +1552,395 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
+### komando cluster kubernetes --help
+exit 0
+--- stdout
+Kubernetes clusters: save them, and run commands on them
+
+Usage:
+  komando cluster kubernetes [flags]
+  komando cluster kubernetes [command]
+
+Examples:
+  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --dry-run
+  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
+  komando cluster kubernetes test prod-k8s
+  komando cluster kubernetes raw prod-k8s -- get pods -A -o wide
+  komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
+
+Available Commands:
+  add         Save a kubernetes cluster under a short name
+  edit        Change a saved kubernetes cluster (only the flags you pass change)
+  exec        Run a command in a pod, checked by the policy
+  list        List the saved kubernetes clusters
+  raw         Run one kubectl command and show the result
+  remove      Forget a saved kubernetes cluster (the cluster is not touched)
+  rename      Rename a saved kubernetes cluster and every reference to it
+  shell       Open a shell in a pod, like kubectl exec (person only)
+  show        Show a saved kubernetes cluster's settings (credentials as names)
+  test        Check that a saved kubernetes cluster answers and lets you in
+  tunnel      Reach a port of a pod or service from this computer: start
+
+Flags:
+  -h, --help[=true|false]   help for kubernetes
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando cluster kubernetes [command] --help" for more information about a command.
+--- stderr
+### komando cluster kubernetes add --help
+exit 0
+--- stdout
+Save a kubernetes cluster under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cluster kubernetes add NAME [URL] [flags]
+
+Examples:
+  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --via web1
+  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes edit --help
+exit 0
+--- stdout
+Change a saved kubernetes cluster (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando cluster kubernetes edit NAME [flags]
+
+Examples:
+  komando cluster kubernetes edit prod-k8s --add-tag critical
+  komando cluster kubernetes edit prod-k8s --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes exec --help
+exit 0
+--- stdout
+Run a command in a pod, checked by the policy.
+
+Safety: a change; try it with --dry-run first; when the command matches a
+destructive rule: dangerous, it cannot be undone: a person types the name to
+go on, and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando cluster kubernetes exec NAME POD -- COMMAND... [flags]
+
+Examples:
+  komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
+  komando cluster kubernetes exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear
+
+Flags:
+  -c, --container string         container in the pod
+  -h, --help[=true|false]        help for exec
+  -n, --namespace string         Kubernetes namespace (default: the context's, else default)
+      --read-only[=true|false]   the command only reads (the policy checks it either way)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes list --help
+exit 0
+--- stdout
+List the saved kubernetes clusters
+
+Usage:
+  komando cluster kubernetes list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando cluster kubernetes list
+  komando cluster kubernetes list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+      --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes raw --help
+exit 0
+--- stdout
+Run one kubectl command and show the result.
+
+Safety: a change; try it with --dry-run first; when the cluster command
+deletes something or scales to 0: dangerous, it cannot be undone: a person
+types the name to go on, and an AI agent or a script needs
+--allow-dangerous.
+
+Usage:
+  komando cluster kubernetes raw NAME -- COMMAND... [flags]
+
+Examples:
+  komando cluster kubernetes raw prod-k8s -- get pods -A -o wide
+  komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop --dry-run
+  komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop --dry-run
+
+Flags:
+  -h, --help[=true|false]    help for raw
+      --write[=true|false]   allow a command that changes data (it only reads without this)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes remove --help
+exit 0
+--- stdout
+Forget a saved kubernetes cluster (the cluster is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando cluster kubernetes remove TARGET... [flags]
+
+Examples:
+  komando cluster kubernetes remove prod-k8s --dry-run
+  komando cluster kubernetes remove prod-k8s
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes rename --help
+exit 0
+--- stdout
+Rename a saved kubernetes cluster and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cluster kubernetes rename NAME NEW [flags]
+
+Examples:
+  komando cluster kubernetes rename prod-k8s prod-k8s-2 --dry-run
+  komando cluster kubernetes rename prod-k8s prod-k8s-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes shell --help
+exit 0
+--- stdout
+Open a shell in a pod, like kubectl exec.
+
+Safety: only a person at a terminal can run it.
+
+Usage:
+  komando cluster kubernetes shell NAME POD [-- COMMAND...] [flags]
+
+Examples:
+  komando cluster kubernetes shell prod-k8s deploy/api --namespace shop
+  komando cluster kubernetes shell prod-k8s api-7d9f-x2 -c api -- /bin/ash
+
+Flags:
+  -c, --container string    container in the pod
+  -h, --help[=true|false]   help for shell
+  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes show --help
+exit 0
+--- stdout
+Show a saved kubernetes cluster's settings (credentials as names)
+
+Usage:
+  komando cluster kubernetes show NAME [flags]
+
+Examples:
+  komando cluster kubernetes show prod-k8s
+  komando cluster kubernetes show prod-k8s -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes test --help
+exit 0
+--- stdout
+Check that a saved kubernetes cluster answers and lets you in
+
+Usage:
+  komando cluster kubernetes test TARGET [flags]
+
+Examples:
+  komando cluster kubernetes test prod-k8s
+  komando cluster kubernetes test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster kubernetes tunnel --help
+exit 0
+--- stdout
+Reach a port of a pod or service from this computer: start
+
+Usage:
+  komando cluster kubernetes tunnel [flags]
+  komando cluster kubernetes tunnel [command]
+
+Examples:
+  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop --dry-run
+  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop
+  komando cluster kubernetes tunnel start prod-k8s deploy/db 15432:5432 --namespace shop
+
+Available Commands:
+  start       Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C
+
+Flags:
+  -h, --help[=true|false]   help for tunnel
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando cluster kubernetes tunnel [command] --help" for more information about a command.
+--- stderr
+### komando cluster kubernetes tunnel start --help
+exit 0
+--- stdout
+Reach a pod or service port from this computer (127.0.0.1) until Ctrl-C.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando cluster kubernetes tunnel start NAME OBJECT PORT [flags]
+
+Examples:
+  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop
+  komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop --dry-run
+  komando cluster kubernetes tunnel start prod-k8s deploy/db 15432:5432 --namespace shop
+  komando cluster kubernetes tunnel start prod-k8s svc/api :80 --namespace shop   # any free local port
+
+Flags:
+  -h, --help[=true|false]   help for start
+  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando cluster list --help
 exit 0
 --- stdout
@@ -1835,46 +2110,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando cluster run --help
-exit 0
---- stdout
-For Kubernetes, komando runs the kubectl command itself (no kubectl
-needed) and reaches the API through the conn's --via path: get (tables,
-wide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,
-events, top, explain, version, api-resources, api-versions, cluster-info,
-auth can-i/whoami, wait, rollout, apply, diff, create, replace, delete,
-patch, label, annotate, scale, set image, cordon, uncordon, drain, taint,
-run, exec, cp, debug, certificate and config. For Swarm, docker runs on the
-manager. Commands that change things need --write; delete, drain and other
-risky verbs also need --allow-dangerous.
-
-Safety: a change; try it with --dry-run first; when the cluster command
-deletes something or scales to 0: dangerous, it cannot be undone: a person
-types the name to go on, and an AI agent or a script needs
---allow-dangerous; on a protected server or conn, a person's yes (--yes) as
-well.
-
-Usage:
-  komando cluster run TARGET -- ARGS... [flags]
-
-Examples:
-  komando cluster run prod-k8s -- get pods -A -o wide
-  komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
-  komando cluster run prod-k8s --write --dry-run -- rollout undo deployment/api -n shop
-  komando cluster run swarm1 -- service ps web
-
-Flags:
-  -h, --help[=true|false]    help for run
-      --write[=true|false]   allow commands that change the cluster
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando cluster scale --help
 exit 0
 --- stdout
@@ -1897,35 +2132,6 @@ Flags:
   -h, --help[=true|false]   help for scale
   -n, --namespace string    Kubernetes namespace (default: the context's, else default)
       --wait[=true|false]   wait until every replica is ready (--timeout, default 5m)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cluster shell --help
-exit 0
---- stdout
-Opens a terminal in the pod's container: bash when it has one, else sh, or
-COMMAND. For people at a terminal; agents use `komando cluster exec`.
-Anything can be typed inside, so a protected cluster asks first.
-
-Safety: only a person at a terminal can run it.
-
-Usage:
-  komando cluster shell TARGET POD|TYPE/NAME [-- COMMAND...] [flags]
-
-Examples:
-  komando cluster shell prod-k8s deploy/api --namespace shop
-  komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash
-
-Flags:
-  -c, --container string    container in the pod
-  -h, --help[=true|false]   help for shell
-  -n, --namespace string    Kubernetes namespace (default: the context's, else default)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -1961,6 +2167,67 @@ Flags:
   -h, --help[=true|false]   help for status
   -n, --namespace string    Kubernetes namespace (default: the context's, else default)
       --wait[=true|false]   with TYPE/NAME: wait until it has rolled out (--timeout, default 5m)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando cluster swarm --help
+exit 0
+--- stdout
+Docker Swarm: run docker commands on a manager server
+
+Usage:
+  komando cluster swarm [flags]
+  komando cluster swarm [command]
+
+Examples:
+  komando cluster swarm raw swarm1 -- service ls
+  komando cluster swarm raw swarm1 -- service ps web
+  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run
+
+Available Commands:
+  raw         Run one docker command on a Swarm manager and show the result
+
+Flags:
+  -h, --help[=true|false]   help for swarm
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando cluster swarm [command] --help" for more information about a command.
+--- stderr
+### komando cluster swarm raw --help
+exit 0
+--- stdout
+Run one docker command on a Swarm manager and show the result.
+
+Safety: a change; try it with --dry-run first; when the cluster command
+deletes something or scales to 0: dangerous, it cannot be undone: a person
+types the name to go on, and an AI agent or a script needs
+--allow-dangerous.
+
+Usage:
+  komando cluster swarm raw NAME -- COMMAND... [flags]
+
+Examples:
+  komando cluster swarm raw swarm1 -- service ls
+  komando cluster swarm raw swarm1 -- service ps web
+  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run
+  komando cluster swarm raw swarm1 --write -- service scale web=3 --dry-run
+
+Flags:
+  -h, --help[=true|false]    help for raw
+      --write[=true|false]   allow a command that changes data (it only reads without this)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -3407,8 +3674,8 @@ exit 0
 Docker on a server over SSH. Reads need nothing; start, stop, restart, pull,
 compose up and a docker run through `docker raw` change things (protected
 servers need --yes); rm, prune, compose down -v and other deletes need
---allow-dangerous. The same rules apply to `docker raw`, `docker compose`
-and `cluster run` on a Swarm manager.
+--allow-dangerous. The same rules apply to `docker raw` and `docker
+compose`.
 
 Usage:
   komando docker [flags]
@@ -9811,7 +10078,7 @@ Examples:
 
 Flags:
   -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many (0 = all)
+  -n, --limit int           show at most this many (0 = all) (default 1000)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -10076,7 +10343,7 @@ How komando keeps a change from going wrong.
   --dry-run           every change can show what it would do first
   protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes
   dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous
-  read only           db query, cache redis raw and cluster run only read unless you add --write
+  read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write
   audit               komando audit list shows every change and who asked for it
 
 An AI agent is never asked: it gets exit 6 and a person allows the flag in a
@@ -10778,10 +11045,10 @@ komando, no update, no change on a sqlite file or a target at localhost or
 127.x. With --read-only only commands that read run (db query and cache
 redis raw without --write), and only those that stay on the servers and
 conns in your list: no net, no cert check of a website, no exec, job start,
-docker exec, cluster exec or snippet exec, unless the line also has
---network. `komando ssh-gate status` tells a key which it is. Every command
-a key runs or is refused is in `komando audit list`, with --name, even when
-the audit setting is off.
+docker exec, cluster kubernetes exec or snippet exec, unless the line also
+has --network. `komando ssh-gate status` tells a key which it is. Every
+command a key runs or is refused is in `komando audit list`, with --name,
+even when the audit setting is off.
 
 Usage:
   komando ssh-gate [flags]
@@ -10818,9 +11085,9 @@ this komando by its full path, as sshd does not search PATH.
 
 A --read-only key runs only commands that read, and only those that stay on
 the servers and conns in your list: no net checks, no cert check of a
-website, and no exec, job start, docker exec, cluster exec or snippet exec,
-whose programs can connect anywhere and carry what they read in a URL or a
-DNS name. Add --network too for a read key that may do those.
+website, and no exec, job start, docker exec, cluster kubernetes exec or
+snippet exec, whose programs can connect anywhere and carry what they read
+in a URL or a DNS name. Add --network too for a read key that may do those.
 
 With --shell-access (not with --read-only) the key may also open a login
 shell on one server: ssh -t HOST komando shell SERVER, word for word. Its
@@ -10828,12 +11095,12 @@ line has restrict,pty, so sshd gives it a terminal when it asks for one. The
 shell is refused on a protected server, a Windows server or this computer,
 with any other word or flag, without the terminal, and on every server while
 you have deny rules of your own (komando policy list); db shell and cluster
-shell stay refused. On the servers it opens on, the shell is full control of
-the server, as the account komando logs in with: what is typed is outside
-komando's per-command rules, masking and audit. Give such a key only to a
-device you would give that login to. Each session's start and end are in
-komando audit list (key, server, how long, why it ended), and a session with
-no input and no output for 30 minutes ends.
+kubernetes shell stay refused. On the servers it opens on, the shell is full
+control of the server, as the account komando logs in with: what is typed is
+outside komando's per-command rules, masking and audit. Give such a key only
+to a device you would give that login to. Each session's start and end are
+in komando audit list (key, server, how long, why it ended), and a session
+with no input and no output for 30 minutes ends.
 
 Usage:
   komando ssh-gate line PUBLIC_KEY --name NAME [flags]
@@ -10939,7 +11206,7 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 List, copy and share files in a bucket or on a file server. Add one with
-`komando storage add`.
+`komando storage s3 add` (or gcs, azblob, sftp, ftp, smb, webdav).
 
 It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,
 or a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,
@@ -10952,8 +11219,9 @@ Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
 nothing half written.
 
-The storage itself: komando storage add, komando test CONN, komando conn
-edit CONN, komando conn rm CONN. komando list kind:storage lists them.
+The storage itself: komando storage s3 add, komando storage s3 test NAME,
+komando storage s3 edit NAME, komando storage s3 remove NAME. komando list
+kind:storage lists them.
 
 Usage:
   komando storage [flags]
@@ -10963,22 +11231,21 @@ Aliases:
   storage, s3
 
 Examples:
-  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
-  komando storage list backups 2026/
+  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+  komando storage s3 object list backups 2026/
   komando download backups 2026/app.sql.gz --to ./
-  komando storage rm backups --prefix daily/ --older-than 30d --dry-run
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run
 
 Available Commands:
-  add         Add a file storage
-  cat         Show the text of an object
-  chmod       Change the mode of a file or folder on an SFTP conn
+  azblob      Save azblob storage, and look after its objects
   download    Download an object from a storage conn
-  link        Make a temporary download link that works without a login
-  list        List the objects and folders of a storage conn
-  mkdir       Create a folder in a storage conn, with any missing parents
-  mv          Move or rename a file or folder inside a storage conn
-  rm          Delete objects by name or prefix
+  ftp         Save ftp storage, and look after its objects
+  gcs         Save gcs storage, and look after its objects
+  s3          Save s3 storage, and look after its objects
+  sftp        Save sftp storage, and look after its objects
+  smb         Save smb storage, and look after its objects
   upload      Upload a file to a storage conn
+  webdav      Save webdav storage, and look after its objects
 
 Flags:
   -h, --help[=true|false]   help for storage
@@ -10993,40 +11260,71 @@ Global Flags (all of them: komando --help):
 
 Use "komando storage [command] --help" for more information about a command.
 --- stderr
-### komando storage add --help
+### komando storage azblob --help
 exit 0
 --- stdout
-Same as `komando conn add NAME URL`, for a file storage.
+Save azblob storage, and look after its objects
+
+Usage:
+  komando storage azblob [flags]
+  komando storage azblob [command]
+
+Examples:
+  komando storage azblob add backups URL --dry-run
+  komando storage azblob add backups URL
+  komando storage azblob test backups
+  komando storage azblob object list backups 2026/
+  komando storage azblob object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a azblob storage under a short name
+  edit        Change a saved azblob storage (only the flags you pass change)
+  list        List the saved azblob storages
+  object      Files and folders of azblob storage
+  remove      Forget a saved azblob storage (the storage is not touched)
+  rename      Rename a saved azblob storage and every reference to it
+  show        Show a saved azblob storage's settings (credentials as names)
+  test        Check that a saved azblob storage answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for azblob
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage azblob [command] --help" for more information about a command.
+--- stderr
+### komando storage azblob add --help
+exit 0
+--- stdout
+Save a azblob storage under a short name.
 
 Safety: a change; try it with --dry-run first.
 
-Saves a file storage under a short name. Typed alone at a terminal, it asks
-step by step. The URL scheme sets the kind: `komando conn kinds` lists them.
-
 Usage:
-  komando storage add NAME URL [flags]
+  komando storage azblob add NAME [URL] [flags]
 
 Examples:
-  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
-  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password --dry-run
-  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
-  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
-  komando storage add media gs://my-bucket/site   # logs in like gcloud
-  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
-  komando storage add site 'sftp://deploy@files.example.com/uploads'
+  komando storage azblob add backups azblob://ACCOUNT@my-container/backups --via web1
+  komando storage azblob add backups azblob://ACCOUNT@my-container/backups --dry-run
 
 Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
-  -g, --group strings               put it in these groups (comma-separated)
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
   -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (repeatable) (default [])
-      --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
-      --notes string                free-form notes (komando conn show shows them to people and agents)
-      --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
-      --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
-      --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
-  -t, --tag strings                 tags, like prod (comma-separated)
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
@@ -11037,22 +11335,270 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage cat --help
+### komando storage azblob edit --help
 exit 0
 --- stdout
-Show the text of an object
+Change a saved azblob storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
-  komando storage cat CONN OBJECT [flags]
+  komando storage azblob edit NAME [flags]
 
 Examples:
-  komando storage cat backups logs/app-2026-11-02.log --tail 50
-  komando storage cat config prod/app.env
+  komando storage azblob edit backups --add-tag critical
+  komando storage azblob edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob list --help
+exit 0
+--- stdout
+List the saved azblob storages
+
+Usage:
+  komando storage azblob list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage azblob list
+  komando storage azblob list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob object --help
+exit 0
+--- stdout
+Files and folders of azblob storage
+
+Usage:
+  komando storage azblob object [flags]
+  komando storage azblob object [command]
+
+Examples:
+  komando storage azblob object list backups 2026/
+  komando storage azblob object read backups logs/app.log --tail 50
+  komando storage azblob object create backups reports/2026 --dry-run
+  komando storage azblob object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in an azblob storage
+  delete      Delete objects from an azblob storage
+  link        Make a time-limited link to an object in an azblob storage
+  list        List the objects under a folder of a azblob storage
+  move        Move or rename an object in an azblob storage
+  read        Show the text of an object in an azblob storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage azblob object [command] --help" for more information about a command.
+--- stderr
+### komando storage azblob object create --help
+exit 0
+--- stdout
+Make a folder in an azblob storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage azblob object create NAME PATH [flags]
+
+Examples:
+  komando storage azblob object create backups reports/2026 --dry-run
+  komando storage azblob object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob object delete --help
+exit 0
+--- stdout
+Delete objects from an azblob storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage azblob object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage azblob object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage azblob object delete backups old.txt --dry-run
+  komando storage azblob object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
+      --max-remove int              refuse when more than this many objects would be removed (default 1000)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob object link --help
+exit 0
+--- stdout
+Make a time-limited link to an object in an azblob storage.
+
+Safety: a change; try it with --dry-run first; when an AI agent makes a link
+(a person allows --reveal): it weakens a safety check: a person's yes
+(--yes).
+
+Usage:
+  komando storage azblob object link NAME OBJECT [flags]
+
+Examples:
+  komando storage azblob object link backups reports/q3.pdf --dry-run
+  komando storage azblob object link backups reports/q3.pdf --expires 24h
+
+Flags:
+      --endpoint string     sign the link for this address, like https://files.example.com
+      --expires duration    how long the link works, like 30m, 24h or 7d (at most 7d) (default 1h)
+  -h, --help[=true|false]   help for link
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob object list --help
+exit 0
+--- stdout
+List the objects under a folder of a azblob storage
+
+Usage:
+  komando storage azblob object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage azblob object list backups 2026/
+  komando storage azblob object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
+  -h, --help[=true|false]           help for list
+  -n, --limit int                   the most entries to show (default 1000)
+  -r, --recursive[=true|false]      include everything below the prefix, not just one level
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob object move --help
+exit 0
+--- stdout
+Move or rename an object in an azblob storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage azblob object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
+
+Examples:
+  komando storage azblob object move backups old.txt new.txt --dry-run
+  komando storage azblob object move backups old.txt archive/old.txt
+  komando storage azblob object move backups config/app.yml --mode 0640
+
+Flags:
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
+      --overwrite[=true|false]   replace a file already at DST (never a folder)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob object read --help
+exit 0
+--- stdout
+Show the text of an object in an azblob storage
+
+Usage:
+  komando storage azblob object read NAME OBJECT [flags]
+
+Examples:
+  komando storage azblob object read backups logs/app.log --tail 50
+  komando storage azblob object read backups config/app.env
 
 Flags:
       --head int            only the first N lines
-  -h, --help[=true|false]   help for cat
-      --max-bytes bytes     read at most this many bytes, like 4MiB (1048576 is 1 MiB) (default 1048576)
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
       --tail int            only the last N lines
 
 Global Flags (all of them: komando --help):
@@ -11063,27 +11609,96 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage chmod --help
+### komando storage azblob remove --help
 exit 0
 --- stdout
-Sets the Unix mode of PATH (a file or a folder) on an SFTP server, like
-chmod. MODE is in digits: 0644, 640, 0750, or 2775 with the setgid bit; the
-result says the old mode too. Only SFTP servers have modes: other kinds of
-storage stop with STORAGE_UNSUPPORTED before anything is contacted.
+Forget a saved azblob storage (the storage is not touched).
 
 Safety: a change; try it with --dry-run first; on a protected server or
 conn, a person's yes (--yes) as well.
 
 Usage:
-  komando storage chmod CONN MODE PATH [flags]
+  komando storage azblob remove TARGET... [flags]
 
 Examples:
-  komando storage chmod backups 0640 config/app.yml --dry-run
-  komando storage chmod backups 0640 config/app.yml
-  komando storage chmod backups 0750 uploads
+  komando storage azblob remove backups --dry-run
+  komando storage azblob remove backups
 
 Flags:
-  -h, --help[=true|false]   help for chmod
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob rename --help
+exit 0
+--- stdout
+Rename a saved azblob storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage azblob rename NAME NEW [flags]
+
+Examples:
+  komando storage azblob rename backups backups-2 --dry-run
+  komando storage azblob rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob show --help
+exit 0
+--- stdout
+Show a saved azblob storage's settings (credentials as names)
+
+Usage:
+  komando storage azblob show NAME [flags]
+
+Examples:
+  komando storage azblob show backups
+  komando storage azblob show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage azblob test --help
+exit 0
+--- stdout
+Check that a saved azblob storage answers and lets you in
+
+Usage:
+  komando storage azblob test TARGET [flags]
+
+Examples:
+  komando storage azblob test backups
+  komando storage azblob test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -11123,39 +11738,72 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage link --help
+### komando storage ftp --help
 exit 0
 --- stdout
-Prints a URL anyone can use to download KEY until it expires (default 1
-hour, at most 7 days). Treat it like a password while it is valid. Sharing
-from a protected conn needs --yes. An AI agent gets a link only when a
-person allows --reveal, and never for a file that is a secret by its name
-(.env, a key): a link is the file as it is, past the hiding of storage cat
-and download. The link itself is not stored in the audit log. The link names
-the storage address in the conn URL: when komando reaches it through --via,
-only people who can reach that address can use the link. --endpoint signs
-the link for the address they use instead (S3 only).
-
-Safety: a change; try it with --dry-run first; when an AI agent makes a link
-(a person allows --reveal): it weakens a safety check: a person's yes
-(--yes); on a protected server or conn, a person's yes (--yes) as well.
+Save ftp storage, and look after its objects
 
 Usage:
-  komando storage link CONN OBJECT [flags]
-
-Aliases:
-  link, presign, share
+  komando storage ftp [flags]
+  komando storage ftp [command]
 
 Examples:
-  komando storage link backups reports/q3.pdf --expires 24h
-  komando storage link backups reports/q3.pdf --expires 24h --dry-run
-  komando storage link backups reports/q3.pdf --expires 7d
-  komando storage link backups reports/q3.pdf --endpoint https://files.example.com
+  komando storage ftp add backups URL --dry-run
+  komando storage ftp add backups URL
+  komando storage ftp test backups
+  komando storage ftp object list backups 2026/
+  komando storage ftp object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a ftp storage under a short name
+  edit        Change a saved ftp storage (only the flags you pass change)
+  list        List the saved ftp storages
+  object      Files and folders of ftp storage
+  remove      Forget a saved ftp storage (the storage is not touched)
+  rename      Rename a saved ftp storage and every reference to it
+  show        Show a saved ftp storage's settings (credentials as names)
+  test        Check that a saved ftp storage answers and lets you in
 
 Flags:
-      --endpoint string     sign the link for this address, like https://files.example.com (when komando reaches the storage through --via)
-      --expires duration    how long the link works, like 30m, 24h or 7d (at most 7d) (default 1h)
-  -h, --help[=true|false]   help for link
+  -h, --help[=true|false]   help for ftp
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage ftp [command] --help" for more information about a command.
+--- stderr
+### komando storage ftp add --help
+exit 0
+--- stdout
+Save a ftp storage under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage ftp add NAME [URL] [flags]
+
+Examples:
+  komando storage ftp add backups ftps://deploy@files.example.com/public_html --via web1
+  komando storage ftp add backups ftps://deploy@files.example.com/public_html --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -11165,23 +11813,181 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage list --help
+### komando storage ftp edit --help
 exit 0
 --- stdout
-List the objects and folders of a storage conn
+Change a saved ftp storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
 
 Usage:
-  komando storage list CONN [PREFIX] [flags]
+  komando storage ftp edit NAME [flags]
+
+Examples:
+  komando storage ftp edit backups --add-tag critical
+  komando storage ftp edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp list --help
+exit 0
+--- stdout
+List the saved ftp storages
+
+Usage:
+  komando storage ftp list [TARGET] [flags]
 
 Aliases:
   list, ls
 
 Examples:
-  komando storage list backups
-  komando storage list backups db/2026-11/ --recursive
+  komando storage ftp list
+  komando storage ftp list @web
 
 Flags:
-      --all-versions[=true|false]   S3: every version and delete marker under the prefix (a bucket with versioning keeps old ones)
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp object --help
+exit 0
+--- stdout
+Files and folders of ftp storage
+
+Usage:
+  komando storage ftp object [flags]
+  komando storage ftp object [command]
+
+Examples:
+  komando storage ftp object list backups 2026/
+  komando storage ftp object read backups logs/app.log --tail 50
+  komando storage ftp object create backups reports/2026 --dry-run
+  komando storage ftp object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in a ftp storage
+  delete      Delete objects from a ftp storage
+  list        List the objects under a folder of a ftp storage
+  move        Move or rename an object in a ftp storage
+  read        Show the text of an object in a ftp storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage ftp object [command] --help" for more information about a command.
+--- stderr
+### komando storage ftp object create --help
+exit 0
+--- stdout
+Make a folder in a ftp storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage ftp object create NAME PATH [flags]
+
+Examples:
+  komando storage ftp object create backups reports/2026 --dry-run
+  komando storage ftp object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp object delete --help
+exit 0
+--- stdout
+Delete objects from a ftp storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage ftp object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage ftp object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage ftp object delete backups old.txt --dry-run
+  komando storage ftp object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
+      --max-remove int              refuse when more than this many objects would be removed (default 1000)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp object list --help
+exit 0
+--- stdout
+List the objects under a folder of a ftp storage
+
+Usage:
+  komando storage ftp object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage ftp object list backups 2026/
+  komando storage ftp object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
   -h, --help[=true|false]           help for list
   -n, --limit int                   the most entries to show (default 1000)
   -r, --recursive[=true|false]      include everything below the prefix, not just one level
@@ -11194,70 +12000,27 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage mkdir --help
+### komando storage ftp object move --help
 exit 0
 --- stdout
-Makes the folder PATH and any missing folders above it. A folder that is
-already there is fine (created: false); a file with that name stops it
-(FILE_EXISTS).
+Move or rename an object in a ftp storage.
 
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-S3, Google Cloud Storage and Azure Blob have no real folders, only names
-with / in them: there mkdir stores an empty folder marker (PATH/), as their
-web consoles do, so the folder shows in storage list before any file is in
-it.
+Safety: a change; try it with --dry-run first.
 
 Usage:
-  komando storage mkdir CONN PATH [flags]
+  komando storage ftp object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
 
 Examples:
-  komando storage mkdir backups reports/2026 --dry-run
-  komando storage mkdir backups reports/2026
+  komando storage ftp object move backups old.txt new.txt --dry-run
+  komando storage ftp object move backups old.txt archive/old.txt
+  komando storage ftp object move backups config/app.yml --mode 0640
 
 Flags:
-  -h, --help[=true|false]   help for mkdir
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando storage mv --help
-exit 0
---- stdout
-Moves SRC to DST inside one conn. A DST ending in / is a folder: SRC moves
-into it and keeps its name. Missing folders above DST are made. A file
-already at DST stops the move (FILE_EXISTS) unless --overwrite; a folder
-at DST is never replaced.
-
-Safety: a change; try it with --dry-run first; on a protected server or
-conn, a person's yes (--yes) as well.
-
-On a file server (SFTP, FTP, FTPS, WebDAV, SMB) mv is one rename on the
-server, and moves folders too.
-
-S3, Google Cloud Storage and Azure Blob cannot rename: mv copies the object
-on the server, checks that the copy has the same size and checksum, and
-only then deletes the original (method: copy_then_delete). If the check
-fails, the original stays and the copy is deleted (MOVE_FAILED). There
-mv moves one object at a time, not a folder. In a bucket that keeps old
-versions, the original's old versions stay.
-
-Usage:
-  komando storage mv CONN SRC DST [flags]
-
-Examples:
-  komando storage mv backups db/old.sql.gz archive/ --dry-run
-  komando storage mv backups db/old.sql.gz archive/
-  komando storage mv backups reports/draft.pdf reports/q3.pdf --overwrite
-
-Flags:
-  -h, --help[=true|false]        help for mv
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
       --overwrite[=true|false]   replace a file already at DST (never a folder)
 
 Global Flags (all of them: komando --help):
@@ -11268,41 +12031,1854 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando storage rm --help
+### komando storage ftp object read --help
 exit 0
 --- stdout
-Without --prefix, rm takes exact keys (no patterns). With --prefix it
-removes every object under that folder, or with --older-than only the ones
-older than that (30d, 12h): the usual cleanup of old backups. --dry-run
-lists them first; --max-remove (default 1000) refuses to go on when more
-would be removed.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous; on a protected server
-or conn, a person's yes (--yes) as well.
-
-In an S3 bucket with versioning, rm leaves the old versions behind (and a
-delete marker): --all-versions removes every version of the keys too, so
-they are really gone. `storage list CONN PREFIX --all-versions` shows them.
+Show the text of an object in a ftp storage
 
 Usage:
-  komando storage rm CONN [OBJECT...] [flags]
-
-Aliases:
-  rm, remove, delete, del
+  komando storage ftp object read NAME OBJECT [flags]
 
 Examples:
-  komando storage rm backups tmp/old.sql.gz --dry-run
-  komando storage rm backups tmp/old.sql.gz --allow-dangerous   # after a person's yes
-  komando storage rm backups --prefix daily/ --older-than 30d --dry-run
-  komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous   # after a person's yes
+  komando storage ftp object read backups logs/app.log --tail 50
+  komando storage ftp object read backups config/app.env
 
 Flags:
-      --all-versions[=true|false]   S3: also remove every old version and delete marker of the keys, so they are really gone
-  -h, --help[=true|false]           help for rm
+      --head int            only the first N lines
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
+      --tail int            only the last N lines
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp remove --help
+exit 0
+--- stdout
+Forget a saved ftp storage (the storage is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando storage ftp remove TARGET... [flags]
+
+Examples:
+  komando storage ftp remove backups --dry-run
+  komando storage ftp remove backups
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp rename --help
+exit 0
+--- stdout
+Rename a saved ftp storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage ftp rename NAME NEW [flags]
+
+Examples:
+  komando storage ftp rename backups backups-2 --dry-run
+  komando storage ftp rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp show --help
+exit 0
+--- stdout
+Show a saved ftp storage's settings (credentials as names)
+
+Usage:
+  komando storage ftp show NAME [flags]
+
+Examples:
+  komando storage ftp show backups
+  komando storage ftp show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage ftp test --help
+exit 0
+--- stdout
+Check that a saved ftp storage answers and lets you in
+
+Usage:
+  komando storage ftp test TARGET [flags]
+
+Examples:
+  komando storage ftp test backups
+  komando storage ftp test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs --help
+exit 0
+--- stdout
+Save gcs storage, and look after its objects
+
+Usage:
+  komando storage gcs [flags]
+  komando storage gcs [command]
+
+Examples:
+  komando storage gcs add backups URL --dry-run
+  komando storage gcs add backups URL
+  komando storage gcs test backups
+  komando storage gcs object list backups 2026/
+  komando storage gcs object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a gcs storage under a short name
+  edit        Change a saved gcs storage (only the flags you pass change)
+  list        List the saved gcs storages
+  object      Files and folders of gcs storage
+  remove      Forget a saved gcs storage (the storage is not touched)
+  rename      Rename a saved gcs storage and every reference to it
+  show        Show a saved gcs storage's settings (credentials as names)
+  test        Check that a saved gcs storage answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for gcs
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage gcs [command] --help" for more information about a command.
+--- stderr
+### komando storage gcs add --help
+exit 0
+--- stdout
+Save a gcs storage under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage gcs add NAME [URL] [flags]
+
+Examples:
+  komando storage gcs add backups gs://my-bucket/backups --via web1
+  komando storage gcs add backups gs://my-bucket/backups --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs edit --help
+exit 0
+--- stdout
+Change a saved gcs storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando storage gcs edit NAME [flags]
+
+Examples:
+  komando storage gcs edit backups --add-tag critical
+  komando storage gcs edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs list --help
+exit 0
+--- stdout
+List the saved gcs storages
+
+Usage:
+  komando storage gcs list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage gcs list
+  komando storage gcs list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs object --help
+exit 0
+--- stdout
+Files and folders of gcs storage
+
+Usage:
+  komando storage gcs object [flags]
+  komando storage gcs object [command]
+
+Examples:
+  komando storage gcs object list backups 2026/
+  komando storage gcs object read backups logs/app.log --tail 50
+  komando storage gcs object create backups reports/2026 --dry-run
+  komando storage gcs object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in a gcs storage
+  delete      Delete objects from a gcs storage
+  link        Make a time-limited link to an object in a gcs storage
+  list        List the objects under a folder of a gcs storage
+  move        Move or rename an object in a gcs storage
+  read        Show the text of an object in a gcs storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage gcs object [command] --help" for more information about a command.
+--- stderr
+### komando storage gcs object create --help
+exit 0
+--- stdout
+Make a folder in a gcs storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage gcs object create NAME PATH [flags]
+
+Examples:
+  komando storage gcs object create backups reports/2026 --dry-run
+  komando storage gcs object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs object delete --help
+exit 0
+--- stdout
+Delete objects from a gcs storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage gcs object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage gcs object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage gcs object delete backups old.txt --dry-run
+  komando storage gcs object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
       --max-remove int              refuse when more than this many objects would be removed (default 1000)
-      --older-than duration         with --prefix: only objects older than this (like 30d, 12h, 90m)
-      --prefix string               remove everything under this folder (like daily/; / for the whole conn)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs object link --help
+exit 0
+--- stdout
+Make a time-limited link to an object in a gcs storage.
+
+Safety: a change; try it with --dry-run first; when an AI agent makes a link
+(a person allows --reveal): it weakens a safety check: a person's yes
+(--yes).
+
+Usage:
+  komando storage gcs object link NAME OBJECT [flags]
+
+Examples:
+  komando storage gcs object link backups reports/q3.pdf --dry-run
+  komando storage gcs object link backups reports/q3.pdf --expires 24h
+
+Flags:
+      --endpoint string     sign the link for this address, like https://files.example.com
+      --expires duration    how long the link works, like 30m, 24h or 7d (at most 7d) (default 1h)
+  -h, --help[=true|false]   help for link
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs object list --help
+exit 0
+--- stdout
+List the objects under a folder of a gcs storage
+
+Usage:
+  komando storage gcs object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage gcs object list backups 2026/
+  komando storage gcs object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
+  -h, --help[=true|false]           help for list
+  -n, --limit int                   the most entries to show (default 1000)
+  -r, --recursive[=true|false]      include everything below the prefix, not just one level
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs object move --help
+exit 0
+--- stdout
+Move or rename an object in a gcs storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage gcs object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
+
+Examples:
+  komando storage gcs object move backups old.txt new.txt --dry-run
+  komando storage gcs object move backups old.txt archive/old.txt
+  komando storage gcs object move backups config/app.yml --mode 0640
+
+Flags:
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
+      --overwrite[=true|false]   replace a file already at DST (never a folder)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs object read --help
+exit 0
+--- stdout
+Show the text of an object in a gcs storage
+
+Usage:
+  komando storage gcs object read NAME OBJECT [flags]
+
+Examples:
+  komando storage gcs object read backups logs/app.log --tail 50
+  komando storage gcs object read backups config/app.env
+
+Flags:
+      --head int            only the first N lines
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
+      --tail int            only the last N lines
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs remove --help
+exit 0
+--- stdout
+Forget a saved gcs storage (the storage is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando storage gcs remove TARGET... [flags]
+
+Examples:
+  komando storage gcs remove backups --dry-run
+  komando storage gcs remove backups
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs rename --help
+exit 0
+--- stdout
+Rename a saved gcs storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage gcs rename NAME NEW [flags]
+
+Examples:
+  komando storage gcs rename backups backups-2 --dry-run
+  komando storage gcs rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs show --help
+exit 0
+--- stdout
+Show a saved gcs storage's settings (credentials as names)
+
+Usage:
+  komando storage gcs show NAME [flags]
+
+Examples:
+  komando storage gcs show backups
+  komando storage gcs show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage gcs test --help
+exit 0
+--- stdout
+Check that a saved gcs storage answers and lets you in
+
+Usage:
+  komando storage gcs test TARGET [flags]
+
+Examples:
+  komando storage gcs test backups
+  komando storage gcs test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 --help
+exit 0
+--- stdout
+Save s3 storage, and look after its objects
+
+Usage:
+  komando storage s3 [flags]
+  komando storage s3 [command]
+
+Examples:
+  komando storage s3 add backups URL --dry-run
+  komando storage s3 add backups URL
+  komando storage s3 test backups
+  komando storage s3 object list backups 2026/
+  komando storage s3 object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a s3 storage under a short name
+  edit        Change a saved s3 storage (only the flags you pass change)
+  list        List the saved s3 storages
+  object      Files and folders of s3 storage
+  remove      Forget a saved s3 storage (the storage is not touched)
+  rename      Rename a saved s3 storage and every reference to it
+  show        Show a saved s3 storage's settings (credentials as names)
+  test        Check that a saved s3 storage answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for s3
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage s3 [command] --help" for more information about a command.
+--- stderr
+### komando storage s3 add --help
+exit 0
+--- stdout
+Save a s3 storage under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage s3 add NAME [URL] [flags]
+
+Examples:
+  komando storage s3 add backups 's3://ACCESS_KEY_ID@my-bucket/backups?region=us-east-1' --via web1
+  komando storage s3 add backups 's3://ACCESS_KEY_ID@my-bucket/backups?region=us-east-1' --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 edit --help
+exit 0
+--- stdout
+Change a saved s3 storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando storage s3 edit NAME [flags]
+
+Examples:
+  komando storage s3 edit backups --add-tag critical
+  komando storage s3 edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 list --help
+exit 0
+--- stdout
+List the saved s3 storages
+
+Usage:
+  komando storage s3 list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage s3 list
+  komando storage s3 list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 object --help
+exit 0
+--- stdout
+Files and folders of s3 storage
+
+Usage:
+  komando storage s3 object [flags]
+  komando storage s3 object [command]
+
+Examples:
+  komando storage s3 object list backups 2026/
+  komando storage s3 object read backups logs/app.log --tail 50
+  komando storage s3 object create backups reports/2026 --dry-run
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in a s3 storage
+  delete      Delete objects from a s3 storage
+  link        Make a time-limited link to an object in a s3 storage
+  list        List the objects under a folder of a s3 storage
+  move        Move or rename an object in a s3 storage
+  read        Show the text of an object in a s3 storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage s3 object [command] --help" for more information about a command.
+--- stderr
+### komando storage s3 object create --help
+exit 0
+--- stdout
+Make a folder in a s3 storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage s3 object create NAME PATH [flags]
+
+Examples:
+  komando storage s3 object create backups reports/2026 --dry-run
+  komando storage s3 object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 object delete --help
+exit 0
+--- stdout
+Delete objects from a s3 storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage s3 object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage s3 object delete backups old.txt --dry-run
+  komando storage s3 object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
+      --max-remove int              refuse when more than this many objects would be removed (default 1000)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 object link --help
+exit 0
+--- stdout
+Make a time-limited link to an object in a s3 storage.
+
+Safety: a change; try it with --dry-run first; when an AI agent makes a link
+(a person allows --reveal): it weakens a safety check: a person's yes
+(--yes).
+
+Usage:
+  komando storage s3 object link NAME OBJECT [flags]
+
+Examples:
+  komando storage s3 object link backups reports/q3.pdf --dry-run
+  komando storage s3 object link backups reports/q3.pdf --expires 24h
+
+Flags:
+      --endpoint string     sign the link for this address, like https://files.example.com
+      --expires duration    how long the link works, like 30m, 24h or 7d (at most 7d) (default 1h)
+  -h, --help[=true|false]   help for link
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 object list --help
+exit 0
+--- stdout
+List the objects under a folder of a s3 storage
+
+Usage:
+  komando storage s3 object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage s3 object list backups 2026/
+  komando storage s3 object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
+  -h, --help[=true|false]           help for list
+  -n, --limit int                   the most entries to show (default 1000)
+  -r, --recursive[=true|false]      include everything below the prefix, not just one level
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 object move --help
+exit 0
+--- stdout
+Move or rename an object in a s3 storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage s3 object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
+
+Examples:
+  komando storage s3 object move backups old.txt new.txt --dry-run
+  komando storage s3 object move backups old.txt archive/old.txt
+  komando storage s3 object move backups config/app.yml --mode 0640
+
+Flags:
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
+      --overwrite[=true|false]   replace a file already at DST (never a folder)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 object read --help
+exit 0
+--- stdout
+Show the text of an object in a s3 storage
+
+Usage:
+  komando storage s3 object read NAME OBJECT [flags]
+
+Examples:
+  komando storage s3 object read backups logs/app.log --tail 50
+  komando storage s3 object read backups config/app.env
+
+Flags:
+      --head int            only the first N lines
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
+      --tail int            only the last N lines
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 remove --help
+exit 0
+--- stdout
+Forget a saved s3 storage (the storage is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando storage s3 remove TARGET... [flags]
+
+Examples:
+  komando storage s3 remove backups --dry-run
+  komando storage s3 remove backups
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 rename --help
+exit 0
+--- stdout
+Rename a saved s3 storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage s3 rename NAME NEW [flags]
+
+Examples:
+  komando storage s3 rename backups backups-2 --dry-run
+  komando storage s3 rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 show --help
+exit 0
+--- stdout
+Show a saved s3 storage's settings (credentials as names)
+
+Usage:
+  komando storage s3 show NAME [flags]
+
+Examples:
+  komando storage s3 show backups
+  komando storage s3 show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage s3 test --help
+exit 0
+--- stdout
+Check that a saved s3 storage answers and lets you in
+
+Usage:
+  komando storage s3 test TARGET [flags]
+
+Examples:
+  komando storage s3 test backups
+  komando storage s3 test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp --help
+exit 0
+--- stdout
+Save sftp storage, and look after its objects
+
+Usage:
+  komando storage sftp [flags]
+  komando storage sftp [command]
+
+Examples:
+  komando storage sftp add backups URL --dry-run
+  komando storage sftp add backups URL
+  komando storage sftp test backups
+  komando storage sftp object list backups 2026/
+  komando storage sftp object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a sftp storage under a short name
+  edit        Change a saved sftp storage (only the flags you pass change)
+  list        List the saved sftp storages
+  object      Files and folders of sftp storage
+  remove      Forget a saved sftp storage (the storage is not touched)
+  rename      Rename a saved sftp storage and every reference to it
+  show        Show a saved sftp storage's settings (credentials as names)
+  test        Check that a saved sftp storage answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for sftp
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage sftp [command] --help" for more information about a command.
+--- stderr
+### komando storage sftp add --help
+exit 0
+--- stdout
+Save a sftp storage under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage sftp add NAME [URL] [flags]
+
+Examples:
+  komando storage sftp add backups sftp://deploy@files.example.com/uploads --via web1
+  komando storage sftp add backups sftp://deploy@files.example.com/uploads --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp edit --help
+exit 0
+--- stdout
+Change a saved sftp storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando storage sftp edit NAME [flags]
+
+Examples:
+  komando storage sftp edit backups --add-tag critical
+  komando storage sftp edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp list --help
+exit 0
+--- stdout
+List the saved sftp storages
+
+Usage:
+  komando storage sftp list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage sftp list
+  komando storage sftp list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp object --help
+exit 0
+--- stdout
+Files and folders of sftp storage
+
+Usage:
+  komando storage sftp object [flags]
+  komando storage sftp object [command]
+
+Examples:
+  komando storage sftp object list backups 2026/
+  komando storage sftp object read backups logs/app.log --tail 50
+  komando storage sftp object create backups reports/2026 --dry-run
+  komando storage sftp object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in a sftp storage
+  delete      Delete objects from a sftp storage
+  list        List the objects under a folder of a sftp storage
+  move        Move or rename an object in a sftp storage
+  read        Show the text of an object in a sftp storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage sftp object [command] --help" for more information about a command.
+--- stderr
+### komando storage sftp object create --help
+exit 0
+--- stdout
+Make a folder in a sftp storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage sftp object create NAME PATH [flags]
+
+Examples:
+  komando storage sftp object create backups reports/2026 --dry-run
+  komando storage sftp object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp object delete --help
+exit 0
+--- stdout
+Delete objects from a sftp storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage sftp object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage sftp object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage sftp object delete backups old.txt --dry-run
+  komando storage sftp object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
+      --max-remove int              refuse when more than this many objects would be removed (default 1000)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp object list --help
+exit 0
+--- stdout
+List the objects under a folder of a sftp storage
+
+Usage:
+  komando storage sftp object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage sftp object list backups 2026/
+  komando storage sftp object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
+  -h, --help[=true|false]           help for list
+  -n, --limit int                   the most entries to show (default 1000)
+  -r, --recursive[=true|false]      include everything below the prefix, not just one level
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp object move --help
+exit 0
+--- stdout
+Move or rename an object in a sftp storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage sftp object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
+
+Examples:
+  komando storage sftp object move backups old.txt new.txt --dry-run
+  komando storage sftp object move backups old.txt archive/old.txt
+  komando storage sftp object move backups config/app.yml --mode 0640
+
+Flags:
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
+      --overwrite[=true|false]   replace a file already at DST (never a folder)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp object read --help
+exit 0
+--- stdout
+Show the text of an object in a sftp storage
+
+Usage:
+  komando storage sftp object read NAME OBJECT [flags]
+
+Examples:
+  komando storage sftp object read backups logs/app.log --tail 50
+  komando storage sftp object read backups config/app.env
+
+Flags:
+      --head int            only the first N lines
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
+      --tail int            only the last N lines
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp remove --help
+exit 0
+--- stdout
+Forget a saved sftp storage (the storage is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando storage sftp remove TARGET... [flags]
+
+Examples:
+  komando storage sftp remove backups --dry-run
+  komando storage sftp remove backups
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp rename --help
+exit 0
+--- stdout
+Rename a saved sftp storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage sftp rename NAME NEW [flags]
+
+Examples:
+  komando storage sftp rename backups backups-2 --dry-run
+  komando storage sftp rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp show --help
+exit 0
+--- stdout
+Show a saved sftp storage's settings (credentials as names)
+
+Usage:
+  komando storage sftp show NAME [flags]
+
+Examples:
+  komando storage sftp show backups
+  komando storage sftp show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage sftp test --help
+exit 0
+--- stdout
+Check that a saved sftp storage answers and lets you in
+
+Usage:
+  komando storage sftp test TARGET [flags]
+
+Examples:
+  komando storage sftp test backups
+  komando storage sftp test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb --help
+exit 0
+--- stdout
+Save smb storage, and look after its objects
+
+Usage:
+  komando storage smb [flags]
+  komando storage smb [command]
+
+Examples:
+  komando storage smb add backups URL --dry-run
+  komando storage smb add backups URL
+  komando storage smb test backups
+  komando storage smb object list backups 2026/
+  komando storage smb object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a smb storage under a short name
+  edit        Change a saved smb storage (only the flags you pass change)
+  list        List the saved smb storages
+  object      Files and folders of smb storage
+  remove      Forget a saved smb storage (the storage is not touched)
+  rename      Rename a saved smb storage and every reference to it
+  show        Show a saved smb storage's settings (credentials as names)
+  test        Check that a saved smb storage answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for smb
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage smb [command] --help" for more information about a command.
+--- stderr
+### komando storage smb add --help
+exit 0
+--- stdout
+Save a smb storage under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage smb add NAME [URL] [flags]
+
+Examples:
+  komando storage smb add backups smb://alice@fileserver.corp.lan/team/reports --via web1
+  komando storage smb add backups smb://alice@fileserver.corp.lan/team/reports --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb edit --help
+exit 0
+--- stdout
+Change a saved smb storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando storage smb edit NAME [flags]
+
+Examples:
+  komando storage smb edit backups --add-tag critical
+  komando storage smb edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb list --help
+exit 0
+--- stdout
+List the saved smb storages
+
+Usage:
+  komando storage smb list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage smb list
+  komando storage smb list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb object --help
+exit 0
+--- stdout
+Files and folders of smb storage
+
+Usage:
+  komando storage smb object [flags]
+  komando storage smb object [command]
+
+Examples:
+  komando storage smb object list backups 2026/
+  komando storage smb object read backups logs/app.log --tail 50
+  komando storage smb object create backups reports/2026 --dry-run
+  komando storage smb object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in a smb storage
+  delete      Delete objects from a smb storage
+  list        List the objects under a folder of a smb storage
+  move        Move or rename an object in a smb storage
+  read        Show the text of an object in a smb storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage smb object [command] --help" for more information about a command.
+--- stderr
+### komando storage smb object create --help
+exit 0
+--- stdout
+Make a folder in a smb storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage smb object create NAME PATH [flags]
+
+Examples:
+  komando storage smb object create backups reports/2026 --dry-run
+  komando storage smb object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb object delete --help
+exit 0
+--- stdout
+Delete objects from a smb storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage smb object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage smb object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage smb object delete backups old.txt --dry-run
+  komando storage smb object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
+      --max-remove int              refuse when more than this many objects would be removed (default 1000)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb object list --help
+exit 0
+--- stdout
+List the objects under a folder of a smb storage
+
+Usage:
+  komando storage smb object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage smb object list backups 2026/
+  komando storage smb object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
+  -h, --help[=true|false]           help for list
+  -n, --limit int                   the most entries to show (default 1000)
+  -r, --recursive[=true|false]      include everything below the prefix, not just one level
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb object move --help
+exit 0
+--- stdout
+Move or rename an object in a smb storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage smb object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
+
+Examples:
+  komando storage smb object move backups old.txt new.txt --dry-run
+  komando storage smb object move backups old.txt archive/old.txt
+  komando storage smb object move backups config/app.yml --mode 0640
+
+Flags:
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
+      --overwrite[=true|false]   replace a file already at DST (never a folder)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb object read --help
+exit 0
+--- stdout
+Show the text of an object in a smb storage
+
+Usage:
+  komando storage smb object read NAME OBJECT [flags]
+
+Examples:
+  komando storage smb object read backups logs/app.log --tail 50
+  komando storage smb object read backups config/app.env
+
+Flags:
+      --head int            only the first N lines
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
+      --tail int            only the last N lines
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb remove --help
+exit 0
+--- stdout
+Forget a saved smb storage (the storage is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando storage smb remove TARGET... [flags]
+
+Examples:
+  komando storage smb remove backups --dry-run
+  komando storage smb remove backups
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb rename --help
+exit 0
+--- stdout
+Rename a saved smb storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage smb rename NAME NEW [flags]
+
+Examples:
+  komando storage smb rename backups backups-2 --dry-run
+  komando storage smb rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb show --help
+exit 0
+--- stdout
+Show a saved smb storage's settings (credentials as names)
+
+Usage:
+  komando storage smb show NAME [flags]
+
+Examples:
+  komando storage smb show backups
+  komando storage smb show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage smb test --help
+exit 0
+--- stdout
+Check that a saved smb storage answers and lets you in
+
+Usage:
+  komando storage smb test TARGET [flags]
+
+Examples:
+  komando storage smb test backups
+  komando storage smb test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -11336,6 +13912,424 @@ Flags:
       --progress[=true|false]    with -o json, write progress to the error output (stderr), one JSON object per line
   -r, --recursive[=true|false]   upload a folder (new and changed files, like komando sync)
       --size bytes               an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav --help
+exit 0
+--- stdout
+Save webdav storage, and look after its objects
+
+Usage:
+  komando storage webdav [flags]
+  komando storage webdav [command]
+
+Examples:
+  komando storage webdav add backups URL --dry-run
+  komando storage webdav add backups URL
+  komando storage webdav test backups
+  komando storage webdav object list backups 2026/
+  komando storage webdav object read backups logs/app.log --tail 50
+
+Available Commands:
+  add         Save a webdav storage under a short name
+  edit        Change a saved webdav storage (only the flags you pass change)
+  list        List the saved webdav storages
+  object      Files and folders of webdav storage
+  remove      Forget a saved webdav storage (the storage is not touched)
+  rename      Rename a saved webdav storage and every reference to it
+  show        Show a saved webdav storage's settings (credentials as names)
+  test        Check that a saved webdav storage answers and lets you in
+
+Flags:
+  -h, --help[=true|false]   help for webdav
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage webdav [command] --help" for more information about a command.
+--- stderr
+### komando storage webdav add --help
+exit 0
+--- stdout
+Save a webdav storage under a short name.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage webdav add NAME [URL] [flags]
+
+Examples:
+  komando storage webdav add backups webdavs://alice@cloud.example.com/remote.php/dav/files/alice --via web1
+  komando storage webdav add backups webdavs://alice@cloud.example.com/remote.php/dav/files/alice --dry-run
+
+Flags:
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+      --group strings               put it in these groups
+  -h, --help[=true|false]           help for add
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --overwrite[=true|false]      replace an entry that has the same name
+      --protected[=true|false]      changes need a person's yes
+      --tag strings                 tags, like prod
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav edit --help
+exit 0
+--- stdout
+Change a saved webdav storage (only the flags you pass change).
+
+Safety: a change; try it with --dry-run first; with --protected=false: it
+weakens a safety check: a person's yes (--yes).
+
+Usage:
+  komando storage webdav edit NAME [flags]
+
+Examples:
+  komando storage webdav edit backups --add-tag critical
+  komando storage webdav edit backups --notes 'main one' --dry-run
+
+Flags:
+      --add-group strings           put it in these groups
+      --add-tag strings             add these tags
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
+      --credential string           what it logs in with
+  -h, --help[=true|false]           help for edit
+      --label stringArray           label KEY=VALUE (default [])
+      --login string                how the password is used: ask at every connect, a stored one, or none
+      --notes string                free-form notes, shown to people and agents
+      --option stringArray          an option of this provider, KEY=VALUE (default [])
+      --protected[=true|false]      changes need a person's yes
+      --rm-group strings            take it out of these groups
+      --rm-tag strings              remove these tags
+      --unset strings               clear these settings: via, credential, notes, protected
+      --url string                  the new URL (the provider may not change)
+      --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav list --help
+exit 0
+--- stdout
+List the saved webdav storages
+
+Usage:
+  komando storage webdav list [TARGET] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage webdav list
+  komando storage webdav list @web
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav object --help
+exit 0
+--- stdout
+Files and folders of webdav storage
+
+Usage:
+  komando storage webdav object [flags]
+  komando storage webdav object [command]
+
+Examples:
+  komando storage webdav object list backups 2026/
+  komando storage webdav object read backups logs/app.log --tail 50
+  komando storage webdav object create backups reports/2026 --dry-run
+  komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run
+
+Available Commands:
+  create      Make a folder in a webdav storage
+  delete      Delete objects from a webdav storage
+  list        List the objects under a folder of a webdav storage
+  move        Move or rename an object in a webdav storage
+  read        Show the text of an object in a webdav storage
+
+Flags:
+  -h, --help[=true|false]   help for object
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando storage webdav object [command] --help" for more information about a command.
+--- stderr
+### komando storage webdav object create --help
+exit 0
+--- stdout
+Make a folder in a webdav storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage webdav object create NAME PATH [flags]
+
+Examples:
+  komando storage webdav object create backups reports/2026 --dry-run
+  komando storage webdav object create backups reports/2026
+
+Flags:
+  -h, --help[=true|false]   help for create
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav object delete --help
+exit 0
+--- stdout
+Delete objects from a webdav storage.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando storage webdav object delete NAME [OBJECT...] [flags]
+
+Examples:
+  komando storage webdav object delete backups --prefix daily/ --older-than 30d --dry-run
+  komando storage webdav object delete backups old.txt --dry-run
+  komando storage webdav object delete backups old.txt --allow-dangerous   # after a person's yes
+
+Flags:
+      --all-versions[=true|false]   S3: also remove every old version and delete marker
+  -h, --help[=true|false]           help for delete
+      --max-remove int              refuse when more than this many objects would be removed (default 1000)
+      --older-than duration         with --prefix: only objects older than this, like 30d
+      --prefix string               remove everything under this folder (like daily/)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav object list --help
+exit 0
+--- stdout
+List the objects under a folder of a webdav storage
+
+Usage:
+  komando storage webdav object list NAME [PREFIX] [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando storage webdav object list backups 2026/
+  komando storage webdav object list backups 2026/ --recursive --limit 50
+
+Flags:
+      --all-versions[=true|false]   S3: every version and delete marker under the prefix
+  -h, --help[=true|false]           help for list
+  -n, --limit int                   the most entries to show (default 1000)
+  -r, --recursive[=true|false]      include everything below the prefix, not just one level
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav object move --help
+exit 0
+--- stdout
+Move or rename an object in a webdav storage.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage webdav object move NAME SRC [DST] [flags]
+
+Aliases:
+  move, mv
+
+Examples:
+  komando storage webdav object move backups old.txt new.txt --dry-run
+  komando storage webdav object move backups old.txt archive/old.txt
+  komando storage webdav object move backups config/app.yml --mode 0640
+
+Flags:
+  -h, --help[=true|false]        help for move
+      --mode string              change the mode of PATH, as chmod does (SFTP only); no DST then
+      --overwrite[=true|false]   replace a file already at DST (never a folder)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav object read --help
+exit 0
+--- stdout
+Show the text of an object in a webdav storage
+
+Usage:
+  komando storage webdav object read NAME OBJECT [flags]
+
+Examples:
+  komando storage webdav object read backups logs/app.log --tail 50
+  komando storage webdav object read backups config/app.env
+
+Flags:
+      --head int            only the first N lines
+  -h, --help[=true|false]   help for read
+      --max-bytes bytes     read at most this many bytes, like 4MiB (default 1MiB)
+      --tail int            only the last N lines
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav remove --help
+exit 0
+--- stdout
+Forget a saved webdav storage (the storage is not touched).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando storage webdav remove TARGET... [flags]
+
+Examples:
+  komando storage webdav remove backups --dry-run
+  komando storage webdav remove backups
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav rename --help
+exit 0
+--- stdout
+Rename a saved webdav storage and every reference to it.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando storage webdav rename NAME NEW [flags]
+
+Examples:
+  komando storage webdav rename backups backups-2 --dry-run
+  komando storage webdav rename backups backups-2
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav show --help
+exit 0
+--- stdout
+Show a saved webdav storage's settings (credentials as names)
+
+Usage:
+  komando storage webdav show NAME [flags]
+
+Examples:
+  komando storage webdav show backups
+  komando storage webdav show backups -o json
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando storage webdav test --help
+exit 0
+--- stdout
+Check that a saved webdav storage answers and lets you in
+
+Usage:
+  komando storage webdav test TARGET [flags]
+
+Examples:
+  komando storage webdav test backups
+  komando storage webdav test @web
+
+Flags:
+      --end[=true|false]    end the session a person's login keeps open
+  -h, --help[=true|false]   help for test
+      --wait duration       wait this long for a person's sign-in
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing

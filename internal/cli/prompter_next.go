@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -57,6 +58,16 @@ func promptNext(cl *call) {
 	}
 }
 
+// noLinkLeaf says whether the Next: line n suggests `storage PROVIDER object
+// link` for a provider that has no such command.
+func noLinkLeaf(n, provider string) bool {
+	if !strings.Contains(n, "{P} object link") || provider == "PROVIDER" {
+		return false
+	}
+	_, ok := capability.Find(capability.Key{Type: "storage", Provider: provider, Area: "object", Verb: "link"})
+	return !ok
+}
+
 // nextLines are the Next: lines of the command key, filled in: its
 // formHint's list, or else the one its verb gives (verbNext). A line with
 // {} needs first; one with NEW needs rename's second argument.
@@ -74,7 +85,12 @@ func nextLines(key, first string, args []string) []string {
 		if strings.Contains(n, "{}") && first == "" || strings.Contains(n, " NEW") && newName == "" {
 			continue
 		}
+		prov := providerOfEntry(first)
+		if noLinkLeaf(n, prov) {
+			continue
+		}
 		n = strings.ReplaceAll(n, "{}", first)
+		n = strings.ReplaceAll(n, "{P}", prov)
 		if newName != "" {
 			n = strings.ReplaceAll(n, " NEW", " "+newName)
 		}
@@ -222,12 +238,12 @@ var itemCommands = map[string][]string{
 	"queue:sqs": {"queue sqs info {}", "queue sqs topic list {}", "queue sqs message list {} QUEUE", "queue sqs message create {} QUEUE --value hi --dry-run"},
 	"queue:pubsub": {"queue pubsub info {}", "queue pubsub topic list {}", "queue pubsub consumer list {}", "queue pubsub message list {} SUBSCRIPTION",
 		"queue pubsub message create {} TOPIC --value hi --dry-run"},
-	"storage": {"storage list {}", "storage cat {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
-		"sync ./folder {}:FOLDER/ --dry-run", "storage rm {} --prefix FOLDER/ --older-than 30d --dry-run"},
-	"storage:link": {"storage link {} OBJECT --expires 24h"},
+	"storage": {"storage {P} object list {}", "storage {P} object read {} OBJECT --tail 50", "download {} KEY --to ./", "upload {} FILE FOLDER/",
+		"sync ./folder {}:FOLDER/ --dry-run", "storage {P} object delete {} --prefix FOLDER/ --older-than 30d --dry-run"},
+	"storage:link": {"storage {P} object link {} OBJECT --expires 24h"},
 	"cluster": {"cluster status {}", "cluster list {} pods", "cluster events {} --warnings", "cluster logs {} deploy/NAME",
 		"cluster deploy {} deploy/NAME --image IMAGE --wait", "cluster apply {} --file app.yaml --dry-run",
-		"cluster helm list {} -A", "cluster run {} -- get pods -A"},
+		"cluster helm list {} -A", "cluster kubernetes raw {} -- get pods -A"},
 	"registry": {"registry oci image list {}", "registry oci image list {} REPO", "registry oci image show {} IMAGE", "registry oci image copy {}:IMAGE DST_CONN",
 		"registry oci image prune {} REPO --keep 10 --dry-run", "registry oci image delete {} IMAGE --dry-run"},
 	"vpn": {"vpn up {}", "vpn test {}", "vpn down {}", "vpn edit {} --check HOST:PORT", "vpn rename {} NEW", "vpn rm {}",
@@ -290,6 +306,6 @@ func showCommands(cl *call, kind, name string) {
 	}
 	fmt.Fprintln(promptW(cl), "\nCOMMANDS")
 	for _, c := range cmds {
-		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(c, "{}", name))
+		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(strings.ReplaceAll(c, "{}", name), "{P}", providerOfEntry(name)))
 	}
 }

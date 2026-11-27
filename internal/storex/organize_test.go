@@ -241,7 +241,7 @@ func TestSMBMoveOverwriteKeepsTheOldFileOnFailure(t *testing.T) {
 	d.failLeft = &twice
 	_, err := b.Move(ctx, "a.txt", "b.txt", MoveOpts{Overwrite: true})
 	var oe *out.Error
-	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || !strings.Contains(oe.Hint, "komando storage mv CONN .komando-old-b.txt b.txt") {
+	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || !strings.Contains(oe.Hint, "komando storage s3 object move NAME .komando-old-b.txt b.txt") {
 		t.Errorf("both renames fail: %v", err)
 	}
 	if got, _ := os.ReadFile(d.p(".komando-old-b.txt")); string(got) != "old" {
@@ -310,7 +310,7 @@ func TestCopyMoveDeletesOnlyAfterTheCheck(t *testing.T) {
 	f = &fakeCopier{objs: map[string]string{"src": "data"}, denyDel: true}
 	_, err = copyMove(ctx, f, "src", "dst", MoveOpts{}, "S3")
 	var oe *out.Error
-	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || f.objs["src"] != "data" || f.objs["dst"] != "data" || !strings.Contains(oe.Hint, "komando storage rm CONN src") {
+	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || f.objs["src"] != "data" || f.objs["dst"] != "data" || !strings.Contains(oe.Hint, "komando storage s3 object delete NAME src") {
 		t.Errorf("a delete that fails: %v %v", err, f.objs)
 	}
 	f = &fakeCopier{objs: map[string]string{"src": "data"}}
@@ -399,7 +399,7 @@ func TestRenameOverKeepsTheOldFile(t *testing.T) {
 	failFrom = ""
 	err := renameOver(rename2, remove, wrap, "/r/a.txt", "/r/b.txt", "a.txt", "b.txt")
 	var oe *out.Error
-	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || !strings.Contains(oe.Hint, "komando storage mv CONN .komando-old-b.txt b.txt") {
+	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || !strings.Contains(oe.Hint, "komando storage s3 object move NAME .komando-old-b.txt b.txt") {
 		t.Errorf("both renames fail: %v", err)
 	}
 	if files["/r/.komando-old-b.txt"] != "old" {
@@ -423,7 +423,7 @@ func TestCleanRelRefusesDotPaths(t *testing.T) {
 // When a copy on the server ends badly, the hint is the command to run
 // again, with the real names.
 func TestCopyFailedHintNamesTheFiles(t *testing.T) {
-	if h := copyFailed("gcs", "db/a b.gz", "x/a.gz", "the copy did not finish").(*out.Error).Hint; h != "run it again: `komando storage mv CONN 'db/a b.gz' x/a.gz`" {
+	if h := copyFailed("gcs", "db/a b.gz", "x/a.gz", "the copy did not finish").(*out.Error).Hint; h != "run it again: `komando storage s3 object move NAME 'db/a b.gz' x/a.gz`" {
 		t.Errorf("hint: %s", h)
 	}
 }

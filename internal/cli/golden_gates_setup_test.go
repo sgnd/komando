@@ -121,7 +121,7 @@ var goldenGates = [][]string{
 	{"db", "restore", "db1", "--from", "testdata/golden_restore.sql"},
 	{"queue", "kafka", "message", "delete", "--all", "q1", "t"},
 	{"queue", "kafka", "topic", "delete", "q1", "t"},
-	{"storage", "rm", "st1", "k"},
+	{"storage", "sftp", "object", "delete", "st1", "k"},
 	{"registry", "oci", "image", "delete", "reg1", "a:1"},
 	{"registry", "oci", "image", "prune", "reg1", "a", "--keep", "5"},
 	{"docker", "rm", "web1", "c1"},

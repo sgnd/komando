@@ -39,7 +39,7 @@ func TestManifestEscalatesC113(t *testing.T) {
 	}
 }
 
-// The same through `cluster run`: a namespace label that lets privileged
+// The same through `cluster kubernetes raw`: a namespace label that lets privileged
 // pods run (or takes the rule away), and a workload moved to another
 // service account.
 func TestClassifyKubectlC113(t *testing.T) {

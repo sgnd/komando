@@ -741,6 +741,7 @@ func init() {
 	inventoryHandlers("registry", "oci")
 	for verb, body := range map[string]func() *cobra.Command{"list": registryLsCmd, "show": registryInspectCmd,
 		"copy": registryCopyCmd, "delete": registryRmCmd, "prune": registryPruneCmd} {
+		leafBodies[capability.Key{Type: "registry", Provider: "oci", Area: "image", Verb: verb}] = body
 		handlers[capability.Key{Type: "registry", Provider: "oci", Area: "image", Verb: verb}] = func(cl *call, ctx context.Context, in leafInput) error {
 			return runBody(cl, ctx, body(), in, nil)
 		}

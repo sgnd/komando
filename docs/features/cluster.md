@@ -46,9 +46,8 @@ komando import kubeconfig                     # reads $KUBECONFIG, else ~/.kube/
 komando conn edit prod-k8s --via bastion      # API server on a private network? reach it like anything else
 ```
 
-Typed alone at a terminal, `komando cluster add` asks whether it is
-Kubernetes (then for your kubeconfig file) or Docker Swarm (then for a
-manager's address).
+Typed alone at a terminal, `komando cluster kubernetes add` asks for your
+kubeconfig file.
 
 How the login works:
 
@@ -94,12 +93,12 @@ to whoever answers at that address. With a CA, the certificate is always
 checked, even if `insecure-skip-tls-verify` is set too.
 
 To add one cluster by hand, store its kubeconfig in the vault first, then
-name it with `cluster add` (the same as `conn add`, but it refuses a URL
+name it with `cluster kubernetes add` (the same as `conn add`, but it refuses a URL
 that is not a cluster):
 
 ```bash
 komando secret set prod-kubeconfig < prod.kubeconfig
-komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig
+komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
 ```
 
 ### Docker Swarm
@@ -113,8 +112,10 @@ komando host add swarm1 admin@10.0.0.10 --tag swarm
 komando host edit swarm1 --add-tag swarm     # a manager already in your list
 ```
 
-`komando cluster add` typed alone at a terminal adds the tag for you when
-you answer Docker Swarm.
+`komando cluster swarm raw swarm1 -- ...` runs a docker command on that
+manager (see [Run anything else](#anything-else-kubectl-or-docker-can-do)). The other `cluster
+swarm` verbs (add, edit, list, remove, rename, show, test) wait for the
+Swarm entry that the stored-data move gives (row C483).
 
 ### Remove a cluster from komando
 
@@ -334,25 +335,25 @@ komando cluster scale swarm1 service/web 4
 ## Work inside a pod
 
 ```bash
-komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
-komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear
-komando cluster forward prod-k8s svc/api 8080:80 --namespace shop   # 127.0.0.1:8080 until Ctrl-C
-komando cluster shell prod-k8s deploy/api --namespace shop          # interactive, for people
+komando cluster kubernetes exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
+komando cluster kubernetes exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear
+komando cluster kubernetes tunnel start prod-k8s svc/api 8080:80 --namespace shop   # 127.0.0.1:8080 until Ctrl-C
+komando cluster kubernetes shell prod-k8s deploy/api --namespace shop          # interactive, for people
 ```
 
-- `cluster exec` runs one command (not interactive). The
+- `cluster kubernetes exec` runs one command (not interactive). The
   dangerous-command filter checks it, as with `exec` on servers.
   `--read-only` says it only looks, checked as for `exec`: only a
   command komando knows only reads runs (`cat`, `ls`, `printenv` ...);
   anything else is refused (`READ_ONLY_VIOLATION`; see [Commands](commands.md#protected-servers-and---read-only)).
-- `cluster forward` makes a pod or service port reachable on this
+- `cluster kubernetes tunnel start` makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
   the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes
   through it skips komando's checks, so a protected cluster asks first
   (`--yes`), and the audit log records the forward.
-- `cluster shell` opens a terminal in the pod (bash, else sh) for a
+- `cluster kubernetes shell` opens a terminal in the pod (bash, else sh) for a
   person, and asks first on a protected cluster. Agents get
-  `NEEDS_TERMINAL` and use `cluster exec` instead.
+  `NEEDS_TERMINAL` and use `cluster kubernetes exec` instead.
 - komando speaks Kubernetes' exec and port-forward protocols itself:
   WebSocket, and SPDY on clusters older than Kubernetes 1.30, as kubectl
   does. A pod or service that does not exist is "not found" (exit 3).
@@ -360,12 +361,12 @@ komando cluster shell prod-k8s deploy/api --namespace shop          # interactiv
 ## Anything else kubectl or docker can do
 
 ```bash
-komando cluster run prod-k8s -- get pods -A -o wide
-komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
-komando cluster run swarm1 -- service ps web
+komando cluster kubernetes raw prod-k8s -- get pods -A -o wide
+komando cluster kubernetes raw prod-k8s --write -- rollout undo deployment/api -n shop
+komando cluster swarm raw swarm1 -- service ps web
 ```
 
-On Kubernetes, `cluster run` is komando's own kubectl. It understands kubectl
+On Kubernetes, `cluster kubernetes raw` is komando's own kubectl. It understands kubectl
 commands and prints what kubectl prints, through the conn's `--via` path,
 with no kubectl installed. On Swarm the command goes to docker on the
 manager. The words after `--` are kubectl's (or docker's), so `-n` there
@@ -445,8 +446,8 @@ is kubectl's namespace flag.
   (`logs -f`) that ends there ends normally. `logs -f` prints lines as they
   come and follows all selected pods at once (`--max-log-requests`, 5 by
   default).
-- Sessions have their own commands: `cluster forward` (port-forward) and
-  `cluster shell` (`exec -it`).
+- Sessions have their own commands: `cluster kubernetes tunnel start` (port-forward) and
+  `cluster kubernetes shell` (`exec -it`).
 - A command it does not know gets a "did you mean". The commands it knows
   are in [Reference](#reference).
 
@@ -455,7 +456,7 @@ is kubectl's namespace flag.
 - `cluster status` on a cluster with more than 20000 objects of one kind
   reads only those, says `truncated: true`, and `healthy` is `null` unless
   it found a problem. Narrow it with `--namespace`.
-- `cluster run` knows kubectl's own commands, not kubectl plugins (krew).
+- `cluster kubernetes raw` knows kubectl's own commands, not kubectl plugins (krew).
   `edit` is refused (get the YAML, change it, then `apply -f`), and of
   `config` only `current-context` and `get-contexts` work.
 - komando cannot tell which service accounts outside `kube-system` have
@@ -476,13 +477,13 @@ is kubectl's namespace flag.
 | `K8S_POD_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster list prod-k8s pods --namespace shop` |
 | `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando exec swarm1 --read-only -- docker node ls` shows whether it is one |
 | `ROLLOUT_FAILED` (exit 5), `ROLLOUT_TIMEOUT` (exit 7) | the new version did not come up | `komando cluster describe prod-k8s deployment/api --namespace shop`, then `cluster rollback` |
-| `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `cluster run ... --write -- set image` or `patch` |
-| `NEEDS_TERMINAL` (exit 2) | `cluster shell` needs a person | agents and scripts use `cluster exec` |
+| `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `cluster kubernetes raw ... --write -- set image` or `patch` |
+| `NEEDS_TERMINAL` (exit 2) | `cluster kubernetes shell` needs a person | agents and scripts use `cluster kubernetes exec` |
 | `PARTIAL_FAILURE` (exit 1) | some clusters of a selector failed | read each cluster's error in the output |
 
 ## Reference
 
-Kubectl commands `cluster run` knows:
+Kubectl commands `cluster kubernetes raw` knows:
 
 | Group | Commands |
 |-------|----------|

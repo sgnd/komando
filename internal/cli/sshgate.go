@@ -105,7 +105,7 @@ var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
 	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
 	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
 	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
-	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "chmod"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
+	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
 	{"registry", "image", "copy"}: nil, {"registry", "image", "prune"}: nil, {"registry", "image", "delete"}: nil,
 	{"host", "docker", "compose"}: nil, {"host", "docker", "exec"}: nil, {"host", "docker", "prune"}: nil, {"host", "docker", "pull"}: nil, {"host", "docker", "raw"}: nil,
 	{"host", "docker", "restart"}: nil, {"host", "docker", "rm"}: nil, {"host", "docker", "start"}: nil, {"host", "docker", "stop"}: nil,
@@ -647,7 +647,7 @@ recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache redis raw without --write), and only those that stay on the
 servers and conns in your list: no net, no cert check of a website, no
-exec, job start, docker exec, cluster exec or snippet exec, unless the line
+exec, job start, docker exec, cluster kubernetes exec or snippet exec, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit list`" + `, with --name, even when the
 audit setting is off.`,
