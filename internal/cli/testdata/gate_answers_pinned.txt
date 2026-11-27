@@ -1328,7 +1328,7 @@
 "group show --help"	shell	group.show	runs
 "group show"	full	group.show	runs
 "group show"	netread	group.show	runs
-"group show"	read	group.show	SSH_GATE_NETWORK_REQUIRED|komando group show is refused for a read key without network: komando does not know that it stays on the servers and conns in your list
+"group show"	read	group.show	runs
 "group show"	shell	group.show	runs
 "group"	full	group	runs
 "group"	netread	group	runs
@@ -2992,7 +2992,7 @@
 "snippet show --help"	shell	snippet.show	runs
 "snippet show"	full	snippet.show	runs
 "snippet show"	netread	snippet.show	runs
-"snippet show"	read	snippet.show	SSH_GATE_NETWORK_REQUIRED|komando snippet show is refused for a read key without network: komando does not know that it stays on the servers and conns in your list
+"snippet show"	read	snippet.show	runs
 "snippet show"	shell	snippet.show	runs
 "snippet"	full	snippet	runs
 "snippet"	netread	snippet	runs

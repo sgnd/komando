@@ -779,12 +779,20 @@ func moveJoinsTwoOldEntries(t *testing.T) {
 	}
 }
 
+// relaxedNewReads are leaves with no Today ID that a read key without
+// --network keeps: show reads what its list reads, and today's group show
+// and snippet show are hidden wrappers of the list commands (C8 review).
+var relaxedNewReads = map[string]bool{"group.show": true, "snippet.show": true}
+
 // relaxedEntryOK says whether leaf l may hold an entry in table name that is
 // the relaxed state (a local read, a command with no network): one of its
 // Today IDs had it, or it has no Today ID and every ID it carries had it, or
 // (localReads) the leaf says LocalRead. had says whether an old ID had one.
 func relaxedEntryOK(name string, l capability.Leaf, had func(old string) bool) bool {
 	if slices.ContainsFunc(l.Today, had) {
+		return true
+	}
+	if name == "gateNoNetwork" && relaxedNewReads[strings.Join(l.Key.Path(), ".")] {
 		return true
 	}
 	if len(l.Today) == 0 && len(l.Carries) > 0 && !slices.ContainsFunc(l.Carries, func(old string) bool { return !had(old) }) {
