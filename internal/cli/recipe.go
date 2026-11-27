@@ -461,9 +461,10 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 	if err := snippet.RefuseNoSudo(b, noSudo); err != nil {
 		return err
 	}
+	if b.Run != nil {
+		return runClientSnippet(cl, ctx, b, target, kv)
+	}
 	if b.Type != "host" || b.Text == nil {
-		// S1 wires the text snippets of hosts; the client snippets come with
-		// their type's move
 		return snippet.TypeUnsupported(b, target, "host")
 	}
 	st, err := loadState()
@@ -486,7 +487,7 @@ func runSnippet(cl *call, ctx context.Context, b snippet.Builtin, target string,
 			return err
 		}
 	}
-	if err := snippetTierStop(cl, st, b); err != nil {
+	if err := snippetTierStop(cl, st, b, nil); err != nil {
 		audit(cl, st, "snippet.exec", hostNames(hosts), "snippet "+b.Name, false, map[string]any{"blocked": toErr(err).Code})
 		return err
 	}
@@ -522,7 +523,7 @@ type snippetFleet struct {
 // it replaces is stopped (Audit S1-1). Read, change and protected need
 // nothing here: Guard asks for a change on a protected server, and a rule
 // hit in the filled text makes any snippet dangerous there, as for exec.
-func snippetTierStop(cl *call, st *store.State, b snippet.Builtin) error {
+func snippetTierStop(cl *call, st *store.State, b snippet.Builtin, conns []*store.Conn) error {
 	why := "snippet " + b.Name + " cannot be undone"
 	switch {
 	case b.Tier >= capability.Person && !cl.interactive():
@@ -530,8 +531,12 @@ func snippetTierStop(cl *call, st *store.State, b snippet.Builtin) error {
 			"snippet %s runs only for a person at a terminal", b.Name))
 	case b.Tier == capability.Safety:
 		return guardSafety(cl, "snippet "+b.Name)
-	case b.Tier >= capability.Dangerous: // dangerous, and person at a terminal: --allow-dangerous or the typed question
-		return GuardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{why}})
+	case b.Tier >= capability.Dangerous || b.Tier >= capability.Change && len(conns) > 0:
+		// dangerous, and person at a terminal: --allow-dangerous or the typed
+		// question; a change on conns (a client snippet) asks for a protected
+		// entry as the replaced command does (a text snippet's hosts are
+		// asked by the run itself)
+		return GuardConns(cl, st, conns, driver.Verdict{Risk: snippetRisk(b), RuleIDs: []string{"snippet:" + b.Name}, Reasons: []string{why}})
 	}
 	return nil
 }
