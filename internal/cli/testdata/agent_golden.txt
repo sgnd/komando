@@ -11246,7 +11246,7 @@ exit 2
 Error: missing arguments; usage: komando upload TARGET FILE [DEST]
 Hint: for example: komando upload @web ./app.tar.gz /tmp/app.tar.gz
 (code USAGE, exit 2)
-### komando -o json vpn add (agent json)
+### komando -o json vpn anyconnect add (agent json)
 exit 2
 --- stdout
 {"ok":false,"command":"vpn.anyconnect.add","error":{"code":"USAGE","message":"vpn anyconnect add takes NAME","hint":"for example: komando vpn anyconnect add office --portal vpn.client.com --user alice (more in `komando vpn anyconnect add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}

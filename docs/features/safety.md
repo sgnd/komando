@@ -206,7 +206,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `queue kafka edit` | with --protected=false | safety | `--yes` |
 | `storage s3 edit` | with --protected=false | safety | `--yes` |
 | `registry oci edit` | with --protected=false | safety | `--yes` |
-| `vpn edit` | with --protected=false | safety | `--yes` |
+| `vpn wireguard edit` | with --protected=false | safety | `--yes` |
 
 <!-- end of tiers -->
 

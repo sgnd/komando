@@ -215,8 +215,8 @@ probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
 probe storage s3 edit prod-s3 --protected=false	safety
 probe sync ./site web1:/srv --delete	dangerous
-probe vpn edit kantor --mfa=false	safety
-probe vpn edit kantor --protected=false	safety
+probe vpn socks edit kantor --mfa=false	safety
+probe vpn socks edit kantor --protected=false	safety
 queue	plain=read	highest=read
 queue.kafka	plain=read	highest=read
 queue.kafka.add	plain=change	highest=read

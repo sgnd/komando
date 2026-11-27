@@ -87,8 +87,6 @@ var (
 		"app1",
 		"bastion",
 		"bq",
-		"client-x",
-		"lab",
 		"local",
 		"mongo-db",
 		"shop-2",

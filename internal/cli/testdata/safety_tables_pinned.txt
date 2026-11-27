@@ -215,8 +215,8 @@ probe registry oci edit ghcr --protected=false	safety|turns protection off||
 probe secret keychain	person|moves the key into the keychain||
 probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
-probe vpn edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
-probe vpn edit kantor --protected=false	safety|turns protection off||
+probe vpn socks edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
+probe vpn socks edit kantor --protected=false	safety|turns protection off||
 queue	kind=read|	target=""	
 queue.kafka	kind=read|	target=""	
 queue.kafka.add	kind=change|	target=""	
