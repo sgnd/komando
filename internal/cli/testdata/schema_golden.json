@@ -12524,12 +12524,6 @@
         "hint": "run komando by its full path, for example /usr/local/bin/komando ssh-gate line ..."
       },
       {
-        "code": "SSH_GATE_PATH_DENIED",
-        "exit": 5,
-        "example": "komando … is refused for this server's key: …; no key changes it",
-        "hint": "a person changes it on this server itself; `komando ssh-gate status` shows what this key may do"
-      },
-      {
         "code": "SSH_GATE_READ_ONLY",
         "exit": 6,
         "example": "komando … is refused for a read-only key: …",

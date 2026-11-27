@@ -555,11 +555,13 @@ Through such a key the gate runs komando on that server only:
 
 | Rule | What the gate does |
 |------|--------------------|
-| **The gate protects itself** (a) | No command through the key writes, moves, removes or changes the mode of: the gate's own program; `~/.ssh` and in it `authorized_keys`, `authorized_keys2`, `config`, `rc`, `environment`; the shell start files `.profile`, `.bash_profile`, `.bash_login`, `.bashrc`, `.bash_logout`, `.zshenv`, `.zprofile`, `.zshrc`, `.zlogin`, `.zlogout`, `.kshrc`, `.mkshrc`, `.cshrc`, `.tcshrc`, `.login`, `.logout`, `.xprofile`, `.xsession`, `.xinitrc`, `.pam_environment` and the folders `.config/fish`, `.config/environment.d`, `.config/systemd`, `.config/autostart`; the AI agents' folders where komando's guard lives (`.claude`, `.codex`, `.cursor`, `.gemini`, `.agents`); komando's own folder (settings, rules, audit). Each is checked as named and as its symlinks resolve, a folder that holds one counts (a rename moves what is in it), and a file with other names (a hardlink) is refused. `SSH_GATE_PATH_DENIED`, even for a command the key could otherwise run. |
+| **The gate protects itself** (a) | No command through the key writes, moves, removes or changes the mode of: the gate's own program; `~/.ssh` and in it `authorized_keys`, `authorized_keys2`, `config`, `rc`, `environment`; the shell start files `.profile`, `.bash_profile`, `.bash_login`, `.bashrc`, `.bash_logout`, `.zshenv`, `.zprofile`, `.zshrc`, `.zlogin`, `.zlogout`, `.kshrc`, `.mkshrc`, `.cshrc`, `.tcshrc`, `.login`, `.logout`, `.xprofile`, `.xsession`, `.xinitrc`, `.pam_environment` and the folders `.config/fish`, `.config/environment.d`, `.config/systemd`, `.config/autostart`; the AI agents' folders where komando's guard lives (`.claude`, `.codex`, `.cursor`, `.gemini`, `.agents`); komando's own folder (settings, rules, audit). Each is checked as named and as its symlinks resolve, a folder that holds one counts (a rename moves what is in it), and a file with other names (a hardlink) is refused. `SSH_GATE_REFUSED` naming the path, even for a command the key could otherwise run. |
 | **Its program cannot be swapped** (b) | `key deploy --public-key-file` checks it before it writes the line (above). |
 | **The command is data** (c) | The command the phone sends is split into words without a shell and nothing is expanded, as on the komando computer. An empty command (a plain login) is refused: no shell opens. `KOMANDO_AGENT=NAME` before komando is refused for this key: the audit log names it by its line alone. |
 | **Few commands** (d) | Only readings (`facts`, `logs`), the service commands (`svc`), the package commands (`pkg`), the file reads (`fs cat`, `fs list`, `fs stat`), `ssh-gate status` and `version`. `exec`, `job start`, `docker exec`, `snippet exec` and every other command that runs a program of your choosing is a shell on that server and refused. The dangerous tier (`svc stop SERVER sshd`, `pkg rm SERVER openssh-server`) and `--sudo` are refused. The only target is the server itself, written `localhost`. A command komando adds later is refused until someone decides it belongs on a phone. |
-| **The history** (f) | Every command, run or refused, is in komando's audit log on the server with the key's name and `here`, and a copy goes to the server's system log (auth facility). No read of another user's home, of `~/.ssh` or of komando's own folder. |
+| **The history** (e) | Every command, run or refused, is in komando's audit log on the server with the key's name and `here`, and a copy goes to the server's system log (auth facility). |
+| **Not as root** (f) | When the gate runs as root (uid 0), it refuses every command, `ssh-gate status` too, whatever the line says: a phone's line in root's `authorized_keys` runs nothing. |
+| **No reading of secrets** | No read of another user's home, of `~/.ssh` or of komando's own folder. |
 
 `komando ssh-gate status -o json` answers `gate`, `name`, `read_only`,
 `shell_access` and `here` for the key: the phone checks them after pairing.
@@ -570,11 +572,18 @@ every other command, including the ones its rules allow.
 
 Honest limits. The gate is a filter, not a sandbox: a command it lets
 through runs with the user's rights, so pair an account without `sudo`
-where you can. komando's audit log on the server is in the paired user's
-home and that user owns it: `komando audit verify` shows a change, but only
-root can make it append-only. The system log copy is the one the user
-cannot change; `key deploy --public-key-file` says when the server has no
-system log. A path is checked when the command arrives; another program of
+where you can. Once the server mode runs commands, a stolen phone's key
+can do what rule d allows: start, stop, restart and enable services,
+install, upgrade and remove packages, and read files. What the gate keeps
+from it: the dangerous tier, a terminal, tunnels and forwarding, `sudo`,
+and the gate's own files.
+
+komando's audit log on the server is in the paired user's home, inside
+komando's store, and that user owns it: `komando audit verify` shows a
+change but does not stop one, and `chattr +a` cannot lock a store that is
+rewritten in place. The system log copy is the one the user cannot
+change; `key deploy --public-key-file` says when the server has no system
+log. A path is checked when the command arrives; another program of
 the same user could change a link between that check and the command.
 
 ## Limits

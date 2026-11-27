@@ -25,15 +25,15 @@ func sh(t *testing.T, script string, args ...string) string {
 
 // TestWriteScript: the line is added once, with a line break before it
 // when the file lacks one; the same key in another line (an older line
-// sshd would use first) is reported and nothing is written; komando
-// writes through no symlink.
+// sshd would use first, also with a tab before the key) is reported and
+// nothing is written; komando writes through no symlink.
 func TestWriteScript(t *testing.T) {
 	home := t.TempDir()
 	k, err := Parse([]byte(pubLine(t, "ecdsa", "komando-phone-anna")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	line, match := Line("/usr/local/bin/komando", k, "10.0.0.0/8"), k.Type+" "+k.Data
+	line, match := Line("/usr/local/bin/komando", k, "10.0.0.0/8"), k.Data
 	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -56,6 +56,16 @@ func TestWriteScript(t *testing.T) {
 	}
 	if b2, _ := os.ReadFile(keys); string(b2) != string(b) {
 		t.Errorf("written although the key had another line")
+	}
+	tabbed := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tabbed, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tabbed, ".ssh", "authorized_keys"), []byte(k.Type+"\t"+k.Data+"  old\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := sh(t, WriteScript, tabbed, line, match); got != "other" {
+		t.Errorf("an older line with a tab before the key: %s", got)
 	}
 	other := t.TempDir()
 	if err := os.Symlink(filepath.Join(other, "elsewhere"), filepath.Join(other, ".ssh")); err != nil {

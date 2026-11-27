@@ -43,9 +43,9 @@ func serverHome(t *testing.T) (home string) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
-	saved := gatePasswd
-	gatePasswd = passwd
-	t.Cleanup(func() { gatePasswd = saved })
+	saved, savedUID := gatePasswd, gateUID
+	gatePasswd, gateUID = passwd, func() int { return 1000 } // anna, also when the tests run as root
+	t.Cleanup(func() { gatePasswd, gateUID = saved, savedUID })
 	return home
 }
 
@@ -61,16 +61,16 @@ func serverAnswer(t *testing.T, line string, key gateKey) (code, msg string) {
 	if e == nil {
 		return "", ""
 	}
-	if want := map[bool]int{true: out.ExitRemote, false: out.ExitPolicy}[e.Code == "SSH_GATE_PATH_DENIED"]; e.Exit != want || e.Hint == "" {
+	if e.Exit != out.ExitPolicy || e.Hint == "" {
 		t.Errorf("%q: %+v", line, e)
 	}
 	return e.Code, e.Message
 }
 
-// TestGateServerRules pins rules a, d and f through the gate's own check,
-// with the real gate code in a temp home. Each refusal must name its
-// reason: a mutant that drops rule a still gets upload refused by rule d,
-// but then the message no longer names authorized_keys.
+// TestGateServerRules pins rules a and d and the read limit through the
+// gate's own check, with the real gate code in a temp home. Each refusal
+// must name its reason: a mutant that drops rule a still gets upload
+// refused by rule d, but then the message no longer names authorized_keys.
 func TestGateServerRules(t *testing.T) {
 	serverHome(t)
 	for _, line := range []string{
@@ -84,9 +84,10 @@ func TestGateServerRules(t *testing.T) {
 			t.Errorf("%q: refused %s (%s), want it allowed in server mode", line, code, msg)
 		}
 	}
-	// rule a: the gate protects itself, with its own code (probe 5 is the
-	// first line)
+	// rule a: the gate protects itself; the first line is the phone's
+	// probe 5, which passes only on SSH_GATE_REFUSED with the policy exit
 	for line, word := range map[string]string{
+		"komando fs chmod localhost 600 ~/.ssh/authorized_keys":             "authorized_keys",
 		"komando upload localhost - ~/.ssh/authorized_keys":                 "authorized_keys",
 		"komando upload localhost - .ssh/authorized_keys2":                  "authorized_keys2",
 		"komando fs write localhost ~/.ssh/authorized_keys --from -":        "authorized_keys",
@@ -100,8 +101,8 @@ func TestGateServerRules(t *testing.T) {
 		"komando fs rm localhost " + os.Getenv("KOMANDO_HOME") + "/audit":   "komando's own folder",
 	} {
 		code, msg := serverAnswer(t, line, hereKey)
-		if code != "SSH_GATE_PATH_DENIED" || !strings.Contains(msg, word) {
-			t.Errorf("%q: %s %q, want SSH_GATE_PATH_DENIED naming %q", line, code, msg, word)
+		if code != "SSH_GATE_REFUSED" || !strings.Contains(msg, word) || !strings.Contains(msg, "no key changes it") {
+			t.Errorf("%q: %s %q, want rule a's SSH_GATE_REFUSED naming %q", line, code, msg, word)
 		}
 	}
 	for line, word := range map[string]string{
@@ -116,7 +117,7 @@ func TestGateServerRules(t *testing.T) {
 		"komando svc stop localhost sshd":              "dangerous",
 		"komando pkg rm localhost openssh-server":      "dangerous",
 		"komando fs cat localhost /etc/shadow --sudo":  "sudo",
-		// rule f: no read of another home, ~/.ssh or komando's own folder
+		// the read limit: no read of another home, ~/.ssh or komando's own folder
 		"komando fs cat localhost ~budi/.bash_history":    "budi",
 		"komando fs cat localhost ~/.ssh/id_ed25519":      ".ssh",
 		"komando logs localhost --file ~/.ssh/id_ed25519": ".ssh",
@@ -151,7 +152,7 @@ func TestGateServerProtectsTheRealSSHFolder(t *testing.T) {
 		if name == "dir" {
 			target = p + "/authorized_keys"
 		}
-		if code, msg := serverAnswer(t, "komando upload localhost - "+target, hereKey); code != "SSH_GATE_PATH_DENIED" || !strings.Contains(msg, "no key changes it") {
+		if code, msg := serverAnswer(t, "komando upload localhost - "+target, hereKey); code != "SSH_GATE_REFUSED" || !strings.Contains(msg, "no key changes it") {
 			t.Errorf("%s: %s %q, want rule a's refusal", name, code, msg)
 		}
 	}
@@ -210,7 +211,7 @@ func TestGateServerReadsTheCommandAsData(t *testing.T) {
 	}
 }
 
-// TestGateServerSystemLog pins rule f's copy: in server mode every record
+// TestGateServerSystemLog pins rule e's copy: in server mode every record
 // also goes to the system log, which the paired user cannot change.
 // Mutant: dropping the gateSystemLog call turns it red.
 func TestGateServerSystemLog(t *testing.T) {
@@ -226,5 +227,23 @@ func TestGateServerSystemLog(t *testing.T) {
 	_, _, _ = gateRun(t, "komando list", "--name", "phone")
 	if len(got) != 1 {
 		t.Errorf("a computer-side key wrote to the system log: %v", got)
+	}
+}
+
+// TestGateServerRefusesRoot pins rule f: the server mode runs nothing as
+// root, ssh-gate status included, and audits the refusal. Mutant: dropping
+// the gateServerRoot call in gateDecide turns it red.
+func TestGateServerRefusesRoot(t *testing.T) {
+	serverHome(t)
+	gateUID = func() int { return 0 }
+	ran, _, e := gateRun(t, "komando ssh-gate status -o json", "--name", "komando-phone-anna", "--here")
+	if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || e.Exit != out.ExitPolicy || !strings.Contains(e.Message, "uid 0") {
+		t.Errorf("as root: ran %q, %+v", ran, e)
+	}
+	if a := lastAudit(t); a["ok"] != false || a["blocked"] != "SSH_GATE_REFUSED" {
+		t.Errorf("audit %v", a)
+	}
+	if _, _, e := gateRun(t, "komando list", "--name", "phone"); e != nil && strings.Contains(e.Message, "uid 0") {
+		t.Errorf("a computer-side key refused for root: %+v", e)
 	}
 }

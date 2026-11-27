@@ -175,12 +175,14 @@ komando computer, it says the command did not come through a key.`,
 // The server mode (--here, U117) is the line `credential key install
 // --public-key-file` writes for a phone's key on a server: komando there
 // acts on that server itself, the one place the computer-side gate
-// refuses (gateLocalTarget). Its rules are in internal/cli/kit/gatehere:
-// (a) nothing through the gate writes the gate, the key files, a start
-// file or komando's own files, by any name; (d) only readings and the
-// typed service, package and file-read commands run, exec is a shell and
-// the dangerous tier is refused; (f) no read of another user's home, of
-// ~/.ssh or of komando's own folder. sshd and the line give (b) and (c).
+// refuses (gateLocalTarget). Its rules, lettered as in the U107 note, are
+// in internal/cli/kit/gatehere: (a) nothing through the gate writes the
+// gate, the key files, a start file or komando's own files, by any name;
+// (d) only readings and the typed service, package and file-read commands
+// run, exec is a shell and the dangerous tier is refused; (e) the system
+// log copy of each record; (f) nothing runs as root. Beside them, the read
+// limit: no read of another user's home, of ~/.ssh or of komando's own
+// folder. sshd, the line and parseGate give (b) and (c).
 
 // gatePasswd is the user database the server mode reads other users'
 // homes from; tests point it elsewhere.
@@ -226,13 +228,12 @@ func gateServerRule(c *cobra.Command, name string, key gateKey) *out.Error {
 	writes := k.Kind != kindRead || gateSavesHere[cmdKeys[name]] != nil // a read that saves a file (download)
 	for _, w := range gateServerWords(c) {
 		if why := paths.WriteRefusal(w); why != "" && writes {
-			// rule a, before the list, with its own code: the phone's probe
-			// 5 tells it from any other refusal
-			return out.Errf(out.ExitRemote, "SSH_GATE_PATH_DENIED", "a person changes it on this server itself; `komando ssh-gate status` shows what this key may do",
+			// rule a, before the list: the phone's probe 5 expects this refusal
+			return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person changes it on this server itself; `komando ssh-gate status` shows what this key may do",
 				"komando %s is refused for this server's key: %s; no key changes it", strings.ReplaceAll(name, ".", " "), why)
 		}
 		if why := paths.ReadRefusal(w); why != "" {
-			return refuse(why) // rule f
+			return refuse(why) // the read limit
 		}
 	}
 	key3 := cmdKeys[name]
@@ -257,6 +258,20 @@ func gateServerRule(c *cobra.Command, name string, key gateKey) *out.Error {
 		return refuse("it is " + r.tier.String() + " (" + strings.TrimSpace(r.what+" "+r.dynamic) + "), and a phone's key runs no dangerous command")
 	}
 	return nil
+}
+
+// gateUID is the gate's own effective uid; tests set it.
+var gateUID = os.Geteuid
+
+// gateServerRoot refuses every command when the server mode runs as root
+// (rule f), whatever the line says: a phone's line in root's
+// authorized_keys runs nothing.
+func gateServerRoot() *out.Error {
+	if gateUID() != 0 {
+		return nil
+	}
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person removes this key's line from root's ~/.ssh/authorized_keys and pairs a user that is not root with `komando key deploy`",
+		"this server's key logs in as root (uid 0), and the gate runs nothing as root")
 }
 
 // gateServerNotYet refuses a command the server mode allows but cannot
@@ -297,7 +312,7 @@ func gateRiskWords(c *cobra.Command) []string {
 }
 
 // gateSystemLog sends a server-mode record to this server's system log
-// too, which the paired user cannot change or remove (rule f). The
+// too, which the paired user cannot change or remove (rule e). The
 // record in komando's audit log is the one that counts: this copy is
 // best effort.
 var gateSystemLog = func(rec map[string]any) {

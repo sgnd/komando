@@ -59,7 +59,8 @@ var PathDirs = []string{"/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/
 // user who owns that home: "added", "present" (this very line is there),
 // "other" (the key is there in another line, which sshd would use first;
 // nothing is written) or "symlink PATH" (komando writes through no link).
-// $3 is the key without options and name (TYPE DATA).
+// $3 is the key's base64 data alone: an older line with other spacing
+// between type and key still counts.
 const WriteScript = `h=$1 line=$2 match=$3
 umask 077
 d=$h/.ssh f=$h/.ssh/authorized_keys

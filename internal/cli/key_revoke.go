@@ -362,7 +362,7 @@ func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target stri
 		" and run komando commands there through its gate. Install it?") {
 		return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run it again and answer y", "nothing was written: the person said no")
 	}
-	write := sshCmd(phonekey.WriteScript, facts.Home, res.Line, k.Type+" "+k.Data)
+	write := sshCmd(phonekey.WriteScript, facts.Home, res.Line, k.Data)
 	if facts.Login != o.user {
 		write = "sudo -n -H -u " + sshx.Q(o.user) + " " + write // as the user, never as root
 	}

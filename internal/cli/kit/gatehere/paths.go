@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-// Paths are what the server mode protects (rule a) and keeps unread (rule
-// f), for the user the key logs in as.
+// Paths are what the server mode protects (rule a) and keeps unread (the
+// read limit), for the user the key logs in as.
 type Paths struct {
 	Home    string            // the paired user's home, from the user database
 	Komando string            // komando's own folder: settings, rules, guard, audit
@@ -108,7 +108,7 @@ func (p Paths) WriteRefusal(path string) string {
 }
 
 // ReadRefusal says why a command through the gate may not read path, or
-// "" (rule f): another user's home, ~/.ssh (private keys) and komando's own
+// "" (the read limit): another user's home, ~/.ssh (private keys) and komando's own
 // folder (its vault and keys), by any name.
 func (p Paths) ReadRefusal(path string) string {
 	secret := []protected{{filepath.Join(p.Home, ".ssh"), "~/.ssh (private keys)", true}}

@@ -79,7 +79,9 @@ func Parse(b []byte) (Key, error) {
 	if len(f) != 3 || !engine.GateLabel.MatchString(comment) {
 		return Key{}, errors.New("the key's comment names it on the server: one word of 1 to 64 letters, digits, dots, dashes or underscores (komando-phone-DEVICE)")
 	}
-	return Key{Type: pub.Type(), Data: f[1], Name: comment, Fingerprint: ssh.FingerprintSHA256(pub)}, nil
+	// the line carries the parsed key, never the file's text
+	typ, data, _ := strings.Cut(strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub))), " ")
+	return Key{Type: typ, Data: data, Name: comment, Fingerprint: ssh.FingerprintSHA256(pub)}, nil
 }
 
 // UserName is a user name komando writes a key for: letters, digits, dot,

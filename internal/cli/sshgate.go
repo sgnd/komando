@@ -590,7 +590,7 @@ func gateAudit(cl *call, label string, key gateKey, req gateRequest, name string
 			"the audit log cannot be written (%v), so the key's command does not run", err)
 	}
 	if key.here {
-		gateSystemLog(rec) // a copy the paired user cannot change (rule f)
+		gateSystemLog(rec) // a copy the paired user cannot change (rule e)
 	}
 	return nil
 }
@@ -623,6 +623,9 @@ func gateDecide(cl *call, key gateKey) (req gateRequest, runs, output string, re
 		// variables; an agent here runs komando itself, as an agent
 		refused = out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "an AI agent runs komando directly (`komando list`), not through ssh-gate",
 			"ssh-gate runs when sshd starts it for a key, and this call comes from an AI agent (%s)", cl.caller().Agent)
+	}
+	if refused == nil && key.here {
+		refused = gateServerRoot()
 	}
 	if refused == nil && key.here && req.agent != "" {
 		// the audit log names a phone's key by its line alone

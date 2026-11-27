@@ -102,9 +102,9 @@ func TestWriteRefusalProtectsTheGate(t *testing.T) {
 	}
 }
 
-// TestReadRefusalKeepsSecretsAndOtherHomes pins rule f: reads of another
-// user's home, of ~/.ssh and of komando's own folder are refused, by any
-// name. Mutant: ReadRefusal returning "" turns it red.
+// TestReadRefusalKeepsSecretsAndOtherHomes pins the read limit: reads of
+// another user's home, of ~/.ssh and of komando's own folder are refused,
+// by any name. Mutant: ReadRefusal returning "" turns it red.
 func TestReadRefusalKeepsSecretsAndOtherHomes(t *testing.T) {
 	p := testPaths(t)
 	l := filepath.Join(p.Home, "work", "peek")
