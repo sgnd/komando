@@ -397,7 +397,14 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 	}
 	progs, known := vars.expand(cl, prog, home, cwd)
 	_, aliased := vars[aliasVar]
-	writes := !known || aliased
+	// a value that is empty or holds a separator runs other words than a
+	// program's name: the guard cannot name the program, and the value's
+	// words join its arguments
+	seps, _ := vars.separators()
+	named := known && !aliased && !slices.ContainsFunc(progs, func(p string) bool {
+		return p != prog && (p == "" || strings.ContainsAny(p, seps))
+	})
+	writes := !named
 	for _, p := range progs {
 		writes = writes || writesFiles(filepath.Base(p), unmarked(args))
 	}
@@ -426,15 +433,15 @@ func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardD
 			return d
 		}
 	}
-	bases := []string{anyProgram}
-	if known && !aliased {
-		bases = bases[:0]
+	bases, from := []string{anyProgram}, first-1
+	if named {
+		bases, from = bases[:0], first
 		for _, p := range progs {
 			bases = append(bases, filepath.Base(p))
 		}
 	}
 	for _, b := range bases {
-		if d := checkTreeChange(cl, b, words[first:], globs[first:], vars, home, cwd); d.Deny {
+		if d := checkTreeChange(cl, b, words[from:], globs[from:], vars, home, cwd); d.Deny {
 			return d
 		}
 	}

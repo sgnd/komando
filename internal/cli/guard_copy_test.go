@@ -147,6 +147,25 @@ func TestGuardFolderRulePastTheChoicesReadsEveryOperand(t *testing.T) {
 	}, false)
 }
 
+// A program word whose value is empty or holds a separator runs the words
+// of its value and of the line after it: the guard reads it as a program
+// it cannot name, with the value's own words among its operands.
+func TestGuardProgramValueWithASeparatorIsAnyProgram(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`R=; $R rm -rf ~`,
+		`R="rm -rf"; eval $R ~`,
+		`R="rm -rf"; $R ~`,
+		`R="rm -rf $HOME/.ssh"; $R`,
+		`IFS=,; R="rm,-rf"; $R ~`,
+	}, treeRefusal)
+	checkLines(t, home, repo, []string{
+		`R=rm; $R -rf ./build`,
+		`R="rm -rf"; $R ./build`,
+		`G="go test"; $G ./...`,
+	}, false)
+}
+
 // The folder rule splits a value where the shell may: at the line's own
 // IFS, never at \v, \f, \r or a non-breaking space; and a quoted value
 // stays one word.
