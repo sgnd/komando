@@ -263,6 +263,12 @@ func goldenRunIn(t *testing.T, agent bool, args []string, setup func(*testing.T)
 	if setup != nil {
 		setup(t)
 	}
+	return goldenExec(t, agent, args, in)
+}
+
+// goldenExec is goldenRunIn in the home the test already has: the run only.
+func goldenExec(t *testing.T, agent bool, args []string, in string) (string, string, int) {
+	t.Helper()
 	if agent {
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 	} else {
