@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // A connection that breaks while the command runs is CONNECTION_LOST

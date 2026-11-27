@@ -600,7 +600,7 @@ var policyStopCodes = []string{"NEEDS_PERSON", "NEEDS_TERMINAL", "POLICY_BLOCKED
 // secret, key, snippets, group and deny rule the runs remove.
 // tierProdSession is the session of prod that tierSeed records: --stop
 // needs the record of the run on this computer.
-const tierProdSession = "b" + attachID[1:]
+var tierProdSession = "b" + attachID[1:]
 
 func tierSeed(t *testing.T) {
 	t.Chdir(t.TempDir())
