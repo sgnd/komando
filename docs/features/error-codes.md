@@ -24,7 +24,7 @@ This page is made from the code (`komando schema` lists the same under
 | `BAD_FILE` | 2 | not a backup komando can read: … | give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc) |
 | `BAD_RELEASE` | 1 | … is … bytes, more than komando accepts; nothing was changed | report it at …/issues |
 | `BAD_SECRET` | 2 | the password for … contains a line break | store the password again without line breaks (`komando secret set NAME`) |
-| `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando download … …` |
+| `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando copy … …` |
 | `BUCKET_NOT_FOUND` | 3 | bucket does not exist | check the bucket name in the conn URL (`komando conn show NAME`) |
 | `BUILTIN_RULE` | 2 | … is a built-in rule and cannot be removed | a built-in rule cannot be removed; switch it off with `komando policy edit RULE --off` |
 | `CACHE_AUTH` | 4 | memcached refused the login: … | check the user in the URL and the password reference (`komando conn show NAME`) |
@@ -72,10 +72,10 @@ This page is made from the code (`komando schema` lists the same under
 | `DRY_RUN_UNSUPPORTED` | 2 | this change cannot be previewed; run it without --dry-run to make it | run it again without --dry-run to make the change |
 | `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
-| `EMPTY_FOLDER_CONFIRM_REQUIRED` | 6 | … lists no files in …, so --delete would remove … there in …; nothing was deleted | see what would go with `komando sync SRC DST --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
+| `EMPTY_FOLDER_CONFIRM_REQUIRED` | 6 | … lists no files in …, so --delete would remove … there in …; nothing was deleted | see what would go with `komando copy SOURCE DESTINATION --sync --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
 | `ENCODED_SECRET_INVALID` | 2 | the script or command holds a private key; komando does not send one this way | put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
-| `FILE_CHANGED` | 8 | … …; nothing was added | run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again |
+| `FILE_CHANGED` | 8 | … …; nothing was added | run the same command again (`komando copy SOURCE DESTINATION --continue`): komando reads the file's length again |
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the folder exists and is writable |
 | `FILE_EXISTS` | 8 | … already exists on this computer | choose another --to, remove the file, or pass --overwrite |
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
@@ -97,7 +97,7 @@ This page is made from the code (`komando schema` lists the same under
 | `IMAGE_TAG_NOT_FOUND` | 3 | … not found; the repository has no tags | list the repositories with `komando registry oci image list NAME` |
 | `IMPORT_INCOMPLETE` | 1 | … not imported (see skipped) | fix them in the source and import again: the rest is in, and importing again skips it |
 | `INSECURE_PROTOCOL` | 2 | …:// crosses the network to … without TLS, so the password and the data travel unencrypted | use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted |
-| `IS_A_DIRECTORY` | 2 | …:… is a folder, not a file | copy the folder and everything in it with -r: `komando cp -r … …` |
+| `IS_A_DIRECTORY` | 2 | …:… is a folder, not a file | copy the folder and everything in it with -r: `komando copy -r … …` |
 | `IS_A_SYMLINK` | 8 | … is a symbolic link (--no-follow) | drop --no-follow to write the file it points to |
 | `JOB_FAILED` | 5 | job exited with … | read its output with `komando job logs … --limit 50` |
 | `JOB_KILLED` | 5 | job … was killed (…) | it was stopped with `komando job kill` |
@@ -135,7 +135,7 @@ This page is made from the code (`komando schema` lists the same under
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
 | `NOT_SUPPORTED` | 2 | … waits for data that keeps coming, so cache run would never return | cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE |
 | `NOT_SWARM_MANAGER` | 3 | … is not a Swarm manager (docker not found) | Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one |
-| `NOT_TEXT` | 2 | … is not text | download it with `komando storage download CONN OBJECT` |
+| `NOT_TEXT` | 2 | … is not text | copy it to this computer with `komando copy SOURCE DESTINATION` |
 | `NOT_WRITABLE` | 8 | cannot replace …: …: …; nothing was changed | make … writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR) |
 | `NO_AUTH` | 4 | no authentication method available for …: it has no key or password, and … | start ssh-agent, then run … |
 | `NO_CERTIFICATE` | 5 | … sent no certificate | check that … is the TLS port of the site |
@@ -197,8 +197,8 @@ This page is made from the code (`komando schema` lists the same under
 | `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
 | `RESTORE_SPACE_MISSING` | 3 | not enough free space for the restore's copy; nothing was sent to the database | free … bytes in … (komando checks a private copy of the backup there before the database is touched), then restore again: `komando db restore CONN --from …` |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
-| `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST` |
-| `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando cp SRC DST` |
+| `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando copy SOURCE DESTINATION` |
+| `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando copy SOURCE DESTINATION` |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
 | `REVEAL_NEEDS_TERMINAL` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history TARGET TYPE/NAME` |
@@ -233,7 +233,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
 | `SHELL_IDLE_TIMEOUT` | 7 | the shell on … ended after … with no input and no output | connect again (ssh -t HOST komando shell …); run long work as a job: `komando job start … -- COMMAND` |
 | `SHORTER_SCRIPT_REQUIRED` | 6 |  | split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script |
-| `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando upload TARGET - DEST --size N` |
+| `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando copy - DESTINATION --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
 | `SNIPPET_OS_UNSUPPORTED` | 2 | snippet … has no body for … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |
 | `SNIPPET_PARSE_FAILED` | 5 | the output of snippet … did not read as … | read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it |

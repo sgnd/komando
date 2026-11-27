@@ -638,18 +638,34 @@
 "conn"	netread	conn	runs
 "conn"	read	conn	runs
 "conn"	shell	conn	runs
-"cp --help"	full	cp	runs
-"cp --help"	netread	cp	runs
-"cp --help"	read	cp	runs
-"cp --help"	shell	cp	runs
-"cp web"	full	cp	runs
-"cp web"	netread	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
-"cp web"	read	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
-"cp web"	shell	cp	runs
-"cp"	full	cp	runs
-"cp"	netread	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
-"cp"	read	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
-"cp"	shell	cp	runs
+"copy --analyze"	full	copy	runs
+"copy --analyze"	netread	copy	runs
+"copy --analyze"	read	copy	runs
+"copy --analyze"	shell	copy	runs
+"copy --help"	full	copy	runs
+"copy --help"	netread	copy	runs
+"copy --help"	read	copy	runs
+"copy --help"	shell	copy	runs
+"copy --read-only"	full	copy	runs
+"copy --read-only"	netread	copy	runs
+"copy --read-only"	read	copy	runs
+"copy --read-only"	shell	copy	runs
+"copy --refresh"	full	copy	runs
+"copy --refresh"	netread	copy	runs
+"copy --refresh"	read	copy	runs
+"copy --refresh"	shell	copy	runs
+"copy --write"	full	copy	runs
+"copy --write"	netread	copy	runs
+"copy --write"	read	copy	runs
+"copy --write"	shell	copy	runs
+"copy web"	full	copy	runs
+"copy web"	netread	copy	SSH_GATE_READ_ONLY|komando copy is refused for a read-only key: it writes the files at its destination (copy SOURCE - streams one file to the key's own output)
+"copy web"	read	copy	SSH_GATE_READ_ONLY|komando copy is refused for a read-only key: it writes the files at its destination (copy SOURCE - streams one file to the key's own output)
+"copy web"	shell	copy	runs
+"copy"	full	copy	runs
+"copy"	netread	copy	SSH_GATE_READ_ONLY|komando copy is refused for a read-only key: it writes the files at its destination (copy SOURCE - streams one file to the key's own output)
+"copy"	read	copy	SSH_GATE_READ_ONLY|komando copy is refused for a read-only key: it writes the files at its destination (copy SOURCE - streams one file to the key's own output)
+"copy"	shell	copy	runs
 "db --help"	full	db	runs
 "db --help"	netread	db	runs
 "db --help"	read	db	runs
@@ -998,18 +1014,6 @@
 "doctor"	netread	doctor	runs
 "doctor"	read	doctor	runs
 "doctor"	shell	doctor	runs
-"download --help"	full	download	runs
-"download --help"	netread	download	runs
-"download --help"	read	download	runs
-"download --help"	shell	download	runs
-"download --to /tmp/x"	full	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download --to /tmp/x"	netread	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download --to /tmp/x"	read	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download --to /tmp/x"	shell	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download"	full	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download"	netread	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download"	read	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"download"	shell	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
 "environment --help"	full	environment	runs
 "environment --help"	netread	environment	runs
 "environment --help"	read	environment	runs
@@ -2922,18 +2926,6 @@
 "storage chmod"	netread	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
 "storage chmod"	read	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
 "storage chmod"	shell	storage.chmod	runs
-"storage download --help"	full	storage.download	runs
-"storage download --help"	netread	storage.download	runs
-"storage download --help"	read	storage.download	runs
-"storage download --help"	shell	storage.download	runs
-"storage download --to /tmp/x"	full	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download --to /tmp/x"	netread	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download --to /tmp/x"	read	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download --to /tmp/x"	shell	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download"	full	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download"	netread	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download"	read	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage download"	shell	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
 "storage link --help"	full	storage.link	runs
 "storage link --help"	netread	storage.link	runs
 "storage link --help"	read	storage.link	runs
@@ -2974,30 +2966,10 @@
 "storage rm"	netread	storage.rm	SSH_GATE_READ_ONLY|komando storage rm is refused for a read-only key: it changes something
 "storage rm"	read	storage.rm	SSH_GATE_READ_ONLY|komando storage rm is refused for a read-only key: it changes something
 "storage rm"	shell	storage.rm	runs
-"storage upload --help"	full	storage.upload	runs
-"storage upload --help"	netread	storage.upload	runs
-"storage upload --help"	read	storage.upload	runs
-"storage upload --help"	shell	storage.upload	runs
-"storage upload"	full	storage.upload	runs
-"storage upload"	netread	storage.upload	SSH_GATE_READ_ONLY|komando storage upload is refused for a read-only key: it changes something
-"storage upload"	read	storage.upload	SSH_GATE_READ_ONLY|komando storage upload is refused for a read-only key: it changes something
-"storage upload"	shell	storage.upload	runs
 "storage"	full	storage	runs
 "storage"	netread	storage	runs
 "storage"	read	storage	runs
 "storage"	shell	storage	runs
-"sync --help"	full	sync	runs
-"sync --help"	netread	sync	runs
-"sync --help"	read	sync	runs
-"sync --help"	shell	sync	runs
-"sync web"	full	sync	runs
-"sync web"	netread	sync	SSH_GATE_READ_ONLY|komando sync is refused for a read-only key: it changes something
-"sync web"	read	sync	SSH_GATE_READ_ONLY|komando sync is refused for a read-only key: it changes something
-"sync web"	shell	sync	runs
-"sync"	full	sync	runs
-"sync"	netread	sync	SSH_GATE_READ_ONLY|komando sync is refused for a read-only key: it changes something
-"sync"	read	sync	SSH_GATE_READ_ONLY|komando sync is refused for a read-only key: it changes something
-"sync"	shell	sync	runs
 "test --help"	full	test	runs
 "test --help"	netread	test	runs
 "test --help"	read	test	runs
@@ -3054,14 +3026,6 @@
 "update"	netread	update	SSH_GATE_REFUSED|komando update is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "update"	read	update	SSH_GATE_REFUSED|komando update is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "update"	shell	update	SSH_GATE_REFUSED|komando update is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"upload --help"	full	upload	runs
-"upload --help"	netread	upload	runs
-"upload --help"	read	upload	runs
-"upload --help"	shell	upload	runs
-"upload"	full	upload	runs
-"upload"	netread	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
-"upload"	read	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
-"upload"	shell	upload	runs
 "version --help"	full	version	runs
 "version --help"	netread	version	runs
 "version --help"	read	version	runs

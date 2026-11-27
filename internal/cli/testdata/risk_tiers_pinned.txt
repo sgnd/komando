@@ -69,7 +69,7 @@ conn.rename	plain=change	highest=read
 conn.rm	plain=change	highest=read
 conn.show	plain=read	highest=read
 conn.test	plain=read	highest=read
-cp	plain=change	highest=read
+copy	plain=change	highest=dangerous
 db	plain=read	highest=read
 db.activity	plain=read	highest=read
 db.add	plain=change	highest=read
@@ -107,7 +107,6 @@ docker.start	plain=change	highest=read
 docker.stats	plain=read	highest=read
 docker.stop	plain=change	highest=read
 doctor	plain=read	highest=read
-download	plain=read	highest=read
 environment	plain=change	highest=read
 exec	plain=dangerous	highest=dangerous
 exit-codes	plain=change	highest=read
@@ -196,6 +195,7 @@ policy.show	plain=read	highest=read
 probe cache redis edit prod-redis --protected=false	safety
 probe cluster scale c1 web 0	dangerous
 probe conn edit app-db --protected=false	safety
+probe copy ./site web1:/srv --sync --delete	dangerous
 probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
@@ -213,7 +213,6 @@ probe queue kafka edit prod-kafka --protected=false	safety
 probe recipe add r1 --overwrite --read-only	safety
 probe registry oci edit ghcr --protected=false	safety
 probe secret keychain	person
-probe sync ./site web1:/srv --delete	dangerous
 probe vpn edit kantor --mfa=false	safety
 probe vpn edit kantor --protected=false	safety
 queue	plain=read	highest=read
@@ -358,14 +357,11 @@ storage	plain=read	highest=read
 storage.add	plain=change	highest=read
 storage.cat	plain=read	highest=read
 storage.chmod	plain=change	highest=read
-storage.download	plain=read	highest=read
 storage.link	plain=safety	highest=safety
 storage.list	plain=read	highest=read
 storage.mkdir	plain=change	highest=read
 storage.mv	plain=change	highest=read
 storage.rm	plain=dangerous	highest=dangerous
-storage.upload	plain=change	highest=read
-sync	plain=change	highest=dangerous
 test	plain=read	highest=read
 tunnel	plain=read	highest=read
 tunnel.list	plain=read	highest=read
@@ -373,7 +369,6 @@ tunnel.serve	plain=change	highest=read
 tunnel.start	plain=safety	highest=safety
 tunnel.stop	plain=change	highest=read
 update	plain=safety	highest=safety
-upload	plain=change	highest=read
 version	plain=read	highest=read
 vpn	plain=read	highest=read
 vpn.add	plain=change	highest=read

@@ -69,7 +69,7 @@ conn.rename
 conn.rm
 conn.show
 conn.test
-cp
+copy
 db
 db.activity
 db.add
@@ -107,7 +107,6 @@ docker.start
 docker.stats
 docker.stop
 doctor
-download
 environment
 exec
 exit-codes
@@ -335,14 +334,11 @@ storage
 storage.add
 storage.cat
 storage.chmod
-storage.download
 storage.link
 storage.list
 storage.mkdir
 storage.mv
 storage.rm
-storage.upload
-sync
 test
 tunnel
 tunnel.list
@@ -350,7 +346,6 @@ tunnel.serve
 tunnel.start
 tunnel.stop
 update
-upload
 version
 vpn
 vpn.add
