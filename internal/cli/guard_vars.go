@@ -355,16 +355,70 @@ func outputValue(cl *call, body string, quoted bool, vars lineVars) (string, boo
 		return "", false
 	}
 	words := shellWords(body)
-	if len(words) == 0 {
+	if len(words) == 0 || !runsTrusted(cl, words[0]) {
 		return "", false
 	}
-	switch words[0] {
+	switch filepath.Base(words[0]) {
 	case "mktemp":
 		return mktempFile(cl, words[1:])
 	case "date":
 		return dateOutput(words[1:], quoted)
 	}
 	return "", false
+}
+
+// trustedPrograms are where mktemp and date live on macOS and Linux. Their
+// output is proven only when the name runs one of them: a program of the
+// same name earlier in PATH is another program.
+var trustedPrograms = map[string][]string{"mktemp": {"/usr/bin/mktemp", "/bin/mktemp"}, "date": {"/bin/date", "/usr/bin/date"}}
+
+// runsTrusted says whether the word name, a command's first word, runs one
+// of the trustedPrograms: looked up in the call's PATH as the shell does,
+// links followed.
+func runsTrusted(cl *call, name string) bool {
+	want, ok := trustedPrograms[filepath.Base(name)]
+	if !ok {
+		return false
+	}
+	p := name
+	if !strings.Contains(name, "/") {
+		p = ""
+		for _, d := range filepath.SplitList(cl.getenv("PATH")) {
+			if !filepath.IsAbs(d) {
+				return false // a relative folder: the line can put a program there
+			}
+			if fi, err := os.Stat(filepath.Join(d, name)); err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 {
+				p = filepath.Join(d, name)
+				break
+			}
+		}
+	}
+	real, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return false
+	}
+	for _, w := range want {
+		if r, err := filepath.EvalSymlinks(w); err == nil && r == real {
+			return true
+		}
+	}
+	return false
+}
+
+// namesTrusted says whether line names mktemp or date other than as the
+// program of a command: it may write a program of that name where PATH
+// finds it before the line runs it.
+func namesTrusted(line string) bool {
+	for _, seg := range splitShell(line) {
+		words := shellWords(seg)
+		prog, _ := program(words)
+		for _, w := range words {
+			if _, ok := trustedPrograms[filepath.Base(w)]; ok && w != prog {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // plainPath is a value that keeps its meaning written into a shell line.

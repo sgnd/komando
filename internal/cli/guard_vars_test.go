@@ -358,3 +358,24 @@ func TestGuardAliasedCommandIsCheckedAsAWriter(t *testing.T) {
 		`source ./env.sh; echo "$NAME" > /tmp/out`,
 	}, false)
 }
+
+// mktemp and date are proven only when their name runs /usr/bin/mktemp or
+// /bin/date: a program of that name earlier in PATH, or one the line
+// writes, gives an unknown value.
+func TestGuardProofOfMktempAndDateNeedsTheSystemProgram(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		`cp /tmp/evil ~/bin/mktemp; f=$(mktemp); echo x > "$f"`,
+		`cp /tmp/evil ./date && PATH=.:$PATH; echo x > "$(date +%s)"`,
+		`install -m 755 /tmp/evil /usr/local/bin/mktemp; cp /tmp/a "$(mktemp)"`,
+	}, true)
+	bin := filepath.Join(home, "bin")
+	if err := os.WriteFile(filepath.Join(bin, "mktemp"), []byte("#!/bin/sh\necho x\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	checkLines(t, home, home, []string{
+		`f=$(mktemp); echo x > "$f"`,
+		`echo x > "$(mktemp)"`,
+	}, true)
+}

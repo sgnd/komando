@@ -288,7 +288,7 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 		vars = lineVars{}
 	}
 	vars.aliasesFrom(line, -1) // this code is read after the alias was made
-	if redefines.MatchString(line) {
+	if redefines.MatchString(line) || namesTrusted(line) {
 		vars[redefinedVar] = nil
 	}
 	// each word with a command output in it is checked whole: splitShell

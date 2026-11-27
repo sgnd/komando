@@ -574,7 +574,10 @@ func redirectWrites(seg string) (files []string, globs []bool) {
 // writingPrograms change the files their arguments name.
 var writingPrograms = map[string]bool{"cp": true, "mv": true, "ln": true, "link": true, "install": true, "tee": true,
 	"dd": true, "truncate": true, "chmod": true, "chown": true, "chgrp": true, "rm": true, "rmdir": true, "unlink": true,
-	"shred": true, "touch": true, "mkdir": true, "mkfifo": true, "rsync": true, "patch": true, "sponge": true, "rename": true}
+	"shred": true, "touch": true, "mkdir": true, "mkfifo": true, "rsync": true, "patch": true, "sponge": true, "rename": true,
+	"ditto": true, "gzip": true, "gunzip": true, "bzip2": true, "bunzip2": true, "xz": true, "unxz": true, "zstd": true,
+	"unzstd": true, "lz4": true, "compress": true, "uncompress": true, "ed": true, "ex": true, "split": true, "csplit": true,
+	"zip": true, "plutil": true, "xattr": true}
 
 // writesFiles says whether the program base, run with args, changes the
 // files its arguments name: a writing program, sed, sort, uniq or awk in a
@@ -619,6 +622,9 @@ func checkWrites(cl *call, seg string, words []string, globs []bool, vars lineVa
 	}
 	first := len(words) - len(args)
 	if !writes {
+		if d := checkPartWriters(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd); d.Deny {
+			return d
+		}
 		return checkOutputOptions(cl, filepath.Base(prog), words[first:], globs[first:], vars, home, cwd)
 	}
 	for _, w := range words[:first-1] {
@@ -639,7 +645,7 @@ func checkWrites(cl *call, seg string, words []string, globs []bool, vars lineVa
 
 // copyPrograms write in a destination folder names the line does not
 // write out (checkCopyInto).
-var copyPrograms = map[string]bool{"cp": true, "mv": true, "install": true, "rsync": true, "ln": true, "link": true}
+var copyPrograms = map[string]bool{"cp": true, "mv": true, "install": true, "rsync": true, "ln": true, "link": true, "ditto": true}
 
 // outputOptions are the options many programs take for the file they
 // write: cc -o FILE, curl --output FILE, go build -o FILE, openssl -out
