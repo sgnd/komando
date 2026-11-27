@@ -23,9 +23,9 @@ var credentialLeaves = concat(
 	},
 	valueKindLeaves(),
 	[]Leaf{
-		{Key: own("credential", "key", "add"), Args: oneName, Options: []Option{passphraseOpt}, Today: []string{"key.add"}},
+		{Key: own("credential", "key", "add"), Args: oneName, Options: []Option{passphraseOpt}, Stops: []string{"RefGuard"}, Today: []string{"key.add"}},
 		{Key: own("credential", "key", "create"), Args: oneName, Today: []string{"key.gen"}},
-		{Key: own("credential", "key", "edit"), Args: oneName, Options: []Option{passphraseOpt}, Stops: credentialStops, Today: []string{"key.edit"}},
+		{Key: own("credential", "key", "edit"), Args: oneName, Options: []Option{passphraseOpt}, Stops: append([]string{"RefGuard"}, credentialStops...), Today: []string{"key.edit"}},
 		// the --public-key-file form (C372) installs a device's key for a
 		// user, behind the server's own gate: no NAME then, person tier
 		{Key: own("credential", "key", "install"), Args: []Arg{{Name: "NAME", Optional: true}, {Name: "TARGET", Selector: true}},
