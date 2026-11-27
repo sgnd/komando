@@ -24,8 +24,6 @@ cache.redis.show
 cache.redis.test
 cache.rm
 cache.set
-cert
-cert.check
 cluster
 cluster.apply
 cluster.deploy
@@ -118,9 +116,7 @@ docker.stats
 docker.stop
 doctor
 download
-environment
 exec
-exit-codes
 export
 fs
 fs.cat
@@ -142,7 +138,6 @@ guide
 guide.guard
 guide.install
 guide.uninstall
-help
 host
 host.add
 host.ca
@@ -187,7 +182,6 @@ login.gcp
 logout
 logout.aws
 logs
-output
 pkg
 pkg.install
 pkg.installed
@@ -323,7 +317,6 @@ registry.oci.rename
 registry.oci.show
 registry.oci.test
 rename
-safety
 schema
 secret
 secret.check
