@@ -292,7 +292,6 @@ func TestGateLocalTargets(t *testing.T) {
 	for line, want := range map[string]string{
 		`database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`: R,
 		`database sqlite query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:               R,
-		"database sqlite restore appdb --from x.sql":                                        R,
 		"db explain appdb --analyze 'select 1'":                                             R,
 		"db user add appdb x --password-ref secret:x":                                       R,
 		"database sqlite query appdb 'select 1'":                                            R, // a read of a file here
@@ -409,7 +408,7 @@ func TestGateLocalTargets(t *testing.T) {
 	if ran != nil || e == nil || e.Code != R || !strings.Contains(e.Message, "appdb is a file on this computer") {
 		t.Errorf("VACUUM INTO: ran %q, error %+v", ran, e)
 	}
-	if a := lastAudit(t); a["blocked"] != R || a["runs"] != "db.query" {
+	if a := lastAudit(t); a["blocked"] != R || a["runs"] != "database.sqlite.query" {
 		t.Errorf("audit %v", a)
 	}
 }

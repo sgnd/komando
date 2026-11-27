@@ -68,7 +68,6 @@ var tierRuns = []tierRun{
 	{"host ssh trust dynamic safety", "host.trust", []string{"dev"}, false},
 	{"agent skill uninstall dynamic safety", "guide.uninstall", []string{"--project"}, false},
 	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
-	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.memcached.edit", []string{"m-prot", "--protected=false"}, false},
 	{"queue edit --protected=false safety", "conn.edit", []string{"q-prot", "--protected=false"}, false},
@@ -206,16 +205,16 @@ var tierUnreached = map[string]string{
 // the database leaves use the conn of their provider. Snowflake goes
 // through dev, so no run looks up a Snowflake host; BigQuery has an
 // emulator endpoint, so no run asks Google for a login.
-var databaseTierConns = []struct{ name, provider, url, via, drop string }{
-	{"pg", "postgres", "postgres://u@127.0.0.1:1/app", "", "DROP TABLE t"},
-	{"my", "mysql", "mysql://u@127.0.0.1:1/app", "", "DROP TABLE t"},
-	{"ms", "sqlserver", "sqlserver://u@127.0.0.1:1/app", "", "DROP TABLE t"},
-	{"ora", "oracle", "oracle://u@127.0.0.1:1/APP", "", "DROP TABLE t"},
-	{"lite", "sqlite", "", "", "DROP TABLE t"}, // a file in the seed's folder
-	{"mg", "mongodb", "mongodb://u@127.0.0.1:1/app", "", `{"dropDatabase": 1}`},
-	{"ch", "clickhouse", "clickhouse://u@127.0.0.1:1/app", "", "DROP TABLE t"},
-	{"sf", "snowflake", "snowflake://u@acct/APP/PUBLIC", "dev", "DROP TABLE t"},
-	{"bq", "bigquery", "bigquery://proj/app?endpoint=http://127.0.0.1:1", "", "DROP TABLE t"},
+var databaseTierConns = []struct{ name, provider, url, prot, via, drop string }{
+	{"pg", "postgres", "postgres://u@127.0.0.1:1/app", "postgres://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"my", "mysql", "mysql://u@127.0.0.1:1/app", "mysql://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"ms", "sqlserver", "sqlserver://u@127.0.0.1:1/app", "sqlserver://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"ora", "oracle", "oracle://u@127.0.0.1:1/APP", "oracle://u@127.0.0.1:2/APP", "", "DROP TABLE t"},
+	{"lite", "sqlite", "", "", "", "DROP TABLE t"}, // files in the seed's folder
+	{"mg", "mongodb", "mongodb://u@127.0.0.1:1/app", "mongodb://u@127.0.0.1:2/app", "", `{"dropDatabase": 1}`},
+	{"ch", "clickhouse", "clickhouse://u@127.0.0.1:1/app", "clickhouse://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"sf", "snowflake", "snowflake://u@acct/APP/PUBLIC", "snowflake://u@acct2/APP/PUBLIC", "dev", "DROP TABLE t"},
+	{"bq", "bigquery", "bigquery://my-project/app?endpoint=http://127.0.0.1:1", "bigquery://my-project/app?endpoint=http://127.0.0.1:2", "", "DROP TABLE t"},
 }
 
 // The database runs: today's db query, dump, restore, shell and add, on
@@ -227,8 +226,13 @@ func init() {
 		tierRuns = append(tierRuns,
 			tierRun{"database query dynamic dangerous", id + "query", []string{d.name, "--write", d.drop}, false},
 			tierRun{"floor", id + "query", []string{d.name, map[bool]string{true: `{"find": "t"}`, false: "SELECT 1"}[d.provider == "mongodb"]}, false},
-			tierRun{"floor", id + "add", []string{d.name + "2", strings.Replace(cmp.Or(d.url, "sqlite:tier2.db"), "/app", "/app2", 1)}, false},
+			tierRun{"floor", id + "add", []string{d.name + "2", strings.Replace(cmp.Or(d.url, "sqlite:///var/lib/app2.db"), "/app", "/app2", 1)}, false},
+			tierRun{"database edit --protected=false safety", id + "edit", []string{d.name + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + "edit", []string{d.name, "--notes", "x"}, false},
+			tierRun{"floor", id + "remove", []string{d.name}, false},
+			tierRun{"floor", id + "rename", []string{d.name, d.name + "9"}, false},
 		)
+		tierDisagree[id+"edit "+d.name+"-prot --protected=false"] = "PROTECTED_TARGET" // as conn edit (C429)
 		built := func(verb string) bool {
 			l, ok := capability.Find(capability.Key{Type: "database", Provider: d.provider, Verb: verb})
 			return ok && l.State == capability.Built
@@ -252,7 +256,6 @@ func init() {
 var tierDisagree = map[string]string{
 	// the same strength under another code (C429: one code later)
 	"host.edit prod --protected=false":              "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
-	"conn.edit pg-prot --protected=false":           "PROTECTED_TARGET",
 	"cache.redis.edit r-prot --protected=false":     "PROTECTED_TARGET",
 	"cache.memcached.edit m-prot --protected=false": "PROTECTED_TARGET",
 	"conn.edit q-prot --protected=false":            "PROTECTED_TARGET",
@@ -653,8 +656,13 @@ func tierSeed(t *testing.T) {
 				c.URL = "sqlite://" + filepath.Join(wd, "tier.db")
 			}
 			st.Conns[d.name] = c
+			// its protected twin at another address: one address is one target
+			p := &store.Conn{Name: d.name + "-prot", Kind: d.provider, URL: d.prot, Via: d.via, Protected: true}
+			if d.provider == "sqlite" {
+				p.URL = "sqlite://" + filepath.Join(wd, "tier-prot.db")
+			}
+			st.Conns[p.Name] = p
 		}
-		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
 		st.Conns["m-prot"] = &store.Conn{Name: "m-prot", Kind: "memcached", URL: "memcached://127.0.0.1:3", Protected: true}
 		st.Conns["q-prot"] = &store.Conn{Name: "q-prot", Kind: "nats", URL: "nats://127.0.0.1:3", Protected: true}

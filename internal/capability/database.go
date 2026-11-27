@@ -1,5 +1,7 @@
 package capability
 
+import "strings"
+
 // database: SQL and MongoDB. A database keeps query and shell (its raw
 // commands) and backup and restore, which query cannot do.
 
@@ -63,7 +65,7 @@ func databaseTable(ps []dbProvider) []Leaf {
 		out = append(out, inv.leaves(p.provider)...)
 		key := func(verb string) Key { return Key{Type: "database", Provider: p.name, Verb: verb} }
 		ls := []Leaf{
-			{Key: key("query"), Args: []Arg{{Name: "NAME"}, {Name: "QUERY", Optional: true}}, Options: queryOptions(p),
+			{Key: key("query"), Args: []Arg{{Name: "NAME"}, {Name: "SQL", Optional: true}}, Options: queryOptions(p),
 				Output: TargetData, State: p.state, Today: []string{"db.query"}, Carries: queryCarries},
 			{Key: key("backup"), Args: oneName, Options: backupOptions(p), State: max(p.state, p.backup),
 				Today: []string{"db.dump"}},
@@ -134,13 +136,13 @@ func (p dbProvider) text(verb string) (short, example string) {
 	cmd := "  komando database " + p.name + " " + verb + " " + p.entry
 	switch verb {
 	case "query":
-		short = "Run a query on a " + p.what + " database (read only unless --write)"
+		short = "Run a query on " + an(p.what) + " database (read only by default)"
 		example = cmd + " " + p.read + "\n" + cmd + " --write --dry-run " + p.write
 		if p.name == "bigquery" {
 			example += "\n" + cmd + " " + p.read + " --max-bytes 50GB"
 		}
 	case "backup":
-		short = "Copy a " + p.what + " database to a file on this computer"
+		short = "Copy " + an(p.what) + " database to a file on this computer"
 		example = cmd + " --to backups/\n" + cmd + " --to " + p.entry + ".sql.gz --dry-run"
 		switch p.name {
 		case "postgres":
@@ -149,11 +151,19 @@ func (p dbProvider) text(verb string) (short, example string) {
 			example = cmd + " --to backup.db\n" + cmd + " --to backup.db --dry-run"
 		}
 	case "restore":
-		short = "Load a backup into a " + p.what + " database"
+		short = "Load a backup into " + an(p.what) + " database"
 		example = cmd + " --from " + p.entry + ".sql.gz --dry-run\n" + cmd + " --from " + p.entry + ".sql.gz --allow-dangerous"
 	case "shell":
-		short = "Open komando's SQL shell on a " + p.what + " database"
+		short = "Open komando's SQL shell on " + an(p.what) + " database"
 		example = cmd + "\n" + cmd + " --write"
 	}
 	return short, example
+}
+
+// an is what with its article: "a PostgreSQL", "an Oracle".
+func an(what string) string {
+	if strings.ContainsRune("AEIOU", rune(what[0])) {
+		return "an " + what
+	}
+	return "a " + what
 }

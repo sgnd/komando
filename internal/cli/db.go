@@ -47,8 +47,8 @@ func dbCmd() *cobra.Command {
 		Aliases: []string{"sql"},
 		Short:   "Databases: the schema, sessions, sizes and users",
 		Long: `Look at a database's schema, sessions, locks, sizes and users. Add a
-database, query it, back it up and restore it with ` + "`komando database KIND`" + `
-(postgres, mysql, sqlserver, oracle, sqlite, mongodb, clickhouse, snowflake,
+database, query it, back it up and restore it with ` + "`komando database postgres`" + `
+(or mysql, sqlserver, oracle, sqlite, mongodb, clickhouse, snowflake,
 bigquery): ` + "`komando database postgres add`" + `, ` + "`komando database postgres query`" + `.
 
 Each database is a conn: list them with ` + "`komando list kind:db`" + `.`,
@@ -666,7 +666,7 @@ func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbF
 		// a cut export would look whole in a file: refuse it instead
 		for _, r := range res.Results {
 			if r.Truncated == "bytes" {
-				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando database KIND backup`",
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `"+dbPathOf(c, "backup")+" "+c.Name+"`",
 					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
 			}
 		}

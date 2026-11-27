@@ -222,6 +222,8 @@ func addHint(cl *call, family, wanted string) string {
 	if cl.interactive() {
 		cmd := "host add"
 		switch {
+		case slices.Contains(movedTypes, typeWord(family)):
+			cmd = typeWord(family) + " " + map[string]string{"database": "postgres", "cache": "redis", "registry": "oci"}[typeWord(family)] + " add"
 		case familyWord[family] != [2]string{}:
 			cmd = family + " add"
 		case family == "conn" || family != "host" && family != "vpn" && wanted == "conn":

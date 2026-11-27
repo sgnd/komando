@@ -192,10 +192,14 @@ func firstArg(cmd *cobra.Command) string {
 	return ""
 }
 
-// topCommand is the command family cmd belongs to ("db" for db query).
+// topCommand is the command family cmd belongs to ("db" for db query and
+// for database postgres query).
 func topCommand(cmd *cobra.Command) string {
 	for cmd.HasParent() && cmd.Parent().HasParent() {
 		cmd = cmd.Parent()
+	}
+	if slices.Contains(movedTypes, cmd.Name()) {
+		return familyOfType(cmd.Name())
 	}
 	return cmd.Name()
 }

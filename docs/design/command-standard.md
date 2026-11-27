@@ -194,7 +194,7 @@ tool-word list S-3.3]
 | `query` | SQL or MongoDB | psql -c |
 | `shell` | an interactive session, person only (aliases ssh, connect) | |
 | `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
-| `sync`, `dump`, `restore` | copy trees, back up and load | rsync, pg_dump |
+| `sync`, `backup`, `restore` | copy trees, back up and load | rsync, pg_dump |
 | `up`, `down` | a VPN session | wg-quick, tailscale |
 | `login`, `logout` | a kept login | gh auth, docker login |
 | `install`, `uninstall` | put files in, take them out | helm, apt |

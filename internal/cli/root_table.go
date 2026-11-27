@@ -88,6 +88,7 @@ func mountTable(root *cobra.Command) {
 	if err := mountLeaves(root, leaves, handlers, groupShorts); err != nil {
 		panic("komando: " + err.Error())
 	}
+	addNounAliases(root) // a top-level group the table made (database) gets its plural too
 }
 
 // hideCarried takes out of today's tree each command whose ID every built
@@ -674,6 +675,7 @@ func idTableOf[V any](name string, m map[string]V, spaced bool) idTable {
 func idTables() []idTable {
 	return []idTable{
 		idTableOf("personalCmds", personalCmds, true),
+		idTableOf("revealNever", revealNever, false),
 		idTableOf("localReads", localReads, false),
 		idTableOf("leavesHome", leavesHome, false),
 		idTableOf("gateNetwork", gateNetwork, false),
@@ -718,6 +720,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		// its key and its gate entry; the old group keeps them while it
 		// still holds commands
 		cmdKeys[typ] = safetyKey{typ: typ}
+		providerIDs[old] = true // the old group runs nothing of its own either
 		if v, ok := gateNoNetwork[old]; ok {
 			gateNoNetwork[typ] = v
 		}
