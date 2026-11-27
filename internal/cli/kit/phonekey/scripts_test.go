@@ -82,3 +82,31 @@ func TestProbeScript(t *testing.T) {
 		t.Errorf("%+v", f)
 	}
 }
+
+// TestProbeRunsNoUserProgram: the probe asks komando for its server mode
+// only when root alone could have changed it, since komando may log in as
+// root. A komando the test user owns is never run. Mutant: running the
+// --help check whatever the owner (safe=1 always) turns it red.
+func TestProbeRunsNoUserProgram(t *testing.T) {
+	if runtime.GOOS != "linux" || os.Getuid() == 0 {
+		t.Skip("needs Linux (getent) and a user that is not root")
+	}
+	u, err := user.Current()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "ran")
+	fake := "#!/bin/sh\ntouch " + marker + "\n"
+	if err := os.WriteFile(filepath.Join(bin, "komando"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":/usr/bin:/bin")
+	f := ParseFacts(sh(t, ProbeScript, u.Username))
+	if _, err := os.Stat(marker); err == nil {
+		t.Errorf("the probe ran a komando the user owns")
+	}
+	if f.Gate || f.Komando == "" {
+		t.Errorf("%+v", f)
+	}
+}

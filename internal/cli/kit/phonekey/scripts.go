@@ -9,7 +9,8 @@ import "strings"
 // ProbeScript prints the Facts for the user in $1: its uid by id (not by
 // name), its home from the user database, who komando logs in as,
 // komando's real path with the owner and mode of it and of every folder
-// above it, whether that komando has the server mode, and whether the
+// above it, whether that komando has the server mode (asked only when root
+// alone could have changed it, as the login may be root), and whether the
 // server has a system log, and the owner and mode of each folder of
 // PathDirs. It changes nothing.
 var ProbeScript = `u=$1
@@ -25,14 +26,21 @@ done
 if [ -z "$k" ] || [ ! -x "$k" ]; then echo "komando none"; exit 0; fi
 r=$(readlink -f "$k" 2>/dev/null || realpath "$k" 2>/dev/null || printf '%s' "$k")
 echo "komando $r"
-p=$r
+p=$r safe=1
 while :; do
   s=$(stat -c '%u %a' "$p" 2>/dev/null || stat -f '%u %Lp' "$p" 2>/dev/null) || s='? ?'
   echo "stat $s $p"
+  case $s in
+    "0 "*[2367]?|"0 "*[2367]|"0 "*[!0-7]*) safe=0 ;;
+    "0 "*) ;;
+    *) safe=0 ;;
+  esac
   [ "$p" = / ] && break
   p=$(dirname "$p")
 done
-if "$r" ssh-gate --here --name komando-check --help >/dev/null 2>&1; then echo "gate yes"; else echo "gate no"; fi
+# run that komando only when no one but root can have changed it: the
+# login may be root
+if [ "$safe" = 1 ] && "$r" ssh-gate --here --name komando-check --help >/dev/null 2>&1; then echo "gate yes"; else echo "gate no"; fi
 if [ -S /dev/log ] || [ -S /var/run/syslog ] || [ -S /run/systemd/journal/syslog ]; then echo "syslog yes"; else echo "syslog no"; fi
 for d in ` + strings.Join(PathDirs, " ") + `; do
   [ -d "$d" ] || continue
