@@ -414,6 +414,8 @@ func queueGroupExamples(p string) {
 		c + "consumer list " + entry + " -n 20"
 	if queueHasConsumer(p, "show") {
 		examples["komando queue "+p+" consumer"] += "\n" + c + "consumer show " + entry + " billing"
+	} else {
+		examples["komando queue "+p+" consumer"] += "\n" + c + "consumer list " + entry + " -o json"
 	}
 }
 
