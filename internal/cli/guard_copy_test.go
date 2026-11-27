@@ -221,6 +221,7 @@ func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
 		`chmod -R u+w ../other`,
 		`rm -rf ` + wt,
 		`git -C ../other pull`,
+		`eval true; rm -rf ../other`,
 		`rm -rf ./build`,
 		`mv build /tmp/out`,
 		`chmod -R u+w build`,
@@ -261,6 +262,7 @@ func TestGuardFolderRuleReadsTheRestOfAnUnknownWord(t *testing.T) {
 		`read d < /tmp/n; rm -rf "$d/x/../` + up + `"`,
 		`cd "$(cat /tmp/n)" && rm -rf ` + up,
 		`cd "$(cat /tmp/n)" && chmod -R 777 src`,
+		`read d < /tmp/n; rm -rf "$d/` + up[:1] + `${d}` + up[1:] + `"`,
 	}, treeRefusal)
 	checkLines(t, home, repo, []string{
 		`read d < /tmp/n; rm -rf "$d/build"`,
