@@ -63,7 +63,7 @@ func gateRemoteSides(cl *call, args []string) []string {
 
 // gateUseTargets are the arguments c's Use line names TARGET, SERVER or
 // CONN, alone or as one choice (`logs TARGET`, `cat SERVER PATH`,
-// `check TARGET|URL...`, `[TARGET]`, `rm TARGET...`). It stops at the
+// `[TARGET]`, `rm TARGET...`). It stops at the
 // first flag in the line: the words after it are no position.
 func gateUseTargets(c *cobra.Command, args []string) []string {
 	var res []string

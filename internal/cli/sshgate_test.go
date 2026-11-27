@@ -808,7 +808,9 @@ func TestGateSynonyms(t *testing.T) {
 func TestGateRefusesUnknownLine(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg"} {
+	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg",
+		// removed in step D5a: these lines used to run, for every key
+		"help", "help safety", "safety", "__help", "cert check https://evil.example"} {
 		for _, key := range []gateKey{readKey, netReadKey, fullKey} {
 			words, _ := gateWords(line)
 			_, _, e := gateCheck(words, key)
