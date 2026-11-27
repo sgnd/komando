@@ -61,7 +61,6 @@ var todayOnlyRows = []TodayRow{
 	// T3s: weakens komando's own checks.
 	{Key: TodayKey{"policy", "", "edit"}, When: "rule-off", Cond: "unless it only switches the rule on", Tier: Safety, What: "switches a rule off"},
 	{Key: TodayKey{"conn", "", "edit"}, When: "protection-off", Cond: "with --protected=false", Tier: Safety, What: "turns protection off"},
-	{Key: TodayKey{"cluster", "", "edit"}, When: "protection-off", Cond: "with --protected=false", Tier: Safety, What: "turns protection off"},
 	// T3s an AI agent meets: a program, file or key this computer would
 	// trust from now on, or the agent guard itself (people and scripts are
 	// not stopped)

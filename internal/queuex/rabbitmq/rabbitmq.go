@@ -149,13 +149,13 @@ func (r *Rabbit) declared(ctx context.Context, name string) (amqp.Queue, error) 
 
 // Groups: RabbitMQ has no consumer groups.
 func (r *Rabbit) Groups(context.Context) ([]queuex.Group, error) {
-	return nil, queuex.NotSupported("queue groups", "rabbitmq", noGroups)
+	return nil, queuex.NotSupported("consumer list", "rabbitmq", noGroups)
 }
 
 // Lag: RabbitMQ has no consumer groups.
 func (r *Rabbit) Lag(context.Context, string) (*queuex.GroupLag, error) {
-	return nil, queuex.NotSupported("queue lag", "rabbitmq", noGroups)
+	return nil, queuex.NotSupported("consumer show", "rabbitmq", noGroups)
 }
 
-const noGroups = "RabbitMQ has no consumer groups: `komando queue describe CONN QUEUE` shows a queue's consumers, " +
+const noGroups = "RabbitMQ has no consumer groups: `komando queue rabbitmq topic show NAME QUEUE` shows a queue's consumers, " +
 	"the messages waiting for them (ready) and those they have not acknowledged yet (unacked)"

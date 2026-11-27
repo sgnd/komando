@@ -48,8 +48,8 @@ func notOnWindows(what string, names []string) *out.Error {
 		"%s does not work on Windows servers yet: %s", what, strings.Join(names, ", "))
 }
 
-// commandWord is a command's name as a person types it: "svc.start" is
-// "svc start".
+// commandWord is a command's name as a person types it: "pkg.install" is
+// "pkg install".
 func commandWord(name string) string { return strings.ReplaceAll(name, ".", " ") }
 
 // windowsGate lets a command reach the Windows servers among hosts when it

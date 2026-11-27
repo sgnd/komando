@@ -21,7 +21,7 @@ var ruleTrigger = map[string]string{
 	"curl-pipe-sh": "curl | sh", "decode-run": "decode and run", "crontab-r": "crontab -r", "userdel": "userdel",
 	"rm-files": "rm", "docker-rm": "docker rm", "docker-prune": "docker prune", "docker-kill": "docker kill", "docker-host": "docker run",
 	"pkg-remove-essential": "package remove", "pkg-implicit-remove": "package upgrade or clean-up",
-	"container-shell": "docker or kubectl exec", "kubectl-scale-zero": "kubectl scale", "db-drop-user": "DROP USER", "check-failed": "a command komando cannot read",
+	"container-shell": "docker or kubectl exec", "kubectl-scale-zero": "kubectl scale", "db-drop-user": "DROP USER", "account-lock": "usermod -L or nologin", "check-failed": "a command komando cannot read",
 	"win-rm-root": "Remove-Item -Recurse", "win-format": "Format-Volume", "win-power": "Stop-Computer or shutdown", "win-remote-access": "stopping sshd or WinRM",
 	"win-firewall-block": "Set-NetFirewallProfile", "win-user-delete": "Remove-LocalUser", "win-encoded": "-EncodedCommand",
 	"win-download-run": "download | iex", "win-decode-run": "FromBase64String and iex", "win-backups": "vssadmin delete", "win-registry-hive": "reg delete",

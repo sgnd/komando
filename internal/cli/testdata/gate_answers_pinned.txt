@@ -746,38 +746,6 @@
 "cp"	netread	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
 "cp"	read	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
 "cp"	shell	cp	runs
-"cron --help"	full	cron	runs
-"cron --help"	netread	cron	runs
-"cron --help"	read	cron	runs
-"cron --help"	shell	cron	runs
-"cron list --help"	full	cron.list	runs
-"cron list --help"	netread	cron.list	runs
-"cron list --help"	read	cron.list	runs
-"cron list --help"	shell	cron.list	runs
-"cron list"	full	cron.list	runs
-"cron list"	netread	cron.list	runs
-"cron list"	read	cron.list	runs
-"cron list"	shell	cron.list	runs
-"cron rm --help"	full	cron.rm	runs
-"cron rm --help"	netread	cron.rm	runs
-"cron rm --help"	read	cron.rm	runs
-"cron rm --help"	shell	cron.rm	runs
-"cron rm"	full	cron.rm	runs
-"cron rm"	netread	cron.rm	SSH_GATE_READ_ONLY|komando cron rm is refused for a read-only key: it changes something
-"cron rm"	read	cron.rm	SSH_GATE_READ_ONLY|komando cron rm is refused for a read-only key: it changes something
-"cron rm"	shell	cron.rm	runs
-"cron set --help"	full	cron.set	runs
-"cron set --help"	netread	cron.set	runs
-"cron set --help"	read	cron.set	runs
-"cron set --help"	shell	cron.set	runs
-"cron set"	full	cron.set	runs
-"cron set"	netread	cron.set	SSH_GATE_READ_ONLY|komando cron set is refused for a read-only key: it changes something
-"cron set"	read	cron.set	SSH_GATE_READ_ONLY|komando cron set is refused for a read-only key: it changes something
-"cron set"	shell	cron.set	runs
-"cron"	full	cron	runs
-"cron"	netread	cron	runs
-"cron"	read	cron	runs
-"cron"	shell	cron	runs
 "db --help"	full	db	runs
 "db --help"	netread	db	runs
 "db --help"	read	db	runs
@@ -1190,14 +1158,6 @@
 "export"	netread	export	runs
 "export"	read	export	runs
 "export"	shell	export	runs
-"facts --help"	full	facts	runs
-"facts --help"	netread	facts	runs
-"facts --help"	read	facts	runs
-"facts --help"	shell	facts	runs
-"facts"	full	facts	runs
-"facts"	netread	facts	runs
-"facts"	read	facts	runs
-"facts"	shell	facts	runs
 "fs --help"	full	fs	runs
 "fs --help"	netread	fs	runs
 "fs --help"	read	fs	runs
@@ -1742,46 +1702,6 @@
 "logs"	netread	logs	runs
 "logs"	read	logs	runs
 "logs"	shell	logs	runs
-"net --help"	full	net	runs
-"net --help"	netread	net	runs
-"net --help"	read	net	runs
-"net --help"	shell	net	runs
-"net check --help"	full	net.check	runs
-"net check --help"	netread	net.check	runs
-"net check --help"	read	net.check	runs
-"net check --help"	shell	net.check	runs
-"net check"	full	net.check	runs
-"net check"	netread	net.check	runs
-"net check"	read	net.check	SSH_GATE_NETWORK_REQUIRED|komando net check is refused for a read key without network: it makes a server connect to an address you name
-"net check"	shell	net.check	runs
-"net dns --help"	full	net.dns	runs
-"net dns --help"	netread	net.dns	runs
-"net dns --help"	read	net.dns	runs
-"net dns --help"	shell	net.dns	runs
-"net dns"	full	net.dns	runs
-"net dns"	netread	net.dns	runs
-"net dns"	read	net.dns	SSH_GATE_NETWORK_REQUIRED|komando net dns is refused for a read key without network: it makes a server look up a name you give
-"net dns"	shell	net.dns	runs
-"net http --help"	full	net.http	runs
-"net http --help"	netread	net.http	runs
-"net http --help"	read	net.http	runs
-"net http --help"	shell	net.http	runs
-"net http"	full	net.http	runs
-"net http"	netread	net.http	runs
-"net http"	read	net.http	SSH_GATE_NETWORK_REQUIRED|komando net http is refused for a read key without network: it makes a server fetch a URL you give
-"net http"	shell	net.http	runs
-"net ports --help"	full	net.ports	runs
-"net ports --help"	netread	net.ports	runs
-"net ports --help"	read	net.ports	runs
-"net ports --help"	shell	net.ports	runs
-"net ports"	full	net.ports	runs
-"net ports"	netread	net.ports	runs
-"net ports"	read	net.ports	SSH_GATE_NETWORK_REQUIRED|komando net ports is refused for a read key without network: it is a network check (all of net needs a key with --network)
-"net ports"	shell	net.ports	runs
-"net"	full	net	runs
-"net"	netread	net	runs
-"net"	read	net	runs
-"net"	shell	net	runs
 "output --help"	full	output	runs
 "output --help"	netread	output	runs
 "output --help"	read	output	runs
@@ -1946,106 +1866,794 @@
 "queue --help"	netread	queue	runs
 "queue --help"	read	queue	runs
 "queue --help"	shell	queue	runs
-"queue add --help"	full	queue.add	runs
-"queue add --help"	netread	queue.add	runs
-"queue add --help"	read	queue.add	runs
-"queue add --help"	shell	queue.add	runs
-"queue add"	full	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue add"	netread	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue add"	read	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue add"	shell	queue.add	SSH_GATE_REFUSED|komando queue add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue create --help"	full	queue.create	runs
-"queue create --help"	netread	queue.create	runs
-"queue create --help"	read	queue.create	runs
-"queue create --help"	shell	queue.create	runs
-"queue create"	full	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue create"	netread	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue create"	read	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue create"	shell	queue.create	SSH_GATE_REFUSED|komando queue create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue describe --help"	full	queue.describe	runs
-"queue describe --help"	netread	queue.describe	runs
-"queue describe --help"	read	queue.describe	runs
-"queue describe --help"	shell	queue.describe	runs
-"queue describe"	full	queue.describe	runs
-"queue describe"	netread	queue.describe	runs
-"queue describe"	read	queue.describe	runs
-"queue describe"	shell	queue.describe	runs
-"queue groups --help"	full	queue.groups	runs
-"queue groups --help"	netread	queue.groups	runs
-"queue groups --help"	read	queue.groups	runs
-"queue groups --help"	shell	queue.groups	runs
-"queue groups"	full	queue.groups	runs
-"queue groups"	netread	queue.groups	runs
-"queue groups"	read	queue.groups	runs
-"queue groups"	shell	queue.groups	runs
-"queue info --help"	full	queue.info	runs
-"queue info --help"	netread	queue.info	runs
-"queue info --help"	read	queue.info	runs
-"queue info --help"	shell	queue.info	runs
-"queue info"	full	queue.info	runs
-"queue info"	netread	queue.info	runs
-"queue info"	read	queue.info	runs
-"queue info"	shell	queue.info	runs
-"queue lag --help"	full	queue.lag	runs
-"queue lag --help"	netread	queue.lag	runs
-"queue lag --help"	read	queue.lag	runs
-"queue lag --help"	shell	queue.lag	runs
-"queue lag"	full	queue.lag	runs
-"queue lag"	netread	queue.lag	runs
-"queue lag"	read	queue.lag	runs
-"queue lag"	shell	queue.lag	runs
-"queue list --help"	full	queue.list	runs
-"queue list --help"	netread	queue.list	runs
-"queue list --help"	read	queue.list	runs
-"queue list --help"	shell	queue.list	runs
-"queue list"	full	queue.list	runs
-"queue list"	netread	queue.list	runs
-"queue list"	read	queue.list	runs
-"queue list"	shell	queue.list	runs
-"queue peek --help"	full	queue.peek	runs
-"queue peek --help"	netread	queue.peek	runs
-"queue peek --help"	read	queue.peek	runs
-"queue peek --help"	shell	queue.peek	runs
-"queue peek"	full	queue.peek	runs
-"queue peek"	netread	queue.peek	runs
-"queue peek"	read	queue.peek	runs
-"queue peek"	shell	queue.peek	runs
-"queue purge --help"	full	queue.purge	runs
-"queue purge --help"	netread	queue.purge	runs
-"queue purge --help"	read	queue.purge	runs
-"queue purge --help"	shell	queue.purge	runs
-"queue purge"	full	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue purge"	netread	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue purge"	read	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue purge"	shell	queue.purge	SSH_GATE_REFUSED|komando queue purge is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue rm --help"	full	queue.rm	runs
-"queue rm --help"	netread	queue.rm	runs
-"queue rm --help"	read	queue.rm	runs
-"queue rm --help"	shell	queue.rm	runs
-"queue rm"	full	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue rm"	netread	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue rm"	read	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue rm"	shell	queue.rm	SSH_GATE_REFUSED|komando queue rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue send --help"	full	queue.send	runs
-"queue send --help"	netread	queue.send	runs
-"queue send --help"	read	queue.send	runs
-"queue send --help"	shell	queue.send	runs
-"queue send"	full	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue send"	netread	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue send"	read	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"queue send"	shell	queue.send	SSH_GATE_REFUSED|komando queue send is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka --help"	full	queue.kafka	runs
+"queue kafka --help"	netread	queue.kafka	runs
+"queue kafka --help"	read	queue.kafka	runs
+"queue kafka --help"	shell	queue.kafka	runs
+"queue kafka add --help"	full	queue.kafka.add	runs
+"queue kafka add --help"	netread	queue.kafka.add	runs
+"queue kafka add --help"	read	queue.kafka.add	runs
+"queue kafka add --help"	shell	queue.kafka.add	runs
+"queue kafka add"	full	queue.kafka.add	SSH_GATE_REFUSED|komando queue kafka add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka add"	netread	queue.kafka.add	SSH_GATE_REFUSED|komando queue kafka add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka add"	read	queue.kafka.add	SSH_GATE_REFUSED|komando queue kafka add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka add"	shell	queue.kafka.add	SSH_GATE_REFUSED|komando queue kafka add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka consumer --help"	full	queue.kafka.consumer	runs
+"queue kafka consumer --help"	netread	queue.kafka.consumer	runs
+"queue kafka consumer --help"	read	queue.kafka.consumer	runs
+"queue kafka consumer --help"	shell	queue.kafka.consumer	runs
+"queue kafka consumer list --help"	full	queue.kafka.consumer.list	runs
+"queue kafka consumer list --help"	netread	queue.kafka.consumer.list	runs
+"queue kafka consumer list --help"	read	queue.kafka.consumer.list	runs
+"queue kafka consumer list --help"	shell	queue.kafka.consumer.list	runs
+"queue kafka consumer list"	full	queue.kafka.consumer.list	runs
+"queue kafka consumer list"	netread	queue.kafka.consumer.list	runs
+"queue kafka consumer list"	read	queue.kafka.consumer.list	runs
+"queue kafka consumer list"	shell	queue.kafka.consumer.list	runs
+"queue kafka consumer show --help"	full	queue.kafka.consumer.show	runs
+"queue kafka consumer show --help"	netread	queue.kafka.consumer.show	runs
+"queue kafka consumer show --help"	read	queue.kafka.consumer.show	runs
+"queue kafka consumer show --help"	shell	queue.kafka.consumer.show	runs
+"queue kafka consumer show"	full	queue.kafka.consumer.show	runs
+"queue kafka consumer show"	netread	queue.kafka.consumer.show	runs
+"queue kafka consumer show"	read	queue.kafka.consumer.show	runs
+"queue kafka consumer show"	shell	queue.kafka.consumer.show	runs
+"queue kafka consumer"	full	queue.kafka.consumer	runs
+"queue kafka consumer"	netread	queue.kafka.consumer	runs
+"queue kafka consumer"	read	queue.kafka.consumer	runs
+"queue kafka consumer"	shell	queue.kafka.consumer	runs
+"queue kafka edit --help"	full	queue.kafka.edit	runs
+"queue kafka edit --help"	netread	queue.kafka.edit	runs
+"queue kafka edit --help"	read	queue.kafka.edit	runs
+"queue kafka edit --help"	shell	queue.kafka.edit	runs
+"queue kafka edit"	full	queue.kafka.edit	SSH_GATE_REFUSED|komando queue kafka edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka edit"	netread	queue.kafka.edit	SSH_GATE_REFUSED|komando queue kafka edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka edit"	read	queue.kafka.edit	SSH_GATE_REFUSED|komando queue kafka edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka edit"	shell	queue.kafka.edit	SSH_GATE_REFUSED|komando queue kafka edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka info --help"	full	queue.kafka.info	runs
+"queue kafka info --help"	netread	queue.kafka.info	runs
+"queue kafka info --help"	read	queue.kafka.info	runs
+"queue kafka info --help"	shell	queue.kafka.info	runs
+"queue kafka info"	full	queue.kafka.info	runs
+"queue kafka info"	netread	queue.kafka.info	runs
+"queue kafka info"	read	queue.kafka.info	runs
+"queue kafka info"	shell	queue.kafka.info	runs
+"queue kafka list --help"	full	queue.kafka.list	runs
+"queue kafka list --help"	netread	queue.kafka.list	runs
+"queue kafka list --help"	read	queue.kafka.list	runs
+"queue kafka list --help"	shell	queue.kafka.list	runs
+"queue kafka list"	full	queue.kafka.list	runs
+"queue kafka list"	netread	queue.kafka.list	runs
+"queue kafka list"	read	queue.kafka.list	runs
+"queue kafka list"	shell	queue.kafka.list	runs
+"queue kafka message --help"	full	queue.kafka.message	runs
+"queue kafka message --help"	netread	queue.kafka.message	runs
+"queue kafka message --help"	read	queue.kafka.message	runs
+"queue kafka message --help"	shell	queue.kafka.message	runs
+"queue kafka message create --help"	full	queue.kafka.message.create	runs
+"queue kafka message create --help"	netread	queue.kafka.message.create	runs
+"queue kafka message create --help"	read	queue.kafka.message.create	runs
+"queue kafka message create --help"	shell	queue.kafka.message.create	runs
+"queue kafka message create"	full	queue.kafka.message.create	SSH_GATE_REFUSED|komando queue kafka message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message create"	netread	queue.kafka.message.create	SSH_GATE_REFUSED|komando queue kafka message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message create"	read	queue.kafka.message.create	SSH_GATE_REFUSED|komando queue kafka message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message create"	shell	queue.kafka.message.create	SSH_GATE_REFUSED|komando queue kafka message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message delete --help"	full	queue.kafka.message.delete	runs
+"queue kafka message delete --help"	netread	queue.kafka.message.delete	runs
+"queue kafka message delete --help"	read	queue.kafka.message.delete	runs
+"queue kafka message delete --help"	shell	queue.kafka.message.delete	runs
+"queue kafka message delete"	full	queue.kafka.message.delete	SSH_GATE_REFUSED|komando queue kafka message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message delete"	netread	queue.kafka.message.delete	SSH_GATE_REFUSED|komando queue kafka message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message delete"	read	queue.kafka.message.delete	SSH_GATE_REFUSED|komando queue kafka message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message delete"	shell	queue.kafka.message.delete	SSH_GATE_REFUSED|komando queue kafka message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka message list --help"	full	queue.kafka.message.list	runs
+"queue kafka message list --help"	netread	queue.kafka.message.list	runs
+"queue kafka message list --help"	read	queue.kafka.message.list	runs
+"queue kafka message list --help"	shell	queue.kafka.message.list	runs
+"queue kafka message list"	full	queue.kafka.message.list	runs
+"queue kafka message list"	netread	queue.kafka.message.list	runs
+"queue kafka message list"	read	queue.kafka.message.list	runs
+"queue kafka message list"	shell	queue.kafka.message.list	runs
+"queue kafka message"	full	queue.kafka.message	runs
+"queue kafka message"	netread	queue.kafka.message	runs
+"queue kafka message"	read	queue.kafka.message	runs
+"queue kafka message"	shell	queue.kafka.message	runs
+"queue kafka remove --help"	full	queue.kafka.remove	runs
+"queue kafka remove --help"	netread	queue.kafka.remove	runs
+"queue kafka remove --help"	read	queue.kafka.remove	runs
+"queue kafka remove --help"	shell	queue.kafka.remove	runs
+"queue kafka remove"	full	queue.kafka.remove	SSH_GATE_REFUSED|komando queue kafka remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka remove"	netread	queue.kafka.remove	SSH_GATE_REFUSED|komando queue kafka remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka remove"	read	queue.kafka.remove	SSH_GATE_REFUSED|komando queue kafka remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka remove"	shell	queue.kafka.remove	SSH_GATE_REFUSED|komando queue kafka remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka rename --help"	full	queue.kafka.rename	runs
+"queue kafka rename --help"	netread	queue.kafka.rename	runs
+"queue kafka rename --help"	read	queue.kafka.rename	runs
+"queue kafka rename --help"	shell	queue.kafka.rename	runs
+"queue kafka rename"	full	queue.kafka.rename	SSH_GATE_REFUSED|komando queue kafka rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka rename"	netread	queue.kafka.rename	SSH_GATE_REFUSED|komando queue kafka rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka rename"	read	queue.kafka.rename	SSH_GATE_REFUSED|komando queue kafka rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka rename"	shell	queue.kafka.rename	SSH_GATE_REFUSED|komando queue kafka rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka show --help"	full	queue.kafka.show	runs
+"queue kafka show --help"	netread	queue.kafka.show	runs
+"queue kafka show --help"	read	queue.kafka.show	runs
+"queue kafka show --help"	shell	queue.kafka.show	runs
+"queue kafka show"	full	queue.kafka.show	runs
+"queue kafka show"	netread	queue.kafka.show	runs
+"queue kafka show"	read	queue.kafka.show	runs
+"queue kafka show"	shell	queue.kafka.show	runs
+"queue kafka test --help"	full	queue.kafka.test	runs
+"queue kafka test --help"	netread	queue.kafka.test	runs
+"queue kafka test --help"	read	queue.kafka.test	runs
+"queue kafka test --help"	shell	queue.kafka.test	runs
+"queue kafka test"	full	queue.kafka.test	runs
+"queue kafka test"	netread	queue.kafka.test	runs
+"queue kafka test"	read	queue.kafka.test	runs
+"queue kafka test"	shell	queue.kafka.test	runs
+"queue kafka topic --help"	full	queue.kafka.topic	runs
+"queue kafka topic --help"	netread	queue.kafka.topic	runs
+"queue kafka topic --help"	read	queue.kafka.topic	runs
+"queue kafka topic --help"	shell	queue.kafka.topic	runs
+"queue kafka topic create --help"	full	queue.kafka.topic.create	runs
+"queue kafka topic create --help"	netread	queue.kafka.topic.create	runs
+"queue kafka topic create --help"	read	queue.kafka.topic.create	runs
+"queue kafka topic create --help"	shell	queue.kafka.topic.create	runs
+"queue kafka topic create"	full	queue.kafka.topic.create	SSH_GATE_REFUSED|komando queue kafka topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic create"	netread	queue.kafka.topic.create	SSH_GATE_REFUSED|komando queue kafka topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic create"	read	queue.kafka.topic.create	SSH_GATE_REFUSED|komando queue kafka topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic create"	shell	queue.kafka.topic.create	SSH_GATE_REFUSED|komando queue kafka topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic delete --help"	full	queue.kafka.topic.delete	runs
+"queue kafka topic delete --help"	netread	queue.kafka.topic.delete	runs
+"queue kafka topic delete --help"	read	queue.kafka.topic.delete	runs
+"queue kafka topic delete --help"	shell	queue.kafka.topic.delete	runs
+"queue kafka topic delete"	full	queue.kafka.topic.delete	SSH_GATE_REFUSED|komando queue kafka topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic delete"	netread	queue.kafka.topic.delete	SSH_GATE_REFUSED|komando queue kafka topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic delete"	read	queue.kafka.topic.delete	SSH_GATE_REFUSED|komando queue kafka topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic delete"	shell	queue.kafka.topic.delete	SSH_GATE_REFUSED|komando queue kafka topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue kafka topic list --help"	full	queue.kafka.topic.list	runs
+"queue kafka topic list --help"	netread	queue.kafka.topic.list	runs
+"queue kafka topic list --help"	read	queue.kafka.topic.list	runs
+"queue kafka topic list --help"	shell	queue.kafka.topic.list	runs
+"queue kafka topic list"	full	queue.kafka.topic.list	runs
+"queue kafka topic list"	netread	queue.kafka.topic.list	runs
+"queue kafka topic list"	read	queue.kafka.topic.list	runs
+"queue kafka topic list"	shell	queue.kafka.topic.list	runs
+"queue kafka topic show --help"	full	queue.kafka.topic.show	runs
+"queue kafka topic show --help"	netread	queue.kafka.topic.show	runs
+"queue kafka topic show --help"	read	queue.kafka.topic.show	runs
+"queue kafka topic show --help"	shell	queue.kafka.topic.show	runs
+"queue kafka topic show"	full	queue.kafka.topic.show	runs
+"queue kafka topic show"	netread	queue.kafka.topic.show	runs
+"queue kafka topic show"	read	queue.kafka.topic.show	runs
+"queue kafka topic show"	shell	queue.kafka.topic.show	runs
+"queue kafka topic"	full	queue.kafka.topic	runs
+"queue kafka topic"	netread	queue.kafka.topic	runs
+"queue kafka topic"	read	queue.kafka.topic	runs
+"queue kafka topic"	shell	queue.kafka.topic	runs
+"queue kafka"	full	queue.kafka	runs
+"queue kafka"	netread	queue.kafka	runs
+"queue kafka"	read	queue.kafka	runs
+"queue kafka"	shell	queue.kafka	runs
+"queue nats --help"	full	queue.nats	runs
+"queue nats --help"	netread	queue.nats	runs
+"queue nats --help"	read	queue.nats	runs
+"queue nats --help"	shell	queue.nats	runs
+"queue nats add --help"	full	queue.nats.add	runs
+"queue nats add --help"	netread	queue.nats.add	runs
+"queue nats add --help"	read	queue.nats.add	runs
+"queue nats add --help"	shell	queue.nats.add	runs
+"queue nats add"	full	queue.nats.add	SSH_GATE_REFUSED|komando queue nats add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats add"	netread	queue.nats.add	SSH_GATE_REFUSED|komando queue nats add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats add"	read	queue.nats.add	SSH_GATE_REFUSED|komando queue nats add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats add"	shell	queue.nats.add	SSH_GATE_REFUSED|komando queue nats add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats consumer --help"	full	queue.nats.consumer	runs
+"queue nats consumer --help"	netread	queue.nats.consumer	runs
+"queue nats consumer --help"	read	queue.nats.consumer	runs
+"queue nats consumer --help"	shell	queue.nats.consumer	runs
+"queue nats consumer list --help"	full	queue.nats.consumer.list	runs
+"queue nats consumer list --help"	netread	queue.nats.consumer.list	runs
+"queue nats consumer list --help"	read	queue.nats.consumer.list	runs
+"queue nats consumer list --help"	shell	queue.nats.consumer.list	runs
+"queue nats consumer list"	full	queue.nats.consumer.list	runs
+"queue nats consumer list"	netread	queue.nats.consumer.list	runs
+"queue nats consumer list"	read	queue.nats.consumer.list	runs
+"queue nats consumer list"	shell	queue.nats.consumer.list	runs
+"queue nats consumer show --help"	full	queue.nats.consumer.show	runs
+"queue nats consumer show --help"	netread	queue.nats.consumer.show	runs
+"queue nats consumer show --help"	read	queue.nats.consumer.show	runs
+"queue nats consumer show --help"	shell	queue.nats.consumer.show	runs
+"queue nats consumer show"	full	queue.nats.consumer.show	runs
+"queue nats consumer show"	netread	queue.nats.consumer.show	runs
+"queue nats consumer show"	read	queue.nats.consumer.show	runs
+"queue nats consumer show"	shell	queue.nats.consumer.show	runs
+"queue nats consumer"	full	queue.nats.consumer	runs
+"queue nats consumer"	netread	queue.nats.consumer	runs
+"queue nats consumer"	read	queue.nats.consumer	runs
+"queue nats consumer"	shell	queue.nats.consumer	runs
+"queue nats edit --help"	full	queue.nats.edit	runs
+"queue nats edit --help"	netread	queue.nats.edit	runs
+"queue nats edit --help"	read	queue.nats.edit	runs
+"queue nats edit --help"	shell	queue.nats.edit	runs
+"queue nats edit"	full	queue.nats.edit	SSH_GATE_REFUSED|komando queue nats edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats edit"	netread	queue.nats.edit	SSH_GATE_REFUSED|komando queue nats edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats edit"	read	queue.nats.edit	SSH_GATE_REFUSED|komando queue nats edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats edit"	shell	queue.nats.edit	SSH_GATE_REFUSED|komando queue nats edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats info --help"	full	queue.nats.info	runs
+"queue nats info --help"	netread	queue.nats.info	runs
+"queue nats info --help"	read	queue.nats.info	runs
+"queue nats info --help"	shell	queue.nats.info	runs
+"queue nats info"	full	queue.nats.info	runs
+"queue nats info"	netread	queue.nats.info	runs
+"queue nats info"	read	queue.nats.info	runs
+"queue nats info"	shell	queue.nats.info	runs
+"queue nats list --help"	full	queue.nats.list	runs
+"queue nats list --help"	netread	queue.nats.list	runs
+"queue nats list --help"	read	queue.nats.list	runs
+"queue nats list --help"	shell	queue.nats.list	runs
+"queue nats list"	full	queue.nats.list	runs
+"queue nats list"	netread	queue.nats.list	runs
+"queue nats list"	read	queue.nats.list	runs
+"queue nats list"	shell	queue.nats.list	runs
+"queue nats message --help"	full	queue.nats.message	runs
+"queue nats message --help"	netread	queue.nats.message	runs
+"queue nats message --help"	read	queue.nats.message	runs
+"queue nats message --help"	shell	queue.nats.message	runs
+"queue nats message create --help"	full	queue.nats.message.create	runs
+"queue nats message create --help"	netread	queue.nats.message.create	runs
+"queue nats message create --help"	read	queue.nats.message.create	runs
+"queue nats message create --help"	shell	queue.nats.message.create	runs
+"queue nats message create"	full	queue.nats.message.create	SSH_GATE_REFUSED|komando queue nats message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message create"	netread	queue.nats.message.create	SSH_GATE_REFUSED|komando queue nats message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message create"	read	queue.nats.message.create	SSH_GATE_REFUSED|komando queue nats message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message create"	shell	queue.nats.message.create	SSH_GATE_REFUSED|komando queue nats message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message delete --help"	full	queue.nats.message.delete	runs
+"queue nats message delete --help"	netread	queue.nats.message.delete	runs
+"queue nats message delete --help"	read	queue.nats.message.delete	runs
+"queue nats message delete --help"	shell	queue.nats.message.delete	runs
+"queue nats message delete"	full	queue.nats.message.delete	SSH_GATE_REFUSED|komando queue nats message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message delete"	netread	queue.nats.message.delete	SSH_GATE_REFUSED|komando queue nats message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message delete"	read	queue.nats.message.delete	SSH_GATE_REFUSED|komando queue nats message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message delete"	shell	queue.nats.message.delete	SSH_GATE_REFUSED|komando queue nats message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats message list --help"	full	queue.nats.message.list	runs
+"queue nats message list --help"	netread	queue.nats.message.list	runs
+"queue nats message list --help"	read	queue.nats.message.list	runs
+"queue nats message list --help"	shell	queue.nats.message.list	runs
+"queue nats message list"	full	queue.nats.message.list	runs
+"queue nats message list"	netread	queue.nats.message.list	runs
+"queue nats message list"	read	queue.nats.message.list	runs
+"queue nats message list"	shell	queue.nats.message.list	runs
+"queue nats message"	full	queue.nats.message	runs
+"queue nats message"	netread	queue.nats.message	runs
+"queue nats message"	read	queue.nats.message	runs
+"queue nats message"	shell	queue.nats.message	runs
+"queue nats remove --help"	full	queue.nats.remove	runs
+"queue nats remove --help"	netread	queue.nats.remove	runs
+"queue nats remove --help"	read	queue.nats.remove	runs
+"queue nats remove --help"	shell	queue.nats.remove	runs
+"queue nats remove"	full	queue.nats.remove	SSH_GATE_REFUSED|komando queue nats remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats remove"	netread	queue.nats.remove	SSH_GATE_REFUSED|komando queue nats remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats remove"	read	queue.nats.remove	SSH_GATE_REFUSED|komando queue nats remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats remove"	shell	queue.nats.remove	SSH_GATE_REFUSED|komando queue nats remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats rename --help"	full	queue.nats.rename	runs
+"queue nats rename --help"	netread	queue.nats.rename	runs
+"queue nats rename --help"	read	queue.nats.rename	runs
+"queue nats rename --help"	shell	queue.nats.rename	runs
+"queue nats rename"	full	queue.nats.rename	SSH_GATE_REFUSED|komando queue nats rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats rename"	netread	queue.nats.rename	SSH_GATE_REFUSED|komando queue nats rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats rename"	read	queue.nats.rename	SSH_GATE_REFUSED|komando queue nats rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats rename"	shell	queue.nats.rename	SSH_GATE_REFUSED|komando queue nats rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats show --help"	full	queue.nats.show	runs
+"queue nats show --help"	netread	queue.nats.show	runs
+"queue nats show --help"	read	queue.nats.show	runs
+"queue nats show --help"	shell	queue.nats.show	runs
+"queue nats show"	full	queue.nats.show	runs
+"queue nats show"	netread	queue.nats.show	runs
+"queue nats show"	read	queue.nats.show	runs
+"queue nats show"	shell	queue.nats.show	runs
+"queue nats test --help"	full	queue.nats.test	runs
+"queue nats test --help"	netread	queue.nats.test	runs
+"queue nats test --help"	read	queue.nats.test	runs
+"queue nats test --help"	shell	queue.nats.test	runs
+"queue nats test"	full	queue.nats.test	runs
+"queue nats test"	netread	queue.nats.test	runs
+"queue nats test"	read	queue.nats.test	runs
+"queue nats test"	shell	queue.nats.test	runs
+"queue nats topic --help"	full	queue.nats.topic	runs
+"queue nats topic --help"	netread	queue.nats.topic	runs
+"queue nats topic --help"	read	queue.nats.topic	runs
+"queue nats topic --help"	shell	queue.nats.topic	runs
+"queue nats topic create --help"	full	queue.nats.topic.create	runs
+"queue nats topic create --help"	netread	queue.nats.topic.create	runs
+"queue nats topic create --help"	read	queue.nats.topic.create	runs
+"queue nats topic create --help"	shell	queue.nats.topic.create	runs
+"queue nats topic create"	full	queue.nats.topic.create	SSH_GATE_REFUSED|komando queue nats topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic create"	netread	queue.nats.topic.create	SSH_GATE_REFUSED|komando queue nats topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic create"	read	queue.nats.topic.create	SSH_GATE_REFUSED|komando queue nats topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic create"	shell	queue.nats.topic.create	SSH_GATE_REFUSED|komando queue nats topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic delete --help"	full	queue.nats.topic.delete	runs
+"queue nats topic delete --help"	netread	queue.nats.topic.delete	runs
+"queue nats topic delete --help"	read	queue.nats.topic.delete	runs
+"queue nats topic delete --help"	shell	queue.nats.topic.delete	runs
+"queue nats topic delete"	full	queue.nats.topic.delete	SSH_GATE_REFUSED|komando queue nats topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic delete"	netread	queue.nats.topic.delete	SSH_GATE_REFUSED|komando queue nats topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic delete"	read	queue.nats.topic.delete	SSH_GATE_REFUSED|komando queue nats topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic delete"	shell	queue.nats.topic.delete	SSH_GATE_REFUSED|komando queue nats topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue nats topic list --help"	full	queue.nats.topic.list	runs
+"queue nats topic list --help"	netread	queue.nats.topic.list	runs
+"queue nats topic list --help"	read	queue.nats.topic.list	runs
+"queue nats topic list --help"	shell	queue.nats.topic.list	runs
+"queue nats topic list"	full	queue.nats.topic.list	runs
+"queue nats topic list"	netread	queue.nats.topic.list	runs
+"queue nats topic list"	read	queue.nats.topic.list	runs
+"queue nats topic list"	shell	queue.nats.topic.list	runs
+"queue nats topic show --help"	full	queue.nats.topic.show	runs
+"queue nats topic show --help"	netread	queue.nats.topic.show	runs
+"queue nats topic show --help"	read	queue.nats.topic.show	runs
+"queue nats topic show --help"	shell	queue.nats.topic.show	runs
+"queue nats topic show"	full	queue.nats.topic.show	runs
+"queue nats topic show"	netread	queue.nats.topic.show	runs
+"queue nats topic show"	read	queue.nats.topic.show	runs
+"queue nats topic show"	shell	queue.nats.topic.show	runs
+"queue nats topic"	full	queue.nats.topic	runs
+"queue nats topic"	netread	queue.nats.topic	runs
+"queue nats topic"	read	queue.nats.topic	runs
+"queue nats topic"	shell	queue.nats.topic	runs
+"queue nats"	full	queue.nats	runs
+"queue nats"	netread	queue.nats	runs
+"queue nats"	read	queue.nats	runs
+"queue nats"	shell	queue.nats	runs
+"queue pubsub --help"	full	queue.pubsub	runs
+"queue pubsub --help"	netread	queue.pubsub	runs
+"queue pubsub --help"	read	queue.pubsub	runs
+"queue pubsub --help"	shell	queue.pubsub	runs
+"queue pubsub add --help"	full	queue.pubsub.add	runs
+"queue pubsub add --help"	netread	queue.pubsub.add	runs
+"queue pubsub add --help"	read	queue.pubsub.add	runs
+"queue pubsub add --help"	shell	queue.pubsub.add	runs
+"queue pubsub add"	full	queue.pubsub.add	SSH_GATE_REFUSED|komando queue pubsub add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub add"	netread	queue.pubsub.add	SSH_GATE_REFUSED|komando queue pubsub add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub add"	read	queue.pubsub.add	SSH_GATE_REFUSED|komando queue pubsub add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub add"	shell	queue.pubsub.add	SSH_GATE_REFUSED|komando queue pubsub add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub consumer --help"	full	queue.pubsub.consumer	runs
+"queue pubsub consumer --help"	netread	queue.pubsub.consumer	runs
+"queue pubsub consumer --help"	read	queue.pubsub.consumer	runs
+"queue pubsub consumer --help"	shell	queue.pubsub.consumer	runs
+"queue pubsub consumer list --help"	full	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list --help"	netread	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list --help"	read	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list --help"	shell	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list"	full	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list"	netread	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list"	read	queue.pubsub.consumer.list	runs
+"queue pubsub consumer list"	shell	queue.pubsub.consumer.list	runs
+"queue pubsub consumer"	full	queue.pubsub.consumer	runs
+"queue pubsub consumer"	netread	queue.pubsub.consumer	runs
+"queue pubsub consumer"	read	queue.pubsub.consumer	runs
+"queue pubsub consumer"	shell	queue.pubsub.consumer	runs
+"queue pubsub edit --help"	full	queue.pubsub.edit	runs
+"queue pubsub edit --help"	netread	queue.pubsub.edit	runs
+"queue pubsub edit --help"	read	queue.pubsub.edit	runs
+"queue pubsub edit --help"	shell	queue.pubsub.edit	runs
+"queue pubsub edit"	full	queue.pubsub.edit	SSH_GATE_REFUSED|komando queue pubsub edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub edit"	netread	queue.pubsub.edit	SSH_GATE_REFUSED|komando queue pubsub edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub edit"	read	queue.pubsub.edit	SSH_GATE_REFUSED|komando queue pubsub edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub edit"	shell	queue.pubsub.edit	SSH_GATE_REFUSED|komando queue pubsub edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub info --help"	full	queue.pubsub.info	runs
+"queue pubsub info --help"	netread	queue.pubsub.info	runs
+"queue pubsub info --help"	read	queue.pubsub.info	runs
+"queue pubsub info --help"	shell	queue.pubsub.info	runs
+"queue pubsub info"	full	queue.pubsub.info	runs
+"queue pubsub info"	netread	queue.pubsub.info	runs
+"queue pubsub info"	read	queue.pubsub.info	runs
+"queue pubsub info"	shell	queue.pubsub.info	runs
+"queue pubsub list --help"	full	queue.pubsub.list	runs
+"queue pubsub list --help"	netread	queue.pubsub.list	runs
+"queue pubsub list --help"	read	queue.pubsub.list	runs
+"queue pubsub list --help"	shell	queue.pubsub.list	runs
+"queue pubsub list"	full	queue.pubsub.list	runs
+"queue pubsub list"	netread	queue.pubsub.list	runs
+"queue pubsub list"	read	queue.pubsub.list	runs
+"queue pubsub list"	shell	queue.pubsub.list	runs
+"queue pubsub message --help"	full	queue.pubsub.message	runs
+"queue pubsub message --help"	netread	queue.pubsub.message	runs
+"queue pubsub message --help"	read	queue.pubsub.message	runs
+"queue pubsub message --help"	shell	queue.pubsub.message	runs
+"queue pubsub message create --help"	full	queue.pubsub.message.create	runs
+"queue pubsub message create --help"	netread	queue.pubsub.message.create	runs
+"queue pubsub message create --help"	read	queue.pubsub.message.create	runs
+"queue pubsub message create --help"	shell	queue.pubsub.message.create	runs
+"queue pubsub message create"	full	queue.pubsub.message.create	SSH_GATE_REFUSED|komando queue pubsub message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message create"	netread	queue.pubsub.message.create	SSH_GATE_REFUSED|komando queue pubsub message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message create"	read	queue.pubsub.message.create	SSH_GATE_REFUSED|komando queue pubsub message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message create"	shell	queue.pubsub.message.create	SSH_GATE_REFUSED|komando queue pubsub message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message delete --help"	full	queue.pubsub.message.delete	runs
+"queue pubsub message delete --help"	netread	queue.pubsub.message.delete	runs
+"queue pubsub message delete --help"	read	queue.pubsub.message.delete	runs
+"queue pubsub message delete --help"	shell	queue.pubsub.message.delete	runs
+"queue pubsub message delete"	full	queue.pubsub.message.delete	SSH_GATE_REFUSED|komando queue pubsub message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message delete"	netread	queue.pubsub.message.delete	SSH_GATE_REFUSED|komando queue pubsub message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message delete"	read	queue.pubsub.message.delete	SSH_GATE_REFUSED|komando queue pubsub message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message delete"	shell	queue.pubsub.message.delete	SSH_GATE_REFUSED|komando queue pubsub message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub message list --help"	full	queue.pubsub.message.list	runs
+"queue pubsub message list --help"	netread	queue.pubsub.message.list	runs
+"queue pubsub message list --help"	read	queue.pubsub.message.list	runs
+"queue pubsub message list --help"	shell	queue.pubsub.message.list	runs
+"queue pubsub message list"	full	queue.pubsub.message.list	runs
+"queue pubsub message list"	netread	queue.pubsub.message.list	runs
+"queue pubsub message list"	read	queue.pubsub.message.list	runs
+"queue pubsub message list"	shell	queue.pubsub.message.list	runs
+"queue pubsub message"	full	queue.pubsub.message	runs
+"queue pubsub message"	netread	queue.pubsub.message	runs
+"queue pubsub message"	read	queue.pubsub.message	runs
+"queue pubsub message"	shell	queue.pubsub.message	runs
+"queue pubsub remove --help"	full	queue.pubsub.remove	runs
+"queue pubsub remove --help"	netread	queue.pubsub.remove	runs
+"queue pubsub remove --help"	read	queue.pubsub.remove	runs
+"queue pubsub remove --help"	shell	queue.pubsub.remove	runs
+"queue pubsub remove"	full	queue.pubsub.remove	SSH_GATE_REFUSED|komando queue pubsub remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub remove"	netread	queue.pubsub.remove	SSH_GATE_REFUSED|komando queue pubsub remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub remove"	read	queue.pubsub.remove	SSH_GATE_REFUSED|komando queue pubsub remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub remove"	shell	queue.pubsub.remove	SSH_GATE_REFUSED|komando queue pubsub remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub rename --help"	full	queue.pubsub.rename	runs
+"queue pubsub rename --help"	netread	queue.pubsub.rename	runs
+"queue pubsub rename --help"	read	queue.pubsub.rename	runs
+"queue pubsub rename --help"	shell	queue.pubsub.rename	runs
+"queue pubsub rename"	full	queue.pubsub.rename	SSH_GATE_REFUSED|komando queue pubsub rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub rename"	netread	queue.pubsub.rename	SSH_GATE_REFUSED|komando queue pubsub rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub rename"	read	queue.pubsub.rename	SSH_GATE_REFUSED|komando queue pubsub rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub rename"	shell	queue.pubsub.rename	SSH_GATE_REFUSED|komando queue pubsub rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub show --help"	full	queue.pubsub.show	runs
+"queue pubsub show --help"	netread	queue.pubsub.show	runs
+"queue pubsub show --help"	read	queue.pubsub.show	runs
+"queue pubsub show --help"	shell	queue.pubsub.show	runs
+"queue pubsub show"	full	queue.pubsub.show	runs
+"queue pubsub show"	netread	queue.pubsub.show	runs
+"queue pubsub show"	read	queue.pubsub.show	runs
+"queue pubsub show"	shell	queue.pubsub.show	runs
+"queue pubsub test --help"	full	queue.pubsub.test	runs
+"queue pubsub test --help"	netread	queue.pubsub.test	runs
+"queue pubsub test --help"	read	queue.pubsub.test	runs
+"queue pubsub test --help"	shell	queue.pubsub.test	runs
+"queue pubsub test"	full	queue.pubsub.test	runs
+"queue pubsub test"	netread	queue.pubsub.test	runs
+"queue pubsub test"	read	queue.pubsub.test	runs
+"queue pubsub test"	shell	queue.pubsub.test	runs
+"queue pubsub topic --help"	full	queue.pubsub.topic	runs
+"queue pubsub topic --help"	netread	queue.pubsub.topic	runs
+"queue pubsub topic --help"	read	queue.pubsub.topic	runs
+"queue pubsub topic --help"	shell	queue.pubsub.topic	runs
+"queue pubsub topic create --help"	full	queue.pubsub.topic.create	runs
+"queue pubsub topic create --help"	netread	queue.pubsub.topic.create	runs
+"queue pubsub topic create --help"	read	queue.pubsub.topic.create	runs
+"queue pubsub topic create --help"	shell	queue.pubsub.topic.create	runs
+"queue pubsub topic create"	full	queue.pubsub.topic.create	SSH_GATE_REFUSED|komando queue pubsub topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic create"	netread	queue.pubsub.topic.create	SSH_GATE_REFUSED|komando queue pubsub topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic create"	read	queue.pubsub.topic.create	SSH_GATE_REFUSED|komando queue pubsub topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic create"	shell	queue.pubsub.topic.create	SSH_GATE_REFUSED|komando queue pubsub topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic delete --help"	full	queue.pubsub.topic.delete	runs
+"queue pubsub topic delete --help"	netread	queue.pubsub.topic.delete	runs
+"queue pubsub topic delete --help"	read	queue.pubsub.topic.delete	runs
+"queue pubsub topic delete --help"	shell	queue.pubsub.topic.delete	runs
+"queue pubsub topic delete"	full	queue.pubsub.topic.delete	SSH_GATE_REFUSED|komando queue pubsub topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic delete"	netread	queue.pubsub.topic.delete	SSH_GATE_REFUSED|komando queue pubsub topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic delete"	read	queue.pubsub.topic.delete	SSH_GATE_REFUSED|komando queue pubsub topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic delete"	shell	queue.pubsub.topic.delete	SSH_GATE_REFUSED|komando queue pubsub topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue pubsub topic list --help"	full	queue.pubsub.topic.list	runs
+"queue pubsub topic list --help"	netread	queue.pubsub.topic.list	runs
+"queue pubsub topic list --help"	read	queue.pubsub.topic.list	runs
+"queue pubsub topic list --help"	shell	queue.pubsub.topic.list	runs
+"queue pubsub topic list"	full	queue.pubsub.topic.list	runs
+"queue pubsub topic list"	netread	queue.pubsub.topic.list	runs
+"queue pubsub topic list"	read	queue.pubsub.topic.list	runs
+"queue pubsub topic list"	shell	queue.pubsub.topic.list	runs
+"queue pubsub topic show --help"	full	queue.pubsub.topic.show	runs
+"queue pubsub topic show --help"	netread	queue.pubsub.topic.show	runs
+"queue pubsub topic show --help"	read	queue.pubsub.topic.show	runs
+"queue pubsub topic show --help"	shell	queue.pubsub.topic.show	runs
+"queue pubsub topic show"	full	queue.pubsub.topic.show	runs
+"queue pubsub topic show"	netread	queue.pubsub.topic.show	runs
+"queue pubsub topic show"	read	queue.pubsub.topic.show	runs
+"queue pubsub topic show"	shell	queue.pubsub.topic.show	runs
+"queue pubsub topic"	full	queue.pubsub.topic	runs
+"queue pubsub topic"	netread	queue.pubsub.topic	runs
+"queue pubsub topic"	read	queue.pubsub.topic	runs
+"queue pubsub topic"	shell	queue.pubsub.topic	runs
+"queue pubsub"	full	queue.pubsub	runs
+"queue pubsub"	netread	queue.pubsub	runs
+"queue pubsub"	read	queue.pubsub	runs
+"queue pubsub"	shell	queue.pubsub	runs
+"queue rabbitmq --help"	full	queue.rabbitmq	runs
+"queue rabbitmq --help"	netread	queue.rabbitmq	runs
+"queue rabbitmq --help"	read	queue.rabbitmq	runs
+"queue rabbitmq --help"	shell	queue.rabbitmq	runs
+"queue rabbitmq add --help"	full	queue.rabbitmq.add	runs
+"queue rabbitmq add --help"	netread	queue.rabbitmq.add	runs
+"queue rabbitmq add --help"	read	queue.rabbitmq.add	runs
+"queue rabbitmq add --help"	shell	queue.rabbitmq.add	runs
+"queue rabbitmq add"	full	queue.rabbitmq.add	SSH_GATE_REFUSED|komando queue rabbitmq add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq add"	netread	queue.rabbitmq.add	SSH_GATE_REFUSED|komando queue rabbitmq add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq add"	read	queue.rabbitmq.add	SSH_GATE_REFUSED|komando queue rabbitmq add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq add"	shell	queue.rabbitmq.add	SSH_GATE_REFUSED|komando queue rabbitmq add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq edit --help"	full	queue.rabbitmq.edit	runs
+"queue rabbitmq edit --help"	netread	queue.rabbitmq.edit	runs
+"queue rabbitmq edit --help"	read	queue.rabbitmq.edit	runs
+"queue rabbitmq edit --help"	shell	queue.rabbitmq.edit	runs
+"queue rabbitmq edit"	full	queue.rabbitmq.edit	SSH_GATE_REFUSED|komando queue rabbitmq edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq edit"	netread	queue.rabbitmq.edit	SSH_GATE_REFUSED|komando queue rabbitmq edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq edit"	read	queue.rabbitmq.edit	SSH_GATE_REFUSED|komando queue rabbitmq edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq edit"	shell	queue.rabbitmq.edit	SSH_GATE_REFUSED|komando queue rabbitmq edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq info --help"	full	queue.rabbitmq.info	runs
+"queue rabbitmq info --help"	netread	queue.rabbitmq.info	runs
+"queue rabbitmq info --help"	read	queue.rabbitmq.info	runs
+"queue rabbitmq info --help"	shell	queue.rabbitmq.info	runs
+"queue rabbitmq info"	full	queue.rabbitmq.info	runs
+"queue rabbitmq info"	netread	queue.rabbitmq.info	runs
+"queue rabbitmq info"	read	queue.rabbitmq.info	runs
+"queue rabbitmq info"	shell	queue.rabbitmq.info	runs
+"queue rabbitmq list --help"	full	queue.rabbitmq.list	runs
+"queue rabbitmq list --help"	netread	queue.rabbitmq.list	runs
+"queue rabbitmq list --help"	read	queue.rabbitmq.list	runs
+"queue rabbitmq list --help"	shell	queue.rabbitmq.list	runs
+"queue rabbitmq list"	full	queue.rabbitmq.list	runs
+"queue rabbitmq list"	netread	queue.rabbitmq.list	runs
+"queue rabbitmq list"	read	queue.rabbitmq.list	runs
+"queue rabbitmq list"	shell	queue.rabbitmq.list	runs
+"queue rabbitmq message --help"	full	queue.rabbitmq.message	runs
+"queue rabbitmq message --help"	netread	queue.rabbitmq.message	runs
+"queue rabbitmq message --help"	read	queue.rabbitmq.message	runs
+"queue rabbitmq message --help"	shell	queue.rabbitmq.message	runs
+"queue rabbitmq message create --help"	full	queue.rabbitmq.message.create	runs
+"queue rabbitmq message create --help"	netread	queue.rabbitmq.message.create	runs
+"queue rabbitmq message create --help"	read	queue.rabbitmq.message.create	runs
+"queue rabbitmq message create --help"	shell	queue.rabbitmq.message.create	runs
+"queue rabbitmq message create"	full	queue.rabbitmq.message.create	SSH_GATE_REFUSED|komando queue rabbitmq message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message create"	netread	queue.rabbitmq.message.create	SSH_GATE_REFUSED|komando queue rabbitmq message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message create"	read	queue.rabbitmq.message.create	SSH_GATE_REFUSED|komando queue rabbitmq message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message create"	shell	queue.rabbitmq.message.create	SSH_GATE_REFUSED|komando queue rabbitmq message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message delete --help"	full	queue.rabbitmq.message.delete	runs
+"queue rabbitmq message delete --help"	netread	queue.rabbitmq.message.delete	runs
+"queue rabbitmq message delete --help"	read	queue.rabbitmq.message.delete	runs
+"queue rabbitmq message delete --help"	shell	queue.rabbitmq.message.delete	runs
+"queue rabbitmq message delete"	full	queue.rabbitmq.message.delete	SSH_GATE_REFUSED|komando queue rabbitmq message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message delete"	netread	queue.rabbitmq.message.delete	SSH_GATE_REFUSED|komando queue rabbitmq message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message delete"	read	queue.rabbitmq.message.delete	SSH_GATE_REFUSED|komando queue rabbitmq message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message delete"	shell	queue.rabbitmq.message.delete	SSH_GATE_REFUSED|komando queue rabbitmq message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq message list --help"	full	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list --help"	netread	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list --help"	read	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list --help"	shell	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list"	full	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list"	netread	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list"	read	queue.rabbitmq.message.list	runs
+"queue rabbitmq message list"	shell	queue.rabbitmq.message.list	runs
+"queue rabbitmq message"	full	queue.rabbitmq.message	runs
+"queue rabbitmq message"	netread	queue.rabbitmq.message	runs
+"queue rabbitmq message"	read	queue.rabbitmq.message	runs
+"queue rabbitmq message"	shell	queue.rabbitmq.message	runs
+"queue rabbitmq remove --help"	full	queue.rabbitmq.remove	runs
+"queue rabbitmq remove --help"	netread	queue.rabbitmq.remove	runs
+"queue rabbitmq remove --help"	read	queue.rabbitmq.remove	runs
+"queue rabbitmq remove --help"	shell	queue.rabbitmq.remove	runs
+"queue rabbitmq remove"	full	queue.rabbitmq.remove	SSH_GATE_REFUSED|komando queue rabbitmq remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq remove"	netread	queue.rabbitmq.remove	SSH_GATE_REFUSED|komando queue rabbitmq remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq remove"	read	queue.rabbitmq.remove	SSH_GATE_REFUSED|komando queue rabbitmq remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq remove"	shell	queue.rabbitmq.remove	SSH_GATE_REFUSED|komando queue rabbitmq remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq rename --help"	full	queue.rabbitmq.rename	runs
+"queue rabbitmq rename --help"	netread	queue.rabbitmq.rename	runs
+"queue rabbitmq rename --help"	read	queue.rabbitmq.rename	runs
+"queue rabbitmq rename --help"	shell	queue.rabbitmq.rename	runs
+"queue rabbitmq rename"	full	queue.rabbitmq.rename	SSH_GATE_REFUSED|komando queue rabbitmq rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq rename"	netread	queue.rabbitmq.rename	SSH_GATE_REFUSED|komando queue rabbitmq rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq rename"	read	queue.rabbitmq.rename	SSH_GATE_REFUSED|komando queue rabbitmq rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq rename"	shell	queue.rabbitmq.rename	SSH_GATE_REFUSED|komando queue rabbitmq rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq show --help"	full	queue.rabbitmq.show	runs
+"queue rabbitmq show --help"	netread	queue.rabbitmq.show	runs
+"queue rabbitmq show --help"	read	queue.rabbitmq.show	runs
+"queue rabbitmq show --help"	shell	queue.rabbitmq.show	runs
+"queue rabbitmq show"	full	queue.rabbitmq.show	runs
+"queue rabbitmq show"	netread	queue.rabbitmq.show	runs
+"queue rabbitmq show"	read	queue.rabbitmq.show	runs
+"queue rabbitmq show"	shell	queue.rabbitmq.show	runs
+"queue rabbitmq test --help"	full	queue.rabbitmq.test	runs
+"queue rabbitmq test --help"	netread	queue.rabbitmq.test	runs
+"queue rabbitmq test --help"	read	queue.rabbitmq.test	runs
+"queue rabbitmq test --help"	shell	queue.rabbitmq.test	runs
+"queue rabbitmq test"	full	queue.rabbitmq.test	runs
+"queue rabbitmq test"	netread	queue.rabbitmq.test	runs
+"queue rabbitmq test"	read	queue.rabbitmq.test	runs
+"queue rabbitmq test"	shell	queue.rabbitmq.test	runs
+"queue rabbitmq topic --help"	full	queue.rabbitmq.topic	runs
+"queue rabbitmq topic --help"	netread	queue.rabbitmq.topic	runs
+"queue rabbitmq topic --help"	read	queue.rabbitmq.topic	runs
+"queue rabbitmq topic --help"	shell	queue.rabbitmq.topic	runs
+"queue rabbitmq topic create --help"	full	queue.rabbitmq.topic.create	runs
+"queue rabbitmq topic create --help"	netread	queue.rabbitmq.topic.create	runs
+"queue rabbitmq topic create --help"	read	queue.rabbitmq.topic.create	runs
+"queue rabbitmq topic create --help"	shell	queue.rabbitmq.topic.create	runs
+"queue rabbitmq topic create"	full	queue.rabbitmq.topic.create	SSH_GATE_REFUSED|komando queue rabbitmq topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic create"	netread	queue.rabbitmq.topic.create	SSH_GATE_REFUSED|komando queue rabbitmq topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic create"	read	queue.rabbitmq.topic.create	SSH_GATE_REFUSED|komando queue rabbitmq topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic create"	shell	queue.rabbitmq.topic.create	SSH_GATE_REFUSED|komando queue rabbitmq topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic delete --help"	full	queue.rabbitmq.topic.delete	runs
+"queue rabbitmq topic delete --help"	netread	queue.rabbitmq.topic.delete	runs
+"queue rabbitmq topic delete --help"	read	queue.rabbitmq.topic.delete	runs
+"queue rabbitmq topic delete --help"	shell	queue.rabbitmq.topic.delete	runs
+"queue rabbitmq topic delete"	full	queue.rabbitmq.topic.delete	SSH_GATE_REFUSED|komando queue rabbitmq topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic delete"	netread	queue.rabbitmq.topic.delete	SSH_GATE_REFUSED|komando queue rabbitmq topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic delete"	read	queue.rabbitmq.topic.delete	SSH_GATE_REFUSED|komando queue rabbitmq topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic delete"	shell	queue.rabbitmq.topic.delete	SSH_GATE_REFUSED|komando queue rabbitmq topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue rabbitmq topic list --help"	full	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list --help"	netread	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list --help"	read	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list --help"	shell	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list"	full	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list"	netread	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list"	read	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic list"	shell	queue.rabbitmq.topic.list	runs
+"queue rabbitmq topic show --help"	full	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show --help"	netread	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show --help"	read	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show --help"	shell	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show"	full	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show"	netread	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show"	read	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic show"	shell	queue.rabbitmq.topic.show	runs
+"queue rabbitmq topic"	full	queue.rabbitmq.topic	runs
+"queue rabbitmq topic"	netread	queue.rabbitmq.topic	runs
+"queue rabbitmq topic"	read	queue.rabbitmq.topic	runs
+"queue rabbitmq topic"	shell	queue.rabbitmq.topic	runs
+"queue rabbitmq"	full	queue.rabbitmq	runs
+"queue rabbitmq"	netread	queue.rabbitmq	runs
+"queue rabbitmq"	read	queue.rabbitmq	runs
+"queue rabbitmq"	shell	queue.rabbitmq	runs
+"queue sqs --help"	full	queue.sqs	runs
+"queue sqs --help"	netread	queue.sqs	runs
+"queue sqs --help"	read	queue.sqs	runs
+"queue sqs --help"	shell	queue.sqs	runs
+"queue sqs add --help"	full	queue.sqs.add	runs
+"queue sqs add --help"	netread	queue.sqs.add	runs
+"queue sqs add --help"	read	queue.sqs.add	runs
+"queue sqs add --help"	shell	queue.sqs.add	runs
+"queue sqs add"	full	queue.sqs.add	SSH_GATE_REFUSED|komando queue sqs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs add"	netread	queue.sqs.add	SSH_GATE_REFUSED|komando queue sqs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs add"	read	queue.sqs.add	SSH_GATE_REFUSED|komando queue sqs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs add"	shell	queue.sqs.add	SSH_GATE_REFUSED|komando queue sqs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs edit --help"	full	queue.sqs.edit	runs
+"queue sqs edit --help"	netread	queue.sqs.edit	runs
+"queue sqs edit --help"	read	queue.sqs.edit	runs
+"queue sqs edit --help"	shell	queue.sqs.edit	runs
+"queue sqs edit"	full	queue.sqs.edit	SSH_GATE_REFUSED|komando queue sqs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs edit"	netread	queue.sqs.edit	SSH_GATE_REFUSED|komando queue sqs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs edit"	read	queue.sqs.edit	SSH_GATE_REFUSED|komando queue sqs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs edit"	shell	queue.sqs.edit	SSH_GATE_REFUSED|komando queue sqs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs info --help"	full	queue.sqs.info	runs
+"queue sqs info --help"	netread	queue.sqs.info	runs
+"queue sqs info --help"	read	queue.sqs.info	runs
+"queue sqs info --help"	shell	queue.sqs.info	runs
+"queue sqs info"	full	queue.sqs.info	runs
+"queue sqs info"	netread	queue.sqs.info	runs
+"queue sqs info"	read	queue.sqs.info	runs
+"queue sqs info"	shell	queue.sqs.info	runs
+"queue sqs list --help"	full	queue.sqs.list	runs
+"queue sqs list --help"	netread	queue.sqs.list	runs
+"queue sqs list --help"	read	queue.sqs.list	runs
+"queue sqs list --help"	shell	queue.sqs.list	runs
+"queue sqs list"	full	queue.sqs.list	runs
+"queue sqs list"	netread	queue.sqs.list	runs
+"queue sqs list"	read	queue.sqs.list	runs
+"queue sqs list"	shell	queue.sqs.list	runs
+"queue sqs message --help"	full	queue.sqs.message	runs
+"queue sqs message --help"	netread	queue.sqs.message	runs
+"queue sqs message --help"	read	queue.sqs.message	runs
+"queue sqs message --help"	shell	queue.sqs.message	runs
+"queue sqs message create --help"	full	queue.sqs.message.create	runs
+"queue sqs message create --help"	netread	queue.sqs.message.create	runs
+"queue sqs message create --help"	read	queue.sqs.message.create	runs
+"queue sqs message create --help"	shell	queue.sqs.message.create	runs
+"queue sqs message create"	full	queue.sqs.message.create	SSH_GATE_REFUSED|komando queue sqs message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message create"	netread	queue.sqs.message.create	SSH_GATE_REFUSED|komando queue sqs message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message create"	read	queue.sqs.message.create	SSH_GATE_REFUSED|komando queue sqs message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message create"	shell	queue.sqs.message.create	SSH_GATE_REFUSED|komando queue sqs message create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message delete --help"	full	queue.sqs.message.delete	runs
+"queue sqs message delete --help"	netread	queue.sqs.message.delete	runs
+"queue sqs message delete --help"	read	queue.sqs.message.delete	runs
+"queue sqs message delete --help"	shell	queue.sqs.message.delete	runs
+"queue sqs message delete"	full	queue.sqs.message.delete	SSH_GATE_REFUSED|komando queue sqs message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message delete"	netread	queue.sqs.message.delete	SSH_GATE_REFUSED|komando queue sqs message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message delete"	read	queue.sqs.message.delete	SSH_GATE_REFUSED|komando queue sqs message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message delete"	shell	queue.sqs.message.delete	SSH_GATE_REFUSED|komando queue sqs message delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs message list --help"	full	queue.sqs.message.list	runs
+"queue sqs message list --help"	netread	queue.sqs.message.list	runs
+"queue sqs message list --help"	read	queue.sqs.message.list	runs
+"queue sqs message list --help"	shell	queue.sqs.message.list	runs
+"queue sqs message list"	full	queue.sqs.message.list	runs
+"queue sqs message list"	netread	queue.sqs.message.list	runs
+"queue sqs message list"	read	queue.sqs.message.list	runs
+"queue sqs message list"	shell	queue.sqs.message.list	runs
+"queue sqs message"	full	queue.sqs.message	runs
+"queue sqs message"	netread	queue.sqs.message	runs
+"queue sqs message"	read	queue.sqs.message	runs
+"queue sqs message"	shell	queue.sqs.message	runs
+"queue sqs remove --help"	full	queue.sqs.remove	runs
+"queue sqs remove --help"	netread	queue.sqs.remove	runs
+"queue sqs remove --help"	read	queue.sqs.remove	runs
+"queue sqs remove --help"	shell	queue.sqs.remove	runs
+"queue sqs remove"	full	queue.sqs.remove	SSH_GATE_REFUSED|komando queue sqs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs remove"	netread	queue.sqs.remove	SSH_GATE_REFUSED|komando queue sqs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs remove"	read	queue.sqs.remove	SSH_GATE_REFUSED|komando queue sqs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs remove"	shell	queue.sqs.remove	SSH_GATE_REFUSED|komando queue sqs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs rename --help"	full	queue.sqs.rename	runs
+"queue sqs rename --help"	netread	queue.sqs.rename	runs
+"queue sqs rename --help"	read	queue.sqs.rename	runs
+"queue sqs rename --help"	shell	queue.sqs.rename	runs
+"queue sqs rename"	full	queue.sqs.rename	SSH_GATE_REFUSED|komando queue sqs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs rename"	netread	queue.sqs.rename	SSH_GATE_REFUSED|komando queue sqs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs rename"	read	queue.sqs.rename	SSH_GATE_REFUSED|komando queue sqs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs rename"	shell	queue.sqs.rename	SSH_GATE_REFUSED|komando queue sqs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs show --help"	full	queue.sqs.show	runs
+"queue sqs show --help"	netread	queue.sqs.show	runs
+"queue sqs show --help"	read	queue.sqs.show	runs
+"queue sqs show --help"	shell	queue.sqs.show	runs
+"queue sqs show"	full	queue.sqs.show	runs
+"queue sqs show"	netread	queue.sqs.show	runs
+"queue sqs show"	read	queue.sqs.show	runs
+"queue sqs show"	shell	queue.sqs.show	runs
+"queue sqs test --help"	full	queue.sqs.test	runs
+"queue sqs test --help"	netread	queue.sqs.test	runs
+"queue sqs test --help"	read	queue.sqs.test	runs
+"queue sqs test --help"	shell	queue.sqs.test	runs
+"queue sqs test"	full	queue.sqs.test	runs
+"queue sqs test"	netread	queue.sqs.test	runs
+"queue sqs test"	read	queue.sqs.test	runs
+"queue sqs test"	shell	queue.sqs.test	runs
+"queue sqs topic --help"	full	queue.sqs.topic	runs
+"queue sqs topic --help"	netread	queue.sqs.topic	runs
+"queue sqs topic --help"	read	queue.sqs.topic	runs
+"queue sqs topic --help"	shell	queue.sqs.topic	runs
+"queue sqs topic create --help"	full	queue.sqs.topic.create	runs
+"queue sqs topic create --help"	netread	queue.sqs.topic.create	runs
+"queue sqs topic create --help"	read	queue.sqs.topic.create	runs
+"queue sqs topic create --help"	shell	queue.sqs.topic.create	runs
+"queue sqs topic create"	full	queue.sqs.topic.create	SSH_GATE_REFUSED|komando queue sqs topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic create"	netread	queue.sqs.topic.create	SSH_GATE_REFUSED|komando queue sqs topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic create"	read	queue.sqs.topic.create	SSH_GATE_REFUSED|komando queue sqs topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic create"	shell	queue.sqs.topic.create	SSH_GATE_REFUSED|komando queue sqs topic create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic delete --help"	full	queue.sqs.topic.delete	runs
+"queue sqs topic delete --help"	netread	queue.sqs.topic.delete	runs
+"queue sqs topic delete --help"	read	queue.sqs.topic.delete	runs
+"queue sqs topic delete --help"	shell	queue.sqs.topic.delete	runs
+"queue sqs topic delete"	full	queue.sqs.topic.delete	SSH_GATE_REFUSED|komando queue sqs topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic delete"	netread	queue.sqs.topic.delete	SSH_GATE_REFUSED|komando queue sqs topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic delete"	read	queue.sqs.topic.delete	SSH_GATE_REFUSED|komando queue sqs topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic delete"	shell	queue.sqs.topic.delete	SSH_GATE_REFUSED|komando queue sqs topic delete is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"queue sqs topic list --help"	full	queue.sqs.topic.list	runs
+"queue sqs topic list --help"	netread	queue.sqs.topic.list	runs
+"queue sqs topic list --help"	read	queue.sqs.topic.list	runs
+"queue sqs topic list --help"	shell	queue.sqs.topic.list	runs
+"queue sqs topic list"	full	queue.sqs.topic.list	runs
+"queue sqs topic list"	netread	queue.sqs.topic.list	runs
+"queue sqs topic list"	read	queue.sqs.topic.list	runs
+"queue sqs topic list"	shell	queue.sqs.topic.list	runs
+"queue sqs topic show --help"	full	queue.sqs.topic.show	runs
+"queue sqs topic show --help"	netread	queue.sqs.topic.show	runs
+"queue sqs topic show --help"	read	queue.sqs.topic.show	runs
+"queue sqs topic show --help"	shell	queue.sqs.topic.show	runs
+"queue sqs topic show"	full	queue.sqs.topic.show	runs
+"queue sqs topic show"	netread	queue.sqs.topic.show	runs
+"queue sqs topic show"	read	queue.sqs.topic.show	runs
+"queue sqs topic show"	shell	queue.sqs.topic.show	runs
+"queue sqs topic"	full	queue.sqs.topic	runs
+"queue sqs topic"	netread	queue.sqs.topic	runs
+"queue sqs topic"	read	queue.sqs.topic	runs
+"queue sqs topic"	shell	queue.sqs.topic	runs
+"queue sqs"	full	queue.sqs	runs
+"queue sqs"	netread	queue.sqs	runs
+"queue sqs"	read	queue.sqs	runs
+"queue sqs"	shell	queue.sqs	runs
 "queue"	full	queue	runs
 "queue"	netread	queue	runs
 "queue"	read	queue	runs
 "queue"	shell	queue	runs
-"reboot --help"	full	reboot	runs
-"reboot --help"	netread	reboot	runs
-"reboot --help"	read	reboot	runs
-"reboot --help"	shell	reboot	runs
-"reboot"	full	reboot	runs
-"reboot"	netread	reboot	SSH_GATE_READ_ONLY|komando reboot is refused for a read-only key: it changes something
-"reboot"	read	reboot	SSH_GATE_READ_ONLY|komando reboot is refused for a read-only key: it changes something
-"reboot"	shell	reboot	runs
 "recipe --help"	full	recipe	runs
 "recipe --help"	netread	recipe	runs
 "recipe --help"	read	recipe	runs
@@ -2386,30 +2994,126 @@
 "storage --help"	netread	storage	runs
 "storage --help"	read	storage	runs
 "storage --help"	shell	storage	runs
-"storage add --help"	full	storage.add	runs
-"storage add --help"	netread	storage.add	runs
-"storage add --help"	read	storage.add	runs
-"storage add --help"	shell	storage.add	runs
-"storage add"	full	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"storage add"	netread	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"storage add"	read	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"storage add"	shell	storage.add	SSH_GATE_REFUSED|komando storage add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"storage cat --help"	full	storage.cat	runs
-"storage cat --help"	netread	storage.cat	runs
-"storage cat --help"	read	storage.cat	runs
-"storage cat --help"	shell	storage.cat	runs
-"storage cat"	full	storage.cat	runs
-"storage cat"	netread	storage.cat	runs
-"storage cat"	read	storage.cat	runs
-"storage cat"	shell	storage.cat	runs
-"storage chmod --help"	full	storage.chmod	runs
-"storage chmod --help"	netread	storage.chmod	runs
-"storage chmod --help"	read	storage.chmod	runs
-"storage chmod --help"	shell	storage.chmod	runs
-"storage chmod"	full	storage.chmod	runs
-"storage chmod"	netread	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
-"storage chmod"	read	storage.chmod	SSH_GATE_READ_ONLY|komando storage chmod is refused for a read-only key: it changes something
-"storage chmod"	shell	storage.chmod	runs
+"storage azblob --help"	full	storage.azblob	runs
+"storage azblob --help"	netread	storage.azblob	runs
+"storage azblob --help"	read	storage.azblob	runs
+"storage azblob --help"	shell	storage.azblob	runs
+"storage azblob add --help"	full	storage.azblob.add	runs
+"storage azblob add --help"	netread	storage.azblob.add	runs
+"storage azblob add --help"	read	storage.azblob.add	runs
+"storage azblob add --help"	shell	storage.azblob.add	runs
+"storage azblob add"	full	storage.azblob.add	SSH_GATE_REFUSED|komando storage azblob add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob add"	netread	storage.azblob.add	SSH_GATE_REFUSED|komando storage azblob add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob add"	read	storage.azblob.add	SSH_GATE_REFUSED|komando storage azblob add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob add"	shell	storage.azblob.add	SSH_GATE_REFUSED|komando storage azblob add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob edit --help"	full	storage.azblob.edit	runs
+"storage azblob edit --help"	netread	storage.azblob.edit	runs
+"storage azblob edit --help"	read	storage.azblob.edit	runs
+"storage azblob edit --help"	shell	storage.azblob.edit	runs
+"storage azblob edit"	full	storage.azblob.edit	SSH_GATE_REFUSED|komando storage azblob edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob edit"	netread	storage.azblob.edit	SSH_GATE_REFUSED|komando storage azblob edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob edit"	read	storage.azblob.edit	SSH_GATE_REFUSED|komando storage azblob edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob edit"	shell	storage.azblob.edit	SSH_GATE_REFUSED|komando storage azblob edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob list --help"	full	storage.azblob.list	runs
+"storage azblob list --help"	netread	storage.azblob.list	runs
+"storage azblob list --help"	read	storage.azblob.list	runs
+"storage azblob list --help"	shell	storage.azblob.list	runs
+"storage azblob list"	full	storage.azblob.list	runs
+"storage azblob list"	netread	storage.azblob.list	runs
+"storage azblob list"	read	storage.azblob.list	runs
+"storage azblob list"	shell	storage.azblob.list	runs
+"storage azblob object --help"	full	storage.azblob.object	runs
+"storage azblob object --help"	netread	storage.azblob.object	runs
+"storage azblob object --help"	read	storage.azblob.object	runs
+"storage azblob object --help"	shell	storage.azblob.object	runs
+"storage azblob object create --help"	full	storage.azblob.object.create	runs
+"storage azblob object create --help"	netread	storage.azblob.object.create	runs
+"storage azblob object create --help"	read	storage.azblob.object.create	runs
+"storage azblob object create --help"	shell	storage.azblob.object.create	runs
+"storage azblob object create"	full	storage.azblob.object.create	runs
+"storage azblob object create"	netread	storage.azblob.object.create	SSH_GATE_READ_ONLY|komando storage azblob object create is refused for a read-only key: it changes something
+"storage azblob object create"	read	storage.azblob.object.create	SSH_GATE_READ_ONLY|komando storage azblob object create is refused for a read-only key: it changes something
+"storage azblob object create"	shell	storage.azblob.object.create	runs
+"storage azblob object delete --help"	full	storage.azblob.object.delete	runs
+"storage azblob object delete --help"	netread	storage.azblob.object.delete	runs
+"storage azblob object delete --help"	read	storage.azblob.object.delete	runs
+"storage azblob object delete --help"	shell	storage.azblob.object.delete	runs
+"storage azblob object delete"	full	storage.azblob.object.delete	runs
+"storage azblob object delete"	netread	storage.azblob.object.delete	SSH_GATE_READ_ONLY|komando storage azblob object delete is refused for a read-only key: it changes something
+"storage azblob object delete"	read	storage.azblob.object.delete	SSH_GATE_READ_ONLY|komando storage azblob object delete is refused for a read-only key: it changes something
+"storage azblob object delete"	shell	storage.azblob.object.delete	runs
+"storage azblob object link --help"	full	storage.azblob.object.link	runs
+"storage azblob object link --help"	netread	storage.azblob.object.link	runs
+"storage azblob object link --help"	read	storage.azblob.object.link	runs
+"storage azblob object link --help"	shell	storage.azblob.object.link	runs
+"storage azblob object link"	full	storage.azblob.object.link	runs
+"storage azblob object link"	netread	storage.azblob.object.link	SSH_GATE_READ_ONLY|komando storage azblob object link is refused for a read-only key: it makes a link that opens the data without a login
+"storage azblob object link"	read	storage.azblob.object.link	SSH_GATE_READ_ONLY|komando storage azblob object link is refused for a read-only key: it makes a link that opens the data without a login
+"storage azblob object link"	shell	storage.azblob.object.link	runs
+"storage azblob object list --help"	full	storage.azblob.object.list	runs
+"storage azblob object list --help"	netread	storage.azblob.object.list	runs
+"storage azblob object list --help"	read	storage.azblob.object.list	runs
+"storage azblob object list --help"	shell	storage.azblob.object.list	runs
+"storage azblob object list"	full	storage.azblob.object.list	runs
+"storage azblob object list"	netread	storage.azblob.object.list	runs
+"storage azblob object list"	read	storage.azblob.object.list	runs
+"storage azblob object list"	shell	storage.azblob.object.list	runs
+"storage azblob object move --help"	full	storage.azblob.object.move	runs
+"storage azblob object move --help"	netread	storage.azblob.object.move	runs
+"storage azblob object move --help"	read	storage.azblob.object.move	runs
+"storage azblob object move --help"	shell	storage.azblob.object.move	runs
+"storage azblob object move"	full	storage.azblob.object.move	runs
+"storage azblob object move"	netread	storage.azblob.object.move	SSH_GATE_READ_ONLY|komando storage azblob object move is refused for a read-only key: it changes something
+"storage azblob object move"	read	storage.azblob.object.move	SSH_GATE_READ_ONLY|komando storage azblob object move is refused for a read-only key: it changes something
+"storage azblob object move"	shell	storage.azblob.object.move	runs
+"storage azblob object read --help"	full	storage.azblob.object.read	runs
+"storage azblob object read --help"	netread	storage.azblob.object.read	runs
+"storage azblob object read --help"	read	storage.azblob.object.read	runs
+"storage azblob object read --help"	shell	storage.azblob.object.read	runs
+"storage azblob object read"	full	storage.azblob.object.read	runs
+"storage azblob object read"	netread	storage.azblob.object.read	runs
+"storage azblob object read"	read	storage.azblob.object.read	runs
+"storage azblob object read"	shell	storage.azblob.object.read	runs
+"storage azblob object"	full	storage.azblob.object	runs
+"storage azblob object"	netread	storage.azblob.object	runs
+"storage azblob object"	read	storage.azblob.object	runs
+"storage azblob object"	shell	storage.azblob.object	runs
+"storage azblob remove --help"	full	storage.azblob.remove	runs
+"storage azblob remove --help"	netread	storage.azblob.remove	runs
+"storage azblob remove --help"	read	storage.azblob.remove	runs
+"storage azblob remove --help"	shell	storage.azblob.remove	runs
+"storage azblob remove"	full	storage.azblob.remove	SSH_GATE_REFUSED|komando storage azblob remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob remove"	netread	storage.azblob.remove	SSH_GATE_REFUSED|komando storage azblob remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob remove"	read	storage.azblob.remove	SSH_GATE_REFUSED|komando storage azblob remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob remove"	shell	storage.azblob.remove	SSH_GATE_REFUSED|komando storage azblob remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob rename --help"	full	storage.azblob.rename	runs
+"storage azblob rename --help"	netread	storage.azblob.rename	runs
+"storage azblob rename --help"	read	storage.azblob.rename	runs
+"storage azblob rename --help"	shell	storage.azblob.rename	runs
+"storage azblob rename"	full	storage.azblob.rename	SSH_GATE_REFUSED|komando storage azblob rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob rename"	netread	storage.azblob.rename	SSH_GATE_REFUSED|komando storage azblob rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob rename"	read	storage.azblob.rename	SSH_GATE_REFUSED|komando storage azblob rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob rename"	shell	storage.azblob.rename	SSH_GATE_REFUSED|komando storage azblob rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage azblob show --help"	full	storage.azblob.show	runs
+"storage azblob show --help"	netread	storage.azblob.show	runs
+"storage azblob show --help"	read	storage.azblob.show	runs
+"storage azblob show --help"	shell	storage.azblob.show	runs
+"storage azblob show"	full	storage.azblob.show	runs
+"storage azblob show"	netread	storage.azblob.show	runs
+"storage azblob show"	read	storage.azblob.show	runs
+"storage azblob show"	shell	storage.azblob.show	runs
+"storage azblob test --help"	full	storage.azblob.test	runs
+"storage azblob test --help"	netread	storage.azblob.test	runs
+"storage azblob test --help"	read	storage.azblob.test	runs
+"storage azblob test --help"	shell	storage.azblob.test	runs
+"storage azblob test"	full	storage.azblob.test	runs
+"storage azblob test"	netread	storage.azblob.test	runs
+"storage azblob test"	read	storage.azblob.test	runs
+"storage azblob test"	shell	storage.azblob.test	runs
+"storage azblob"	full	storage.azblob	runs
+"storage azblob"	netread	storage.azblob	runs
+"storage azblob"	read	storage.azblob	runs
+"storage azblob"	shell	storage.azblob	runs
 "storage download --help"	full	storage.download	runs
 "storage download --help"	netread	storage.download	runs
 "storage download --help"	read	storage.download	runs
@@ -2422,46 +3126,582 @@
 "storage download"	netread	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
 "storage download"	read	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
 "storage download"	shell	storage.download	SSH_GATE_REFUSED|komando storage download is refused for a key: it saves files on this computer (--to - prints one instead); the gate runs commands on servers, not on this computer
-"storage link --help"	full	storage.link	runs
-"storage link --help"	netread	storage.link	runs
-"storage link --help"	read	storage.link	runs
-"storage link --help"	shell	storage.link	runs
-"storage link"	full	storage.link	runs
-"storage link"	netread	storage.link	SSH_GATE_READ_ONLY|komando storage link is refused for a read-only key: it makes a link that opens the data without a login
-"storage link"	read	storage.link	SSH_GATE_READ_ONLY|komando storage link is refused for a read-only key: it makes a link that opens the data without a login
-"storage link"	shell	storage.link	runs
-"storage list --help"	full	storage.list	runs
-"storage list --help"	netread	storage.list	runs
-"storage list --help"	read	storage.list	runs
-"storage list --help"	shell	storage.list	runs
-"storage list"	full	storage.list	runs
-"storage list"	netread	storage.list	runs
-"storage list"	read	storage.list	runs
-"storage list"	shell	storage.list	runs
-"storage mkdir --help"	full	storage.mkdir	runs
-"storage mkdir --help"	netread	storage.mkdir	runs
-"storage mkdir --help"	read	storage.mkdir	runs
-"storage mkdir --help"	shell	storage.mkdir	runs
-"storage mkdir"	full	storage.mkdir	runs
-"storage mkdir"	netread	storage.mkdir	SSH_GATE_READ_ONLY|komando storage mkdir is refused for a read-only key: it changes something
-"storage mkdir"	read	storage.mkdir	SSH_GATE_READ_ONLY|komando storage mkdir is refused for a read-only key: it changes something
-"storage mkdir"	shell	storage.mkdir	runs
-"storage mv --help"	full	storage.mv	runs
-"storage mv --help"	netread	storage.mv	runs
-"storage mv --help"	read	storage.mv	runs
-"storage mv --help"	shell	storage.mv	runs
-"storage mv"	full	storage.mv	runs
-"storage mv"	netread	storage.mv	SSH_GATE_READ_ONLY|komando storage mv is refused for a read-only key: it changes something
-"storage mv"	read	storage.mv	SSH_GATE_READ_ONLY|komando storage mv is refused for a read-only key: it changes something
-"storage mv"	shell	storage.mv	runs
-"storage rm --help"	full	storage.rm	runs
-"storage rm --help"	netread	storage.rm	runs
-"storage rm --help"	read	storage.rm	runs
-"storage rm --help"	shell	storage.rm	runs
-"storage rm"	full	storage.rm	runs
-"storage rm"	netread	storage.rm	SSH_GATE_READ_ONLY|komando storage rm is refused for a read-only key: it changes something
-"storage rm"	read	storage.rm	SSH_GATE_READ_ONLY|komando storage rm is refused for a read-only key: it changes something
-"storage rm"	shell	storage.rm	runs
+"storage ftp --help"	full	storage.ftp	runs
+"storage ftp --help"	netread	storage.ftp	runs
+"storage ftp --help"	read	storage.ftp	runs
+"storage ftp --help"	shell	storage.ftp	runs
+"storage ftp add --help"	full	storage.ftp.add	runs
+"storage ftp add --help"	netread	storage.ftp.add	runs
+"storage ftp add --help"	read	storage.ftp.add	runs
+"storage ftp add --help"	shell	storage.ftp.add	runs
+"storage ftp add"	full	storage.ftp.add	SSH_GATE_REFUSED|komando storage ftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp add"	netread	storage.ftp.add	SSH_GATE_REFUSED|komando storage ftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp add"	read	storage.ftp.add	SSH_GATE_REFUSED|komando storage ftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp add"	shell	storage.ftp.add	SSH_GATE_REFUSED|komando storage ftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp edit --help"	full	storage.ftp.edit	runs
+"storage ftp edit --help"	netread	storage.ftp.edit	runs
+"storage ftp edit --help"	read	storage.ftp.edit	runs
+"storage ftp edit --help"	shell	storage.ftp.edit	runs
+"storage ftp edit"	full	storage.ftp.edit	SSH_GATE_REFUSED|komando storage ftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp edit"	netread	storage.ftp.edit	SSH_GATE_REFUSED|komando storage ftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp edit"	read	storage.ftp.edit	SSH_GATE_REFUSED|komando storage ftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp edit"	shell	storage.ftp.edit	SSH_GATE_REFUSED|komando storage ftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp list --help"	full	storage.ftp.list	runs
+"storage ftp list --help"	netread	storage.ftp.list	runs
+"storage ftp list --help"	read	storage.ftp.list	runs
+"storage ftp list --help"	shell	storage.ftp.list	runs
+"storage ftp list"	full	storage.ftp.list	runs
+"storage ftp list"	netread	storage.ftp.list	runs
+"storage ftp list"	read	storage.ftp.list	runs
+"storage ftp list"	shell	storage.ftp.list	runs
+"storage ftp object --help"	full	storage.ftp.object	runs
+"storage ftp object --help"	netread	storage.ftp.object	runs
+"storage ftp object --help"	read	storage.ftp.object	runs
+"storage ftp object --help"	shell	storage.ftp.object	runs
+"storage ftp object create --help"	full	storage.ftp.object.create	runs
+"storage ftp object create --help"	netread	storage.ftp.object.create	runs
+"storage ftp object create --help"	read	storage.ftp.object.create	runs
+"storage ftp object create --help"	shell	storage.ftp.object.create	runs
+"storage ftp object create"	full	storage.ftp.object.create	runs
+"storage ftp object create"	netread	storage.ftp.object.create	SSH_GATE_READ_ONLY|komando storage ftp object create is refused for a read-only key: it changes something
+"storage ftp object create"	read	storage.ftp.object.create	SSH_GATE_READ_ONLY|komando storage ftp object create is refused for a read-only key: it changes something
+"storage ftp object create"	shell	storage.ftp.object.create	runs
+"storage ftp object delete --help"	full	storage.ftp.object.delete	runs
+"storage ftp object delete --help"	netread	storage.ftp.object.delete	runs
+"storage ftp object delete --help"	read	storage.ftp.object.delete	runs
+"storage ftp object delete --help"	shell	storage.ftp.object.delete	runs
+"storage ftp object delete"	full	storage.ftp.object.delete	runs
+"storage ftp object delete"	netread	storage.ftp.object.delete	SSH_GATE_READ_ONLY|komando storage ftp object delete is refused for a read-only key: it changes something
+"storage ftp object delete"	read	storage.ftp.object.delete	SSH_GATE_READ_ONLY|komando storage ftp object delete is refused for a read-only key: it changes something
+"storage ftp object delete"	shell	storage.ftp.object.delete	runs
+"storage ftp object list --help"	full	storage.ftp.object.list	runs
+"storage ftp object list --help"	netread	storage.ftp.object.list	runs
+"storage ftp object list --help"	read	storage.ftp.object.list	runs
+"storage ftp object list --help"	shell	storage.ftp.object.list	runs
+"storage ftp object list"	full	storage.ftp.object.list	runs
+"storage ftp object list"	netread	storage.ftp.object.list	runs
+"storage ftp object list"	read	storage.ftp.object.list	runs
+"storage ftp object list"	shell	storage.ftp.object.list	runs
+"storage ftp object move --help"	full	storage.ftp.object.move	runs
+"storage ftp object move --help"	netread	storage.ftp.object.move	runs
+"storage ftp object move --help"	read	storage.ftp.object.move	runs
+"storage ftp object move --help"	shell	storage.ftp.object.move	runs
+"storage ftp object move"	full	storage.ftp.object.move	runs
+"storage ftp object move"	netread	storage.ftp.object.move	SSH_GATE_READ_ONLY|komando storage ftp object move is refused for a read-only key: it changes something
+"storage ftp object move"	read	storage.ftp.object.move	SSH_GATE_READ_ONLY|komando storage ftp object move is refused for a read-only key: it changes something
+"storage ftp object move"	shell	storage.ftp.object.move	runs
+"storage ftp object read --help"	full	storage.ftp.object.read	runs
+"storage ftp object read --help"	netread	storage.ftp.object.read	runs
+"storage ftp object read --help"	read	storage.ftp.object.read	runs
+"storage ftp object read --help"	shell	storage.ftp.object.read	runs
+"storage ftp object read"	full	storage.ftp.object.read	runs
+"storage ftp object read"	netread	storage.ftp.object.read	runs
+"storage ftp object read"	read	storage.ftp.object.read	runs
+"storage ftp object read"	shell	storage.ftp.object.read	runs
+"storage ftp object"	full	storage.ftp.object	runs
+"storage ftp object"	netread	storage.ftp.object	runs
+"storage ftp object"	read	storage.ftp.object	runs
+"storage ftp object"	shell	storage.ftp.object	runs
+"storage ftp remove --help"	full	storage.ftp.remove	runs
+"storage ftp remove --help"	netread	storage.ftp.remove	runs
+"storage ftp remove --help"	read	storage.ftp.remove	runs
+"storage ftp remove --help"	shell	storage.ftp.remove	runs
+"storage ftp remove"	full	storage.ftp.remove	SSH_GATE_REFUSED|komando storage ftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp remove"	netread	storage.ftp.remove	SSH_GATE_REFUSED|komando storage ftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp remove"	read	storage.ftp.remove	SSH_GATE_REFUSED|komando storage ftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp remove"	shell	storage.ftp.remove	SSH_GATE_REFUSED|komando storage ftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp rename --help"	full	storage.ftp.rename	runs
+"storage ftp rename --help"	netread	storage.ftp.rename	runs
+"storage ftp rename --help"	read	storage.ftp.rename	runs
+"storage ftp rename --help"	shell	storage.ftp.rename	runs
+"storage ftp rename"	full	storage.ftp.rename	SSH_GATE_REFUSED|komando storage ftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp rename"	netread	storage.ftp.rename	SSH_GATE_REFUSED|komando storage ftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp rename"	read	storage.ftp.rename	SSH_GATE_REFUSED|komando storage ftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp rename"	shell	storage.ftp.rename	SSH_GATE_REFUSED|komando storage ftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage ftp show --help"	full	storage.ftp.show	runs
+"storage ftp show --help"	netread	storage.ftp.show	runs
+"storage ftp show --help"	read	storage.ftp.show	runs
+"storage ftp show --help"	shell	storage.ftp.show	runs
+"storage ftp show"	full	storage.ftp.show	runs
+"storage ftp show"	netread	storage.ftp.show	runs
+"storage ftp show"	read	storage.ftp.show	runs
+"storage ftp show"	shell	storage.ftp.show	runs
+"storage ftp test --help"	full	storage.ftp.test	runs
+"storage ftp test --help"	netread	storage.ftp.test	runs
+"storage ftp test --help"	read	storage.ftp.test	runs
+"storage ftp test --help"	shell	storage.ftp.test	runs
+"storage ftp test"	full	storage.ftp.test	runs
+"storage ftp test"	netread	storage.ftp.test	runs
+"storage ftp test"	read	storage.ftp.test	runs
+"storage ftp test"	shell	storage.ftp.test	runs
+"storage ftp"	full	storage.ftp	runs
+"storage ftp"	netread	storage.ftp	runs
+"storage ftp"	read	storage.ftp	runs
+"storage ftp"	shell	storage.ftp	runs
+"storage gcs --help"	full	storage.gcs	runs
+"storage gcs --help"	netread	storage.gcs	runs
+"storage gcs --help"	read	storage.gcs	runs
+"storage gcs --help"	shell	storage.gcs	runs
+"storage gcs add --help"	full	storage.gcs.add	runs
+"storage gcs add --help"	netread	storage.gcs.add	runs
+"storage gcs add --help"	read	storage.gcs.add	runs
+"storage gcs add --help"	shell	storage.gcs.add	runs
+"storage gcs add"	full	storage.gcs.add	SSH_GATE_REFUSED|komando storage gcs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs add"	netread	storage.gcs.add	SSH_GATE_REFUSED|komando storage gcs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs add"	read	storage.gcs.add	SSH_GATE_REFUSED|komando storage gcs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs add"	shell	storage.gcs.add	SSH_GATE_REFUSED|komando storage gcs add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs edit --help"	full	storage.gcs.edit	runs
+"storage gcs edit --help"	netread	storage.gcs.edit	runs
+"storage gcs edit --help"	read	storage.gcs.edit	runs
+"storage gcs edit --help"	shell	storage.gcs.edit	runs
+"storage gcs edit"	full	storage.gcs.edit	SSH_GATE_REFUSED|komando storage gcs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs edit"	netread	storage.gcs.edit	SSH_GATE_REFUSED|komando storage gcs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs edit"	read	storage.gcs.edit	SSH_GATE_REFUSED|komando storage gcs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs edit"	shell	storage.gcs.edit	SSH_GATE_REFUSED|komando storage gcs edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs list --help"	full	storage.gcs.list	runs
+"storage gcs list --help"	netread	storage.gcs.list	runs
+"storage gcs list --help"	read	storage.gcs.list	runs
+"storage gcs list --help"	shell	storage.gcs.list	runs
+"storage gcs list"	full	storage.gcs.list	runs
+"storage gcs list"	netread	storage.gcs.list	runs
+"storage gcs list"	read	storage.gcs.list	runs
+"storage gcs list"	shell	storage.gcs.list	runs
+"storage gcs object --help"	full	storage.gcs.object	runs
+"storage gcs object --help"	netread	storage.gcs.object	runs
+"storage gcs object --help"	read	storage.gcs.object	runs
+"storage gcs object --help"	shell	storage.gcs.object	runs
+"storage gcs object create --help"	full	storage.gcs.object.create	runs
+"storage gcs object create --help"	netread	storage.gcs.object.create	runs
+"storage gcs object create --help"	read	storage.gcs.object.create	runs
+"storage gcs object create --help"	shell	storage.gcs.object.create	runs
+"storage gcs object create"	full	storage.gcs.object.create	runs
+"storage gcs object create"	netread	storage.gcs.object.create	SSH_GATE_READ_ONLY|komando storage gcs object create is refused for a read-only key: it changes something
+"storage gcs object create"	read	storage.gcs.object.create	SSH_GATE_READ_ONLY|komando storage gcs object create is refused for a read-only key: it changes something
+"storage gcs object create"	shell	storage.gcs.object.create	runs
+"storage gcs object delete --help"	full	storage.gcs.object.delete	runs
+"storage gcs object delete --help"	netread	storage.gcs.object.delete	runs
+"storage gcs object delete --help"	read	storage.gcs.object.delete	runs
+"storage gcs object delete --help"	shell	storage.gcs.object.delete	runs
+"storage gcs object delete"	full	storage.gcs.object.delete	runs
+"storage gcs object delete"	netread	storage.gcs.object.delete	SSH_GATE_READ_ONLY|komando storage gcs object delete is refused for a read-only key: it changes something
+"storage gcs object delete"	read	storage.gcs.object.delete	SSH_GATE_READ_ONLY|komando storage gcs object delete is refused for a read-only key: it changes something
+"storage gcs object delete"	shell	storage.gcs.object.delete	runs
+"storage gcs object link --help"	full	storage.gcs.object.link	runs
+"storage gcs object link --help"	netread	storage.gcs.object.link	runs
+"storage gcs object link --help"	read	storage.gcs.object.link	runs
+"storage gcs object link --help"	shell	storage.gcs.object.link	runs
+"storage gcs object link"	full	storage.gcs.object.link	runs
+"storage gcs object link"	netread	storage.gcs.object.link	SSH_GATE_READ_ONLY|komando storage gcs object link is refused for a read-only key: it makes a link that opens the data without a login
+"storage gcs object link"	read	storage.gcs.object.link	SSH_GATE_READ_ONLY|komando storage gcs object link is refused for a read-only key: it makes a link that opens the data without a login
+"storage gcs object link"	shell	storage.gcs.object.link	runs
+"storage gcs object list --help"	full	storage.gcs.object.list	runs
+"storage gcs object list --help"	netread	storage.gcs.object.list	runs
+"storage gcs object list --help"	read	storage.gcs.object.list	runs
+"storage gcs object list --help"	shell	storage.gcs.object.list	runs
+"storage gcs object list"	full	storage.gcs.object.list	runs
+"storage gcs object list"	netread	storage.gcs.object.list	runs
+"storage gcs object list"	read	storage.gcs.object.list	runs
+"storage gcs object list"	shell	storage.gcs.object.list	runs
+"storage gcs object move --help"	full	storage.gcs.object.move	runs
+"storage gcs object move --help"	netread	storage.gcs.object.move	runs
+"storage gcs object move --help"	read	storage.gcs.object.move	runs
+"storage gcs object move --help"	shell	storage.gcs.object.move	runs
+"storage gcs object move"	full	storage.gcs.object.move	runs
+"storage gcs object move"	netread	storage.gcs.object.move	SSH_GATE_READ_ONLY|komando storage gcs object move is refused for a read-only key: it changes something
+"storage gcs object move"	read	storage.gcs.object.move	SSH_GATE_READ_ONLY|komando storage gcs object move is refused for a read-only key: it changes something
+"storage gcs object move"	shell	storage.gcs.object.move	runs
+"storage gcs object read --help"	full	storage.gcs.object.read	runs
+"storage gcs object read --help"	netread	storage.gcs.object.read	runs
+"storage gcs object read --help"	read	storage.gcs.object.read	runs
+"storage gcs object read --help"	shell	storage.gcs.object.read	runs
+"storage gcs object read"	full	storage.gcs.object.read	runs
+"storage gcs object read"	netread	storage.gcs.object.read	runs
+"storage gcs object read"	read	storage.gcs.object.read	runs
+"storage gcs object read"	shell	storage.gcs.object.read	runs
+"storage gcs object"	full	storage.gcs.object	runs
+"storage gcs object"	netread	storage.gcs.object	runs
+"storage gcs object"	read	storage.gcs.object	runs
+"storage gcs object"	shell	storage.gcs.object	runs
+"storage gcs remove --help"	full	storage.gcs.remove	runs
+"storage gcs remove --help"	netread	storage.gcs.remove	runs
+"storage gcs remove --help"	read	storage.gcs.remove	runs
+"storage gcs remove --help"	shell	storage.gcs.remove	runs
+"storage gcs remove"	full	storage.gcs.remove	SSH_GATE_REFUSED|komando storage gcs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs remove"	netread	storage.gcs.remove	SSH_GATE_REFUSED|komando storage gcs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs remove"	read	storage.gcs.remove	SSH_GATE_REFUSED|komando storage gcs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs remove"	shell	storage.gcs.remove	SSH_GATE_REFUSED|komando storage gcs remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs rename --help"	full	storage.gcs.rename	runs
+"storage gcs rename --help"	netread	storage.gcs.rename	runs
+"storage gcs rename --help"	read	storage.gcs.rename	runs
+"storage gcs rename --help"	shell	storage.gcs.rename	runs
+"storage gcs rename"	full	storage.gcs.rename	SSH_GATE_REFUSED|komando storage gcs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs rename"	netread	storage.gcs.rename	SSH_GATE_REFUSED|komando storage gcs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs rename"	read	storage.gcs.rename	SSH_GATE_REFUSED|komando storage gcs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs rename"	shell	storage.gcs.rename	SSH_GATE_REFUSED|komando storage gcs rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage gcs show --help"	full	storage.gcs.show	runs
+"storage gcs show --help"	netread	storage.gcs.show	runs
+"storage gcs show --help"	read	storage.gcs.show	runs
+"storage gcs show --help"	shell	storage.gcs.show	runs
+"storage gcs show"	full	storage.gcs.show	runs
+"storage gcs show"	netread	storage.gcs.show	runs
+"storage gcs show"	read	storage.gcs.show	runs
+"storage gcs show"	shell	storage.gcs.show	runs
+"storage gcs test --help"	full	storage.gcs.test	runs
+"storage gcs test --help"	netread	storage.gcs.test	runs
+"storage gcs test --help"	read	storage.gcs.test	runs
+"storage gcs test --help"	shell	storage.gcs.test	runs
+"storage gcs test"	full	storage.gcs.test	runs
+"storage gcs test"	netread	storage.gcs.test	runs
+"storage gcs test"	read	storage.gcs.test	runs
+"storage gcs test"	shell	storage.gcs.test	runs
+"storage gcs"	full	storage.gcs	runs
+"storage gcs"	netread	storage.gcs	runs
+"storage gcs"	read	storage.gcs	runs
+"storage gcs"	shell	storage.gcs	runs
+"storage s3 --help"	full	storage.s3	runs
+"storage s3 --help"	netread	storage.s3	runs
+"storage s3 --help"	read	storage.s3	runs
+"storage s3 --help"	shell	storage.s3	runs
+"storage s3 add --help"	full	storage.s3.add	runs
+"storage s3 add --help"	netread	storage.s3.add	runs
+"storage s3 add --help"	read	storage.s3.add	runs
+"storage s3 add --help"	shell	storage.s3.add	runs
+"storage s3 add"	full	storage.s3.add	SSH_GATE_REFUSED|komando storage s3 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 add"	netread	storage.s3.add	SSH_GATE_REFUSED|komando storage s3 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 add"	read	storage.s3.add	SSH_GATE_REFUSED|komando storage s3 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 add"	shell	storage.s3.add	SSH_GATE_REFUSED|komando storage s3 add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 edit --help"	full	storage.s3.edit	runs
+"storage s3 edit --help"	netread	storage.s3.edit	runs
+"storage s3 edit --help"	read	storage.s3.edit	runs
+"storage s3 edit --help"	shell	storage.s3.edit	runs
+"storage s3 edit"	full	storage.s3.edit	SSH_GATE_REFUSED|komando storage s3 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 edit"	netread	storage.s3.edit	SSH_GATE_REFUSED|komando storage s3 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 edit"	read	storage.s3.edit	SSH_GATE_REFUSED|komando storage s3 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 edit"	shell	storage.s3.edit	SSH_GATE_REFUSED|komando storage s3 edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 list --help"	full	storage.s3.list	runs
+"storage s3 list --help"	netread	storage.s3.list	runs
+"storage s3 list --help"	read	storage.s3.list	runs
+"storage s3 list --help"	shell	storage.s3.list	runs
+"storage s3 list"	full	storage.s3.list	runs
+"storage s3 list"	netread	storage.s3.list	runs
+"storage s3 list"	read	storage.s3.list	runs
+"storage s3 list"	shell	storage.s3.list	runs
+"storage s3 object --help"	full	storage.s3.object	runs
+"storage s3 object --help"	netread	storage.s3.object	runs
+"storage s3 object --help"	read	storage.s3.object	runs
+"storage s3 object --help"	shell	storage.s3.object	runs
+"storage s3 object create --help"	full	storage.s3.object.create	runs
+"storage s3 object create --help"	netread	storage.s3.object.create	runs
+"storage s3 object create --help"	read	storage.s3.object.create	runs
+"storage s3 object create --help"	shell	storage.s3.object.create	runs
+"storage s3 object create"	full	storage.s3.object.create	runs
+"storage s3 object create"	netread	storage.s3.object.create	SSH_GATE_READ_ONLY|komando storage s3 object create is refused for a read-only key: it changes something
+"storage s3 object create"	read	storage.s3.object.create	SSH_GATE_READ_ONLY|komando storage s3 object create is refused for a read-only key: it changes something
+"storage s3 object create"	shell	storage.s3.object.create	runs
+"storage s3 object delete --help"	full	storage.s3.object.delete	runs
+"storage s3 object delete --help"	netread	storage.s3.object.delete	runs
+"storage s3 object delete --help"	read	storage.s3.object.delete	runs
+"storage s3 object delete --help"	shell	storage.s3.object.delete	runs
+"storage s3 object delete"	full	storage.s3.object.delete	runs
+"storage s3 object delete"	netread	storage.s3.object.delete	SSH_GATE_READ_ONLY|komando storage s3 object delete is refused for a read-only key: it changes something
+"storage s3 object delete"	read	storage.s3.object.delete	SSH_GATE_READ_ONLY|komando storage s3 object delete is refused for a read-only key: it changes something
+"storage s3 object delete"	shell	storage.s3.object.delete	runs
+"storage s3 object link --help"	full	storage.s3.object.link	runs
+"storage s3 object link --help"	netread	storage.s3.object.link	runs
+"storage s3 object link --help"	read	storage.s3.object.link	runs
+"storage s3 object link --help"	shell	storage.s3.object.link	runs
+"storage s3 object link"	full	storage.s3.object.link	runs
+"storage s3 object link"	netread	storage.s3.object.link	SSH_GATE_READ_ONLY|komando storage s3 object link is refused for a read-only key: it makes a link that opens the data without a login
+"storage s3 object link"	read	storage.s3.object.link	SSH_GATE_READ_ONLY|komando storage s3 object link is refused for a read-only key: it makes a link that opens the data without a login
+"storage s3 object link"	shell	storage.s3.object.link	runs
+"storage s3 object list --help"	full	storage.s3.object.list	runs
+"storage s3 object list --help"	netread	storage.s3.object.list	runs
+"storage s3 object list --help"	read	storage.s3.object.list	runs
+"storage s3 object list --help"	shell	storage.s3.object.list	runs
+"storage s3 object list"	full	storage.s3.object.list	runs
+"storage s3 object list"	netread	storage.s3.object.list	runs
+"storage s3 object list"	read	storage.s3.object.list	runs
+"storage s3 object list"	shell	storage.s3.object.list	runs
+"storage s3 object move --help"	full	storage.s3.object.move	runs
+"storage s3 object move --help"	netread	storage.s3.object.move	runs
+"storage s3 object move --help"	read	storage.s3.object.move	runs
+"storage s3 object move --help"	shell	storage.s3.object.move	runs
+"storage s3 object move"	full	storage.s3.object.move	runs
+"storage s3 object move"	netread	storage.s3.object.move	SSH_GATE_READ_ONLY|komando storage s3 object move is refused for a read-only key: it changes something
+"storage s3 object move"	read	storage.s3.object.move	SSH_GATE_READ_ONLY|komando storage s3 object move is refused for a read-only key: it changes something
+"storage s3 object move"	shell	storage.s3.object.move	runs
+"storage s3 object read --help"	full	storage.s3.object.read	runs
+"storage s3 object read --help"	netread	storage.s3.object.read	runs
+"storage s3 object read --help"	read	storage.s3.object.read	runs
+"storage s3 object read --help"	shell	storage.s3.object.read	runs
+"storage s3 object read"	full	storage.s3.object.read	runs
+"storage s3 object read"	netread	storage.s3.object.read	runs
+"storage s3 object read"	read	storage.s3.object.read	runs
+"storage s3 object read"	shell	storage.s3.object.read	runs
+"storage s3 object"	full	storage.s3.object	runs
+"storage s3 object"	netread	storage.s3.object	runs
+"storage s3 object"	read	storage.s3.object	runs
+"storage s3 object"	shell	storage.s3.object	runs
+"storage s3 remove --help"	full	storage.s3.remove	runs
+"storage s3 remove --help"	netread	storage.s3.remove	runs
+"storage s3 remove --help"	read	storage.s3.remove	runs
+"storage s3 remove --help"	shell	storage.s3.remove	runs
+"storage s3 remove"	full	storage.s3.remove	SSH_GATE_REFUSED|komando storage s3 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 remove"	netread	storage.s3.remove	SSH_GATE_REFUSED|komando storage s3 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 remove"	read	storage.s3.remove	SSH_GATE_REFUSED|komando storage s3 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 remove"	shell	storage.s3.remove	SSH_GATE_REFUSED|komando storage s3 remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 rename --help"	full	storage.s3.rename	runs
+"storage s3 rename --help"	netread	storage.s3.rename	runs
+"storage s3 rename --help"	read	storage.s3.rename	runs
+"storage s3 rename --help"	shell	storage.s3.rename	runs
+"storage s3 rename"	full	storage.s3.rename	SSH_GATE_REFUSED|komando storage s3 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 rename"	netread	storage.s3.rename	SSH_GATE_REFUSED|komando storage s3 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 rename"	read	storage.s3.rename	SSH_GATE_REFUSED|komando storage s3 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 rename"	shell	storage.s3.rename	SSH_GATE_REFUSED|komando storage s3 rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage s3 show --help"	full	storage.s3.show	runs
+"storage s3 show --help"	netread	storage.s3.show	runs
+"storage s3 show --help"	read	storage.s3.show	runs
+"storage s3 show --help"	shell	storage.s3.show	runs
+"storage s3 show"	full	storage.s3.show	runs
+"storage s3 show"	netread	storage.s3.show	runs
+"storage s3 show"	read	storage.s3.show	runs
+"storage s3 show"	shell	storage.s3.show	runs
+"storage s3 test --help"	full	storage.s3.test	runs
+"storage s3 test --help"	netread	storage.s3.test	runs
+"storage s3 test --help"	read	storage.s3.test	runs
+"storage s3 test --help"	shell	storage.s3.test	runs
+"storage s3 test"	full	storage.s3.test	runs
+"storage s3 test"	netread	storage.s3.test	runs
+"storage s3 test"	read	storage.s3.test	runs
+"storage s3 test"	shell	storage.s3.test	runs
+"storage s3"	full	storage.s3	runs
+"storage s3"	netread	storage.s3	runs
+"storage s3"	read	storage.s3	runs
+"storage s3"	shell	storage.s3	runs
+"storage sftp --help"	full	storage.sftp	runs
+"storage sftp --help"	netread	storage.sftp	runs
+"storage sftp --help"	read	storage.sftp	runs
+"storage sftp --help"	shell	storage.sftp	runs
+"storage sftp add --help"	full	storage.sftp.add	runs
+"storage sftp add --help"	netread	storage.sftp.add	runs
+"storage sftp add --help"	read	storage.sftp.add	runs
+"storage sftp add --help"	shell	storage.sftp.add	runs
+"storage sftp add"	full	storage.sftp.add	SSH_GATE_REFUSED|komando storage sftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp add"	netread	storage.sftp.add	SSH_GATE_REFUSED|komando storage sftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp add"	read	storage.sftp.add	SSH_GATE_REFUSED|komando storage sftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp add"	shell	storage.sftp.add	SSH_GATE_REFUSED|komando storage sftp add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp edit --help"	full	storage.sftp.edit	runs
+"storage sftp edit --help"	netread	storage.sftp.edit	runs
+"storage sftp edit --help"	read	storage.sftp.edit	runs
+"storage sftp edit --help"	shell	storage.sftp.edit	runs
+"storage sftp edit"	full	storage.sftp.edit	SSH_GATE_REFUSED|komando storage sftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp edit"	netread	storage.sftp.edit	SSH_GATE_REFUSED|komando storage sftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp edit"	read	storage.sftp.edit	SSH_GATE_REFUSED|komando storage sftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp edit"	shell	storage.sftp.edit	SSH_GATE_REFUSED|komando storage sftp edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp list --help"	full	storage.sftp.list	runs
+"storage sftp list --help"	netread	storage.sftp.list	runs
+"storage sftp list --help"	read	storage.sftp.list	runs
+"storage sftp list --help"	shell	storage.sftp.list	runs
+"storage sftp list"	full	storage.sftp.list	runs
+"storage sftp list"	netread	storage.sftp.list	runs
+"storage sftp list"	read	storage.sftp.list	runs
+"storage sftp list"	shell	storage.sftp.list	runs
+"storage sftp object --help"	full	storage.sftp.object	runs
+"storage sftp object --help"	netread	storage.sftp.object	runs
+"storage sftp object --help"	read	storage.sftp.object	runs
+"storage sftp object --help"	shell	storage.sftp.object	runs
+"storage sftp object create --help"	full	storage.sftp.object.create	runs
+"storage sftp object create --help"	netread	storage.sftp.object.create	runs
+"storage sftp object create --help"	read	storage.sftp.object.create	runs
+"storage sftp object create --help"	shell	storage.sftp.object.create	runs
+"storage sftp object create"	full	storage.sftp.object.create	runs
+"storage sftp object create"	netread	storage.sftp.object.create	SSH_GATE_READ_ONLY|komando storage sftp object create is refused for a read-only key: it changes something
+"storage sftp object create"	read	storage.sftp.object.create	SSH_GATE_READ_ONLY|komando storage sftp object create is refused for a read-only key: it changes something
+"storage sftp object create"	shell	storage.sftp.object.create	runs
+"storage sftp object delete --help"	full	storage.sftp.object.delete	runs
+"storage sftp object delete --help"	netread	storage.sftp.object.delete	runs
+"storage sftp object delete --help"	read	storage.sftp.object.delete	runs
+"storage sftp object delete --help"	shell	storage.sftp.object.delete	runs
+"storage sftp object delete"	full	storage.sftp.object.delete	runs
+"storage sftp object delete"	netread	storage.sftp.object.delete	SSH_GATE_READ_ONLY|komando storage sftp object delete is refused for a read-only key: it changes something
+"storage sftp object delete"	read	storage.sftp.object.delete	SSH_GATE_READ_ONLY|komando storage sftp object delete is refused for a read-only key: it changes something
+"storage sftp object delete"	shell	storage.sftp.object.delete	runs
+"storage sftp object list --help"	full	storage.sftp.object.list	runs
+"storage sftp object list --help"	netread	storage.sftp.object.list	runs
+"storage sftp object list --help"	read	storage.sftp.object.list	runs
+"storage sftp object list --help"	shell	storage.sftp.object.list	runs
+"storage sftp object list"	full	storage.sftp.object.list	runs
+"storage sftp object list"	netread	storage.sftp.object.list	runs
+"storage sftp object list"	read	storage.sftp.object.list	runs
+"storage sftp object list"	shell	storage.sftp.object.list	runs
+"storage sftp object move --help"	full	storage.sftp.object.move	runs
+"storage sftp object move --help"	netread	storage.sftp.object.move	runs
+"storage sftp object move --help"	read	storage.sftp.object.move	runs
+"storage sftp object move --help"	shell	storage.sftp.object.move	runs
+"storage sftp object move"	full	storage.sftp.object.move	runs
+"storage sftp object move"	netread	storage.sftp.object.move	SSH_GATE_READ_ONLY|komando storage sftp object move is refused for a read-only key: it changes something
+"storage sftp object move"	read	storage.sftp.object.move	SSH_GATE_READ_ONLY|komando storage sftp object move is refused for a read-only key: it changes something
+"storage sftp object move"	shell	storage.sftp.object.move	runs
+"storage sftp object read --help"	full	storage.sftp.object.read	runs
+"storage sftp object read --help"	netread	storage.sftp.object.read	runs
+"storage sftp object read --help"	read	storage.sftp.object.read	runs
+"storage sftp object read --help"	shell	storage.sftp.object.read	runs
+"storage sftp object read"	full	storage.sftp.object.read	runs
+"storage sftp object read"	netread	storage.sftp.object.read	runs
+"storage sftp object read"	read	storage.sftp.object.read	runs
+"storage sftp object read"	shell	storage.sftp.object.read	runs
+"storage sftp object"	full	storage.sftp.object	runs
+"storage sftp object"	netread	storage.sftp.object	runs
+"storage sftp object"	read	storage.sftp.object	runs
+"storage sftp object"	shell	storage.sftp.object	runs
+"storage sftp remove --help"	full	storage.sftp.remove	runs
+"storage sftp remove --help"	netread	storage.sftp.remove	runs
+"storage sftp remove --help"	read	storage.sftp.remove	runs
+"storage sftp remove --help"	shell	storage.sftp.remove	runs
+"storage sftp remove"	full	storage.sftp.remove	SSH_GATE_REFUSED|komando storage sftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp remove"	netread	storage.sftp.remove	SSH_GATE_REFUSED|komando storage sftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp remove"	read	storage.sftp.remove	SSH_GATE_REFUSED|komando storage sftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp remove"	shell	storage.sftp.remove	SSH_GATE_REFUSED|komando storage sftp remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp rename --help"	full	storage.sftp.rename	runs
+"storage sftp rename --help"	netread	storage.sftp.rename	runs
+"storage sftp rename --help"	read	storage.sftp.rename	runs
+"storage sftp rename --help"	shell	storage.sftp.rename	runs
+"storage sftp rename"	full	storage.sftp.rename	SSH_GATE_REFUSED|komando storage sftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp rename"	netread	storage.sftp.rename	SSH_GATE_REFUSED|komando storage sftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp rename"	read	storage.sftp.rename	SSH_GATE_REFUSED|komando storage sftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp rename"	shell	storage.sftp.rename	SSH_GATE_REFUSED|komando storage sftp rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage sftp show --help"	full	storage.sftp.show	runs
+"storage sftp show --help"	netread	storage.sftp.show	runs
+"storage sftp show --help"	read	storage.sftp.show	runs
+"storage sftp show --help"	shell	storage.sftp.show	runs
+"storage sftp show"	full	storage.sftp.show	runs
+"storage sftp show"	netread	storage.sftp.show	runs
+"storage sftp show"	read	storage.sftp.show	runs
+"storage sftp show"	shell	storage.sftp.show	runs
+"storage sftp test --help"	full	storage.sftp.test	runs
+"storage sftp test --help"	netread	storage.sftp.test	runs
+"storage sftp test --help"	read	storage.sftp.test	runs
+"storage sftp test --help"	shell	storage.sftp.test	runs
+"storage sftp test"	full	storage.sftp.test	runs
+"storage sftp test"	netread	storage.sftp.test	runs
+"storage sftp test"	read	storage.sftp.test	runs
+"storage sftp test"	shell	storage.sftp.test	runs
+"storage sftp"	full	storage.sftp	runs
+"storage sftp"	netread	storage.sftp	runs
+"storage sftp"	read	storage.sftp	runs
+"storage sftp"	shell	storage.sftp	runs
+"storage smb --help"	full	storage.smb	runs
+"storage smb --help"	netread	storage.smb	runs
+"storage smb --help"	read	storage.smb	runs
+"storage smb --help"	shell	storage.smb	runs
+"storage smb add --help"	full	storage.smb.add	runs
+"storage smb add --help"	netread	storage.smb.add	runs
+"storage smb add --help"	read	storage.smb.add	runs
+"storage smb add --help"	shell	storage.smb.add	runs
+"storage smb add"	full	storage.smb.add	SSH_GATE_REFUSED|komando storage smb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb add"	netread	storage.smb.add	SSH_GATE_REFUSED|komando storage smb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb add"	read	storage.smb.add	SSH_GATE_REFUSED|komando storage smb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb add"	shell	storage.smb.add	SSH_GATE_REFUSED|komando storage smb add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb edit --help"	full	storage.smb.edit	runs
+"storage smb edit --help"	netread	storage.smb.edit	runs
+"storage smb edit --help"	read	storage.smb.edit	runs
+"storage smb edit --help"	shell	storage.smb.edit	runs
+"storage smb edit"	full	storage.smb.edit	SSH_GATE_REFUSED|komando storage smb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb edit"	netread	storage.smb.edit	SSH_GATE_REFUSED|komando storage smb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb edit"	read	storage.smb.edit	SSH_GATE_REFUSED|komando storage smb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb edit"	shell	storage.smb.edit	SSH_GATE_REFUSED|komando storage smb edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb list --help"	full	storage.smb.list	runs
+"storage smb list --help"	netread	storage.smb.list	runs
+"storage smb list --help"	read	storage.smb.list	runs
+"storage smb list --help"	shell	storage.smb.list	runs
+"storage smb list"	full	storage.smb.list	runs
+"storage smb list"	netread	storage.smb.list	runs
+"storage smb list"	read	storage.smb.list	runs
+"storage smb list"	shell	storage.smb.list	runs
+"storage smb object --help"	full	storage.smb.object	runs
+"storage smb object --help"	netread	storage.smb.object	runs
+"storage smb object --help"	read	storage.smb.object	runs
+"storage smb object --help"	shell	storage.smb.object	runs
+"storage smb object create --help"	full	storage.smb.object.create	runs
+"storage smb object create --help"	netread	storage.smb.object.create	runs
+"storage smb object create --help"	read	storage.smb.object.create	runs
+"storage smb object create --help"	shell	storage.smb.object.create	runs
+"storage smb object create"	full	storage.smb.object.create	runs
+"storage smb object create"	netread	storage.smb.object.create	SSH_GATE_READ_ONLY|komando storage smb object create is refused for a read-only key: it changes something
+"storage smb object create"	read	storage.smb.object.create	SSH_GATE_READ_ONLY|komando storage smb object create is refused for a read-only key: it changes something
+"storage smb object create"	shell	storage.smb.object.create	runs
+"storage smb object delete --help"	full	storage.smb.object.delete	runs
+"storage smb object delete --help"	netread	storage.smb.object.delete	runs
+"storage smb object delete --help"	read	storage.smb.object.delete	runs
+"storage smb object delete --help"	shell	storage.smb.object.delete	runs
+"storage smb object delete"	full	storage.smb.object.delete	runs
+"storage smb object delete"	netread	storage.smb.object.delete	SSH_GATE_READ_ONLY|komando storage smb object delete is refused for a read-only key: it changes something
+"storage smb object delete"	read	storage.smb.object.delete	SSH_GATE_READ_ONLY|komando storage smb object delete is refused for a read-only key: it changes something
+"storage smb object delete"	shell	storage.smb.object.delete	runs
+"storage smb object list --help"	full	storage.smb.object.list	runs
+"storage smb object list --help"	netread	storage.smb.object.list	runs
+"storage smb object list --help"	read	storage.smb.object.list	runs
+"storage smb object list --help"	shell	storage.smb.object.list	runs
+"storage smb object list"	full	storage.smb.object.list	runs
+"storage smb object list"	netread	storage.smb.object.list	runs
+"storage smb object list"	read	storage.smb.object.list	runs
+"storage smb object list"	shell	storage.smb.object.list	runs
+"storage smb object move --help"	full	storage.smb.object.move	runs
+"storage smb object move --help"	netread	storage.smb.object.move	runs
+"storage smb object move --help"	read	storage.smb.object.move	runs
+"storage smb object move --help"	shell	storage.smb.object.move	runs
+"storage smb object move"	full	storage.smb.object.move	runs
+"storage smb object move"	netread	storage.smb.object.move	SSH_GATE_READ_ONLY|komando storage smb object move is refused for a read-only key: it changes something
+"storage smb object move"	read	storage.smb.object.move	SSH_GATE_READ_ONLY|komando storage smb object move is refused for a read-only key: it changes something
+"storage smb object move"	shell	storage.smb.object.move	runs
+"storage smb object read --help"	full	storage.smb.object.read	runs
+"storage smb object read --help"	netread	storage.smb.object.read	runs
+"storage smb object read --help"	read	storage.smb.object.read	runs
+"storage smb object read --help"	shell	storage.smb.object.read	runs
+"storage smb object read"	full	storage.smb.object.read	runs
+"storage smb object read"	netread	storage.smb.object.read	runs
+"storage smb object read"	read	storage.smb.object.read	runs
+"storage smb object read"	shell	storage.smb.object.read	runs
+"storage smb object"	full	storage.smb.object	runs
+"storage smb object"	netread	storage.smb.object	runs
+"storage smb object"	read	storage.smb.object	runs
+"storage smb object"	shell	storage.smb.object	runs
+"storage smb remove --help"	full	storage.smb.remove	runs
+"storage smb remove --help"	netread	storage.smb.remove	runs
+"storage smb remove --help"	read	storage.smb.remove	runs
+"storage smb remove --help"	shell	storage.smb.remove	runs
+"storage smb remove"	full	storage.smb.remove	SSH_GATE_REFUSED|komando storage smb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb remove"	netread	storage.smb.remove	SSH_GATE_REFUSED|komando storage smb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb remove"	read	storage.smb.remove	SSH_GATE_REFUSED|komando storage smb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb remove"	shell	storage.smb.remove	SSH_GATE_REFUSED|komando storage smb remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb rename --help"	full	storage.smb.rename	runs
+"storage smb rename --help"	netread	storage.smb.rename	runs
+"storage smb rename --help"	read	storage.smb.rename	runs
+"storage smb rename --help"	shell	storage.smb.rename	runs
+"storage smb rename"	full	storage.smb.rename	SSH_GATE_REFUSED|komando storage smb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb rename"	netread	storage.smb.rename	SSH_GATE_REFUSED|komando storage smb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb rename"	read	storage.smb.rename	SSH_GATE_REFUSED|komando storage smb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb rename"	shell	storage.smb.rename	SSH_GATE_REFUSED|komando storage smb rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage smb show --help"	full	storage.smb.show	runs
+"storage smb show --help"	netread	storage.smb.show	runs
+"storage smb show --help"	read	storage.smb.show	runs
+"storage smb show --help"	shell	storage.smb.show	runs
+"storage smb show"	full	storage.smb.show	runs
+"storage smb show"	netread	storage.smb.show	runs
+"storage smb show"	read	storage.smb.show	runs
+"storage smb show"	shell	storage.smb.show	runs
+"storage smb test --help"	full	storage.smb.test	runs
+"storage smb test --help"	netread	storage.smb.test	runs
+"storage smb test --help"	read	storage.smb.test	runs
+"storage smb test --help"	shell	storage.smb.test	runs
+"storage smb test"	full	storage.smb.test	runs
+"storage smb test"	netread	storage.smb.test	runs
+"storage smb test"	read	storage.smb.test	runs
+"storage smb test"	shell	storage.smb.test	runs
+"storage smb"	full	storage.smb	runs
+"storage smb"	netread	storage.smb	runs
+"storage smb"	read	storage.smb	runs
+"storage smb"	shell	storage.smb	runs
 "storage upload --help"	full	storage.upload	runs
 "storage upload --help"	netread	storage.upload	runs
 "storage upload --help"	read	storage.upload	runs
@@ -2470,98 +3710,122 @@
 "storage upload"	netread	storage.upload	SSH_GATE_READ_ONLY|komando storage upload is refused for a read-only key: it changes something
 "storage upload"	read	storage.upload	SSH_GATE_READ_ONLY|komando storage upload is refused for a read-only key: it changes something
 "storage upload"	shell	storage.upload	runs
+"storage webdav --help"	full	storage.webdav	runs
+"storage webdav --help"	netread	storage.webdav	runs
+"storage webdav --help"	read	storage.webdav	runs
+"storage webdav --help"	shell	storage.webdav	runs
+"storage webdav add --help"	full	storage.webdav.add	runs
+"storage webdav add --help"	netread	storage.webdav.add	runs
+"storage webdav add --help"	read	storage.webdav.add	runs
+"storage webdav add --help"	shell	storage.webdav.add	runs
+"storage webdav add"	full	storage.webdav.add	SSH_GATE_REFUSED|komando storage webdav add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav add"	netread	storage.webdav.add	SSH_GATE_REFUSED|komando storage webdav add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav add"	read	storage.webdav.add	SSH_GATE_REFUSED|komando storage webdav add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav add"	shell	storage.webdav.add	SSH_GATE_REFUSED|komando storage webdav add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav edit --help"	full	storage.webdav.edit	runs
+"storage webdav edit --help"	netread	storage.webdav.edit	runs
+"storage webdav edit --help"	read	storage.webdav.edit	runs
+"storage webdav edit --help"	shell	storage.webdav.edit	runs
+"storage webdav edit"	full	storage.webdav.edit	SSH_GATE_REFUSED|komando storage webdav edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav edit"	netread	storage.webdav.edit	SSH_GATE_REFUSED|komando storage webdav edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav edit"	read	storage.webdav.edit	SSH_GATE_REFUSED|komando storage webdav edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav edit"	shell	storage.webdav.edit	SSH_GATE_REFUSED|komando storage webdav edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav list --help"	full	storage.webdav.list	runs
+"storage webdav list --help"	netread	storage.webdav.list	runs
+"storage webdav list --help"	read	storage.webdav.list	runs
+"storage webdav list --help"	shell	storage.webdav.list	runs
+"storage webdav list"	full	storage.webdav.list	runs
+"storage webdav list"	netread	storage.webdav.list	runs
+"storage webdav list"	read	storage.webdav.list	runs
+"storage webdav list"	shell	storage.webdav.list	runs
+"storage webdav object --help"	full	storage.webdav.object	runs
+"storage webdav object --help"	netread	storage.webdav.object	runs
+"storage webdav object --help"	read	storage.webdav.object	runs
+"storage webdav object --help"	shell	storage.webdav.object	runs
+"storage webdav object create --help"	full	storage.webdav.object.create	runs
+"storage webdav object create --help"	netread	storage.webdav.object.create	runs
+"storage webdav object create --help"	read	storage.webdav.object.create	runs
+"storage webdav object create --help"	shell	storage.webdav.object.create	runs
+"storage webdav object create"	full	storage.webdav.object.create	runs
+"storage webdav object create"	netread	storage.webdav.object.create	SSH_GATE_READ_ONLY|komando storage webdav object create is refused for a read-only key: it changes something
+"storage webdav object create"	read	storage.webdav.object.create	SSH_GATE_READ_ONLY|komando storage webdav object create is refused for a read-only key: it changes something
+"storage webdav object create"	shell	storage.webdav.object.create	runs
+"storage webdav object delete --help"	full	storage.webdav.object.delete	runs
+"storage webdav object delete --help"	netread	storage.webdav.object.delete	runs
+"storage webdav object delete --help"	read	storage.webdav.object.delete	runs
+"storage webdav object delete --help"	shell	storage.webdav.object.delete	runs
+"storage webdav object delete"	full	storage.webdav.object.delete	runs
+"storage webdav object delete"	netread	storage.webdav.object.delete	SSH_GATE_READ_ONLY|komando storage webdav object delete is refused for a read-only key: it changes something
+"storage webdav object delete"	read	storage.webdav.object.delete	SSH_GATE_READ_ONLY|komando storage webdav object delete is refused for a read-only key: it changes something
+"storage webdav object delete"	shell	storage.webdav.object.delete	runs
+"storage webdav object list --help"	full	storage.webdav.object.list	runs
+"storage webdav object list --help"	netread	storage.webdav.object.list	runs
+"storage webdav object list --help"	read	storage.webdav.object.list	runs
+"storage webdav object list --help"	shell	storage.webdav.object.list	runs
+"storage webdav object list"	full	storage.webdav.object.list	runs
+"storage webdav object list"	netread	storage.webdav.object.list	runs
+"storage webdav object list"	read	storage.webdav.object.list	runs
+"storage webdav object list"	shell	storage.webdav.object.list	runs
+"storage webdav object move --help"	full	storage.webdav.object.move	runs
+"storage webdav object move --help"	netread	storage.webdav.object.move	runs
+"storage webdav object move --help"	read	storage.webdav.object.move	runs
+"storage webdav object move --help"	shell	storage.webdav.object.move	runs
+"storage webdav object move"	full	storage.webdav.object.move	runs
+"storage webdav object move"	netread	storage.webdav.object.move	SSH_GATE_READ_ONLY|komando storage webdav object move is refused for a read-only key: it changes something
+"storage webdav object move"	read	storage.webdav.object.move	SSH_GATE_READ_ONLY|komando storage webdav object move is refused for a read-only key: it changes something
+"storage webdav object move"	shell	storage.webdav.object.move	runs
+"storage webdav object read --help"	full	storage.webdav.object.read	runs
+"storage webdav object read --help"	netread	storage.webdav.object.read	runs
+"storage webdav object read --help"	read	storage.webdav.object.read	runs
+"storage webdav object read --help"	shell	storage.webdav.object.read	runs
+"storage webdav object read"	full	storage.webdav.object.read	runs
+"storage webdav object read"	netread	storage.webdav.object.read	runs
+"storage webdav object read"	read	storage.webdav.object.read	runs
+"storage webdav object read"	shell	storage.webdav.object.read	runs
+"storage webdav object"	full	storage.webdav.object	runs
+"storage webdav object"	netread	storage.webdav.object	runs
+"storage webdav object"	read	storage.webdav.object	runs
+"storage webdav object"	shell	storage.webdav.object	runs
+"storage webdav remove --help"	full	storage.webdav.remove	runs
+"storage webdav remove --help"	netread	storage.webdav.remove	runs
+"storage webdav remove --help"	read	storage.webdav.remove	runs
+"storage webdav remove --help"	shell	storage.webdav.remove	runs
+"storage webdav remove"	full	storage.webdav.remove	SSH_GATE_REFUSED|komando storage webdav remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav remove"	netread	storage.webdav.remove	SSH_GATE_REFUSED|komando storage webdav remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav remove"	read	storage.webdav.remove	SSH_GATE_REFUSED|komando storage webdav remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav remove"	shell	storage.webdav.remove	SSH_GATE_REFUSED|komando storage webdav remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav rename --help"	full	storage.webdav.rename	runs
+"storage webdav rename --help"	netread	storage.webdav.rename	runs
+"storage webdav rename --help"	read	storage.webdav.rename	runs
+"storage webdav rename --help"	shell	storage.webdav.rename	runs
+"storage webdav rename"	full	storage.webdav.rename	SSH_GATE_REFUSED|komando storage webdav rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav rename"	netread	storage.webdav.rename	SSH_GATE_REFUSED|komando storage webdav rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav rename"	read	storage.webdav.rename	SSH_GATE_REFUSED|komando storage webdav rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav rename"	shell	storage.webdav.rename	SSH_GATE_REFUSED|komando storage webdav rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"storage webdav show --help"	full	storage.webdav.show	runs
+"storage webdav show --help"	netread	storage.webdav.show	runs
+"storage webdav show --help"	read	storage.webdav.show	runs
+"storage webdav show --help"	shell	storage.webdav.show	runs
+"storage webdav show"	full	storage.webdav.show	runs
+"storage webdav show"	netread	storage.webdav.show	runs
+"storage webdav show"	read	storage.webdav.show	runs
+"storage webdav show"	shell	storage.webdav.show	runs
+"storage webdav test --help"	full	storage.webdav.test	runs
+"storage webdav test --help"	netread	storage.webdav.test	runs
+"storage webdav test --help"	read	storage.webdav.test	runs
+"storage webdav test --help"	shell	storage.webdav.test	runs
+"storage webdav test"	full	storage.webdav.test	runs
+"storage webdav test"	netread	storage.webdav.test	runs
+"storage webdav test"	read	storage.webdav.test	runs
+"storage webdav test"	shell	storage.webdav.test	runs
+"storage webdav"	full	storage.webdav	runs
+"storage webdav"	netread	storage.webdav	runs
+"storage webdav"	read	storage.webdav	runs
+"storage webdav"	shell	storage.webdav	runs
 "storage"	full	storage	runs
 "storage"	netread	storage	runs
 "storage"	read	storage	runs
 "storage"	shell	storage	runs
-"svc --help"	full	svc	runs
-"svc --help"	netread	svc	runs
-"svc --help"	read	svc	runs
-"svc --help"	shell	svc	runs
-"svc daemon-reload --help"	full	svc.daemon-reload	runs
-"svc daemon-reload --help"	netread	svc.daemon-reload	runs
-"svc daemon-reload --help"	read	svc.daemon-reload	runs
-"svc daemon-reload --help"	shell	svc.daemon-reload	runs
-"svc daemon-reload"	full	svc.daemon-reload	runs
-"svc daemon-reload"	netread	svc.daemon-reload	SSH_GATE_READ_ONLY|komando svc daemon-reload is refused for a read-only key: it changes something
-"svc daemon-reload"	read	svc.daemon-reload	SSH_GATE_READ_ONLY|komando svc daemon-reload is refused for a read-only key: it changes something
-"svc daemon-reload"	shell	svc.daemon-reload	runs
-"svc disable --help"	full	svc.disable	runs
-"svc disable --help"	netread	svc.disable	runs
-"svc disable --help"	read	svc.disable	runs
-"svc disable --help"	shell	svc.disable	runs
-"svc disable"	full	svc.disable	runs
-"svc disable"	netread	svc.disable	SSH_GATE_READ_ONLY|komando svc disable is refused for a read-only key: it changes something
-"svc disable"	read	svc.disable	SSH_GATE_READ_ONLY|komando svc disable is refused for a read-only key: it changes something
-"svc disable"	shell	svc.disable	runs
-"svc enable --help"	full	svc.enable	runs
-"svc enable --help"	netread	svc.enable	runs
-"svc enable --help"	read	svc.enable	runs
-"svc enable --help"	shell	svc.enable	runs
-"svc enable"	full	svc.enable	runs
-"svc enable"	netread	svc.enable	SSH_GATE_READ_ONLY|komando svc enable is refused for a read-only key: it changes something
-"svc enable"	read	svc.enable	SSH_GATE_READ_ONLY|komando svc enable is refused for a read-only key: it changes something
-"svc enable"	shell	svc.enable	runs
-"svc list --help"	full	svc.list	runs
-"svc list --help"	netread	svc.list	runs
-"svc list --help"	read	svc.list	runs
-"svc list --help"	shell	svc.list	runs
-"svc list"	full	svc.list	runs
-"svc list"	netread	svc.list	runs
-"svc list"	read	svc.list	runs
-"svc list"	shell	svc.list	runs
-"svc logs --help"	full	svc.logs	runs
-"svc logs --help"	netread	svc.logs	runs
-"svc logs --help"	read	svc.logs	runs
-"svc logs --help"	shell	svc.logs	runs
-"svc logs"	full	svc.logs	runs
-"svc logs"	netread	svc.logs	runs
-"svc logs"	read	svc.logs	runs
-"svc logs"	shell	svc.logs	runs
-"svc reload --help"	full	svc.reload	runs
-"svc reload --help"	netread	svc.reload	runs
-"svc reload --help"	read	svc.reload	runs
-"svc reload --help"	shell	svc.reload	runs
-"svc reload"	full	svc.reload	runs
-"svc reload"	netread	svc.reload	SSH_GATE_READ_ONLY|komando svc reload is refused for a read-only key: it changes something
-"svc reload"	read	svc.reload	SSH_GATE_READ_ONLY|komando svc reload is refused for a read-only key: it changes something
-"svc reload"	shell	svc.reload	runs
-"svc restart --help"	full	svc.restart	runs
-"svc restart --help"	netread	svc.restart	runs
-"svc restart --help"	read	svc.restart	runs
-"svc restart --help"	shell	svc.restart	runs
-"svc restart"	full	svc.restart	runs
-"svc restart"	netread	svc.restart	SSH_GATE_READ_ONLY|komando svc restart is refused for a read-only key: it changes something
-"svc restart"	read	svc.restart	SSH_GATE_READ_ONLY|komando svc restart is refused for a read-only key: it changes something
-"svc restart"	shell	svc.restart	runs
-"svc start --help"	full	svc.start	runs
-"svc start --help"	netread	svc.start	runs
-"svc start --help"	read	svc.start	runs
-"svc start --help"	shell	svc.start	runs
-"svc start"	full	svc.start	runs
-"svc start"	netread	svc.start	SSH_GATE_READ_ONLY|komando svc start is refused for a read-only key: it changes something
-"svc start"	read	svc.start	SSH_GATE_READ_ONLY|komando svc start is refused for a read-only key: it changes something
-"svc start"	shell	svc.start	runs
-"svc status --help"	full	svc.status	runs
-"svc status --help"	netread	svc.status	runs
-"svc status --help"	read	svc.status	runs
-"svc status --help"	shell	svc.status	runs
-"svc status"	full	svc.status	runs
-"svc status"	netread	svc.status	runs
-"svc status"	read	svc.status	runs
-"svc status"	shell	svc.status	runs
-"svc stop --help"	full	svc.stop	runs
-"svc stop --help"	netread	svc.stop	runs
-"svc stop --help"	read	svc.stop	runs
-"svc stop --help"	shell	svc.stop	runs
-"svc stop"	full	svc.stop	runs
-"svc stop"	netread	svc.stop	SSH_GATE_READ_ONLY|komando svc stop is refused for a read-only key: it changes something
-"svc stop"	read	svc.stop	SSH_GATE_READ_ONLY|komando svc stop is refused for a read-only key: it changes something
-"svc stop"	shell	svc.stop	runs
-"svc"	full	svc	runs
-"svc"	netread	svc	runs
-"svc"	read	svc	runs
-"svc"	shell	svc	runs
 "sync --help"	full	sync	runs
 "sync --help"	netread	sync	runs
 "sync --help"	read	sync	runs
@@ -2638,54 +3902,6 @@
 "upload"	netread	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
 "upload"	read	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
 "upload"	shell	upload	runs
-"user --help"	full	user	runs
-"user --help"	netread	user	runs
-"user --help"	read	user	runs
-"user --help"	shell	user	runs
-"user add --help"	full	user.add	runs
-"user add --help"	netread	user.add	runs
-"user add --help"	read	user.add	runs
-"user add --help"	shell	user.add	runs
-"user add"	full	user.add	runs
-"user add"	netread	user.add	SSH_GATE_READ_ONLY|komando user add is refused for a read-only key: it changes something
-"user add"	read	user.add	SSH_GATE_READ_ONLY|komando user add is refused for a read-only key: it changes something
-"user add"	shell	user.add	runs
-"user list --help"	full	user.list	runs
-"user list --help"	netread	user.list	runs
-"user list --help"	read	user.list	runs
-"user list --help"	shell	user.list	runs
-"user list"	full	user.list	runs
-"user list"	netread	user.list	runs
-"user list"	read	user.list	runs
-"user list"	shell	user.list	runs
-"user lock --help"	full	user.lock	runs
-"user lock --help"	netread	user.lock	runs
-"user lock --help"	read	user.lock	runs
-"user lock --help"	shell	user.lock	runs
-"user lock"	full	user.lock	runs
-"user lock"	netread	user.lock	SSH_GATE_READ_ONLY|komando user lock is refused for a read-only key: it changes something
-"user lock"	read	user.lock	SSH_GATE_READ_ONLY|komando user lock is refused for a read-only key: it changes something
-"user lock"	shell	user.lock	runs
-"user rm --help"	full	user.rm	runs
-"user rm --help"	netread	user.rm	runs
-"user rm --help"	read	user.rm	runs
-"user rm --help"	shell	user.rm	runs
-"user rm"	full	user.rm	runs
-"user rm"	netread	user.rm	SSH_GATE_READ_ONLY|komando user rm is refused for a read-only key: it changes something
-"user rm"	read	user.rm	SSH_GATE_READ_ONLY|komando user rm is refused for a read-only key: it changes something
-"user rm"	shell	user.rm	runs
-"user unlock --help"	full	user.unlock	runs
-"user unlock --help"	netread	user.unlock	runs
-"user unlock --help"	read	user.unlock	runs
-"user unlock --help"	shell	user.unlock	runs
-"user unlock"	full	user.unlock	runs
-"user unlock"	netread	user.unlock	SSH_GATE_READ_ONLY|komando user unlock is refused for a read-only key: it changes something
-"user unlock"	read	user.unlock	SSH_GATE_READ_ONLY|komando user unlock is refused for a read-only key: it changes something
-"user unlock"	shell	user.unlock	runs
-"user"	full	user	runs
-"user"	netread	user	runs
-"user"	read	user	runs
-"user"	shell	user	runs
 "version --help"	full	version	runs
 "version --help"	netread	version	runs
 "version --help"	read	version	runs

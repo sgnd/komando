@@ -48,9 +48,8 @@ This page is made from the code (`komando schema` lists the same under
 | `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
 | `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME` |
-| `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue groups CONN` |
-| `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER |
-| `CRONTAB_UNREADABLE` | 5 | cannot read the crontab (exit …) | check the user name; reading another user's crontab needs sudo |
+| `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue kafka consumer list NAME` |
+| `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER |
 | `DB_AUTH` | 4 | bigquery: the stored key is not a service account key: … | the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login |
 | `DB_BYTES_LIMIT` | 6 | the query would read …, more than --max-bytes …, so it did not run | BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes |
 | `DB_CONNECT` | 4 | cannot open …: … | check the file path in the conn URL (`komando conn show NAME`) |
@@ -64,7 +63,6 @@ This page is made from the code (`komando schema` lists the same under
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
 | `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
-| `DIG_MISSING` | 3 | … records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se… | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `DOCKER_MISSING` | 3 | docker not found | install Docker on the server, or pick another server |
@@ -129,7 +127,7 @@ This page is made from the code (`komando schema` lists the same under
 | `KUBECONFIG` | 2 | conn …: … | import it again with `komando import kubeconfig` |
 | `LOGIN_FAILED` | 4 | the login to … ended early (…) | a person reads the whole log in … |
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
-| `MOVE_FAILED` | 5 | the copy on the server (…) ended badly: …; … was kept | run it again: `komando storage mv CONN … …` |
+| `MOVE_FAILED` | 5 | the copy on the server (…) ended badly: …; … was kept | run it again: `komando storage s3 object move NAME … …` |
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
 | `NEEDS_PERSON` | 6 | logging in to … needs a person at a terminal to answer its questions | ask a person to run `komando login …` in a terminal; after that your commands to … need no login |
 | `NEEDS_TERMINAL` | 2 | cluster kubernetes shell needs a person at a terminal | agents and scripts use `komando cluster kubernetes exec` |
@@ -148,13 +146,10 @@ This page is made from the code (`komando schema` lists the same under
 | `NO_PACKAGE_MANAGER` | 3 | no supported package manager on this server | komando knows apt, dnf, yum, apk, zypper and pacman |
 | `NO_PASSPHRASE` | 2 | the vault has no passphrase to take away | the vault keeps its key in store.key or the OS keychain already; the hint says which |
 | `NO_PUBLIC_KEY` | 2 | komando does not have the public key of … | place ….pub next to the key, then `komando key rm …` and add it again |
-| `NO_RECORDS` | 3 | … has no … records (or does not exist) from this server | check the name and type, and the server's DNS (/etc/resolv.conf) |
-| `NO_RESPONSE` | 4 | no HTTP answer from … | check the URL, and that the server can reach it: `komando net check … ADDRESS:443` |
 | `NO_SYSTEMD` | 3 | systemd is not running on this server | this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs` |
 | `NO_TUNNEL_NEEDED` | 2 | … has no --via, so it is reachable without a tunnel | connect to … directly |
-| `NO_USER_MANAGER` | 3 | the login user has no systemd user manager running on this server | the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server, then try `komando svc list TARGET --user-units` |
-| `NXDOMAIN` | 3 | … does not resolve from this server | check the name, and the server's DNS (/etc/resolv.conf) |
-| `OBJECT_NOT_FOUND` | 3 | … not found | list files with `komando storage list CONN [PREFIX]` |
+| `NO_USER_MANAGER` | 3 | the login user has no systemd user manager running on this server | the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER` |
+| `OBJECT_NOT_FOUND` | 3 | … not found | list files with `komando storage s3 object list NAME [PREFIX]` |
 | `OPEN_BIND` | 6 | the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer) | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `OPTION_LIKE_VAR` | 2 | the value of … may not start with '-' (… would be read as an option) | for a path that starts with -, write ./… |
 | `OUTPUT_TRUNCATED` | 1 | the rows are more than the output size cap (--max-output) allows; nothing was printed | raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump` |
@@ -162,7 +157,7 @@ This page is made from the code (`komando schema` lists the same under
 | `PACKAGE_NOT_FOUND` | 3 | …: no such package in the server's package index | check the name; refresh the index with `komando pkg update TARGET` if the package is new |
 | `PARTIAL_FAILURE` | 1 | some targets failed and some worked (see each result) | read each target's error and hint (data.results in -o json) |
 | `PARTIAL_TRANSFER` | 5 | … could not be copied; the other files were copied | fix the listed ones (permissions?) and run it again |
-| `PARTITION_NOT_FOUND` | 3 | topic … has no partition … (it has …) | partitions are numbered from 0; see them with `komando queue describe CONN …` |
+| `PARTITION_NOT_FOUND` | 3 | topic … has no partition … (it has …) | partitions are numbered from 0; see them with `komando queue kafka topic show NAME …` |
 | `PASSPHRASE_MISMATCH` | 2 | the two passphrases you typed differ; nothing was changed | run it again |
 | `PATH_NOT_FOUND` | 3 | … does not exist; nothing was changed | check the source path |
 | `PERMISSION_DENIED` | 5 | cannot read … | add --sudo |
@@ -170,7 +165,6 @@ This page is made from the code (`komando schema` lists the same under
 | `PKG_FAILED` | 5 | pkg … failed (exit …) | read the error output (stderr) for the package manager's message |
 | `POLICY_BLOCKED` | 6 | the command matches destructive rules [rm-rf]: deletes files recursively | check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
 | `POLICY_MAC_FAILED` | 1 | …: …, so komando does not run (the safety rows no longer match their policy MAC) | something other than komando changed a protection, rule, setting or pinned host key; a person finds out what, then restores the komando folder from a backup made before it (`komando doctor` then says whether that copy is older than the keychain remembers) |
-| `PORT_CLOSED` | 5 | cannot connect to … | check the address, firewall or service on the other side |
 | `PORT_IN_USE` | 8 | cannot listen on 127.0.0.1:…: … | pick another LOCAL port (`komando tunnel list` shows the ones komando holds) |
 | `POWERSHELL_FAILED` | 5 | the login check in PowerShell failed on … (exit …): … | komando runs every command on Windows in Windows PowerShell (powershell.exe): check that it is on the PATH of the login user, and read the message |
 | `PROTECTED_TARGET` | 6 | a change action on protected conn …: … | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
@@ -180,12 +174,10 @@ This page is made from the code (`komando schema` lists the same under
 | `QUEUE_CONNECT` | 4 | cannot connect to …: … | run `komando test TARGET` to check reachability, or reach the server --via an SSH server that can |
 | `QUEUE_DENIED` | 5 | the server refused the vhost …: … | check the vhost in the URL's path (%2F is the default vhost "/") and that the user has permissions on it |
 | `QUEUE_ERROR` | 5 | …: could not give back the messages peek pulled: …; nothing is lost | Pub/Sub gives the messages out again once the subscription's ack deadline has passed |
-| `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue describe CONN …` |
-| `QUEUE_NOT_FOUND` | 3 | no queue named … | list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path |
+| `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue rabbitmq topic show NAME …` |
+| `QUEUE_NOT_FOUND` | 3 | no queue named … | list queues with `komando queue rabbitmq topic list NAME` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path |
 | `READ_FAILED` | 5 | cannot read …: … | run it again; the output was cut (raise --max-output?) |
-| `READ_ONLY_VIOLATION` | 6 | --read-only, but the command is not known to only read (…) | --read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes) |
-| `REBOOT_FAILED` | 5 | the reboot command failed (exit …): … | read the error output (stderr); without sudo rights a reboot is refused |
-| `REBOOT_TIMEOUT` | 7 | … did not come back within … | check the server's console; komando did not reboot the servers after it |
+| `READ_ONLY_VIOLATION` | 6 | --read-only, but the command is not known to only read (…) | --read-only runs only what komando knows only reads: for a server's state use komando logs, fs cat, or exec --read-only with a read command; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes) |
 | `RECIPE_BUILTIN` | 8 | … is a built-in recipe | pick another name; see `komando recipe list` |
 | `RECIPE_CHANGED` | 8 | recipe … changed while komando was starting | run it again |
 | `RECIPE_EXISTS` | 8 | recipe … exists | see it with `komando recipe show NAME`, or pass --overwrite to replace it |
@@ -224,7 +216,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando secret set …` |
 | `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando secret list` |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando secret set NAME < ca.crt` |
-| `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
+| `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando exec TARGET -- cat /etc/os-release` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
 | `SENSITIVE_FILE` | 6 | … is …, not … | use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`) |
 | `SESSION_BUSY` | 8 | session … on … is still running | stop it first with `komando exec TARGET --attach ID --stop`, then remove it once it has ended |
@@ -276,11 +268,10 @@ This page is made from the code (`komando schema` lists the same under
 | `STORE_NEWER` | 1 | … was made by a newer komando | a newer komando made or changed this store; update this one: `komando update` |
 | `STORE_OLD_COPY` | 6 | … …: servers, rules, secrets or pinned host keys may be old | if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain |
 | `STORE_REFERENCE_UNSUPPORTED` | 2 | … …: field … still names a secret the old way | point the field at a saved secret again with komando v0.17.0, then run `komando doctor` |
-| `STREAM_EXISTS` | 8 | stream … already exists | pick another name, or see it with `komando queue describe CONN …` |
-| `STREAM_NOT_FOUND` | 3 | no stream named … | list streams with `komando queue list CONN` |
-| `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue describe CONN subscriptions/…` |
-| `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own |
-| `SVC_FAILED` | 5 | systemctl daemon-reload failed (…) | read the error output (stderr) for systemd's reason; a unit file with a mistake is named there |
+| `STREAM_EXISTS` | 8 | stream … already exists | pick another name, or see it with `komando queue nats topic show NAME …` |
+| `STREAM_NOT_FOUND` | 3 | no stream named … | list streams with `komando queue nats topic list NAME` |
+| `SUBSCRIPTION_EXISTS` | 8 | subscription … already exists | pick another name, or see it with `komando queue pubsub topic show NAME subscriptions/…` |
+| `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own |
 | `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `SWARM_OBJECT_NOT_FOUND` | 3 | no … named … | list what exists with `komando cluster list TARGET …s` |
 | `SWARM_SERVICE_NOT_FOUND` | 3 | no service named … | list services with `komando cluster list TARGET services` |
@@ -296,15 +287,13 @@ This page is made from the code (`komando schema` lists the same under
 | `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --max-remove … | narrow --prefix or --older-than, or raise --max-remove above … after checking the list |
 | `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry oci image delete NAME IMAGE` |
-| `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |
-| `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue list CONN` |
+| `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue kafka topic show NAME …` |
+| `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue kafka topic list NAME` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
 | `TUNNEL_NOT_FOUND` | 3 | no tunnel named … | see them with `komando tunnel list` |
 | `TUNNEL_TIMEOUT` | 7 | tunnel did not become ready… | check that … answers: `komando test …`; a person reads the whole log in … |
-| `UNEXPECTED_CHANGE` | 8 | … changed after patching: … | check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway |
-| `UNEXPECTED_STATUS` | 5 | HTTP …, expected … | check the URL and the service behind it |
-| `UNIT_NOT_ACTIVE` | 5 | not active after …s: … | read why with `komando logs TARGET --unit UNIT -n 50` |
-| `UNIT_NOT_FOUND` | 3 | no unit named … | check the name with `komando svc list TARGET` |
+| `UNEXPECTED_CHANGE` | 8 | … changed after patching: … | check the server (`komando docker ps …`, `komando exec … -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway |
+| `UNIT_NOT_FOUND` | 3 | no unit named … | check the name with `komando exec TARGET -- systemctl list-units` |
 | `UNKNOWN_SETTING` | 2 | komando has no setting named … | see the settings with `komando config show`: … |
 | `UNKNOWN_VAR` | 2 | recipe … has no blank named … (…) | see the recipe with `komando recipe list` |
 | `UNSAFE_BACKUP` | 6 | line … is a client command, not SQL: … | the file contains a client command that could run programs or read files where the restore runs; remove that line if the file is not from a trusted dump |
@@ -313,7 +302,6 @@ This page is made from the code (`komando schema` lists the same under
 | `UPLOAD_NOT_RENAMED` | 5 | could not rename the upload into place: …; the old file was removed | the new content is on the server as …: rename it by hand |
 | `URL_HAS_PASSWORD` | 2 | a conn URL holds no password | remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME |
 | `USAGE` | 2 | --… and --unset … contradict each other | pass one of them |
-| `USER_NOT_FOUND` | 3 | no user named … | list the accounts with `komando user list TARGET --all` |
 | `VALIDATION_FAILED` | 8 | --validate rejected the new file: …; the file was not changed | fix the content and run it again |
 | `VAULT_CHANGED` | 8 | …; nothing was changed | run it again |
 | `VAULT_DECRYPT` | 1 | …; nothing was lost | KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use) |

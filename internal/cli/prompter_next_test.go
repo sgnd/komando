@@ -23,7 +23,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 	}
 	for kind, cmds := range itemCommands {
 		for _, c := range cmds {
-			check("show "+kind, strings.ReplaceAll(c, "{}", "web1"))
+			check("show "+kind, strings.ReplaceAll(strings.ReplaceAll(c, "{}", "web1"), "{P}", "s3"))
 		}
 	}
 	for key, h := range formHints {
@@ -31,7 +31,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 			t.Errorf("%s: %d Next: lines, at most 3", key, len(h.next))
 		}
 		for _, n := range h.next {
-			check(key+" next", strings.ReplaceAll(n, "{}", "web1"))
+			check(key+" next", strings.ReplaceAll(strings.ReplaceAll(n, "{}", "web1"), "{P}", "s3"))
 		}
 	}
 	// a hint, a show command and a suggestion name real commands, and a
@@ -263,8 +263,6 @@ func TestStandardNextPerVerb(t *testing.T) {
 		"host rename": "komando host show web2",
 		"key rename":  "komando key show web2",
 		"rename":      "komando list web2",
-		"user add":    "komando user list web1",
-		"cron rm":     "komando cron list web1",
 		"host rm":     "komando host list",
 		"vpn edit":    "komando vpn show web1",
 	} {

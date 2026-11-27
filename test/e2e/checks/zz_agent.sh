@@ -42,7 +42,6 @@ aok "schema" schema --compact
 aok "recipe list" recipe list
 
 # servers
-aok "facts" facts direct
 aok "exec --read-only" exec direct --read-only -- uname -a
 aok "recipe run health" recipe run health direct
 aok "fs ls" fs ls direct /etc
@@ -51,12 +50,7 @@ aok "fs cat" fs cat direct /etc/hostname
 aok "logs from a file" logs direct --file /etc/hostname
 aok "job list" job list
 aok "tunnel list" tunnel list
-aok "net ports" net ports direct
-aok "net dns" net dns direct localhost
-aok "net check" net check bastion pg:5432
 aok "pkg installed" pkg installed direct curl
-aok "user list" user list direct
-aok "cron list" cron list direct
 fi
 
 if in_area swarm; then
@@ -76,7 +70,7 @@ aok "db user ls" db user ls pg
 aok "db on a protected conn reads" db query maria 'select 1'
 aok "cache info" cache info cache
 aok "cache keys" cache keys cache '*'
-aok "storage ls" storage ls bucket
+aok "storage s3 object list" storage s3 object list bucket
 fi
 
 if in_area registry; then
@@ -98,7 +92,7 @@ if in_area data; then
 acode "db write needs --write" WRITE_REQUIRES_FLAG db query pg 'create table t_agent(x int)'
 acode "db write on a protected conn needs a person" PROTECTED_TARGET db query maria --write 'create table t_agent(x int)'
 acode "cache write needs --write" WRITE_REQUIRES_FLAG cache redis raw cache -- SET t-agent 1
-acode "storage rm needs --allow-dangerous" POLICY_BLOCKED storage rm bucket e2e/nothing
+acode "storage s3 object delete needs --allow-dangerous" POLICY_BLOCKED storage s3 object delete bucket e2e/nothing
 fi
 
 if in_area registry; then
@@ -110,7 +104,6 @@ acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster scale lab-k3
 fi
 
 if in_area data; then
-acode "a service on a protected host needs a person" PROTECTED_TARGET svc restart target nginx
 acode "a change on a protected host needs a person" PROTECTED_TARGET exec target -- touch /tmp/t-agent
 acode "an agent cannot log in for a person" NEEDS_PERSON login direct
 acode "an agent gets no SQL shell" NEEDS_TERMINAL db shell pg

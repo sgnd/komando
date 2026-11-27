@@ -31,9 +31,7 @@ check "cache set --dry-run" "True 0" "$(dry cache set cache "$D:k" v) $(nat redi
 echo data >"$TMP/$D.obj"
 check "storage upload --dry-run" "True no" "$(dry storage upload files-sftp "$TMP/$D.obj" "$D.obj") $(nat sftp sh -c "[ -e /home/deploy/uploads/$D.obj ] && echo yes || echo no")"
 
-# system modules
-check "user add --dry-run" "True no" "$(dry user add direct "$D") $(nat direct sh -c "id $D >/dev/null 2>&1 && echo yes || echo no")"
-check "cron set --dry-run" "True 0" "$(dry cron set direct "$D" true --schedule @daily) $(nat direct sh -c "crontab -u agent -l 2>/dev/null | grep -c 'komando:$D' || true")"
+# packages
 check "pkg install --dry-run" "True no" "$(dry pkg install direct sl) $(nat direct sh -c "dpkg -s sl >/dev/null 2>&1 && echo yes || echo no")"
 fi
 

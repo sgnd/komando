@@ -604,6 +604,7 @@ func (r cacheReply) Text() string { return cachex.ReplyText(r.Reply) }
 func init() {
 	inventoryHandlers("cache", "redis", "memcached")
 	for _, p := range []string{"redis", "memcached"} {
+		leafBodies[capability.Key{Type: "cache", Provider: p, Verb: "raw"}] = cacheRunCmd
 		handlers[capability.Key{Type: "cache", Provider: p, Verb: "raw"}] = func(cl *call, ctx context.Context, in leafInput) error {
 			return runBody(cl, ctx, cacheRunCmd(), in, nil)
 		}

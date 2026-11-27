@@ -34,7 +34,7 @@ func TestQueuePubsubConn(t *testing.T) {
 	}
 	t.Setenv("KOMANDO_TEST_PUBSUB_KEY", "{}")
 	mustRun(t, "conn", "add", "keyed", "pubsub://test-project?endpoint=http://127.0.0.1:9", "--password-ref", "env:KOMANDO_TEST_PUBSUB_KEY")
-	wantCode(t, "USAGE", "queue", "info", "keyed")
+	wantCode(t, "USAGE", "queue", "pubsub", "info", "keyed")
 }
 
 func TestQueueTextPubsub(t *testing.T) {
@@ -97,41 +97,41 @@ func TestQueuePubsubLive(t *testing.T) {
 	if d := mustRun(t, "conn", "test", "pubsub"); !strings.Contains(jsonOf(d), `"check":"login"`) {
 		t.Errorf("conn test: %v", d)
 	}
-	if d := mustRun(t, "queue", "info", "pubsub"); d["engine"] != "pubsub" || d["project"] != "test-project" {
+	if d := mustRun(t, "queue", "pubsub", "info", "pubsub"); d["engine"] != "pubsub" || d["project"] != "test-project" {
 		t.Errorf("info: %v", d)
 	}
-	if d := mustRun(t, "--dry-run", "queue", "create", "pubsub", topic); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "pubsub", "topic", "create", "pubsub", topic); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "TOPIC_NOT_FOUND", "queue", "describe", "pubsub", topic)
-	mustRun(t, "queue", "create", "pubsub", topic)
-	wantCode(t, "TOPIC_EXISTS", "queue", "create", "pubsub", topic)
-	mustRun(t, "queue", "create", "pubsub", "subscriptions/"+sub, "--config", "topic="+topic, "--config", "ackDeadlineSeconds=20")
-	if d := mustRun(t, "queue", "send", "pubsub", topic, "--value", `{"id": 1}`, "--header", "source=test", "--key", "k1"); d["id"] == nil {
+	wantCode(t, "TOPIC_NOT_FOUND", "queue", "pubsub", "topic", "show", "pubsub", topic)
+	mustRun(t, "queue", "pubsub", "topic", "create", "pubsub", topic)
+	wantCode(t, "TOPIC_EXISTS", "queue", "pubsub", "topic", "create", "pubsub", topic)
+	mustRun(t, "queue", "pubsub", "topic", "create", "pubsub", "subscriptions/"+sub, "--config", "topic="+topic, "--config", "ackDeadlineSeconds=20")
+	if d := mustRun(t, "queue", "pubsub", "message", "create", "pubsub", topic, "--value", `{"id": 1}`, "--header", "source=test", "--key", "k1"); d["id"] == nil {
 		t.Errorf("send: %v", d)
 	}
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "pubsub", topic, "--value", "password=[hidden]")
+	wantCode(t, "HIDDEN_VALUE", "queue", "pubsub", "message", "create", "pubsub", topic, "--value", "password=[hidden]")
 	for range 2 { // peek gives every message back
-		d := mustRun(t, "queue", "peek", "pubsub", sub)
+		d := mustRun(t, "queue", "pubsub", "message", "list", "pubsub", sub)
 		if d["count"].(float64) != 1 || d["subscription"] != sub || !strings.Contains(jsonOf(d), `"ordering_key":"k1"`) {
 			t.Errorf("peek: %v", d)
 		}
 	}
-	if d := mustRun(t, "queue", "describe", "pubsub", topic); !strings.Contains(jsonOf(d), `"ack_deadline_seconds":20`) {
+	if d := mustRun(t, "queue", "pubsub", "topic", "show", "pubsub", topic); !strings.Contains(jsonOf(d), `"ack_deadline_seconds":20`) {
 		t.Errorf("describe: %v", d)
 	}
-	if d := mustRun(t, "queue", "groups", "pubsub"); d["count"].(float64) < 1 {
+	if d := mustRun(t, "queue", "pubsub", "consumer", "list", "pubsub"); d["count"].(float64) < 1 {
 		t.Errorf("groups: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "lag", "pubsub", sub)
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "pubsub", sub)
-	if d := mustRun(t, "--dry-run", "queue", "purge", "pubsub", sub); d["messages"].(float64) != -1 {
+	wantCode(t, "NOT_SUPPORTED", "queue", "pubsub", "consumer", "show", "pubsub", sub)
+	wantCode(t, "POLICY_BLOCKED", "queue", "pubsub", "message", "delete", "--all", "pubsub", sub)
+	if d := mustRun(t, "--dry-run", "queue", "pubsub", "message", "delete", "--all", "pubsub", sub); d["messages"].(float64) != -1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	setGate(tcl, false, gateDryRun)
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "pubsub", topic)
-	if d := mustRun(t, "--dry-run", "queue", "rm", "pubsub", topic, "subscriptions/"+sub); !strings.Contains(jsonOf(d), `"exists":true`) {
+	wantCode(t, "POLICY_BLOCKED", "queue", "pubsub", "topic", "delete", "pubsub", topic)
+	if d := mustRun(t, "--dry-run", "queue", "pubsub", "topic", "delete", "pubsub", topic, "subscriptions/"+sub); !strings.Contains(jsonOf(d), `"exists":true`) {
 		t.Errorf("dry-run rm: %v", d)
 	}
 }

@@ -60,7 +60,7 @@ func (n *Nats) opErr(err error, what string) error {
 		return out.Errf(out.ExitRemote, "QUEUE_DENIED", "the conn's user may not use this part of the JetStream API ($JS.API.>) or this subject; ask the server's admin, or use a conn whose user may",
 			"%s: %v", what, err)
 	case noJetStream(err):
-		return queuex.NotSupported("JetStream", "this nats account", "streams need JetStream, which is off on this server or for this account (`komando queue info CONN` says jetstream false); a leaf node's JetStream needs ?domain=NAME in the conn's URL")
+		return queuex.NotSupported("JetStream", "this nats account", "streams need JetStream, which is off on this server or for this account (`komando queue nats info NAME` says jetstream false); a leaf node's JetStream needs ?domain=NAME in the conn's URL")
 	case errors.Is(err, jetstream.ErrStreamNotFound):
 		return streamNotFound(what)
 	case errors.Is(err, jetstream.ErrConsumerNotFound):
@@ -70,9 +70,9 @@ func (n *Nats) opErr(err error, what string) error {
 	case noAnswer(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the server did not answer in time; raise --timeout", "%s: %v", what, err)
 	case errors.Is(err, natsgo.ErrMaxPayload):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the message is bigger than the server takes (max_payload, see `komando queue info CONN`)", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the message is bigger than the server takes (max_payload, see `komando queue nats info NAME`)", "%s: %v", what, err)
 	case errors.As(err, &api):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the server's words above; `komando queue describe CONN STREAM` shows the stream's settings", "%s: %s", what, api.Description)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "read the server's words above; `komando queue nats topic show NAME STREAM` shows the stream's settings", "%s: %s", what, api.Description)
 	}
 	return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to the server failed; run `komando test TARGET`", "%s: %v", what, err)
 }
@@ -93,13 +93,13 @@ func noJetStream(err error) bool {
 }
 
 func streamNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "STREAM_NOT_FOUND", "list streams with `komando queue list CONN`", "no stream named %q", name)
+	return out.Errf(out.ExitNotFound, "STREAM_NOT_FOUND", "list streams with `komando queue nats topic list NAME`", "no stream named %q", name)
 }
 
 func streamExists(name string) error {
-	return out.Errf(out.ExitConflict, "STREAM_EXISTS", "pick another name, or see it with `komando queue describe CONN "+name+"`", "stream %s already exists", name)
+	return out.Errf(out.ExitConflict, "STREAM_EXISTS", "pick another name, or see it with `komando queue nats topic show NAME "+name+"`", "stream %s already exists", name)
 }
 
 func consumerNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "CONSUMER_NOT_FOUND", "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER", "no consumer named %q", name)
+	return out.Errf(out.ExitNotFound, "CONSUMER_NOT_FOUND", "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER", "no consumer named %q", name)
 }

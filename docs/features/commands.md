@@ -156,8 +156,8 @@ Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
 cannot check. A value with `*`, `?`, `[`, `{`, `~` or a backslash is refused:
 bash would expand it into names komando cannot see. `kubectl config view --raw` is refused too: it prints the
 kubeconfig's credentials. For a server's state, komando's
-own reads need no shell command at all: `komando facts`, `logs`,
-`svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
+own reads need no shell command at all: `komando logs`, `fs cat`,
+`docker ps`, `cert check`. `docker exec` and
 `cluster kubernetes exec` check their `--read-only` the same way.
 
 A command komando cannot follow is refused the same way: `eval`, `source`,
@@ -368,7 +368,7 @@ Next time: komando logs web1
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
 - `komando host add` (or `conn add`, `vpn add`, `db add`, `cache redis add`,
-  `queue add`, `storage add`, `cluster kubernetes add`, `registry oci add`) typed alone
+  `queue kafka add`, `storage s3 add`, `cluster kubernetes add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
   production. A password is never asked here: the command asks for it

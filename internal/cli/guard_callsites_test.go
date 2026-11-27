@@ -22,11 +22,11 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         22,
+	"guard":         21, // -1 reboot (C493): exec rule power, TestRulePower
 	"guardScript":   5,
 	"guardConns":    25, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1
 	"confirmObject": 4,
-	"dangerOK":      18, // 17 commands, and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
+	"dangerOK":      17, // 16 commands (-1 reboot, C493: TestRulePower), and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
 	"askPerson":     2,
 }
 

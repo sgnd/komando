@@ -213,7 +213,7 @@ own tool, is allowed when this list names it:
 `registry inspect/copy` (crane, skopeo), `cache keys` (Redis KEYS),
 `user add`, `db user add` (useradd; hidden alias `create`),
 `db grant/revoke` (SQL), `pkg installed/upgradable/security`,
-`queue peek/send/lag/groups`, `db activity/locks/sizes/explain/kill`,
+`queue PROVIDER message list/message create/consumer show/consumer list`, `db activity/locks/sizes/explain/kill`,
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
@@ -310,12 +310,12 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
-| `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue send`) | `-` = stdin |
+| `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue PROVIDER message create`) | `-` = stdin |
 | `--to` | | string | a local output file | `-` = stdout |
 | `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`cluster apply`, `docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
 | `--content` | | string | inline file content (`fs write`) | |
-| `--config` | | tool word | *exception*: `queue create --config KEY=VALUE` (kafka-topics), `vpn add --config FILE` (OpenVPN, WireGuard) | |
-| `--key` | | string | *exception*: `queue send --key` is the message key (Kafka); elsewhere an SSH key file | |
+| `--config` | | tool word | *exception*: `queue PROVIDER topic create --config KEY=VALUE` (kafka-topics), `vpn add --config FILE` (OpenVPN, WireGuard) | |
+| `--key` | | string | *exception*: `queue PROVIDER message create --key` is the message key (Kafka); elsewhere an SSH key file | |
 | `--env`, `--label`, `--option`, `--var`, `--header`, `--config` (queue) | `-e` for --env | stringArray | `KEY=VALUE`, repeatable, never split on commas. A value whose text after a comma looks like `KEY=` is a USAGE error: "repeat --option for each KEY=VALUE" | |
 | `--group`, `--tag`, `--add-*`, `--rm-*`, `--kind`, `--unset` | `-g`, `-t` | stringSlice | a list of names, comma-separated | |
 | `--only` | | stringSlice | run only these parts of a read (`facts --only load,mem,disks`); the usage text lists the values, an unknown one is a USAGE error naming them | all parts |
