@@ -158,7 +158,7 @@ the command (`komando database postgres backup` → `database`), as listed in
 | Name | Holds | Examples |
 |---|---|---|
 | `<noun>.go` | the command and what most of its verbs share | `host.go`, `db.go`, `cluster.go` |
-| `<noun>_<verb>.go` | one verb, when it is big enough for its own file | `job_start.go`, `fs_replace.go`, `key_revoke.go` |
+| `<noun>_<verb>.go` | one verb, when it is big enough for its own file | `fs_replace.go`, `credential_key_uninstall.go` |
 | `<noun>_<topic>.go` | one part of the noun | `db_dump_tls.go`, `conn_tls.go`, `cluster_swarm.go` |
 
 - Join words with `_`; never glue them (`db_dump.go`, not `dbdump.go`).
