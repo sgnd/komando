@@ -263,8 +263,6 @@ func TestStandardNextPerVerb(t *testing.T) {
 		"host rename": "komando host show web2",
 		"key rename":  "komando key show web2",
 		"rename":      "komando list web2",
-		"user add":    "komando user list web1",
-		"cron rm":     "komando cron list web1",
 		"host rm":     "komando host list",
 		"vpn edit":    "komando vpn show web1",
 	} {

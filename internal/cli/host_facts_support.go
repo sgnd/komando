@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// OS support dates for `komando facts`.
+// OS support dates for the facts snippet.
 //
 // These dates come from the vendors' own release pages, checked on
 // osTableChecked:

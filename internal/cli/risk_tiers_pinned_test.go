@@ -44,8 +44,8 @@ func TestRiskTiersPinned(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
-	if len(want) < 300 {
-		t.Fatalf("the pin has %d lines: it no longer covers every command", len(want))
+	if len(want) < len(seen) {
+		t.Fatalf("the pin has %d lines for %d commands: it no longer covers every command", len(want), len(seen))
 	}
 	for _, l := range lines {
 		if !slices.Contains(want, l) {

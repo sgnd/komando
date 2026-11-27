@@ -223,7 +223,7 @@ func TestPkgSecText(t *testing.T) {
 		t.Errorf("list text:\n%s", txt)
 	}
 	txt = pkgSecData{Applied: true, Results: []pkgSecRow{applied}, NotRun: []string{"web3"}}.Text()
-	for _, want := range []string{"web2  patched, 4 packages changed (apt-get)", "need a restart: containerd.service", "komando reboot web2", "not patched (stopped): web3"} {
+	for _, want := range []string{"web2  patched, 4 packages changed (apt-get)", "need a restart: containerd.service", "komando exec web2 --sudo --allow-dangerous -- reboot", "not patched (stopped): web3"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("apply text misses %q:\n%s", want, txt)
 		}

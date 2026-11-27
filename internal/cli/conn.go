@@ -618,7 +618,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
 	if steps := inventory.ViaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
-		hint = "the address is resolved on " + last + "; check it from there with `komando net check " + last + " " + t.Address + "`"
+		hint = "the address is resolved on " + last + "; check it from there with `komando exec " + last + " -- nc -z HOST PORT`"
 		if st, err := loadState(); err == nil {
 			if _, isVpn := st.Vpns[last]; isVpn {
 				hint = "the address is reached through VPN " + last + "; check the VPN with `komando test " + last + "` and the address in the conn URL"

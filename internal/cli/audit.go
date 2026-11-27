@@ -172,7 +172,7 @@ is given.`,
 	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, like @prod)")
-	c.Flags().StringVar(&command, "command", "", "only commands that start with this (like exec, svc.)")
+	c.Flags().StringVar(&command, "command", "", "only commands that start with this (like exec, fs.)")
 	c.Flags().BoolVar(&failed, "failed", false, "only actions that failed or were blocked")
 	c.Flags().StringVar(&actorName, "actor", "", "only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account")
 	c.Flags().StringVar(&since, "since", "", "only entries from this time on: 2h, 7d, today, 2026-11-07 or '2026-11-07 14:30'")

@@ -10,12 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/snippet"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // factsMemLine and factsDiskLines are the memory and disk probes, which
@@ -198,13 +195,6 @@ type pendingUpdates struct {
 
 // staleIndexDays is when an old package index earns a warning.
 const staleIndexDays = 7
-
-func parseFacts(h *store.Host, s string) (any, error) {
-	if h.Windows() {
-		return parseWinFacts(s, time.Now()), nil
-	}
-	return parseFactsAt(s, time.Now()), nil
-}
 
 // parseFactsAt turns the script's output into facts, judging OS support on
 // day now.
@@ -600,51 +590,6 @@ func compactIPv6(s string) string {
 		return "::1"
 	}
 	return s
-}
-
-func factsCmd() *cobra.Command {
-	var only []string
-	c := &cobra.Command{
-		Use:     "facts TARGET",
-		Aliases: []string{"info"},
-		Short:   "System facts: OS and support, updates, Docker, open ports",
-		Long: `Run this first on a server you do not know yet: it tells an agent which
-package manager, init system and tools exist, so later commands fit the server.
-
-It also reports what needs attention: whether the OS still gets security
-updates (Ubuntu ESM, Debian LTS, end of life), pending and security updates
-(from the server's package index, which it does not refresh), a needed
-reboot, passwordless sudo, Docker and the Swarm role, PM2 apps, listening
-ports and services added by hand under /etc/systemd/system.
-
-On Windows servers it reports the Windows version and its support dates,
-pending updates from the Windows Update cache, a pending reboot, stopped
-automatic services and listening ports.
-
---only load,mem,disks runs just those probes (load and CPUs; memory and
-swap; every file system), in about a second, for an app that polls; the
-other keys are left out. --only system gives the OS name and version and
-the time the server has been up. On Windows the full probe runs and only
-those keys are kept.
-
-It only reads, and it uses sudo only when sudo works without a password.
-A value komando cannot read is null ("unknown"), never 0 or false; read
-data.results[].data.warnings first.`,
-		Example: "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json\n  komando facts web1 --only system",
-		Args:    cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if len(only) > 0 {
-				script, keys, err := factsOnly(only)
-				if err != nil {
-					return err
-				}
-				return probeText(cl, cmd.Context(), "facts", args[0], script, false, nil, factsOnlyParse(keys), factsOnlyText)
-			}
-			return probeText(cl, cmd.Context(), "facts", args[0], factsScript, false, nil, parseFacts, factsText)
-		}),
-	}
-	c.Flags().StringSliceVar(&only, "only", nil, "run only these sections, comma-separated: "+strings.Join(factsSectionNames(), ", ")+" (fast, for polling; the other keys are left out)")
-	return c
 }
 
 // factsSnippets are the ready-made snippets of facts (design 2.1). They

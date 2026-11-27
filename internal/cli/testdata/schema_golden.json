@@ -18,7 +18,7 @@
           {
             "name": "command",
             "type": "string",
-            "usage": "only commands that start with this (like exec, svc.)"
+            "usage": "only commands that start with this (like exec, fs.)"
           },
           {
             "name": "failed",
@@ -2895,112 +2895,6 @@
         ]
       },
       {
-        "path": "komando cron",
-        "usage": "komando cron [flags]",
-        "short": "Cron entries on servers: see, set and remove them",
-        "long": "Cron runs commands on a schedule (every night at 2, every 5 minutes ...).\nkomando manages crontab entries by NAME: each is tagged with '#\nkomando:<name>', so 'cron set' replaces the entry with the same NAME instead\nof adding a second one, and 'cron rm' removes only that entry. Other lines\nof the crontab are kept as they are.",
-        "aliases": [
-          "crons"
-        ],
-        "example": "  komando cron list web1\n  komando cron set web1 nightly-backup '/usr/local/bin/backup.sh' --schedule '0 2 * * *'\n  komando cron rm web1 nightly-backup",
-        "flags": [
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cron list",
-        "usage": "komando cron list TARGET [flags]",
-        "short": "Show crontab entries",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando cron list web1",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many entries per server (0 = all)"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cron rm",
-        "usage": "komando cron rm TARGET NAME [flags]",
-        "short": "Remove the cron entry with this NAME",
-        "long": "Remove the cron entry with this NAME.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando cron rm web1 nightly-backup\n  komando cron rm web1 nightly-backup --dry-run",
-        "flags": [
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando cron set",
-        "usage": "komando cron set TARGET NAME COMMAND --schedule SCHEDULE [flags]",
-        "short": "Create or replace the entry with this NAME",
-        "long": "Create or replace the entry with this NAME.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'\n  komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily\n  komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily --dry-run",
-        "flags": [
-          {
-            "name": "schedule",
-            "type": "string",
-            "usage": "cron schedule: 5 fields like '*/5 * * * *', or @hourly, @daily, @weekly, @monthly, @yearly, @reboot"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "crontab of this user (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
         "path": "komando db",
         "usage": "komando db [flags]",
         "short": "Databases: query safely, look at the schema, back up, restore",
@@ -4608,31 +4502,6 @@
           {
             "tier": "person",
             "when": "with --for-phone"
-          }
-        ]
-      },
-      {
-        "path": "komando facts",
-        "usage": "komando facts TARGET [flags]",
-        "short": "System facts: OS and support, updates, Docker, open ports",
-        "long": "Run this first on a server you do not know yet: it tells an agent which\npackage manager, init system and tools exist, so later commands fit the\nserver.\n\nIt also reports what needs attention: whether the OS still gets security\nupdates (Ubuntu ESM, Debian LTS, end of life), pending and security updates\n(from the server's package index, which it does not refresh), a needed\nreboot, passwordless sudo, Docker and the Swarm role, PM2 apps, listening\nports and services added by hand under /etc/systemd/system.\n\nOn Windows servers it reports the Windows version and its support dates,\npending updates from the Windows Update cache, a pending reboot, stopped\nautomatic services and listening ports.\n\n--only load,mem,disks runs just those probes (load and CPUs; memory and\nswap; every file system), in about a second, for an app that polls; the\nother keys are left out. --only system gives the OS name and version and\nthe time the server has been up. On Windows the full probe runs and only\nthose keys are kept.\n\nIt only reads, and it uses sudo only when sudo works without a password.\nA value komando cannot read is null (\"unknown\"), never 0 or false; read\ndata.results[].data.warnings first.",
-        "aliases": [
-          "info"
-        ],
-        "example": "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json\n  komando facts web1 --only system",
-        "flags": [
-          {
-            "name": "only",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "run only these sections, comma-separated: disks, load, mem, system (fast, for polling; the other keys are left out)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
           }
         ]
       },
@@ -6611,105 +6480,6 @@
         ]
       },
       {
-        "path": "komando net",
-        "usage": "komando net [flags]",
-        "short": "Network checks from servers: open ports, reachability, HTTP, DNS",
-        "aliases": [
-          "network"
-        ],
-        "example": "  komando net ports web1 --sudo                     # what listens, and which program\n  komando net check @web db.internal:5432           # can the servers reach it?\n  komando net dns web1 db.internal\n  komando net http web1 http://localhost:8080/health --expect 200",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net check",
-        "usage": "komando net check TARGET ADDRESS:PORT... [flags]",
-        "short": "Check that each server can open a TCP connection to HOST:PORT",
-        "example": "  komando net check @web db.internal:5432 redis.internal:6379",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net dns",
-        "usage": "komando net dns TARGET DOMAIN [flags]",
-        "short": "Resolve a domain name from each server",
-        "example": "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
-        "flags": [
-          {
-            "name": "type",
-            "type": "string",
-            "usage": "record type: A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, PTR, CAA (default: the addresses the server would connect to)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net http",
-        "usage": "komando net http TARGET URL [flags]",
-        "short": "Send an HTTP request from each server: status, timing, IP",
-        "example": "  komando net http web1 http://localhost:8080/health --expect 200",
-        "flags": [
-          {
-            "name": "expect",
-            "type": "string",
-            "usage": "fail unless the status matches, like 200 or 2xx (like curl -f)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando net ports",
-        "usage": "komando net ports TARGET [flags]",
-        "short": "Listening sockets: protocol, address, port, process",
-        "long": "Listening sockets as structured rows: proto, address, port, process, pid\n(read with ss or netstat).",
-        "example": "  komando net ports web1",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many sockets per server (0 = all)"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "use sudo to see process names"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
         "path": "komando output",
         "usage": "komando output [flags]",
         "short": "Text for people, JSON for programs",
@@ -6915,7 +6685,7 @@
         "path": "komando pkg upgrade",
         "usage": "komando pkg upgrade TARGET [PACKAGE...] [flags]",
         "short": "Upgrade all or the given packages (--dry-run lists them)",
-        "long": "Without --security: upgrades every package, or the given ones (--dry-run\nlists what would change).\n\nSafety: a change; try it with --dry-run first; with --security, when an\nupdate would remove a package the server needs: dangerous, it cannot be\nundone: a person types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\n--security installs only the security updates, one server at a time. On\napt servers komando uses unattended-upgrade when it is installed (it picks\nsecurity origins only and follows the server's own settings), otherwise\napt-get --only-upgrade of the listed packages, keeping changed config\nfiles. On dnf/yum it runs \"upgrade --security\", on zypper \"patch\n--category security\". needrestart is kept from\nrestarting services during the run; the result lists the services that\nneed it.\n\nAfter each server komando compares the state with the one before. When\nfewer containers run or a unit has failed, it stops and leaves the other\nservers as they are (--keep-going patches them anyway). It never reboots:\nreboot_required says when a server needs one, use `komando reboot`.\n\nThe upgrade runs detached on the server, so a dropped connection does not\nbreak it. It waits up to 30 minutes per server (--timeout changes it).\nWhere komando cannot pick the security updates (apk, pacman, dnf/yum\nrepositories without security notices) the server stops with\nSECURITY_UNSUPPORTED: use `komando pkg upgrade` without --security there.",
+        "long": "Without --security: upgrades every package, or the given ones (--dry-run\nlists what would change).\n\nSafety: a change; try it with --dry-run first; with --security, when an\nupdate would remove a package the server needs: dangerous, it cannot be\nundone: a person types the name to go on, and an AI agent or a script needs\n--allow-dangerous; on a protected server or conn, a person's yes (--yes) as\nwell.\n\n--security installs only the security updates, one server at a time. On\napt servers komando uses unattended-upgrade when it is installed (it picks\nsecurity origins only and follows the server's own settings), otherwise\napt-get --only-upgrade of the listed packages, keeping changed config\nfiles. On dnf/yum it runs \"upgrade --security\", on zypper \"patch\n--category security\". needrestart is kept from\nrestarting services during the run; the result lists the services that\nneed it.\n\nAfter each server komando compares the state with the one before. When fewer\ncontainers run or a unit has failed, it stops and leaves the other servers\nas they are (--keep-going patches them anyway). It never reboots:\nreboot_required says when a server needs one, use `komando exec TARGET\n--sudo --allow-dangerous -- reboot`.\n\nThe upgrade runs detached on the server, so a dropped connection does not\nbreak it. It waits up to 30 minutes per server (--timeout changes it).\nWhere komando cannot pick the security updates (apk, pacman, dnf/yum\nrepositories without security notices) the server stops with\nSECURITY_UNSUPPORTED: use `komando pkg upgrade` without --security there.",
         "example": "  komando pkg upgrade web1 --dry-run   # see what would change first\n  komando pkg upgrade web1 openssl\n  komando pkg upgrade @web --security --dry-run\n  komando pkg upgrade @web --security",
         "flags": [
           {
@@ -7282,7 +7052,7 @@
         "path": "komando queue kafka edit",
         "usage": "komando queue kafka edit NAME [flags]",
         "short": "Change a saved kafka queue (only the flags you pass change)",
-        "long": "Change a saved kafka queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved kafka queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue kafka edit prod-kafka --add-tag critical\n  komando queue kafka edit prod-kafka --notes 'main one' --dry-run",
         "flags": [
           {
@@ -7370,6 +7140,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -7861,7 +7636,7 @@
         "path": "komando queue nats edit",
         "usage": "komando queue nats edit NAME [flags]",
         "short": "Change a saved nats queue (only the flags you pass change)",
-        "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved nats queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue nats edit prod-nats --add-tag critical\n  komando queue nats edit prod-nats --notes 'main one' --dry-run",
         "flags": [
           {
@@ -7949,6 +7724,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -8427,7 +8207,7 @@
         "path": "komando queue pubsub edit",
         "usage": "komando queue pubsub edit NAME [flags]",
         "short": "Change a saved pubsub queue (only the flags you pass change)",
-        "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved pubsub queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue pubsub edit prod-pubsub --add-tag critical\n  komando queue pubsub edit prod-pubsub --notes 'main one' --dry-run",
         "flags": [
           {
@@ -8515,6 +8295,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -8955,7 +8740,7 @@
         "path": "komando queue rabbitmq edit",
         "usage": "komando queue rabbitmq edit NAME [flags]",
         "short": "Change a saved rabbitmq queue (only the flags you pass change)",
-        "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved rabbitmq queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue rabbitmq edit prod-rabbit --add-tag critical\n  komando queue rabbitmq edit prod-rabbit --notes 'main one' --dry-run",
         "flags": [
           {
@@ -9043,6 +8828,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -9483,7 +9273,7 @@
         "path": "komando queue sqs edit",
         "usage": "komando queue sqs edit NAME [flags]",
         "short": "Change a saved sqs queue (only the flags you pass change)",
-        "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first.",
+        "long": "Change a saved sqs queue (only the flags you pass change).\n\nSafety: a change; try it with --dry-run first; with --protected=false: it\nweakens a safety check: a person's yes (--yes).",
         "example": "  komando queue sqs edit prod-sqs --add-tag critical\n  komando queue sqs edit prod-sqs --notes 'main one' --dry-run",
         "flags": [
           {
@@ -9571,6 +9361,11 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "with --protected=false"
           }
         ]
       },
@@ -9913,35 +9708,6 @@
         "confirm": [
           {
             "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando reboot",
-        "usage": "komando reboot TARGET [flags]",
-        "short": "Reboot servers one at a time and check each came back",
-        "long": "Reboots each server in turn: komando asks it to reboot, waits until SSH\nanswers again, and checks that it started anew (a new boot id). The next\nserver is rebooted only when the one before came back; a server that does\nnot come back within --wait stops the rest.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.\n\nA reboot is a destructive action: it needs --allow-dangerous (and --yes or\nthe approval for protected servers). Try --dry-run first.",
-        "example": "  komando reboot web1 --dry-run\n  komando reboot @web --wait 10m --dry-run\n  komando reboot @web --allow-dangerous --wait 10m   # after a person's yes",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "run without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "5m",
-            "usage": "how long each server may take to come back (like 10m, 1h)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
           }
         ]
       },
@@ -11570,382 +11336,6 @@
         ]
       },
       {
-        "path": "komando svc",
-        "usage": "komando svc [flags]",
-        "short": "Services on servers: check, start, stop, read logs",
-        "long": "Services on servers: systemd units on Linux, Windows services on Windows\nservers. status, list, start, stop, restart, enable and disable work on\nboth; reload, daemon-reload and logs are for systemd.",
-        "aliases": [
-          "service",
-          "services"
-        ],
-        "example": "  komando svc list web1 --failed                    # what is broken?\n  komando svc status web1 nginx\n  komando logs web1 --unit nginx --since 30m        # why?\n  komando svc restart web1 nginx --wait 10s --dry-run\n  komando svc restart web1 nginx --wait 10s",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc daemon-reload",
-        "usage": "komando svc daemon-reload TARGET [flags]",
-        "short": "Reload systemd unit files and say which units still need it",
-        "long": "Reload systemd's unit files (after writing a unit), and say which units\nstill need it.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando fs write web1 /etc/systemd/system/app.service --from app.service --sudo\n  komando svc daemon-reload web1\n  komando svc daemon-reload web1 --dry-run\n  komando svc restart web1 app",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "run without sudo"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc disable",
-        "usage": "komando svc disable TARGET UNIT... [flags]",
-        "short": "Disable units (sudo) and report the resulting state",
-        "long": "Disable units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; the unit is ssh or sshd:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous; on a protected server or conn, a\nperson's yes (--yes) as well.",
-        "example": "  komando svc disable web1 apache2 --now\n  komando svc disable web1 apache2 --now --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "now",
-            "type": "bool",
-            "default": "false",
-            "usage": "also stop the units now (systemctl disable --now)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "the unit is ssh or sshd"
-          }
-        ]
-      },
-      {
-        "path": "komando svc enable",
-        "usage": "komando svc enable TARGET UNIT... [flags]",
-        "short": "Enable units (sudo) and report the resulting state",
-        "long": "Enable units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc enable web1 nginx --now\n  komando svc enable web1 nginx --now --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "now",
-            "type": "bool",
-            "default": "false",
-            "usage": "also start the units now (systemctl enable --now)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc list",
-        "usage": "komando svc list TARGET [flags]",
-        "short": "List the service units of servers",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando svc list web1 --failed\n  komando svc list web1 --state running",
-        "flags": [
-          {
-            "name": "failed",
-            "type": "bool",
-            "default": "false",
-            "usage": "only failed units (the same as --state failed)"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many units per server (0 = all)"
-          },
-          {
-            "name": "state",
-            "type": "string",
-            "usage": "only units in this state, such as running or failed"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc logs",
-        "usage": "komando svc logs TARGET UNIT [flags]",
-        "short": "Read a service unit's logs",
-        "long": "Same as `komando logs TARGET --unit UNIT`.",
-        "example": "  komando svc logs web1 nginx --since 30m --grep error",
-        "flags": [
-          {
-            "name": "follow",
-            "shorthand": "f",
-            "type": "bool",
-            "default": "false",
-            "usage": "keep printing new lines until Ctrl-C"
-          },
-          {
-            "name": "grep",
-            "type": "string",
-            "usage": "only lines matching this extended regex (case-insensitive)"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "200",
-            "usage": "the most lines to show (the last ones)"
-          },
-          {
-            "name": "priority",
-            "shorthand": "p",
-            "type": "string",
-            "usage": "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)"
-          },
-          {
-            "name": "since",
-            "type": "string",
-            "usage": "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'"
-          },
-          {
-            "name": "sudo",
-            "shorthand": "s",
-            "type": "bool",
-            "default": "false",
-            "usage": "read via sudo (the whole journal, protected files)"
-          },
-          {
-            "name": "until",
-            "type": "string",
-            "usage": "end time, in the same forms as --since"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc reload",
-        "usage": "komando svc reload TARGET UNIT... [flags]",
-        "short": "Reload units (sudo) and report the resulting state",
-        "long": "Reload units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc reload @web nginx --wait 10s   # fails unless nginx is active within 10 seconds\n  komando svc reload @web nginx --wait 10s --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "0",
-            "usage": "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc restart",
-        "usage": "komando svc restart TARGET UNIT... [flags]",
-        "short": "Restart units (sudo) and report the resulting state",
-        "long": "Restart units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc restart @web nginx --wait 10s   # fails unless nginx is active within 10 seconds\n  komando svc restart @web nginx --wait 10s --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "0",
-            "usage": "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc start",
-        "usage": "komando svc start TARGET UNIT... [flags]",
-        "short": "Start units (sudo) and report the resulting state",
-        "long": "Start units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando svc start @web nginx --wait 10s   # fails unless nginx is active within 10 seconds\n  komando svc start @web nginx --wait 10s --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          },
-          {
-            "name": "wait",
-            "type": "duration",
-            "default": "0",
-            "usage": "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando svc status",
-        "usage": "komando svc status TARGET UNIT... [flags]",
-        "short": "Unit status: state, main pid, restarts, memory",
-        "long": "Structured unit status (active_state, sub_state, main_pid, n_restarts,\nmemory ...).",
-        "example": "  komando svc status @web nginx php8.2-fpm\n  komando svc status web1 --user-units syncthing",
-        "flags": [
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando svc stop",
-        "usage": "komando svc stop TARGET UNIT... [flags]",
-        "short": "Stop units (sudo) and report the resulting state",
-        "long": "Stop units (sudo) and report the resulting state.\n\nSafety: a change; try it with --dry-run first; the unit is ssh or sshd:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous; on a protected server or conn, a\nperson's yes (--yes) as well.",
-        "example": "  komando svc stop web1 nginx\n  komando svc stop web1 nginx --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (when you log in as root)"
-          },
-          {
-            "name": "user-units",
-            "type": "bool",
-            "default": "false",
-            "usage": "the login user's own units (systemctl --user), without sudo"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "the unit is ssh or sshd"
-          }
-        ]
-      },
-      {
         "path": "komando sync",
         "usage": "komando sync SRC DST [flags]",
         "short": "Copy a folder one way, sending only new and changed files",
@@ -12207,194 +11597,6 @@
             "type": "bool",
             "default": "false",
             "usage": "install into place with sudo (single files)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando user",
-        "usage": "komando user [flags]",
-        "short": "Linux user accounts: see, add, lock, remove",
-        "aliases": [
-          "users"
-        ],
-        "example": "  komando user list web1\n  komando user add web1 alice --key alice --admin\n  komando user lock web1 alice                      # keep the account, stop logins\n  komando user rm web1 alice --remove-home --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando user add",
-        "usage": "komando user add TARGET USER [flags]",
-        "short": "Create a user if missing, with an SSH key and sudo if asked",
-        "long": "Create a user if missing, with an SSH key and sudo if asked.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "aliases": [
-          "create"
-        ],
-        "example": "  komando user add @web deploy --key deploy --admin\n  komando user add @web deploy --key deploy --admin --dry-run",
-        "flags": [
-          {
-            "name": "admin",
-            "type": "bool",
-            "default": "false",
-            "usage": "add to the sudo (Debian) or wheel (RHEL, Alpine) group"
-          },
-          {
-            "name": "key",
-            "type": "string",
-            "usage": "authorize this key from komando's key list"
-          },
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          },
-          {
-            "name": "pubkey",
-            "type": "string",
-            "usage": "public key line to authorize"
-          },
-          {
-            "name": "shell",
-            "type": "string",
-            "default": "/bin/bash",
-            "usage": "the new user's login shell"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando user list",
-        "usage": "komando user list TARGET [flags]",
-        "short": "List accounts with admin group and lock state (--all for system)",
-        "long": "Lists accounts with their uid, home, shell, whether they are in the sudo,\nwheel or admin group (admin_group; rules in sudoers.d are not read) and\nwhether the account is locked (expired, as `komando user lock` does). The\nlock state is read through sudo; with --no-sudo it is left out.",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando user list web1",
-        "flags": [
-          {
-            "name": "all",
-            "shorthand": "a",
-            "type": "bool",
-            "default": "false",
-            "usage": "include system accounts"
-          },
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many accounts per server (0 = all)"
-          },
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando user lock",
-        "usage": "komando user lock TARGET USER [flags]",
-        "short": "Lock an account so password and SSH keys stop working",
-        "long": "Lock an account (password + expire, so SSH keys stop working too) without\ndeleting it.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando user lock web1 alice\n  komando user lock web1 alice --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando user rm",
-        "usage": "komando user rm TARGET USER [flags]",
-        "short": "Delete a user account",
-        "long": "Delete a user account.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous; on a protected server\nor conn, a person's yes (--yes) as well.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando user rm web1 alice --dry-run\n  komando user rm web1 alice --remove-home --dry-run\n  komando user rm web1 alice --remove-home --allow-dangerous   # after a person's yes",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
-          },
-          {
-            "name": "remove-home",
-            "type": "bool",
-            "default": "false",
-            "usage": "also delete the user's home folder and the files in it"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando user unlock",
-        "usage": "komando user unlock TARGET USER [flags]",
-        "short": "Unlock an account locked with `user lock`",
-        "long": "Unlock an account locked with `user lock`.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando user unlock web1 alice\n  komando user unlock web1 alice --dry-run",
-        "flags": [
-          {
-            "name": "no-sudo",
-            "type": "bool",
-            "default": "false",
-            "usage": "do not use sudo (like when logged in as root)"
           }
         ],
         "runnable": true,
@@ -13561,12 +12763,6 @@
         "hint": "list consumers with `komando queue nats consumer list NAME`; name one as STREAM/CONSUMER"
       },
       {
-        "code": "CRONTAB_UNREADABLE",
-        "exit": 5,
-        "example": "cannot read the crontab (exit …)",
-        "hint": "check the user name; reading another user's crontab needs sudo"
-      },
-      {
         "code": "DB_AUTH",
         "exit": 4,
         "example": "bigquery: the stored key is not a service account key: …",
@@ -13643,12 +12839,6 @@
         "exit": 5,
         "example": "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
         "hint": "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`"
-      },
-      {
-        "code": "DIG_MISSING",
-        "exit": 3,
-        "example": "… records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se…",
-        "hint": "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it"
       },
       {
         "code": "DNS_ERROR",
@@ -14147,18 +13337,6 @@
         "hint": "place ….pub next to the key, then `komando key rm …` and add it again"
       },
       {
-        "code": "NO_RECORDS",
-        "exit": 3,
-        "example": "… has no … records (or does not exist) from this server",
-        "hint": "check the name and type, and the server's DNS (/etc/resolv.conf)"
-      },
-      {
-        "code": "NO_RESPONSE",
-        "exit": 4,
-        "example": "no HTTP answer from …",
-        "hint": "check the URL, and that the server can reach it: `komando net check … ADDRESS:443`"
-      },
-      {
         "code": "NO_SYSTEMD",
         "exit": 3,
         "example": "systemd is not running on this server",
@@ -14174,13 +13352,7 @@
         "code": "NO_USER_MANAGER",
         "exit": 3,
         "example": "the login user has no systemd user manager running on this server",
-        "hint": "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server, then try `komando svc list TARGET --user-units`"
-      },
-      {
-        "code": "NXDOMAIN",
-        "exit": 3,
-        "example": "… does not resolve from this server",
-        "hint": "check the name, and the server's DNS (/etc/resolv.conf)"
+        "hint": "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER`"
       },
       {
         "code": "OBJECT_NOT_FOUND",
@@ -14279,12 +13451,6 @@
         "hint": "something other than komando changed a protection, rule, setting or pinned host key; a person finds out what, then restores the komando folder from a backup made before it (`komando doctor` then says whether that copy is older than the keychain remembers)"
       },
       {
-        "code": "PORT_CLOSED",
-        "exit": 5,
-        "example": "cannot connect to …",
-        "hint": "check the address, firewall or service on the other side"
-      },
-      {
         "code": "PORT_IN_USE",
         "exit": 8,
         "example": "cannot listen on 127.0.0.1:…: …",
@@ -14360,19 +13526,7 @@
         "code": "READ_ONLY_VIOLATION",
         "exit": 6,
         "example": "--read-only, but the command is not known to only read (…)",
-        "hint": "--read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)"
-      },
-      {
-        "code": "REBOOT_FAILED",
-        "exit": 5,
-        "example": "the reboot command failed (exit …): …",
-        "hint": "read the error output (stderr); without sudo rights a reboot is refused"
-      },
-      {
-        "code": "REBOOT_TIMEOUT",
-        "exit": 7,
-        "example": "… did not come back within …",
-        "hint": "check the server's console; komando did not reboot the servers after it"
+        "hint": "--read-only runs only what komando knows only reads: for a server's state use komando logs, fs cat, or exec --read-only with a read command; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)"
       },
       {
         "code": "RECIPE_BUILTIN",
@@ -14606,7 +13760,7 @@
         "code": "SECURITY_UNSUPPORTED",
         "exit": 3,
         "example": "no package manager komando knows on …",
-        "hint": "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`"
+        "hint": "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando exec TARGET -- cat /etc/os-release`"
       },
       {
         "code": "SELF_NOT_FOUND",
@@ -14938,12 +14092,6 @@
         "hint": "list subscriptions with `komando queue pubsub consumer list NAME`; `komando queue pubsub topic show NAME TOPIC` shows a topic's own"
       },
       {
-        "code": "SVC_FAILED",
-        "exit": 5,
-        "example": "systemctl daemon-reload failed (…)",
-        "hint": "read the error output (stderr) for systemd's reason; a unit file with a mistake is named there"
-      },
-      {
         "code": "SWARM_ERROR",
         "exit": 5,
         "example": "Docker Swarm answered with an error",
@@ -15067,25 +14215,13 @@
         "code": "UNEXPECTED_CHANGE",
         "exit": 8,
         "example": "… changed after patching: …",
-        "hint": "check the server (`komando docker ps …`, `komando svc list … --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"
-      },
-      {
-        "code": "UNEXPECTED_STATUS",
-        "exit": 5,
-        "example": "HTTP …, expected …",
-        "hint": "check the URL and the service behind it"
-      },
-      {
-        "code": "UNIT_NOT_ACTIVE",
-        "exit": 5,
-        "example": "not active after …s: …",
-        "hint": "read why with `komando logs TARGET --unit UNIT -n 50`"
+        "hint": "check the server (`komando docker ps …`, `komando exec … -- systemctl --failed`); servers after it were not patched: run it again with --keep-going to patch them anyway"
       },
       {
         "code": "UNIT_NOT_FOUND",
         "exit": 3,
         "example": "no unit named …",
-        "hint": "check the name with `komando svc list TARGET`"
+        "hint": "check the name with `komando exec TARGET -- systemctl list-units`"
       },
       {
         "code": "UNKNOWN_SETTING",
@@ -15134,12 +14270,6 @@
         "exit": 2,
         "example": "--… and --unset … contradict each other",
         "hint": "pass one of them"
-      },
-      {
-        "code": "USER_NOT_FOUND",
-        "exit": 3,
-        "example": "no user named …",
-        "hint": "list the accounts with `komando user list TARGET --all`"
       },
       {
         "code": "VALIDATION_FAILED",

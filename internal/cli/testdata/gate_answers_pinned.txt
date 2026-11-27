@@ -650,38 +650,6 @@
 "cp"	netread	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
 "cp"	read	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
 "cp"	shell	cp	runs
-"cron --help"	full	cron	runs
-"cron --help"	netread	cron	runs
-"cron --help"	read	cron	runs
-"cron --help"	shell	cron	runs
-"cron list --help"	full	cron.list	runs
-"cron list --help"	netread	cron.list	runs
-"cron list --help"	read	cron.list	runs
-"cron list --help"	shell	cron.list	runs
-"cron list"	full	cron.list	runs
-"cron list"	netread	cron.list	runs
-"cron list"	read	cron.list	runs
-"cron list"	shell	cron.list	runs
-"cron rm --help"	full	cron.rm	runs
-"cron rm --help"	netread	cron.rm	runs
-"cron rm --help"	read	cron.rm	runs
-"cron rm --help"	shell	cron.rm	runs
-"cron rm"	full	cron.rm	runs
-"cron rm"	netread	cron.rm	SSH_GATE_READ_ONLY|komando cron rm is refused for a read-only key: it changes something
-"cron rm"	read	cron.rm	SSH_GATE_READ_ONLY|komando cron rm is refused for a read-only key: it changes something
-"cron rm"	shell	cron.rm	runs
-"cron set --help"	full	cron.set	runs
-"cron set --help"	netread	cron.set	runs
-"cron set --help"	read	cron.set	runs
-"cron set --help"	shell	cron.set	runs
-"cron set"	full	cron.set	runs
-"cron set"	netread	cron.set	SSH_GATE_READ_ONLY|komando cron set is refused for a read-only key: it changes something
-"cron set"	read	cron.set	SSH_GATE_READ_ONLY|komando cron set is refused for a read-only key: it changes something
-"cron set"	shell	cron.set	runs
-"cron"	full	cron	runs
-"cron"	netread	cron	runs
-"cron"	read	cron	runs
-"cron"	shell	cron	runs
 "db --help"	full	db	runs
 "db --help"	netread	db	runs
 "db --help"	read	db	runs
@@ -1094,14 +1062,6 @@
 "export"	netread	export	runs
 "export"	read	export	runs
 "export"	shell	export	runs
-"facts --help"	full	facts	runs
-"facts --help"	netread	facts	runs
-"facts --help"	read	facts	runs
-"facts --help"	shell	facts	runs
-"facts"	full	facts	runs
-"facts"	netread	facts	runs
-"facts"	read	facts	runs
-"facts"	shell	facts	runs
 "fs --help"	full	fs	runs
 "fs --help"	netread	fs	runs
 "fs --help"	read	fs	runs
@@ -1646,46 +1606,6 @@
 "logs"	netread	logs	runs
 "logs"	read	logs	runs
 "logs"	shell	logs	runs
-"net --help"	full	net	runs
-"net --help"	netread	net	runs
-"net --help"	read	net	runs
-"net --help"	shell	net	runs
-"net check --help"	full	net.check	runs
-"net check --help"	netread	net.check	runs
-"net check --help"	read	net.check	runs
-"net check --help"	shell	net.check	runs
-"net check"	full	net.check	runs
-"net check"	netread	net.check	runs
-"net check"	read	net.check	SSH_GATE_NETWORK_REQUIRED|komando net check is refused for a read key without network: it makes a server connect to an address you name
-"net check"	shell	net.check	runs
-"net dns --help"	full	net.dns	runs
-"net dns --help"	netread	net.dns	runs
-"net dns --help"	read	net.dns	runs
-"net dns --help"	shell	net.dns	runs
-"net dns"	full	net.dns	runs
-"net dns"	netread	net.dns	runs
-"net dns"	read	net.dns	SSH_GATE_NETWORK_REQUIRED|komando net dns is refused for a read key without network: it makes a server look up a name you give
-"net dns"	shell	net.dns	runs
-"net http --help"	full	net.http	runs
-"net http --help"	netread	net.http	runs
-"net http --help"	read	net.http	runs
-"net http --help"	shell	net.http	runs
-"net http"	full	net.http	runs
-"net http"	netread	net.http	runs
-"net http"	read	net.http	SSH_GATE_NETWORK_REQUIRED|komando net http is refused for a read key without network: it makes a server fetch a URL you give
-"net http"	shell	net.http	runs
-"net ports --help"	full	net.ports	runs
-"net ports --help"	netread	net.ports	runs
-"net ports --help"	read	net.ports	runs
-"net ports --help"	shell	net.ports	runs
-"net ports"	full	net.ports	runs
-"net ports"	netread	net.ports	runs
-"net ports"	read	net.ports	SSH_GATE_NETWORK_REQUIRED|komando net ports is refused for a read key without network: it is a network check (all of net needs a key with --network)
-"net ports"	shell	net.ports	runs
-"net"	full	net	runs
-"net"	netread	net	runs
-"net"	read	net	runs
-"net"	shell	net	runs
 "output --help"	full	output	runs
 "output --help"	netread	output	runs
 "output --help"	read	output	runs
@@ -2638,14 +2558,6 @@
 "queue"	netread	queue	runs
 "queue"	read	queue	runs
 "queue"	shell	queue	runs
-"reboot --help"	full	reboot	runs
-"reboot --help"	netread	reboot	runs
-"reboot --help"	read	reboot	runs
-"reboot --help"	shell	reboot	runs
-"reboot"	full	reboot	runs
-"reboot"	netread	reboot	SSH_GATE_READ_ONLY|komando reboot is refused for a read-only key: it changes something
-"reboot"	read	reboot	SSH_GATE_READ_ONLY|komando reboot is refused for a read-only key: it changes something
-"reboot"	shell	reboot	runs
 "recipe --help"	full	recipe	runs
 "recipe --help"	netread	recipe	runs
 "recipe --help"	read	recipe	runs
@@ -3074,94 +2986,6 @@
 "storage"	netread	storage	runs
 "storage"	read	storage	runs
 "storage"	shell	storage	runs
-"svc --help"	full	svc	runs
-"svc --help"	netread	svc	runs
-"svc --help"	read	svc	runs
-"svc --help"	shell	svc	runs
-"svc daemon-reload --help"	full	svc.daemon-reload	runs
-"svc daemon-reload --help"	netread	svc.daemon-reload	runs
-"svc daemon-reload --help"	read	svc.daemon-reload	runs
-"svc daemon-reload --help"	shell	svc.daemon-reload	runs
-"svc daemon-reload"	full	svc.daemon-reload	runs
-"svc daemon-reload"	netread	svc.daemon-reload	SSH_GATE_READ_ONLY|komando svc daemon-reload is refused for a read-only key: it changes something
-"svc daemon-reload"	read	svc.daemon-reload	SSH_GATE_READ_ONLY|komando svc daemon-reload is refused for a read-only key: it changes something
-"svc daemon-reload"	shell	svc.daemon-reload	runs
-"svc disable --help"	full	svc.disable	runs
-"svc disable --help"	netread	svc.disable	runs
-"svc disable --help"	read	svc.disable	runs
-"svc disable --help"	shell	svc.disable	runs
-"svc disable"	full	svc.disable	runs
-"svc disable"	netread	svc.disable	SSH_GATE_READ_ONLY|komando svc disable is refused for a read-only key: it changes something
-"svc disable"	read	svc.disable	SSH_GATE_READ_ONLY|komando svc disable is refused for a read-only key: it changes something
-"svc disable"	shell	svc.disable	runs
-"svc enable --help"	full	svc.enable	runs
-"svc enable --help"	netread	svc.enable	runs
-"svc enable --help"	read	svc.enable	runs
-"svc enable --help"	shell	svc.enable	runs
-"svc enable"	full	svc.enable	runs
-"svc enable"	netread	svc.enable	SSH_GATE_READ_ONLY|komando svc enable is refused for a read-only key: it changes something
-"svc enable"	read	svc.enable	SSH_GATE_READ_ONLY|komando svc enable is refused for a read-only key: it changes something
-"svc enable"	shell	svc.enable	runs
-"svc list --help"	full	svc.list	runs
-"svc list --help"	netread	svc.list	runs
-"svc list --help"	read	svc.list	runs
-"svc list --help"	shell	svc.list	runs
-"svc list"	full	svc.list	runs
-"svc list"	netread	svc.list	runs
-"svc list"	read	svc.list	runs
-"svc list"	shell	svc.list	runs
-"svc logs --help"	full	svc.logs	runs
-"svc logs --help"	netread	svc.logs	runs
-"svc logs --help"	read	svc.logs	runs
-"svc logs --help"	shell	svc.logs	runs
-"svc logs"	full	svc.logs	runs
-"svc logs"	netread	svc.logs	runs
-"svc logs"	read	svc.logs	runs
-"svc logs"	shell	svc.logs	runs
-"svc reload --help"	full	svc.reload	runs
-"svc reload --help"	netread	svc.reload	runs
-"svc reload --help"	read	svc.reload	runs
-"svc reload --help"	shell	svc.reload	runs
-"svc reload"	full	svc.reload	runs
-"svc reload"	netread	svc.reload	SSH_GATE_READ_ONLY|komando svc reload is refused for a read-only key: it changes something
-"svc reload"	read	svc.reload	SSH_GATE_READ_ONLY|komando svc reload is refused for a read-only key: it changes something
-"svc reload"	shell	svc.reload	runs
-"svc restart --help"	full	svc.restart	runs
-"svc restart --help"	netread	svc.restart	runs
-"svc restart --help"	read	svc.restart	runs
-"svc restart --help"	shell	svc.restart	runs
-"svc restart"	full	svc.restart	runs
-"svc restart"	netread	svc.restart	SSH_GATE_READ_ONLY|komando svc restart is refused for a read-only key: it changes something
-"svc restart"	read	svc.restart	SSH_GATE_READ_ONLY|komando svc restart is refused for a read-only key: it changes something
-"svc restart"	shell	svc.restart	runs
-"svc start --help"	full	svc.start	runs
-"svc start --help"	netread	svc.start	runs
-"svc start --help"	read	svc.start	runs
-"svc start --help"	shell	svc.start	runs
-"svc start"	full	svc.start	runs
-"svc start"	netread	svc.start	SSH_GATE_READ_ONLY|komando svc start is refused for a read-only key: it changes something
-"svc start"	read	svc.start	SSH_GATE_READ_ONLY|komando svc start is refused for a read-only key: it changes something
-"svc start"	shell	svc.start	runs
-"svc status --help"	full	svc.status	runs
-"svc status --help"	netread	svc.status	runs
-"svc status --help"	read	svc.status	runs
-"svc status --help"	shell	svc.status	runs
-"svc status"	full	svc.status	runs
-"svc status"	netread	svc.status	runs
-"svc status"	read	svc.status	runs
-"svc status"	shell	svc.status	runs
-"svc stop --help"	full	svc.stop	runs
-"svc stop --help"	netread	svc.stop	runs
-"svc stop --help"	read	svc.stop	runs
-"svc stop --help"	shell	svc.stop	runs
-"svc stop"	full	svc.stop	runs
-"svc stop"	netread	svc.stop	SSH_GATE_READ_ONLY|komando svc stop is refused for a read-only key: it changes something
-"svc stop"	read	svc.stop	SSH_GATE_READ_ONLY|komando svc stop is refused for a read-only key: it changes something
-"svc stop"	shell	svc.stop	runs
-"svc"	full	svc	runs
-"svc"	netread	svc	runs
-"svc"	read	svc	runs
-"svc"	shell	svc	runs
 "sync --help"	full	sync	runs
 "sync --help"	netread	sync	runs
 "sync --help"	read	sync	runs
@@ -3238,54 +3062,6 @@
 "upload"	netread	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
 "upload"	read	upload	SSH_GATE_READ_ONLY|komando upload is refused for a read-only key: it changes something
 "upload"	shell	upload	runs
-"user --help"	full	user	runs
-"user --help"	netread	user	runs
-"user --help"	read	user	runs
-"user --help"	shell	user	runs
-"user add --help"	full	user.add	runs
-"user add --help"	netread	user.add	runs
-"user add --help"	read	user.add	runs
-"user add --help"	shell	user.add	runs
-"user add"	full	user.add	runs
-"user add"	netread	user.add	SSH_GATE_READ_ONLY|komando user add is refused for a read-only key: it changes something
-"user add"	read	user.add	SSH_GATE_READ_ONLY|komando user add is refused for a read-only key: it changes something
-"user add"	shell	user.add	runs
-"user list --help"	full	user.list	runs
-"user list --help"	netread	user.list	runs
-"user list --help"	read	user.list	runs
-"user list --help"	shell	user.list	runs
-"user list"	full	user.list	runs
-"user list"	netread	user.list	runs
-"user list"	read	user.list	runs
-"user list"	shell	user.list	runs
-"user lock --help"	full	user.lock	runs
-"user lock --help"	netread	user.lock	runs
-"user lock --help"	read	user.lock	runs
-"user lock --help"	shell	user.lock	runs
-"user lock"	full	user.lock	runs
-"user lock"	netread	user.lock	SSH_GATE_READ_ONLY|komando user lock is refused for a read-only key: it changes something
-"user lock"	read	user.lock	SSH_GATE_READ_ONLY|komando user lock is refused for a read-only key: it changes something
-"user lock"	shell	user.lock	runs
-"user rm --help"	full	user.rm	runs
-"user rm --help"	netread	user.rm	runs
-"user rm --help"	read	user.rm	runs
-"user rm --help"	shell	user.rm	runs
-"user rm"	full	user.rm	runs
-"user rm"	netread	user.rm	SSH_GATE_READ_ONLY|komando user rm is refused for a read-only key: it changes something
-"user rm"	read	user.rm	SSH_GATE_READ_ONLY|komando user rm is refused for a read-only key: it changes something
-"user rm"	shell	user.rm	runs
-"user unlock --help"	full	user.unlock	runs
-"user unlock --help"	netread	user.unlock	runs
-"user unlock --help"	read	user.unlock	runs
-"user unlock --help"	shell	user.unlock	runs
-"user unlock"	full	user.unlock	runs
-"user unlock"	netread	user.unlock	SSH_GATE_READ_ONLY|komando user unlock is refused for a read-only key: it changes something
-"user unlock"	read	user.unlock	SSH_GATE_READ_ONLY|komando user unlock is refused for a read-only key: it changes something
-"user unlock"	shell	user.unlock	runs
-"user"	full	user	runs
-"user"	netread	user	runs
-"user"	read	user	runs
-"user"	shell	user	runs
 "version --help"	full	version	runs
 "version --help"	netread	version	runs
 "version --help"	read	version	runs

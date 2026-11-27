@@ -20,7 +20,7 @@ type gateKey struct {
 
 // A read key (--read-only) without --network runs only the reads that stay
 // on the servers and conns a person put in the inventory. Reaching the
-// network is no write, but it is a way out: `net http web URL`, `cert check
+// network is no write, but it is a way out: `cert check
 // https://HOST` (dialed from this computer) or `exec --read-only -- curl`
 // carry what the key reads to any host, in a URL or a DNS name. So the rule
 // fails closed: a read runs only when gateNoNetwork names it, and a command
@@ -36,7 +36,7 @@ type gateKey struct {
 // reaches a place the key names, or "".
 var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"audit": nil, "audit.verify": nil, "version": nil, "status": nil, "schema": nil, "guide": nil, "doctor": nil,
-	"list": nil, "test": nil, "facts": nil, "logs": nil, "export": nil, "download": nil, "ssh-gate.status": nil,
+	"list": nil, "test": nil, "logs": nil, "export": nil, "download": nil, "ssh-gate.status": nil,
 	"cache": nil, "cache.get": nil, "cache.info": nil, "cache.keys": nil, "cache.run": nil,
 	"queue": nil, "queue.describe": nil, "queue.groups": nil, "queue.info": nil, "queue.lag": nil, "queue.list": nil, "queue.peek": nil,
 	"cert": nil, "cert.check": gateCertURL,
@@ -45,7 +45,6 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"cluster.history": nil, "cluster.list": nil, "cluster.logs": nil, "cluster.run": nil, "cluster.status": nil,
 	"config": nil, "config.get": nil, "config.show": nil,
 	"conn": nil, "conn.kinds": nil, "conn.list": nil, "conn.show": nil, "conn.test": nil,
-	"cron": nil, "cron.list": nil,
 	"db": nil, "db.activity": nil, "db.dump": nil, "db.explain": nil, "db.info": nil, "db.locks": nil, "db.query": nil,
 	"db.schema": nil, "db.sizes": nil, "db.user": nil, "db.user.list": nil, "db.user.show": nil,
 	"docker": nil, "docker.images": nil, "docker.inspect": nil, "docker.logs": nil, "docker.ps": nil, "docker.stats": nil,
@@ -60,19 +59,12 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"registry": nil, "registry.inspect": nil, "registry.list": nil,
 	"secret": nil, "secret.list": nil, "secret.show": nil,
 	"storage": nil, "storage.cat": nil, "storage.download": nil, "storage.list": nil,
-	"svc": nil, "svc.list": nil, "svc.logs": nil, "svc.status": nil,
 	"tunnel": nil, "tunnel.list": nil,
-	"user": nil, "user.list": nil,
 	"vpn": nil, "vpn.list": nil, "vpn.show": nil, "vpn.status": nil, "vpn.test": nil,
 }
 
 // gateNetwork are the reads that may reach a place the key names, and why.
 var gateNetwork = map[string]string{
-	"net":          "it checks the network from a server",
-	"net.check":    "it makes a server connect to an address you name",
-	"net.dns":      "it makes a server look up a name you give",
-	"net.http":     "it makes a server fetch a URL you give",
-	"net.ports":    "it is a network check (all of net needs a key with --network)",
 	"exec":         "it runs a program of your choosing, which can connect anywhere",
 	"job.start":    "it runs a program of your choosing, which can connect anywhere",
 	"docker.exec":  "it runs a program of your choosing in a container, which can connect anywhere",

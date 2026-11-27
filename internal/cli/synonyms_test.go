@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -26,19 +25,6 @@ func TestExportTextIsTheFile(t *testing.T) {
 	var f exportFile
 	if err := json.Unmarshal([]byte(exportFile{Format: exportFormat}.Text()), &f); err != nil || f.Format != exportFormat {
 		t.Errorf("text: %v %+v", err, f)
-	}
-}
-
-// TestHabitWordsSuggestTheCommand: a word from another tool's habit says
-// which command does that job.
-func TestHabitWordsSuggestTheCommand(t *testing.T) {
-	setHome(t, t.TempDir()) // never the person's own folder
-	for _, c := range []struct{ args, want string }{
-		{"inspect", "facts"}, {"systemd", "svc"},
-	} {
-		if e := usageFor(t, strings.Fields(c.args)...); !strings.HasSuffix(e.Message, "did you mean "+c.want+"?") {
-			t.Errorf("%s: %s", c.args, e.Message)
-		}
 	}
 }
 

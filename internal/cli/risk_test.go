@@ -169,15 +169,15 @@ var agentStops = []agentStop{
 // before (the union, S-7.1).
 func TestRiskPersonGains(t *testing.T) {
 	for _, line := range []string{
-		"reboot web1", "svc stop web1 sshd", "svc disable web1 ssh.service", "sync ./site web1:/var/www --delete",
-		"db kill db1 123", "cron rm web1 backup", "secret rm db-pass", "pkg rm web1 nginx",
+		"sync ./site web1:/var/www --delete",
+		"db kill db1 123", "secret rm db-pass", "pkg rm web1 nginx",
 	} {
 		if riskOfLine(strings.Fields(line)).typedWhat() == "" {
 			t.Errorf("%s: no typed name", line)
 		}
 	}
 	for _, line := range []string{
-		"svc stop web1 nginx", "sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
+		"sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
 		"host edit web1 --port 2222", "group rm web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {
