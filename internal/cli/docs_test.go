@@ -70,7 +70,7 @@ func checkExampleLines(t *testing.T, root *cobra.Command, source, text string) i
 		if i := strings.Index(line, " -- "); i >= 0 {
 			line = line[:i] // what follows -- belongs to the remote command
 		}
-		words := strings.Fields(line)
+		words := withProvider(root, strings.Fields(line))
 		cmd, rest, err := root.Find(words)
 		if err != nil || cmd == root {
 			// prose like "komando keeps ..." is not a command line
@@ -95,6 +95,27 @@ func checkExampleLines(t *testing.T, root *cobra.Command, source, text string) i
 		}
 	}
 	return checked
+}
+
+// withProvider puts a provider in place of KIND (or the catalog's "…") after
+// a type (komando database KIND restore NAME): the first provider that has
+// the verb, so the line's flags are checked on that verb.
+func withProvider(root *cobra.Command, words []string) []string {
+	i := slices.IndexFunc(words, func(w string) bool { return w == "KIND" || w == "…" })
+	if i < 1 || i+1 >= len(words) {
+		return words
+	}
+	group, rest, err := root.Find(words[:i])
+	if err != nil || len(rest) > 0 || group == root {
+		return words
+	}
+	for _, p := range group.Commands() {
+		try := slices.Concat(words[:i], []string{p.Name()}, words[i+1:])
+		if c, _, err := root.Find(try); err == nil && c.Parent() == p {
+			return try
+		}
+	}
+	return words
 }
 
 // looksLikeCommand: the first word is a top-level command name or alias.
