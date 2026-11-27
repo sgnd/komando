@@ -366,7 +366,7 @@ func (p *Printer) View(s string) View {
 	v.hide(groups(urlPw, v.Text, 2, nil), Hidden)
 	v.hide(groups(bearer, v.Text, 3, nil), Hidden)
 	v.hide(groups(assign, v.Text, 3, func(sub []string) bool {
-		return !(sub[2] == ":" && strings.EqualFold(sub[1], "secret") || keepValue(sub[1], sub[3]))
+		return !(sub[2] == ":" && strings.EqualFold(sub[1], "credential") || keepValue(sub[1], sub[3]))
 	}), Hidden)
 	v.hide(redisValues(redisPw, v.Text), Hidden)
 	v.hide(redisValues(redisPwPair, v.Text), Hidden)
