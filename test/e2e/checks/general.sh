@@ -21,7 +21,7 @@ check "many skipped targets: one line" 1 "$(stderr_of $K host ssh exec all --rea
 # test --wait: a server that is up passes at once; one that never comes up
 # fails with its real reason when the time is up, not before
 check "test --wait on a server that is up" True "$($K test direct --wait 30s | jget 'd["ok"] and d["data"]["waited_ms"] < 10000')"
-q $K host ssh add t-never "agent@127.0.0.1:1" --credential secret:agent-pass
+q $K host ssh add t-never "agent@127.0.0.1:1" --credential credential:agent-pass
 check "test --wait gives up with the real reason" "CONNECTION_REFUSED True" \
   "$($K test t-never --wait 3s | jget 'd["data"]["results"][0]["error"]["code"] + " " + str(d["data"]["waited_ms"] >= 3000)' || true)"
 q $K host ssh remove t-never

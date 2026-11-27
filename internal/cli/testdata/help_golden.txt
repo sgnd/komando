@@ -347,7 +347,7 @@ Examples:
 
 Flags:
       --actor string          only what this one did: part of the name in KOMANDO_ACTOR, the AI agent (claude, codex ...) or the computer account
-      --command string        only commands that start with this (like exec, fs.)
+      --command string        only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key
       --failed[=true|false]   only actions that failed or were blocked
   -h, --help[=true|false]     help for list
   -n, --limit int             the newest N entries (0 = all; with --since or --until, all unless given) (default 50)
@@ -2877,7 +2877,7 @@ Aliases:
   conn, conns
 
 Examples:
-  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref secret:prod-db-pass
+  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref credential:prod-db-pass
   komando test prod-db                              # does it answer and let komando in?
   komando conn edit prod-db --via web1 --dry-run
   komando conn rm prod-db                           # from komando only
@@ -2916,17 +2916,17 @@ Usage:
   komando conn add NAME URL [flags]
 
 Examples:
-  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
-  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected --dry-run
+  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref credential:prod-db-pass --protected
+  komando conn add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref credential:prod-db-pass --protected --dry-run
   komando conn add shop mysql://shop@db.internal/shop --group shop
   komando conn add local sqlite:///var/lib/app.db
-  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
-  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
+  komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref credential:redis-pass
+  komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref credential:s3-secret
   komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)
   komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --login ask      # type it at every connect; never stored
 
 Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
   -g, --group strings               put it in these groups (comma-separated)
   -h, --help[=true|false]           help for add
       --label stringArray           label KEY=VALUE (repeatable) (default [])
@@ -2967,7 +2967,7 @@ Examples:
 Flags:
       --add-group strings           put it in these groups (comma-separated)
       --add-tag strings             add these tags (comma-separated)
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
   -h, --help[=true|false]           help for edit
       --label stringArray           set label KEY=VALUE (an empty value removes it) (default [])
       --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
@@ -7824,7 +7824,7 @@ Global Flags (all of them: komando --help):
 ### komando db user --help
 exit 0
 --- stdout
-Passwords come from a secret reference (--password-ref secret:NAME,
+Passwords come from a secret reference (--password-ref credential:NAME,
 vault:..., aws-sm:...), so they are never typed on a command line or shown.
 PostgreSQL gets a SCRAM-SHA-256 verifier komando computes, so the password
 itself never reaches the server or its logs. Adding a user or changing a
@@ -7838,8 +7838,8 @@ Usage:
 Examples:
   komando db user list prod-db
   komando db user show prod-db app
-  komando db user add prod-db app --password-ref secret:app-pass --dry-run
-  komando db user add prod-db app --password-ref secret:app-pass --allow-dangerous
+  komando db user add prod-db app --password-ref credential:app-pass --dry-run
+  komando db user add prod-db app --password-ref credential:app-pass --allow-dangerous
 
 Available Commands:
   add         Create a user with a password from a secret reference
@@ -7876,14 +7876,14 @@ Aliases:
   add, create
 
 Examples:
-  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run   # shows the statement
-  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --allow-dangerous   # after a person's yes
+  komando db user add prod-db app_ro --password-ref credential:app-ro-pass --dry-run   # shows the statement
+  komando db user add prod-db app_ro --password-ref credential:app-ro-pass --allow-dangerous   # after a person's yes
 
 Flags:
       --from-host string        MySQL: where the user may connect from (the account host; default %, anywhere)
   -h, --help[=true|false]       help for add
       --no-login[=true|false]   a role that cannot log in (a group to grant to users)
-      --password-ref string     the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ...
+      --password-ref string     the password: credential:NAME | vault:PATH#FIELD | aws-sm:NAME | ...
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -7931,13 +7931,13 @@ Usage:
   komando db user passwd CONN USER --password-ref REF [flags]
 
 Examples:
-  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run
-  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --allow-dangerous   # after a person's yes
+  komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --dry-run
+  komando db user passwd prod-db app_ro --password-ref credential:app-ro-pass-2 --allow-dangerous   # after a person's yes
 
 Flags:
       --from-host string      MySQL: where the user may connect from (the account host; default %, anywhere)
   -h, --help[=true|false]     help for passwd
-      --password-ref string   the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ...
+      --password-ref string   the password: credential:NAME | vault:PATH#FIELD | aws-sm:NAME | ...
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -9436,7 +9436,7 @@ Examples:
 
 Flags:
       --address string              host name or IP address (winrm://USER@HOST for a Windows server over WinRM)
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
+      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
   -e, --env stringArray             env KEY=VALUE exported before every command (repeatable) (default [])
   -g, --group strings               put it in these groups (comma-separated)
   -h, --help[=true|false]           help for add
@@ -9638,10 +9638,10 @@ Usage:
   komando host edit TARGET... [flags]
 
 Examples:
-  komando host edit web1 --add-tag canary --label env=prod --sudo-ref secret:web1-sudo
+  komando host edit web1 --add-tag canary --label env=prod --sudo-ref credential:web1-sudo
   komando host edit web1 -g web -t prod          # -g/-t add a group/tag
   komando host edit db1 --protected              # production: ask before changes
-  komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
+  komando host edit @ubuntu --sudo-ref credential:ubuntu-sudo --dry-run
   komando host edit web1 web2 web3 --user deploy
   komando host edit vps1 --ask-password          # type a new password (hidden)
   komando host edit web2 --login ask             # never store its password; type it at every connect
@@ -9652,7 +9652,7 @@ Flags:
       --add-group strings            put it in these groups (comma-separated)
       --add-tag strings              add these tags (comma-separated)
       --address string               host name or IP address (winrm://USER@HOST for a Windows server over WinRM)
-      --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
+      --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref
   -e, --env stringArray              set KEY=VALUE, exported before every command (an empty value removes it; repeatable) (default [])
       --forward-agent[=true|false]   lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first)
   -h, --help[=true|false]            help for edit
@@ -10290,7 +10290,7 @@ exit 0
 --- stdout
 Adds a private key file you already have to komando's key list; the file
 stays where it is. For a key with a passphrase, store the passphrase in the
-vault and pass --passphrase-ref secret:NAME.
+vault and pass --passphrase-ref credential:NAME.
 
 Safety: a change; try it with --dry-run first.
 
@@ -10304,12 +10304,12 @@ Examples:
   komando key add personal ~/.ssh/id_ed25519
   komando key add personal ~/.ssh/id_ed25519 --dry-run
   komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
-  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass
+  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref credential:id-pass
 
 Flags:
       --cert string             an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)
   -h, --help[=true|false]       help for add
-      --passphrase-ref string   passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)
+      --passphrase-ref string   passphrase reference for encrypted keys: credential:NAME
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -10355,7 +10355,7 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Sets where komando finds the passphrase of an encrypted key. Store the
-passphrase with `komando secret set NAME` first and pass secret:NAME;
+passphrase with `komando secret set NAME` first and pass credential:NAME;
 --unset passphrase-ref clears it.
 
 Safety: a change; try it with --dry-run first.
@@ -10369,15 +10369,15 @@ Usage:
 
 Examples:
   komando secret set work-key-pass
-  komando key edit work --passphrase-ref secret:work-key-pass
-  komando key edit work --passphrase-ref secret:work-key-pass --dry-run
+  komando key edit work --passphrase-ref credential:work-key-pass
+  komando key edit work --passphrase-ref credential:work-key-pass --dry-run
   komando key edit work --unset passphrase-ref
   komando key edit deploy --cert ~/Downloads/deploy-cert.pub
 
 Flags:
       --cert string             an OpenSSH user certificate for the key
   -h, --help[=true|false]       help for edit
-      --passphrase-ref string   where the passphrase is: secret:NAME | env:VAR | ...
+      --passphrase-ref string   where the passphrase is: credential:NAME
       --unset strings           clear this setting: passphrase-ref, cert
 
 Global Flags (all of them: komando --help):
@@ -14556,7 +14556,7 @@ or bring in the ones you use with `komando import docker`.
 ls and inspect only read, copy writes to the destination, rm and prune
 delete images and need --allow-dangerous (try --dry-run first).
 
-TLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or
+TLS options in the registry URL: ?ca=credential:NAME trusts a private CA (or
 pins the registry's own certificate; the check stays on), ?tls=skip-verify
 does not check the certificate, ?tls=false is plain HTTP. ?resolve=IP
 connects to that IP instead of what DNS says (like curl --resolve). With
@@ -15351,10 +15351,10 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Renames OLD to NEW inside the vault, and points every server, conn, key and
-VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
-working and nobody types the value again. The value is never printed, so an
-AI agent can do this too. Scripts or notes of your own that name secret:OLD
-are not changed.
+VPN that used credential:OLD at credential:NEW in the same step, so nothing
+stops working and nobody types the value again. The value is never printed,
+so an AI agent can do this too. Scripts or notes of your own that name
+credential:OLD are not changed.
 
 Safety: a change; try it with --dry-run first.
 
@@ -15416,9 +15416,9 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Starts COMMAND on this computer with the --env values in its environment. A
-value secret:NAME is read from the vault right before the program starts, so
-it is never in the command line or the shell history. The program starts
-directly, without a shell, with your environment minus komando's own
+value credential:NAME is read from the vault right before the program
+starts, so it is never in the command line or the shell history. The program
+starts directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
 with secrets, --env may add variables but never replace one komando sets
 (HOME, PATH, USER, LANG, ...), and may not set what decides which code or
@@ -15435,10 +15435,10 @@ Safety: a change; try it with --dry-run first; when an AI agent hands a
 saved secret to a program: it weakens a safety check: a person's yes
 (--yes).
 
-The program's output goes through komando's masking: a vault value it
-prints shows as [secret:NAME]. komando exits with the program's exit code.
+The program's output goes through komando's masking: a vault value it prints
+shows as [credential:NAME]. komando exits with the program's exit code.
 
-For an AI agent every secret:NAME needs a person's yes (--yes, then
+For an AI agent every credential:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
 could print a value in a form masking does not know. A secret a protected
 server, conn or VPN uses asks a person at a terminal too.
@@ -15447,12 +15447,12 @@ Usage:
   komando secret run -- COMMAND [ARGS...] [flags]
 
 Examples:
-  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
-  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh
+  komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app
+  komando secret run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+  komando secret run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh
 
 Flags:
-  -e, --env stringArray     put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)
+  -e, --env stringArray     put KEY=VALUE or KEY=credential:NAME in the program's environment (repeatable)
   -h, --help[=true|false]   help for run
 
 Global Flags (all of them: komando --help):
@@ -15511,7 +15511,7 @@ exit 0
 Says whether the secret exists and what uses it, without its value. A person
 at a terminal can add --reveal to print it; from a program without a
 terminal (the Komando Mac app), komando first asks the person in its own
-window. AI agents never get the value (they reference it as secret:NAME
+window. AI agents never get the value (they reference it as credential:NAME
 instead). A warning says when the value starts or ends with a space, tab or
 line break, a common cause of a failing login; 'komando secret check NAME'
 lets a person compare it.

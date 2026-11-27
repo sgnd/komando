@@ -333,7 +333,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--read-only` | | bool | declare shell text as read only | false |
 | `--dry-run` | | bool (global) | show the plan, change nothing; never blocked (but S-7.5's one exception) | false |
 | `--refresh` | | bool | update the package index first (dnf, zypper) | false |
-| `--*-ref` | | string | where a secret is: `secret:NAME`, `env:VAR`, `file:PATH` or a manager ref | |
+| `--*-ref` | | string | where a secret is: `credential:NAME`; a flag komando keeps with an entry takes only that, one used for this command alone also `env:VAR`, `file:PATH` or a manager ref | |
 | `--login` | | word | how komando logs in to a server or conn, in the words `show` and `list` print in `login`: `ask` (a person types the password at every connect; never stored), `password` (a stored one); servers also `key` and `agent`, conns `none`. One usage text (S-5.11); contradicting flags are USAGE | as the settings say |
 | `--user` | | string | the account on the target the command acts as or on | |
 | `--container` | `-c` | string | a container name | |

@@ -10,16 +10,37 @@ import (
 
 // putRaw writes one record as another device would (sync): only that
 // record changes, no reference is touched.
-func putRaw(t *testing.T, kind, id string, v any) {
+// editRaw changes the stored JSON of record id, as another device's
+// komando would (sync), past this one's writer.
+func editRaw(t *testing.T, id string, edit func(m map[string]any)) {
 	t.Helper()
-	b, _ := json.Marshal(v)
 	d, err := DB(true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.Update(context.Background(), func(tx *sealdb.Tx) error { _, err := tx.Put(kind, id, b); return err }); err != nil {
+	err = d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		r, err := tx.Get(id)
+		if err != nil {
+			return err
+		}
+		var m map[string]any
+		if err := json.Unmarshal(r.Data, &m); err != nil {
+			return err
+		}
+		edit(m)
+		b, _ := json.Marshal(m)
+		_, err = tx.Put(r.Type, id, b)
+		return err
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// renameRaw renames record id as another device would.
+func renameRaw(t *testing.T, id, name string) {
+	t.Helper()
+	editRaw(t, id, func(m map[string]any) { m["name"] = name })
 }
 
 func mustLoad(t *testing.T) *State {
@@ -54,15 +75,9 @@ func TestReferencesFollowIDs(t *testing.T) {
 	}
 
 	// another device renames the key, the jump host and the VPN
-	k2 := *key
-	k2.Name = "deploy-2026"
-	putRaw(t, KindKey, key.Rec.ID, &k2)
-	b2 := *bastion
-	b2.Name = "jump"
-	putRaw(t, KindHost, bastion.Rec.ID, &b2)
-	v2 := *vpn
-	v2.Name = "hq"
-	putRaw(t, KindVpn, vpn.Rec.ID, &v2)
+	renameRaw(t, key.Rec.ID, "deploy-2026")
+	renameRaw(t, bastion.Rec.ID, "jump")
+	renameRaw(t, vpn.Rec.ID, "hq")
 
 	s = mustLoad(t)
 	if w := s.Hosts["web"]; w.Key != "deploy-2026" || w.Via != "hq,jump,nowhere" {
@@ -87,29 +102,17 @@ func TestReferencesFollowIDs(t *testing.T) {
 	}
 }
 
-// A store from before the IDs (only names) loads as it is, and gets the
-// IDs at its next write; an ID from another store (an export) is ignored.
-func TestReferencesMigrate(t *testing.T) {
+// A credential ID that names no record of this store (an export from
+// another one) is ignored: the credential's name is used.
+func TestReferencesForeignID(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Cleanup(Close)
 	update(t, func(s *State) {
 		s.Keys["deploy"] = &Key{Name: "deploy", Path: "/k/deploy"}
 		s.Hosts["web"] = &Host{Name: "web", Address: "10.0.0.2", Key: "deploy"}
 	})
-	s := mustLoad(t)
-	old := *s.Hosts["web"]
-	old.KeyID, old.ViaIDs = "", nil // as an earlier komando wrote it
-	putRaw(t, KindHost, old.Rec.ID, &old)
-	if w := mustLoad(t).Hosts["web"]; w.Key != "deploy" || w.KeyID != "" {
-		t.Fatalf("old record: %q %q", w.Key, w.KeyID)
-	}
-	update(t, func(*State) {})
-	if w := mustLoad(t).Hosts["web"]; w.KeyID != s.Keys["deploy"].Rec.ID {
-		t.Errorf("not migrated at the next write: %q", w.KeyID)
-	}
-	foreign := *mustLoad(t).Hosts["web"]
-	foreign.KeyID = "0123456789abcdef0123456789abcdef"
-	putRaw(t, KindHost, foreign.Rec.ID, &foreign)
+	id := mustLoad(t).Hosts["web"].Rec.ID
+	editRaw(t, id, func(m map[string]any) { m["credential_id"] = "0123456789abcdef0123456789abcdef" })
 	if w := mustLoad(t).Hosts["web"]; w.Key != "deploy" {
 		t.Errorf("an unknown ID changed the name: %q", w.Key)
 	}

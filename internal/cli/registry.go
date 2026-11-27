@@ -44,7 +44,7 @@ or bring in the ones you use with ` + "`komando import docker`" + `.
 ls and inspect only read, copy writes to the destination, rm and prune
 delete images and need --allow-dangerous (try --dry-run first).
 
-TLS options in the registry URL: ?ca=secret:NAME trusts a private CA (or
+TLS options in the registry URL: ?ca=credential:NAME trusts a private CA (or
 pins the registry's own certificate; the check stays on), ?tls=skip-verify
 does not check the certificate, ?tls=false is plain HTTP. ?resolve=IP
 connects to that IP instead of what DNS says (like curl --resolve). With
@@ -209,7 +209,7 @@ func registryErr(err error) error {
 	}
 	if certErr(err) {
 		return out.Errf(out.ExitConnect, "REGISTRY_TLS",
-			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando credential token add NAME < ca.crt` and add ?ca=secret:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
+			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando credential token add NAME < ca.crt` and add ?ca=credential:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
 			"the registry's TLS certificate is not trusted: %v", err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {

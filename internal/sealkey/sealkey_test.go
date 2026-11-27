@@ -32,8 +32,8 @@ func TestLabelsDistinct(t *testing.T) {
 		}
 		keys[string(k)] = l
 	}
-	if len(all) != 5 {
-		t.Errorf("%d labels, want row, runtime, value, ticket and policy", len(all))
+	if len(all) != 6 {
+		t.Errorf("%d labels, want row (format 2 and 3), runtime, value, ticket and policy", len(all))
 	}
 }
 

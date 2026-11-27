@@ -130,7 +130,7 @@ func TestDryRunBesideARealChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h := st.Hosts["real"]; h == nil || h.PasswordRef != "secret:real-pass" {
+	if h := st.Hosts["real"]; h == nil || h.PasswordRef != "credential:real-pass" {
 		t.Errorf("the real call's server was not saved: %+v", h)
 	}
 	if v, err := vault.Get("real-pass"); err != nil || v != "real-pass" {

@@ -589,75 +589,6 @@ func hostNames(hs []*store.Host) []string {
 	return n
 }
 
-// audit adds one record per action to the sealed store's audit log.
-func audit(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
-	if cl.out.As != "" {
-		command = cl.out.As // a leaf running a body (runBody) records under its own ID
-	}
-	if st != nil && !st.Settings.Audit {
-		return
-	}
-	// where else the record goes: a local of this record, never a field of
-	// the call, as two dials of one command may pin keys at once
-	var syslog string
-	if st == nil { // always recorded (turning the audit off, too); read where else it goes
-		if s, err := store.Load(); err == nil {
-			syslog = s.Settings.AuditSyslog
-		}
-	} else {
-		syslog = st.Settings.AuditSyslog
-	}
-	rec := map[string]any{
-		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
-		"command": command,
-		"ok":      ok,
-		"dry_run": cl.dryRun(),
-		"actor":   actor(cl),
-	}
-	if hosts != nil {
-		rec["hosts"] = hosts
-	}
-	if remote != "" {
-		// the command as it ran, without the passwords, keys and tokens it
-		// carried: the record is kept for years, and a copy of it goes to
-		// the syslog server in clear text (audit_syslog)
-		rec["remote"] = out.MaskSecrets(cl.out.RedactExact(remote))
-	}
-	if a := cl.caller().Agent; a != "" {
-		rec["agent"] = a // who typed it: an AI agent
-		if cl.sess.Allowed() {
-			rec["allowed_by_person"] = true // in komando's window
-		}
-		// the agent's environment can give KOMANDO_ACTOR any name, so it
-		// is the name it claims; the computer account comes from the system
-		if cl.getenv("KOMANDO_ACTOR") != "" {
-			rec["actor_claimed"] = true
-		}
-		rec["os_user"] = osUser()
-	}
-	if c := cl; len(c.ttyYes) > 0 || cl.promptConfirmed != "" {
-		rec["confirm"] = "tty" // a person said yes at the terminal
-		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{cl.promptConfirmed}, func(s string) bool { return s == "" })...)
-	}
-	if cl.body != nil {
-		rec["body_sha256"] = cl.body.sha256() // the window shows its first 16
-	}
-	if cl.askedInStep { // a person was asked while the store was locked (guard_before_lock.go)
-		rec["asked_in_store_step"] = true
-		rec["asked_in_store_step_command"] = command
-	}
-	for k, v := range extra {
-		rec[k] = v
-	}
-	if rec["blocked"] != nil {
-		cl.blockAudited = true
-	}
-	if err := appendAudit(cl, syslog, rec); err != nil {
-		// the action ran (or was refused); its record is missing: say so
-		cl.out.Warn(fmt.Sprintf("the audit log could not record %s: %v", command, err))
-	}
-}
-
 // osUser is the computer account komando runs as, from the system's user
 // database, else its number; never from the environment (user.Current
 // falls back to $USER on Unix). Windows has no uid: there user.Current
@@ -778,16 +709,7 @@ func parseEnv(pairs []string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return m, checkEnvKeys(m)
-}
-
-func checkEnvKeys(m map[string]string) error {
-	for k := range m {
-		if !sshx.ValidEnvKey(k) {
-			return out.Usage("environment variable name %q is not valid: use letters, digits and _, not starting with a digit", k)
-		}
-	}
-	return nil
+	return m, checkEnv(m)
 }
 
 func parseDur(s string) (time.Duration, error) { return time.ParseDuration(s) }

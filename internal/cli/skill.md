@@ -73,7 +73,7 @@ not know? Set `KOMANDO_AGENT=1`.
      `komando database KIND backup NAME --to FILE`, and only the human runs it, in their
      own terminal (`NEEDS_PERSON`: the file holds every row, secrets
      included); never `pg_dump` through `host ssh exec` and base64. Manage users with `komando db user` and
-     `komando db grant` (passwords as `--password-ref secret:NAME`, never
+     `komando db grant` (passwords as `--password-ref credential:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.
      Restart servers only with `komando reboot` (it needs the human).
@@ -130,13 +130,13 @@ not know? Set `KOMANDO_AGENT=1`.
    a jump host or VPN on its way), is theirs too: `NEEDS_PERSON`.
 8. **Secrets stay hidden from you.**
    - Passwords, keys and tokens in any output show as `[hidden]` or
-     `[secret:NAME]`. That is expected; do not work around it.
+     `[credential:NAME]`. That is expected; do not work around it.
    - To change a line with a hidden value, use
-     `komando fs replace TARGET PATH --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
-     (`{{secret:NAME}}` becomes the vault value on the server). Text that
+     `komando fs replace TARGET PATH --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:NAME}}'`
+     (`{{credential:NAME}}` becomes the vault value on the server). Text that
      still holds `[hidden]` is never written (`HIDDEN_VALUE`).
-   - Sending a secret somewhere (that `fs replace`, `--env K=secret:NAME`,
-     `komando credential run --env K=secret:NAME -- COMMAND` on this computer,
+   - Sending a secret somewhere (that `fs replace`, `--env K=credential:NAME`,
+     `komando credential run --env K=credential:NAME -- COMMAND` on this computer,
      a password reference on a new or moved server, conn or VPN) stops with
      `SECRET_DESTINATION`: tell the human which secret goes where, and when
      they agree, re-run with `--yes`.
@@ -151,7 +151,7 @@ not know? Set `KOMANDO_AGENT=1`.
    - Rename or copy a secret with `komando credential password rename OLD NEW` or
      `secret cp OLD NEW` (references follow a rename; the value is never shown)
      instead of asking the human to type it again.
-   - Refer to secrets as `secret:NAME`; never put a secret value on a
+   - Refer to secrets as `credential:NAME`; never put a secret value on a
      command line.
    - On this computer, do not read `~/.komando`, private keys, `.env` files
      or all environment variables at once, and do not change or clear the

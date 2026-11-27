@@ -82,7 +82,7 @@ func mongoConnectErr(t driver.Target, err error) error {
 	case strings.Contains(msg, "auth") || strings.Contains(msg, "Authentication failed"):
 		return out.Errf(out.ExitConnect, "DB_AUTH", "check the user in the URL, its authSource, and the --password-ref secret", "%s: %v", t.Where(), err)
 	case strings.Contains(msg, "x509") || strings.Contains(msg, "certificate"):
-		return out.Errf(out.ExitConnect, "DB_CONNECT", "the server's certificate could not be checked: give the CA that signed it with ?ca=secret:NAME", "cannot connect to %s: %v", t.Where(), err)
+		return out.Errf(out.ExitConnect, "DB_CONNECT", "the server's certificate could not be checked: give the CA that signed it with ?ca=credential:NAME", "cannot connect to %s: %v", t.Where(), err)
 	}
 	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando test TARGET`; through a bastion, add --via HOST", "cannot connect to %s: %v", t.Where(), err)
 }

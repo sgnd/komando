@@ -14,7 +14,7 @@ func TestPinnedKeyIsAudited(t *testing.T) {
 	invHome(t)
 	sshx.HostKeyPinned(withCall(context.Background(), tcl), sshx.NewHostKey{Host: "web1", Address: "203.0.113.10:22", Type: "ssh-ed25519", Fingerprint: "SHA256:abc"})
 	b := []byte(auditText(t))
-	for _, want := range []string{`"command":"host.key-pinned"`, `"hosts":["web1"]`, `"fingerprint":"SHA256:abc"`, `"key_type":"ssh-ed25519"`, `"first_use":true`} {
+	for _, want := range []string{`"event":"host.key-pinned"`, `"hosts":["web1"]`, `"fingerprint":"SHA256:abc"`, `"key_type":"ssh-ed25519"`, `"first_use":true`} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("audit record %s has no %s", b, want)
 		}
@@ -58,7 +58,7 @@ func TestPinnedKeyThroughExecKeepsItsName(t *testing.T) {
 		t.Fatal(e)
 	}
 	a := auditText(t)
-	if !strings.Contains(a, `"command":"host.key-pinned"`) {
+	if !strings.Contains(a, `"event":"host.key-pinned"`) { // rule R1: the event under the leaf that ran
 		t.Errorf("no host.key-pinned record:\n%s", a)
 	}
 	if !strings.Contains(a, `"command":"host.ssh.exec"`) {
@@ -76,7 +76,7 @@ func TestAskPasswordThroughHostAddKeepsSecretSet(t *testing.T) {
 	readPassword = func(*call, string) (string, error) { return "Typed-Pass-9", nil }
 	mustRun(t, "host", "ssh", "add", "vps9", "root@10.0.0.29", "--ask-password")
 	a := auditText(t)
-	for _, want := range []string{`"command":"secret.set"`, `"secret":"vps9-pass"`, `"for":"host vps9"`, `"replaced":false`} {
+	for _, want := range []string{`"event":"secret.set"`, `"secret":"vps9-pass"`, `"for":"host vps9"`, `"replaced":false`} {
 		if !strings.Contains(a, want) {
 			t.Errorf("no %s in:\n%s", want, a)
 		}

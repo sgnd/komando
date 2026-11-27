@@ -18,6 +18,7 @@ import (
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // The cobra tree is built from the table (capability.All()): every built
@@ -452,7 +453,10 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 // table option that the body names differently is in renames; the
 // credential option is the body's --password-ref (credentialRef).
 func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, renames map[string]string) error {
-	argv := bodyArgv(in, renames)
+	argv, err := bodyArgv(in, renames)
+	if err != nil {
+		return err
+	}
 	if argv == nil {
 		argv = []string{} // nil would make cobra read the process's own arguments
 	}
@@ -471,26 +475,39 @@ func bodyHandler(body func() *cobra.Command) handler {
 	}
 }
 
-// credentialRef is how today's bodies write the name of a credential: the
-// reference to a secret. Row E1 renames it to credential:NAME; this is the
-// one place that changes.
-func credentialRef(name string) string {
-	if name == "" {
-		return "" // an empty value clears the setting
+// credentialRef is the body's reference for the value of a credential
+// option (credentialFlags): the name of a saved secret and nothing else
+// (spec O-08, chief rule R2): no credential:, env:, op:// or other form. A
+// refusal never repeats the value: it may be the password. A vault that
+// cannot be read proves no name, so the value is refused then too.
+func credentialRef(flag, v string) (string, error) {
+	if err := reservedSecret(v); err != nil {
+		return "", err
 	}
-	if strings.Contains(name, ":") { // a name never has a colon: this is a whole reference (env:VAR, op://...)
-		return name
+	saved, err := vault.List()
+	if err != nil {
+		return "", fmt.Errorf("--%s: the saved secrets cannot be read: %w", flag, err)
 	}
-	return "secret:" + name
+	if v == "" || !slices.ContainsFunc(saved, func(i vault.Info) bool { return i.Name == v }) {
+		return "", out.Errf(out.ExitUsage, "USAGE",
+			"save the secret with `komando credential password add NAME` (it asks for the value, hidden), then pass --"+flag+" NAME",
+			"--%s takes the name of a saved secret, and this is none", flag)
+	}
+	return "credential:" + v, nil
 }
 
-// credentialFlags are the table's credential options that today's bodies
-// take as a reference under another name.
-var credentialFlags = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref", "passphrase-credential": "passphrase-ref"}
+// credentialFlags are the credential options of the table (rule R2) and the
+// flag of today's bodies for each; --unset takes the same words.
+var credentialFlags = map[string]string{
+	"credential":            "password-ref",
+	"sudo-credential":       "sudo-ref",
+	"psk-credential":        "psk-ref",
+	"passphrase-credential": "passphrase-ref",
+}
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.
-func bodyArgv(in leafInput, renames map[string]string) []string {
+func bodyArgv(in leafInput, renames map[string]string) ([]string, error) {
 	var argv []string
 	for _, name := range slices.Sorted(maps.Keys(in.vals)) {
 		if !in.Changed(name) {
@@ -504,7 +521,11 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 		case *string:
 			v := *p
 			if to, ok := credentialFlags[name]; ok {
-				flag, v = to, credentialRef(v)
+				ref, err := credentialRef(name, v)
+				if err != nil {
+					return nil, err
+				}
+				flag, v = to, ref
 			}
 			argv = append(argv, "--"+flag+"="+v)
 		case *bool:
@@ -527,9 +548,9 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 		}
 	}
 	if in.Dash >= 0 {
-		return append(append(append(argv, in.Args[:in.Dash]...), "--"), in.Args[in.Dash:]...)
+		return append(append(append(argv, in.Args[:in.Dash]...), "--"), in.Args[in.Dash:]...), nil
 	}
-	return append(argv, in.Args...)
+	return append(argv, in.Args...), nil
 }
 
 // typeWords are the table's type words, by the family of a conn kind.

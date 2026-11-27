@@ -29,9 +29,9 @@ func TestUploadRefusesHiddenValues(t *testing.T) {
 		}
 	}
 	ref := filepath.Join(dir, "app.env.tmpl")
-	_ = os.WriteFile(ref, []byte("DB=[secret:db_pass]\n"), 0o600)
+	_ = os.WriteFile(ref, []byte("DB=[credential:db_pass]\n"), 0o600)
 	if err := hiddenInLocal(ref); err == nil {
-		t.Error("[secret:NAME] label not refused")
+		t.Error("[credential:NAME] label not refused")
 	}
 }
 

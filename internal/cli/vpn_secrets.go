@@ -25,7 +25,7 @@ func vpnAddCheck(cl *call, s *store.State, name string, secrets map[string]strin
 // checkVpnSecrets refuses a VPN whose keys would go into a vault secret
 // that exists already (NAME-key and NAME-psk for WireGuard, NAME-config for
 // OpenVPN). Storing them would replace that secret's value, and whatever
-// uses it (a server's password, a {{secret:NAME}} in a file on a server)
+// uses it (a server's password, a {{credential:NAME}} in a file on a server)
 // would get a value the caller chose, an AI agent too. The only secret
 // that may be replaced is the VPN's own: --overwrite replaces a VPN that
 // keeps the same key in it, and nothing else uses it.
@@ -75,7 +75,7 @@ func vpnOwnsSecret(v *store.Vpn, n string) bool {
 	if v == nil {
 		return false
 	}
-	ref := "secret:" + n
+	ref := "credential:" + n
 	switch strings.TrimPrefix(n, v.Name) {
 	case "-key":
 		return v.Kind == "wireguard" && v.KeyRef == ref

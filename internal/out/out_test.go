@@ -17,13 +17,13 @@ func TestRedactHidesVaultSecrets(t *testing.T) {
 	if strings.Contains(got, "s3cr") || strings.Contains(got, "tok-123456") {
 		t.Fatalf("secret leaked: %s", got)
 	}
-	if !strings.Contains(got, "DB_PASSWORD=[secret:db-pass]") || !strings.Contains(got, "API=[secret:api]") {
+	if !strings.Contains(got, "DB_PASSWORD=[credential:db-pass]") || !strings.Contains(got, "API=[credential:api]") {
 		t.Errorf("secrets not replaced by their names: %s", got)
 	}
 	if !strings.Contains(got, "NAME=abc") {
 		t.Errorf("values shorter than %d must stay: %s", minSecret, got)
 	}
-	if p.Redact("x tok-123456 y") != "x [secret:api] y" {
+	if p.Redact("x tok-123456 y") != "x [credential:api] y" {
 		t.Error("text redaction")
 	}
 	p.NoRedact = true

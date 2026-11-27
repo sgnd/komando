@@ -10,10 +10,10 @@ R="t-ren$$"
 N="t-new$$"
 
 echo -n agentpass | $K credential password add "$R-pass" >/dev/null
-q $K host ssh add "$R-jump" "agent@127.0.0.1:$E2E_SSH_BASTION" --credential "secret:$R-pass" -g "$R" -g "$R-edge"
-q $K host ssh add "$R-target" agent@target --via "$R-jump" --credential "secret:$R-pass" -g "$R" --protected
+q $K host ssh add "$R-jump" "agent@127.0.0.1:$E2E_SSH_BASTION" --credential "$R-pass" -g "$R" -g "$R-edge"
+q $K host ssh add "$R-target" agent@target --via "$R-jump" --credential "$R-pass" -g "$R" --protected
 q $K credential key create "$R-key"
-q $K conn add "$R-db" "postgres://shop@10.9.9.9/shop?sslmode=disable" --via "$R-jump" --password-ref "secret:$R-pass"
+q $K conn add "$R-db" "postgres://agent@10.9.9.9/shop?sslmode=disable" --via "$R-jump" --password-ref "credential:$R-pass" # one login user per credential
 check "rename: the project answers before" True "$($K test "$R-target" | jget 'd["ok"]')"
 
 # the dry run lists everything and changes nothing
@@ -29,7 +29,7 @@ check "rename: agent without a window" PROTECTED_TARGET "$(A rename --starts-wit
 check "rename: without --yes" PROTECTED_TARGET "$($K rename --starts-with "$R-" "$N-" | code)"
 check "rename: one --yes" 7 "$($K rename --starts-with "$R-" "$N-" --yes | jget 'd["data"]["count"]')"
 check "rename: still protected" True "$($K host ssh show "$N-target" | jget 'd["data"]["protected"]')"
-check "rename: refs follow" True "$($K host ssh show "$N-target" | jget 'd["data"]["via"] == "'"$N"'-jump" and d["data"]["password_ref"] == "secret:'"$N"'-pass" and "'"$N"'" in d["data"]["groups"]')"
+check "rename: refs follow" True "$($K host ssh show "$N-target" | jget 'd["data"]["via"] == "'"$N"'-jump" and d["data"]["password_ref"] == "credential:'"$N"'-pass" and "'"$N"'" in d["data"]["groups"]')"
 check "rename: the sealed key follows" True "$($K credential key show "$N-key" | jget 'd["data"]["path"].startswith("sealed:")')"
 check "rename: the secret moved" True "$($K credential list | jget '"'"$N"'-pass" in [s["name"] for s in d["data"]["secrets"]] and "'"$R"'-pass" not in [s["name"] for s in d["data"]["secrets"]]')"
 check "rename: answers through the renamed path" True "$($K test "$N-target" | jget 'd["ok"]')"
@@ -62,7 +62,7 @@ q $K credential password remove "$N-pass" --allow-dangerous
 # the user in a conn URL stay, and are listed in "kept" with the reason.
 echo -n x | $K credential password add "$R-ro" >/dev/null
 q $K host ssh add "$R-app" agent@10.9.9.7 -g "$R" --notes "db $R as role $R-ro on $R-db; nodes $R-app*; group @$R"
-q $K conn add "$R-db" "postgres://$R-ro@10.9.9.9/$R" --via "$R-app" --password-ref "secret:$R-ro" --label "host=$R-app" --label "team=$R"
+q $K conn add "$R-db" "postgres://$R-ro@10.9.9.9/$R" --via "$R-app" --password-ref "credential:$R-ro" --label "host=$R-app" --label "team=$R"
 DRY=$($K rename --starts-with "$R-" "$N-" --dry-run)
 check "rename: a label naming an old entry is listed" "$N-app" "$(echo "$DRY" | jget '[k["to"] for k in d["data"]["kept"] if k["entry"] == "conn '"$N"'-db" and k["field"] == "label host"][0]')"
 check "rename: notes stay without --in-notes, with a warning" True "$(echo "$DRY" | jget 'any("--in-notes replaces them" in w for w in d["data"]["warnings"])')"

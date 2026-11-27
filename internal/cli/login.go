@@ -64,9 +64,9 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 	// a new subcommand goes into loginClouds too, so no server takes its name
 	c.AddCommand(loginAWSCmd(cl),
 		loginNotBuiltCmd("gcp", "Google Cloud", "for now komando uses your Google application default credentials (GOOGLE_APPLICATION_CREDENTIALS, or the file gcloud saved), "+
-			"or a service account key: `komando credential password add gcs-key`, then `komando conn add NAME gs://BUCKET --password-ref secret:gcs-key`"),
+			"or a service account key: `komando credential password add gcs-key`, then `komando conn add NAME gs://BUCKET --password-ref credential:gcs-key`"),
 		loginNotBuiltCmd("azure", "Azure", "for now an Azure blob conn takes the storage account key or a SAS token: `komando credential token add blob-key`, then "+
-			"`komando conn add NAME azblob://ACCOUNT@CONTAINER --password-ref secret:blob-key`; Key Vault secrets use AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET, a token the Azure CLI saved, or the machine's managed identity"))
+			"`komando conn add NAME azblob://ACCOUNT@CONTAINER --password-ref credential:blob-key`; Key Vault secrets use AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET, a token the Azure CLI saved, or the machine's managed identity"))
 	return c
 }
 

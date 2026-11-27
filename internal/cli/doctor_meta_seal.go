@@ -80,7 +80,7 @@ func resealMeta(cl *call) error {
 		return out.Errf(out.ExitError, "STATE_CORRUPT", "the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy`", "nothing was changed: %v", err)
 	}
 	kept := map[string]any{"key_mode": meta["key_mode"], "scrypt_n": meta["scrypt_n"]}
-	audit(cl, nil, "doctor.reseal-meta", nil, "", true, kept)
+	auditEvent(cl, nil, "doctor.reseal-meta", nil, "", true, kept)
 	cl.out.Print("doctor.reseal-meta", map[string]any{"resealed": true, "kept": kept}, nil)
 	return nil
 }

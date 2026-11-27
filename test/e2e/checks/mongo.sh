@@ -14,7 +14,7 @@ if ! MDC exec -T mongo mongosh --quiet -u root -p mongopass --eval 'db.runComman
   MDC logs --tail 30 mongo 2>&1 | sed 's/^/    /'
 fi
 echo -n mongopass | $K credential password add mongo-pass >/dev/null
-q $K conn add shop-mongo 'mongodb://root@mongo/e2e_mongo?authSource=admin' --via bastion --password-ref secret:mongo-pass
+q $K conn add shop-mongo 'mongodb://root@mongo/e2e_mongo?authSource=admin' --via bastion --password-ref credential:mongo-pass
 for _ in $(seq 1 30); do [ "$($K conn test shop-mongo | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 check "mongo conn test logs in through --via" login "$($K conn test shop-mongo | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "mongo insert needs --write" WRITE_REQUIRES_FLAG "$($K database mongodb query shop-mongo '{"insert": "users", "documents": [{"name": "Ada"}]}' | jget 'd["error"]["code"]')"

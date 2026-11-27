@@ -18,12 +18,12 @@ var credentialLeaves = concat(
 			Short:   "List the saved passwords and tokens and what uses them",
 			Example: "  komando credential list\n  komando credential list -o json"},
 		{Key: own("credential", "", "run"), Args: []Arg{{Name: "COMMAND", Many: true, Dash: true}},
-			Options: []Option{{Name: "env", Short: "e", Kind: String, Repeat: true, Help: "put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)"}},
+			Options: []Option{{Name: "env", Short: "e", Kind: String, Repeat: true, Help: "put KEY=VALUE or KEY=credential:NAME in the program's environment (repeatable)"}},
 			Stops:   []string{"refuseEncodedSecret", "RefGuard"}, Today: []string{"secret.run"},
 			Short: "Run a command here with saved credentials in its environment",
-			Example: "  komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh\n" +
-				"  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n" +
-				"  komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan"},
+			Example: "  komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh\n" +
+				"  komando credential run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app\n" +
+				"  komando credential run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan"},
 	},
 	valueKindLeaves(),
 	[]Leaf{

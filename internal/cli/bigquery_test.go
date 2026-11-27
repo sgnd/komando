@@ -37,7 +37,7 @@ func TestBigQueryConns(t *testing.T) {
 	wantCode(t, "USAGE", "database", "bigquery", "backup", "bq") // BigQuery has no backup leaf
 	wantCode(t, "USAGE", "database", "bigquery", "restore", "bq")
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "bq", "select 1", "--analyze")
-	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "bq", "bob", "--password-ref", "secret:x")
+	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "bq", "bob", "--password-ref", "credential:x")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "rm", "bq", "bob")
 	wantCode(t, "NOT_SUPPORTED", "db", "grant", "bq", "bob", "--role", "readers")
 	// the classifier says what needs --write before anything connects

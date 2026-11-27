@@ -179,7 +179,7 @@ komando blocks destructive commands (`rm -rf /`, `mkfs`, `reboot`,
 ### Pass a password to a command
 
 A password for the remote command can come from the vault, so it is never
-typed or shown: `-e DB_PASS=secret:prod-db`. komando fills in the value on
+typed or shown: `-e DB_PASS=credential:prod-db`. komando fills in the value on
 the way to the server. It goes to the command on its input, not on its
 command line, so other users of the server do not see it in `ps` and it is
 not written to sudo's log. Values that are not from the vault are on the
@@ -529,7 +529,7 @@ crashed a moment ago can still show until the next komando command.
 | `CONNECT_TIMEOUT` | the server did not answer within `--connect-timeout` (exit 7) | check the address and the `--via` path |
 | `TIMEOUT` | the command ran longer than `--timeout`; komando stopped it (exit 7) | raise `--timeout`, or run it as a job |
 | `READ_ONLY_VIOLATION` | `--read-only`, but the command changes something or komando cannot follow it (exit 6) | drop `--read-only`; a protected server then asks first |
-| `HIDDEN_VALUE` | a script or `--stdin-file` holds a value komando hid (`[hidden]`) | put `secret:NAME` in `-e` instead |
+| `HIDDEN_VALUE` | a script or `--stdin-file` holds a value komando hid (`[hidden]`) | put `credential:NAME` in `-e` instead |
 | `WAIT_TIMEOUT` | `job wait` ran out of time; the job still runs (exit 7) | `komando job wait JOB` again, or `komando job logs JOB --limit 50` |
 | `JOB_RUNNING` | `job rm` on a running job | `komando job kill JOB` first, or add `--kill` |
 | `JOB_NOT_FOUND` | no job with that ID | see them with `komando job list` |

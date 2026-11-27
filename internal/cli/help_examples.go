@@ -57,14 +57,14 @@ var examples = map[string]string{
 	"komando config vault": "  komando config vault keychain --dry-run\n" +
 		"  komando config vault keychain\n" +
 		"  komando config vault passphrase   # asks for the new passphrase twice, hidden",
-	"komando conn": "  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref secret:prod-db-pass\n" +
+	"komando conn": "  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref credential:prod-db-pass\n" +
 		"  komando test prod-db                              # does it answer and let komando in?\n" +
 		"  komando conn edit prod-db --via web1 --dry-run\n" +
 		"  komando conn rm prod-db                           # from komando only",
 	"komando db user": "  komando db user list prod-db\n" +
 		"  komando db user show prod-db app\n" +
-		"  komando db user add prod-db app --password-ref secret:app-pass --dry-run\n" +
-		"  komando db user add prod-db app --password-ref secret:app-pass --allow-dangerous",
+		"  komando db user add prod-db app --password-ref credential:app-pass --dry-run\n" +
+		"  komando db user add prod-db app --password-ref credential:app-pass --allow-dangerous",
 	"komando fs": "  komando fs list web1 /etc/nginx\n" +
 		"  komando fs cat web1 /etc/nginx/nginx.conf\n" +
 		"  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 512' --new 'worker_connections 1024' --backup --dry-run\n" +
@@ -99,7 +99,7 @@ var examples = map[string]string{
 	"komando credential": "  komando credential password add web1-pass   # typed hidden\n" +
 		"  komando credential list\n" +
 		"  komando credential key create deploy\n" +
-		"  komando credential run --env TOKEN=secret:gh-token -- ./deploy.sh",
+		"  komando credential run --env TOKEN=credential:gh-token -- ./deploy.sh",
 	"komando credential key": "  komando credential key create deploy\n" +
 		"  komando credential key install deploy @web --dry-run\n" +
 		"  komando credential key install deploy @web\n" +

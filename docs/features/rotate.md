@@ -19,6 +19,11 @@ komando credential key remove deploy                             # and out of ko
 
 Typed alone, `komando credential key install` asks for the key, then the servers.
 
+A key that servers use under different users has a copy per user
+(`deploy-admin` beside `deploy`; `komando credential key list` shows them). Each copy
+is rotated and removed by its own name: `credential key remove deploy` leaves
+`deploy-admin`.
+
 `credential key uninstall` stops before it removes the key komando itself still logs in
 with (you would lock yourself out): at your terminal you type the name to
 go on; an AI agent or a script adds `--allow-dangerous` after a person
@@ -31,7 +36,7 @@ new one. It replaces the old value under the same name, so every server
 that uses it follows:
 
 ```bash
-komando host ssh edit web1 --ask-password        # type the new one (stored as secret:web1-pass)
+komando host ssh edit web1 --ask-password        # type the new one (stored as credential:web1-pass)
 komando test web1
 ```
 
@@ -45,8 +50,8 @@ the conn at it, check, then remove the old one:
 
 ```bash
 komando credential password add prod-db-pass-2                                 # the new password, typed once
-komando db user passwd prod-db app --password-ref secret:prod-db-pass-2
-komando conn edit prod-db --password-ref secret:prod-db-pass-2    # komando logs in with it from then on
+komando db user passwd prod-db app --password-ref credential:prod-db-pass-2
+komando conn edit prod-db --password-ref credential:prod-db-pass-2    # komando logs in with it from then on
 komando test prod-db
 komando credential password remove prod-db-pass                                    # the old one
 ```

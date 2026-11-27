@@ -43,12 +43,12 @@ working; `komando doctor` warns about it and prints the line that changes
 it.
 
 `rediss://` and `memcacheds://` check the server's certificate against your
-computer's trusted CAs, or against your own with `?ca=secret:NAME` (a
+computer's trusted CAs, or against your own with `?ca=credential:NAME` (a
 private CA, or a cloud's own):
 
 ```bash
 komando credential token add prod-redis-ca < ca.pem
-komando cache redis add prod-redis 'rediss://default@cache.internal:6380/1?ca=secret:prod-redis-ca' --credential prod-redis-pass
+komando cache redis add prod-redis 'rediss://default@cache.internal:6380/1?ca=credential:prod-redis-ca' --credential prod-redis-pass
 ```
 
 ### Redis Cluster and Sentinel
@@ -280,7 +280,7 @@ komando cache memcached raw prod-memcached -- stats slabs
 
 | Error | What it means | What to do |
 |-------|---------------|------------|
-| `CACHE_CONNECT` | komando cannot reach the cache, or cannot check its certificate | `komando test prod-redis`; for a private CA add `?ca=secret:NAME`, or reach it `--via` a server |
+| `CACHE_CONNECT` | komando cannot reach the cache, or cannot check its certificate | `komando test prod-redis`; for a private CA add `?ca=credential:NAME`, or reach it `--via` a server |
 | `CACHE_AUTH` | the cache refused the login | check the user in the URL and the password reference (`komando conn show prod-redis`) |
 | `CACHE_ERROR` | memcached cannot list keys | start memcached with the LRU crawler on; `cache get` works without it |
 | `INSECURE_PROTOCOL` | `redis://` or `memcached://` crosses the network unencrypted | use `rediss://` or `memcacheds://`, or `--via`, or add `?insecure=1` |

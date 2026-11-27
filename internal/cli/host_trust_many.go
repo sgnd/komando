@@ -3,9 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
-	"maps"
 	"net"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -312,7 +310,7 @@ func init() {
 				if err := withHostTargets(cl, targets(in), p, verb); err != nil {
 					return err
 				}
-				return runBody(cl, ctx, body(), hostBodyInput(in), nil)
+				return runBody(cl, ctx, body(), in, nil)
 			}
 		}
 		first := func(in leafInput) []string { return in.Args[:min(1, len(in.Args))] }
@@ -321,7 +319,7 @@ func init() {
 			if err := hostAddressOfProvider(&in, p); err != nil {
 				return err
 			}
-			return runBody(cl, ctx, hostAddCmd(), hostBodyInput(in), nil)
+			return runBody(cl, ctx, hostAddCmd(), in, nil)
 		}
 		on("edit", hostEditCmd, all)
 		on("show", hostShowCmd, first)
@@ -452,32 +450,4 @@ func hostAddressOfProvider(in *leafInput, provider string) error {
 		*p = a
 	}
 	return nil
-}
-
-// hostBodyInput is the input as today's host commands read it: the sudo
-// credential is their --sudo-ref, a reference to a credential.
-func hostBodyInput(in leafInput) leafInput {
-	if p, ok := in.vals["sudo-credential"].(*string); ok {
-		in.vals = maps.Clone(in.vals)
-		in.vals["sudo-ref"] = &[]string{credentialRef(*p)}[0]
-		delete(in.vals, "sudo-credential")
-		changed := in.changed
-		in.changed = func(n string) bool {
-			if n == "sudo-ref" {
-				n = "sudo-credential"
-			}
-			return changed(n)
-		}
-	}
-	if p, ok := in.vals["unset"].(*[]string); ok {
-		words := slices.Clone(*p)
-		for i, w := range words {
-			if w == "sudo-credential" {
-				words[i] = "sudo-ref"
-			}
-		}
-		in.vals = maps.Clone(in.vals)
-		in.vals["unset"] = &words
-	}
-	return in
 }

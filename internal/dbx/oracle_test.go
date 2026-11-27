@@ -42,7 +42,7 @@ func TestOracleConfig(t *testing.T) {
 		{"oracle://app@db.internal/ERP", "ERP", "", false, false, false},
 		{"oracle://app@db.internal:2484/ERP?tls=true", "ERP", "", true, false, false},
 		{"oracle://app@db.internal/ERP?tls=skip-verify", "ERP", "", true, true, false},
-		{"oracle://app@db.internal/ERP?tls=true&ca=secret:corp-ca", "ERP", "", true, false, true},
+		{"oracle://app@db.internal/ERP?tls=true&ca=credential:corp-ca", "ERP", "", true, false, true},
 		{"oracle://app@db.internal?sid=ORCL&tls=false", "", "ORCL", false, false, false},
 	} {
 		tg, err := driver.Parse(c.url)

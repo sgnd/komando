@@ -135,7 +135,7 @@ func checkOldRefs3(recs []record3) error {
 		for _, f := range refFields3(r.data) {
 			if oldRefRe.MatchString(f.value) {
 				return out.Errf(out.ExitUsage, "STORE_REFERENCE_UNSUPPORTED",
-					"point the field at a saved secret again with komando v0.17.0, then run `komando doctor`",
+					"point the field at a saved secret again with komando "+LastFormat2Release+", then run `komando doctor`",
 					"%s %s: field %s still names a secret the old way", r.typ, r.name, f.field)
 			}
 		}
@@ -179,4 +179,51 @@ func refFields3(v any) []refField {
 		}
 	}
 	return fs
+}
+
+// OldReference reports whether s is a reference in the spelling format 2
+// used (secret:NAME), which no command reads any more, and returns the
+// spelling that replaced it (credential:NAME). Every reader of a reference
+// refuses the old one with that hint.
+func OldReference(s string) (string, bool) {
+	if !oldRefRe.MatchString(s) {
+		return "", false
+	}
+	return "credential:" + strings.TrimPrefix(s, "secret:"), true
+}
+
+// OldRefError is the usage error for a reference in the spelling of
+// format 2: it names the spelling that replaced it, never a value.
+func OldRefError(what, ref string) error {
+	n, _ := OldReference(ref)
+	return out.Errf(out.ExitUsage, "REFERENCE_UNSUPPORTED",
+		"write "+n+": komando reads a reference only as credential:NAME",
+		"%s uses the old reference spelling, which komando no longer reads", what)
+}
+
+// oldMarkerRe is the marker format 2 used for a vault value in text for a
+// file ({{secret:NAME}}).
+var oldMarkerRe = regexp.MustCompile(`\{\{\s*secret:([A-Za-z0-9_.@/-]+)\s*\}\}`)
+
+// OldMarker reports whether text holds the marker of format 2 for a vault
+// value and returns the marker that replaced the first one
+// ({{credential:NAME}}). Text for a file that holds one is refused (Audit
+// E1-3): it is never written as it is.
+func OldMarker(text string) (string, bool) {
+	m := oldMarkerRe.FindStringSubmatch(text)
+	if m == nil {
+		return "", false
+	}
+	return "{{credential:" + m[1] + "}}", true
+}
+
+// refFor is the reference that reads item from an outside store of
+// provider; "" for komando's own vault or a provider it does not know.
+func refFor(provider, item string) string {
+	for _, p := range refProviders {
+		if p.provider == provider && provider != "secret" {
+			return p.prefix + item
+		}
+	}
+	return ""
 }

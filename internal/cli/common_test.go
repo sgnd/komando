@@ -39,7 +39,7 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	store.Close()
-	rk, _ := sealkey.Derive(master, sealkey.Rows)
+	rk, _ := sealkey.Derive(master, sealkey.RowsV3)
 	k, _ := sealrow.NewKey(rk)
 	d, err := sealdb.Open(context.Background(), store.DBPath(), k)
 	if err != nil {

@@ -34,7 +34,7 @@ type sfAuth struct {
 	exp time.Time
 }
 
-const sfNoSecret = "store a programmatic access token (Snowflake: ALTER USER ... ADD PROGRAMMATIC ACCESS TOKEN) or the user's private key (PEM) with `komando credential password add NAME`, then `komando conn edit CONN --password-ref secret:NAME`"
+const sfNoSecret = "store a programmatic access token (Snowflake: ALTER USER ... ADD PROGRAMMATIC ACCESS TOKEN) or the user's private key (PEM) with `komando credential password add NAME`, then `komando conn edit CONN --password-ref credential:NAME`"
 
 func newSFAuth(secret string) (*sfAuth, error) {
 	secret = strings.TrimSpace(secret)

@@ -74,14 +74,14 @@ type envVar struct {
 var HostSecretEnv func(c *Client) bool
 
 // commandEnv is the host's env and extra, sorted by name. A value written
-// secret:NAME is read from the vault here, so it never passes through the
+// credential:NAME is read from the vault here, so it never passes through the
 // agent (and output hides vault values too).
 func commandEnv(c *Client, extra map[string]string) ([]envVar, error) {
 	env := map[string]string{}
 	if c != nil && c.Host != nil {
 		keep := HostSecretEnv == nil || HostSecretEnv(c)
 		for k, v := range c.Host.Env {
-			if !keep && strings.HasPrefix(v, "secret:") {
+			if !keep && strings.HasPrefix(v, "credential:") {
 				continue
 			}
 			env[k] = v
@@ -101,7 +101,7 @@ func commandEnv(c *Client, extra map[string]string) ([]envVar, error) {
 			return nil, fmt.Errorf("environment variable name %q is not valid (use letters, digits and _)", k)
 		}
 		ev := envVar{key: k, value: env[k]}
-		if strings.HasPrefix(ev.value, "secret:") {
+		if strings.HasPrefix(ev.value, "credential:") {
 			s, err := vault.Resolve(ev.value)
 			if err != nil {
 				return nil, err
@@ -621,7 +621,7 @@ func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io
 // sudoHint says how to give the server its sudo password.
 func sudoHint(h *store.Host) string {
 	if h == nil || h.Name == "" || strings.ContainsAny(h.Name, "@:") {
-		return "sudo needs a password; save the server with `komando host ssh add NAME ADDRESS --sudo-credential secret:NAME` to give it one"
+		return "sudo needs a password; save the server with `komando host ssh add NAME ADDRESS --sudo-credential NAME` to give it one"
 	}
 	sec := secretName(h.Name, "sudo")
 	return fmt.Sprintf("sudo needs a password; store it with `komando credential password add %s`, then run `komando host ssh edit %s --sudo-credential %s`", sec, h.Name, sec)

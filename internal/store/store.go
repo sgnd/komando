@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sgnd/komando/internal/flock"
@@ -25,12 +27,12 @@ type Host struct {
 	Key         string `json:"key,omitempty"`          // name of a key in the keychain
 	KeyID       string `json:"key_id,omitempty"`       // that key's record ID (refs.go)
 	Identity    string `json:"identity,omitempty"`     // path to a private key file
-	PasswordRef string `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
+	PasswordRef string `json:"password_ref,omitempty"` // credential:<name> or env:<VAR>
 	// Login is "ask" (LoginAsk) for a server whose password is never
 	// stored: a person types it at every connect (host add --login ask).
 	// Empty: keys, ssh-agent and PasswordRef, as komando always logs in.
 	Login   string `json:"login,omitempty"`
-	SudoRef string `json:"sudo_ref,omitempty"` // sudo password ref (secret:/env:)
+	SudoRef string `json:"sudo_ref,omitempty"` // sudo password ref (credential:/env:)
 	Via     string `json:"via,omitempty"`      // the way there: host name(s), comma-separated chain
 	// ViaIDs are the record IDs of Via's steps, in order ("" for a step
 	// that names no server or VPN); see refs.go
@@ -118,7 +120,7 @@ type WinRMOpts struct {
 	// TLS: "" checks the certificate (HTTPS, port 5986), skip-verify does
 	// not, off is plain HTTP (port 5985)
 	TLS string `json:"tls,omitempty"`
-	CA  string `json:"ca,omitempty"` // secret:NAME holding the PEM of the CA that signed the server's certificate
+	CA  string `json:"ca,omitempty"` // credential:NAME holding the PEM of the CA that signed the server's certificate
 }
 
 // WinRM reports a server reached over WinRM.
@@ -153,7 +155,7 @@ type Conn struct {
 	Name        string `json:"name"`
 	Kind        string `json:"kind"` // a name from driver.Kinds: postgres, redis, s3, kafka ...
 	URL         string `json:"url"`
-	PasswordRef string `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
+	PasswordRef string `json:"password_ref,omitempty"` // credential:<name>, env:<VAR> or file:<path>
 	// Login is "ask" (LoginAsk) for a conn whose password is never
 	// stored: a person types it at every connect (conn add --login ask)
 	Login     string            `json:"login,omitempty"`
@@ -173,11 +175,14 @@ type Conn struct {
 	// found it, and PluginSearchPath the PATH of that import: an AI
 	// agent's command runs this file with this PATH, not what its own
 	// PATH would find.
-	PluginProgram    string    `json:"plugin_program,omitempty"`
-	PluginSearchPath string    `json:"plugin_search_path,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
-	Rec              Rec       `json:"-"`
+	PluginProgram    string `json:"plugin_program,omitempty"`
+	PluginSearchPath string `json:"plugin_search_path,omitempty"`
+	// Manager is a swarm cluster's manager server, ManagerID its record ID
+	Manager   string    `json:"manager,omitempty"`
+	ManagerID string    `json:"manager_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Key struct {
@@ -308,7 +313,7 @@ type Vpn struct {
 	Service   string            `json:"service,omitempty"`    // system: the OS VPN's name, to connect it with `vpn KIND start`
 	Server    string            `json:"server,omitempty"`     // tailscale: a Headscale login server; l2tp, ipsec, ikev2: the VPN server
 	User      string            `json:"user,omitempty"`       // user name, if the VPN wants one
-	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as secret:/env:/file:
+	KeyRef    string            `json:"key_ref,omitempty"`    // password, private key or auth key, as credential:/env:/file:
 	PSKRef    string            `json:"psk_ref,omitempty"`    // wireguard, l2tp, ipsec, ikev2: preshared key, if any
 	LocalID   string            `json:"id,omitempty"`         // ipsec: the group name; ikev2: our identity
 	RemoteID  string            `json:"remote_id,omitempty"`  // ikev2: the server's identity (default: --server)
@@ -375,8 +380,10 @@ type State struct {
 	Runtime
 	Settings Settings `json:"settings"`
 
-	settingsRec Rec    // the settings record in the sealed store
-	runtimeMark string // store.db's mark of runtime.json (runtime_mark.go)
+	settingsRec Rec          // the settings record in the sealed store
+	runtimeMark string       // store.db's mark of runtime.json (runtime_mark.go)
+	runtimeCopy *runtimeCopy // records a store migration carried, under runtimeMark (runtime_copy.go)
+	copyUsed    bool         // the runtime data was read from runtimeCopy
 }
 
 // Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.
@@ -418,11 +425,16 @@ func ensureHome() error {
 			return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", d, err)
 		}
 	}
-	if len(made) == 0 {
+	if len(made) == 0 && (KeepHomeMode == nil || !KeepHomeMode()) {
 		tightenHome(h)
 	}
 	return nil
 }
+
+// KeepHomeMode, set by the cli, says whether a komando folder that others
+// may read keeps its mode for now: a dry run writes nothing, not even the
+// folder's mode (Audit E1); doctor reports the folder.
+var KeepHomeMode func() bool
 
 // makePrivate is privateHome; tests replace it.
 var makePrivate = privateHome
@@ -549,6 +561,22 @@ func Update(w Write, fn func(s *State) error) error {
 	return updateStore(fn)
 }
 
+// tryLock is Lock that does not wait: ok is false while another holds it.
+func tryLock(name string) (unlock func(), ok bool, err error) {
+	if err := ensureHome(); err != nil {
+		return nil, false, err
+	}
+	lf, err := os.OpenFile(Path(name), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, false, err
+	}
+	if ok, err = flock.TryLock(lf); err != nil || !ok {
+		lf.Close()
+		return nil, false, err
+	}
+	return heldUnlock(name, lf), true, nil
+}
+
 // Lock takes an exclusive lock on the file name in the state directory
 // and returns the function that releases it. komando processes running at
 // the same time (parallel agents) wait for each other.
@@ -564,7 +592,24 @@ func Lock(name string) (unlock func(), err error) {
 		lf.Close()
 		return nil, err
 	}
-	return func() { _ = flock.Unlock(lf); lf.Close() }, nil
+	return heldUnlock(name, lf), nil
+}
+
+// storeLockHeld counts this process's holds of the store lock, so that a
+// step that needs it (peekStore) does not wait for its own process.
+var storeLockHeld atomic.Int32
+
+// heldUnlock counts a hold of the store lock and returns the function
+// that releases lf.
+func heldUnlock(name string, lf *os.File) func() {
+	if name != storeLock {
+		return func() { _ = flock.Unlock(lf); lf.Close() }
+	}
+	storeLockHeld.Add(1)
+	var once sync.Once
+	return func() {
+		once.Do(func() { storeLockHeld.Add(-1); _ = flock.Unlock(lf); lf.Close() })
+	}
 }
 
 // WriteFileAtomic replaces path with b: a temporary file next to it is

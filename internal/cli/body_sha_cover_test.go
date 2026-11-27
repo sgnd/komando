@@ -17,12 +17,12 @@ func sumHex(b []byte) string {
 	return hex.EncodeToString(s[:])
 }
 
-// fs write: the content before {{secret:NAME}} values are filled in (a
+// fs write: the content before {{credential:NAME}} values are filled in (a
 // hash of the filled-in bytes would describe the secret).
 func TestBodySHA256FsWriteIsBeforeSecrets(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Cleanup(func() { tcl.body = nil; tcl.out.Reset() })
-	b := []byte("DB_PASSWORD={{secret:db}}\n")
+	b := []byte("DB_PASSWORD={{credential:db}}\n")
 	p := filepath.Join(t.TempDir(), "app.env")
 	if err := os.WriteFile(p, b, 0o600); err != nil {
 		t.Fatal(err)

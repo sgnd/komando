@@ -69,7 +69,7 @@ func TestMaskKeepsPlainMessages(t *testing.T) {
 		"the vault is locked with a passphrase; set KOMANDO_VAULT_PASS",
 		"vault.key is missing but the vault holds 3 secrets; restore it from a backup",
 		"secret-tool is not installed in /usr/bin (install it with apt install libsecret-tools)",
-		"the registry ca option takes a secret reference, as in ?ca=secret:NAME",
+		"the registry ca option takes a secret reference, as in ?ca=credential:NAME",
 		"the credential helper docker-credential-osxkeychain failed (exit status 1)",
 		"the WireGuard private key does not parse (illegal base64 data at input byte 4)",
 		"komando host ssh exec web1 --host-key-policy=strict -- uptime",

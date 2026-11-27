@@ -16,7 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/tmpclean"
 )
 
-// A conn URL's ?ca=secret:NAME (a private CA, driver/ca.go) holds for the
+// A conn URL's ?ca=credential:NAME (a private CA, driver/ca.go) holds for the
 // dump tools too: pg_dump, pg_restore and mysqldump check the database's
 // certificate against that CA, as komando's own connections do. libpq
 // refuses an option it does not know, so ca= leaves the URL the tool gets;

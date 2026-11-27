@@ -8,7 +8,7 @@ set +e
 MSC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 printf 'Sales-pass-1' | $K credential password add mssql-sa >/dev/null
 printf 'Ro-pass-1x' | $K credential password add mssql-ro >/dev/null
-q $K conn add sa-mssql 'sqlserver://sa@mssql:1433/master' --via bastion --password-ref secret:mssql-sa
+q $K conn add sa-mssql 'sqlserver://sa@mssql:1433/master' --via bastion --password-ref credential:mssql-sa
 # SQL Server takes a while to start, longer when emulated
 for _ in $(seq 1 120); do [ "$($K conn test sa-mssql | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 if [ "$($K conn test sa-mssql | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" != True ]; then
@@ -26,7 +26,7 @@ fi
 check "sqlserver conn test logs in through --via" login "$($K conn test sa-mssql | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "create database needs --write" WRITE_REQUIRES_FLAG "$($K database sqlserver query sa-mssql 'create database e2e_sales' | jget 'd["error"]["code"]')"
 q $K database sqlserver query sa-mssql --write 'create database e2e_sales'
-q $K conn add shop-mssql 'sqlserver://sa@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-sa
+q $K conn add shop-mssql 'sqlserver://sa@mssql:1433/e2e_sales' --via bastion --password-ref credential:mssql-sa
 q $K database sqlserver query shop-mssql --write "create table dbo.orders (id int identity primary key, item nvarchar(50) not null, total decimal(10,2), placed datetime2 default sysdatetime())"
 check "sqlserver insert needs --write" WRITE_REQUIRES_FLAG "$($K database sqlserver query shop-mssql "insert into dbo.orders (item, total) values (N'pen', 1.50)" | jget 'd["error"]["code"]')"
 check "sqlserver insert" 2 "$($K database sqlserver query shop-mssql --write "insert into dbo.orders (item, total) values (N'pen', 1.50), (N'ink', 12.25)" | jget 'd["data"]["results"][0]["rows_affected"]')"
@@ -45,9 +45,9 @@ check "sqlserver explain ran nothing" 2 "$($K database sqlserver query shop-mssq
 check "sqlserver sizes lists the table" True "$($K db sizes shop-mssql | jget 'any(t["name"] == "orders" for t in d["data"]["tables"])')"
 check "sqlserver activity answers" True "$($K db activity shop-mssql --all | jget 'd["ok"]')"
 check "sqlserver kill needs --session" NOT_SUPPORTED "$($K db kill shop-mssql 99 | jget 'd["error"]["code"]')"
-q $K db user add shop-mssql sales_ro --password-ref secret:mssql-ro --allow-dangerous
+q $K db user add shop-mssql sales_ro --password-ref credential:mssql-ro --allow-dangerous
 q $K db grant shop-mssql sales_ro --privileges SELECT --on schema:dbo --allow-dangerous
-q $K conn add ro-mssql 'sqlserver://sales_ro@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-ro
+q $K conn add ro-mssql 'sqlserver://sales_ro@mssql:1433/e2e_sales' --via bastion --password-ref credential:mssql-ro
 check "sqlserver: the new user logs in with the vault password" 2 "$($K database sqlserver query ro-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "sqlserver: and may only read what was granted" False "$($K database sqlserver query ro-mssql --write "insert into dbo.orders (item) values (N'x')" | jget 'd["ok"]')"
 check "sqlserver db user show shows SELECT on dbo" True "$($K db user show shop-mssql sales_ro | jget 'any(g["object"] == "dbo" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"

@@ -471,7 +471,7 @@ func TestAuthFailedHint(t *testing.T) {
 		h    *store.Host
 		want string
 	}{
-		{&store.Host{Name: "web1", PasswordRef: "secret:web1-pass"}, "`komando credential password add web1-pass`"},
+		{&store.Host{Name: "web1", PasswordRef: "credential:web1-pass"}, "`komando credential password add web1-pass`"},
 		{&store.Host{Name: "web1", PasswordRef: "env:WEB1_PASS"}, "the password that env:WEB1_PASS holds"},
 		{&store.Host{Name: "web1", Key: "work"}, "check the user and key with `komando host ssh show web1`"},
 		{&store.Host{Name: "u@10.0.0.1:22"}, "`komando host ssh add NAME u@10.0.0.1:22 --key KEY`"},

@@ -221,7 +221,7 @@ func sfServer(t *testing.T, f *fakeSF) (caPEM string, dial DialFunc, asked *[]st
 	return caPEM, dial, asked
 }
 
-const sfTestURL = "snowflake://app@myorg-acct/ANALYTICS/PUBLIC?warehouse=WH&role=RO&ca=secret:sfca"
+const sfTestURL = "snowflake://app@myorg-acct/ANALYTICS/PUBLIC?warehouse=WH&role=RO&ca=credential:sfca"
 
 func openSF(t *testing.T, raw, secret string, readOnly bool, dial DialFunc) (*sql.DB, error) {
 	t.Helper()
@@ -294,8 +294,8 @@ func TestSnowflakeKeyPair(t *testing.T) {
 		t.Errorf("wrong key: %v", err)
 	}
 	// without the conn's CA the certificate does not check out
-	if _, err := openSF(t, strings.Replace(sfTestURL, "&ca=secret:sfca", "", 1), keyPEM, true, dial); errCode(err) != "DB_CONNECT" ||
-		!strings.Contains(err.(*out.Error).Hint, "ca=secret:NAME") {
+	if _, err := openSF(t, strings.Replace(sfTestURL, "&ca=credential:sfca", "", 1), keyPEM, true, dial); errCode(err) != "DB_CONNECT" ||
+		!strings.Contains(err.(*out.Error).Hint, "ca=credential:NAME") {
 		t.Errorf("unknown CA: %v", err)
 	}
 }

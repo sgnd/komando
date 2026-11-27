@@ -296,7 +296,7 @@ func (c *sfConnector) do(ctx context.Context, method, path string, payload []byt
 		}
 		if strings.Contains(err.Error(), "x509:") || strings.Contains(err.Error(), "tls: failed to verify") {
 			return 0, nil, out.Errf(out.ExitConnect, "DB_CONNECT",
-				"Snowflake's certificate is signed by a public CA, so something on the way answered instead (a proxy that inspects TLS?): if it is your company's, give its CA with ?ca=secret:NAME (`komando credential token add NAME < ca.pem`)",
+				"Snowflake's certificate is signed by a public CA, so something on the way answered instead (a proxy that inspects TLS?): if it is your company's, give its CA with ?ca=credential:NAME (`komando credential token add NAME < ca.pem`)",
 				"cannot connect to %s: %v", c.s.Host, err)
 		}
 		return 0, nil, err

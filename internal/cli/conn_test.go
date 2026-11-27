@@ -96,7 +96,7 @@ func TestGuardConns(t *testing.T) {
 
 func TestCheckConn(t *testing.T) {
 	st := testConnState()
-	ok := &store.Conn{Name: "x", URL: "postgres://app@10.0.0.9/app", Via: "web-1", PasswordRef: "secret:x"}
+	ok := &store.Conn{Name: "x", URL: "postgres://app@10.0.0.9/app", Via: "web-1", PasswordRef: "credential:x"}
 	if err := checkConn(st, ok); err != nil || ok.Kind != "postgres" {
 		t.Errorf("valid conn rejected: %v (kind %q)", err, ok.Kind)
 	}

@@ -54,6 +54,21 @@ type plan3 struct {
 	expect   map[string]int
 	report   migration3Report
 	problems []string
+	// plain are the problems again, with no name of a record or a secret
+	// (the dry run shows them)
+	plain []string
+	// outsideLogins counts the problems that are a login naming an
+	// outside store
+	outsideLogins int
+}
+
+// fix is what the person does about the problems: the same steps in the
+// move's hint and in the dry run; nil when there is none.
+func (p *plan3) fix() []string {
+	if len(p.problems) == 0 {
+		return nil
+	}
+	return fixSteps(p.outsideLogins > 0, len(p.problems) > p.outsideLogins)
 }
 
 // credPlan is one credential to write: its value comes from the vault
@@ -72,6 +87,7 @@ type migration3Report struct {
 	SnippetsWithOldRef []string          `json:"snippets_with_old_reference,omitempty"`
 	MergedGroups       []string          `json:"merged_groups,omitempty"`
 	Backup             string            `json:"backup,omitempty"`
+	BackupNote         string            `json:"backup_note,omitempty"`
 }
 
 // nameChange is an old name and the names that replace it.
@@ -122,8 +138,19 @@ type outsideUse struct {
 }
 
 // planFormat3 is the plan for snap, or STORE_MIGRATION_FAILED naming every
-// record and field it cannot move.
+// record and field it cannot move and the steps of the fix. It runs before
+// the backup, so a refusal has written nothing.
 func planFormat3(snap *snapshot2, refGuard func(kind, name string) error) (*plan3, error) {
+	p := buildPlan3(snap, refGuard)
+	if len(p.problems) > 0 {
+		return nil, out.Errf(out.ExitError, "STORE_MIGRATION_FAILED", numbered(p.fix()),
+			"the store cannot move to format 3, so nothing was written and no backup was made: %s", strings.Join(p.problems, "; "))
+	}
+	return p, nil
+}
+
+// buildPlan3 is the plan for snap with its problems.
+func buildPlan3(snap *snapshot2, refGuard func(kind, name string) error) *plan3 {
 	pl := &planner{
 		snap: snap, refGuard: refGuard,
 		p:       &plan3{hosts: map[string]*HostV3{}, conns: map[string]*ServiceV3{}, vpns: map[string]*VpnV3{}, report: migration3Report{Counts: map[string][2]int{}}},
@@ -161,16 +188,19 @@ func planFormat3(snap *snapshot2, refGuard func(kind, name string) error) (*plan
 	pl.groups()
 	pl.snippets()
 	pl.expectCounts()
-	if len(pl.p.problems) > 0 {
-		return nil, out.Errf(out.ExitError, "STORE_MIGRATION_FAILED",
-			"fix each one with komando v0.17.0, then run `komando doctor` again",
-			"the store cannot move to format 3, so nothing was changed: %s", strings.Join(pl.p.problems, "; "))
-	}
-	return pl.p, nil
+	return pl.p
 }
 
-func (pl *planner) problem(format string, a ...any) {
-	pl.p.problems = append(pl.p.problems, fmt.Sprintf(format, a...))
+// problem is a field of entry ("host web1") the migration cannot move:
+// detail may name records and secrets, plain names none.
+func (pl *planner) problem(entry, field, plain, detail string) {
+	sep := " "
+	if strings.HasPrefix(detail, ":") {
+		sep = ""
+	}
+	pl.p.problems = append(pl.p.problems, entry+": field "+field+sep+detail)
+	kind, _, _ := strings.Cut(entry, " ")
+	pl.p.plain = append(pl.p.plain, kind+": field "+field+" "+plain)
 }
 
 // hostUser is the user h logs in as: its own, else the default setting.
@@ -210,7 +240,7 @@ func (pl *planner) host(h *Host) {
 			name = k
 		}
 		if pl.snap.state.Keys[name] == nil {
-			pl.problem("%s: field key names key %s, which does not exist", e, name)
+			pl.problem(e, "key", "names a key that does not exist", "names key "+name+", which does not exist")
 		}
 		pl.keyUses[name] = append(pl.keyUses[name], keyUse{e, user, setCred})
 	case h.Identity != "":
@@ -254,7 +284,8 @@ func (pl *planner) conn(c *Conn) {
 	tp, ok := connTypes3[c.Kind]
 	e := "conn " + c.Name
 	if !ok {
-		pl.problem("%s: field kind %q has no v2.7 type", e, c.Kind)
+		why := fmt.Sprintf("%q has no v2.7 type", c.Kind)
+		pl.problem(e, "kind", why, why)
 	}
 	v := &ServiceV3{
 		Name: c.Name, Type: tp[0], Provider: tp[1], URL: c.URL, Login: c.Login, Via: c.Via, ViaIDs: c.ViaIDs,
@@ -265,10 +296,10 @@ func (pl *planner) conn(c *Conn) {
 	pl.p.conns[c.Rec.ID] = v
 	switch has, err := urlPassword(c.URL); {
 	case err != nil:
-		pl.problem("%s: field url %v", e, err)
+		pl.problem(e, "url", "does not parse", err.Error())
 		return
 	case has:
-		pl.problem("%s: field url holds a password in its user part", e)
+		pl.problem(e, "url", "holds a password in its user part", "holds a password in its user part")
 		return
 	}
 	var user string
@@ -337,21 +368,27 @@ func (pl *planner) ref(ref string, u *use) {
 	provider, item := parseRef(ref)
 	switch provider {
 	case "":
-		pl.problem("%s: field %s is no reference", u.entry, u.field)
+		pl.problem(u.entry, u.field, "is no reference", "is no reference")
 	case "secret":
 		if _, ok := pl.snap.secrets[item]; !ok {
-			pl.problem("%s: field %s names secret %s, which does not exist", u.entry, u.field, item)
+			pl.problem(u.entry, u.field, "names a secret that does not exist", "names secret "+item+", which does not exist")
 			return
 		}
 		if item == ApprovalSeedName {
-			pl.problem("%s: field %s names the approval code's seed", u.entry, u.field)
+			pl.problem(u.entry, u.field, "names the approval code's seed", "names the approval code's seed")
 			return
 		}
 		pl.secrets[item] = append(pl.secrets[item], u)
 	default:
+		if loginFields[u.field] {
+			why := outsideLoginWhy(provider)
+			pl.problem(u.entry, u.field, why, why)
+			pl.p.outsideLogins++
+			return
+		}
 		if g := pl.refGuard; g != nil && (provider == "env" || provider == "file") {
 			if err := g(provider, item); err != nil {
-				pl.problem("%s: field %s: %v", u.entry, u.field, err)
+				pl.problem(u.entry, u.field, "names a "+provider+" reference that cannot be read here", ": "+err.Error())
 				return
 			}
 		}
@@ -554,8 +591,16 @@ func keyUsers(uses []keyUse) []string {
 	return users
 }
 
+// loginFields are the fields of a format-2 record that hold the reference
+// to a login secret: what --password-ref, --sudo-ref, --psk-ref and
+// --passphrase-ref (and a VPN's key and config) set.
+var loginFields = map[string]bool{
+	"password_ref": true, "sudo_ref": true, "key_ref": true, "psk_ref": true, "config_ref": true, "passphrase": true,
+}
+
 // outsideCredentials makes a store per provider and a credential per field
-// that named an outside value: <entry>-<field>, its item as written.
+// that named an outside value (an env value, a service option or URL
+// query, a WinRM CA; never a login): <entry>-<field>, its item as written.
 func (pl *planner) outsideCredentials() {
 	for _, o := range pl.outside {
 		store, ok := pl.stores[o.provider]
@@ -565,28 +610,10 @@ func (pl *planner) outsideCredentials() {
 			pl.p.stores = append(pl.p.stores, &CredentialStore{Name: store, Provider: o.provider})
 		}
 		entry := o.u.entry[strings.Index(o.u.entry, " ")+1:]
-		c := &Credential{Name: pl.creds.make(entry, fieldWord(o.u.field)), Kind: o.u.kind, Store: store, Item: o.item}
-		if o.u.login {
-			c.User = o.u.user
-		}
+		c := &Credential{Name: pl.creds.make(entry, o.u.field), Kind: o.u.kind, Store: store, Item: o.item}
 		pl.p.creds = append(pl.p.creds, &credPlan{cred: c})
 		pl.applied(o.u.entry, o.u.field, c.Name, o.u.apply)
 	}
-}
-
-// fieldWord is the word a made credential name takes for a field.
-func fieldWord(field string) string {
-	switch field {
-	case "password_ref", "key_ref":
-		return "credential"
-	case "sudo_ref":
-		return "sudo"
-	case "psk_ref":
-		return "psk"
-	case "config_ref":
-		return "config"
-	}
-	return field
 }
 
 // groups makes one group record per group name, any case merged into the

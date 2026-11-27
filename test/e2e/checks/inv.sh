@@ -81,7 +81,13 @@ q $K credential key remove t-e2einvk --delete-file --allow-dangerous
 
 # secrets
 check "secret get shows no length" False "$($K credential password show agent-pass | jget '"length" in d["data"]')"
-check "replacing a protected host's secret" PROTECTED_TARGET "$(echo -n x | $K credential password add agent-pass | code)"
+# a server logs in with one credential: target moved to a key at the key deploy
+# of base.sh, so a protected server of its own holds the password here
+q sh -c 'printf %s protpass | "$0" credential password add t-e2einvp' "$K"
+q $K host ssh add t-e2einvp agent@10.9.9.8 --protected --credential t-e2einvp
+check "replacing a protected host's secret" PROTECTED_TARGET "$(echo -n x | $K credential password add t-e2einvp | code)"
+q $K host ssh remove t-e2einvp --yes
+q $K credential password remove t-e2einvp --allow-dangerous
 printf 'a' | $K credential password add t-e2einvs1 >/dev/null
 printf 'b' | $K credential password add t-e2einvs2 >/dev/null
 check "secret set says replaced" True "$(printf 'c' | $K credential password add t-e2einvs2 | jget 'd["data"]["replaced"]')"

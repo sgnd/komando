@@ -10,7 +10,7 @@ import (
 )
 
 // vpn add --ask-password works as host add's: a person types the VPN
-// password once, hidden, and it lands in the vault as secret:NAME-pass.
+// password once, hidden, and it lands in the vault as credential:NAME-pass.
 // Agents and scripts are never asked.
 func TestVpnAddAskPassword(t *testing.T) {
 	invHome(t)
@@ -45,7 +45,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 		return "Typed-Vpn-1", nil
 	}
 	d := mustRun(t, socks("lab")...)
-	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "secret:lab-pass" || asked != 1 {
+	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "credential:lab-pass" || asked != 1 {
 		t.Errorf("vpn add --ask-password: %v (asked %d)", d, asked)
 	}
 	if strings.Contains(fmtAny(d["warnings"]), "lab-pass") {
@@ -67,13 +67,13 @@ func TestVpnAddAskPassword(t *testing.T) {
 	// an l2tp login: the password is stored, so no person is needed at vpn up
 	setSecret(t, "office-psk", "k3y-0ffice-psk")
 	d = mustRun(t, "vpn", "l2tp", "add", "office", "--server", "vpn.example.com", "--psk-credential", "office-psk", "--user", "budi", "--ask-password")
-	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "secret:office-pass" || v["mfa"] == true {
+	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "credential:office-pass" || v["mfa"] == true {
 		t.Errorf("l2tp --ask-password: %v", d)
 	}
 
 	// refused together with --credential, and where no password is used
 	asked = 0
-	wantCode(t, "USAGE", socks("lab2", "--credential", "env:X")...)
+	wantCode(t, "USAGE", socks("lab2", "--credential", "x")...)
 	wantCode(t, "USAGE", "vpn", "system", "add", "corp", "--check", "10.0.0.1:443", "--ask-password")
 	wantCode(t, "USAGE", "vpn", "tailscale", "add", "tail", "--ask-password")
 	// a name that is taken is refused before anyone is asked

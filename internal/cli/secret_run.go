@@ -27,7 +27,7 @@ import (
 )
 
 const credentialRunLong = `Starts COMMAND on this computer with the --env values in its environment.
-A value secret:NAME is read from the vault right before the program starts,
+A value credential:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
@@ -42,9 +42,9 @@ OS account (USERPROFILE on Windows), LANG, LC_*, TERM, TMPDIR, TZ, the
 Windows system folders, a system PATH and its --env values.
 
 The program's output goes through komando's masking: a vault value it
-prints shows as [secret:NAME]. komando exits with the program's exit code.
+prints shows as [credential:NAME]. komando exits with the program's exit code.
 
-For an AI agent every secret:NAME needs a person's yes (--yes, then
+For an AI agent every credential:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
 could print a value in a form masking does not know. A secret a protected
 server, conn or VPN uses asks a person at a terminal too.`
@@ -55,22 +55,22 @@ func runCmd() *cobra.Command {
 		Use:   "run -- COMMAND [ARGS...]",
 		Short: "Run a local command with vault secrets in its environment",
 		Long:  credentialRunLong,
-		Example: `  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-  komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
-  komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh`,
+		Example: `  komando credential run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app
+  komando credential run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+  komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runLocal(cl, env, args)
 		}),
 	}
-	c.Flags().StringArrayVarP(&env, "env", "e", nil, "put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)")
+	c.Flags().StringArrayVarP(&env, "env", "e", nil, "put KEY=VALUE or KEY=credential:NAME in the program's environment (repeatable)")
 	return c
 }
 
 func runLocal(cl *call, pairs, args []string) error {
 	for _, a := range args[1:] {
 		if argHasRef(a) {
-			return out.Usage("a secret reference goes in --env KEY=secret:NAME, not in the program's arguments (%q)", a)
+			return out.Usage("a secret reference goes in --env KEY=credential:NAME, not in the program's arguments (%q)", a)
 		}
 	}
 	env, err := parseEnv(pairs)
@@ -110,7 +110,7 @@ func runLocal(cl *call, pairs, args []string) error {
 
 	if err := runGuard(cl, st, refs, prog, plainPairs(env)); err != nil {
 		if !cl.dryRun() {
-			audit(cl, st, "secret run", nil, shown, false, withBlocked(rec, err))
+			audit(cl, st, "secret.run", nil, shown, false, withBlocked(rec, err))
 		}
 		return err
 	}
@@ -118,7 +118,7 @@ func runLocal(cl *call, pairs, args []string) error {
 		envShown := map[string]string{}
 		for _, k := range keys {
 			envShown[k] = env[k]
-			if !strings.HasPrefix(env[k], "secret:") {
+			if !strings.HasPrefix(env[k], "credential:") {
 				envShown[k] = "[value]"
 			}
 		}
@@ -129,7 +129,7 @@ func runLocal(cl *call, pairs, args []string) error {
 	vals := make([]string, 0, len(keys))
 	for _, k := range keys {
 		v := env[k]
-		if strings.HasPrefix(v, "secret:") {
+		if strings.HasPrefix(v, "credential:") {
 			if v, err = vault.Resolve(v); err != nil {
 				return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "see them with `komando credential list`", "%s for %s: %v", env[k], k, err)
 			}
@@ -139,7 +139,7 @@ func runLocal(cl *call, pairs, args []string) error {
 	if after, err := os.Stat(prog); err != nil || !sameFile(before, after) {
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "run it again", "%s changed after komando checked it; it did not run", prog)
 	}
-	audit(cl, st, "secret run", nil, shown, true, rec)
+	audit(cl, st, "secret.run", nil, shown, true, rec)
 
 	c := exec.Command(prog, args[1:]...)
 	c.Args[0] = args[0]
@@ -265,10 +265,10 @@ func passSignal(p *os.Process, s os.Signal) {
 }
 
 // argHasRef reports whether a program argument holds a secret reference
-// of any form komando resolves (secret:, env:, vault:, op://, ...), as the
+// of any form komando resolves (credential:, env:, vault:, op://, ...), as the
 // whole argument or after an = (--password=env:PW).
 func argHasRef(a string) bool {
-	if strings.Contains(a, "secret:") {
+	if strings.Contains(a, "credential:") {
 		return true
 	}
 	for _, r := range vault.Refs {
@@ -296,7 +296,7 @@ func runGuard(cl *call, st *store.State, refs []string, prog string, plain []str
 	}
 	var prot []string
 	for _, r := range refs {
-		prot = append(prot, inventory.ProtectedUsers(st, inventory.SecretUsers(st, strings.TrimPrefix(r, "secret:")))...)
+		prot = append(prot, inventory.ProtectedUsers(st, inventory.SecretUsers(st, strings.TrimPrefix(r, "credential:")))...)
 	}
 	if prot = dedupe(prot); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 		if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
@@ -320,7 +320,7 @@ func runGuard(cl *call, st *store.State, refs []string, prog string, plain []str
 func plainPairs(env map[string]string) []string {
 	var pairs []string
 	for _, k := range slices.Sorted(maps.Keys(env)) {
-		if !strings.HasPrefix(env[k], "secret:") {
+		if !strings.HasPrefix(env[k], "credential:") {
 			pairs = append(pairs, k+"="+env[k])
 		}
 	}

@@ -57,7 +57,7 @@ func TestBareCredentialInVaultIsTheSecret(t *testing.T) {
 	}
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	mustRun(t, "host", "ssh", "edit", "web1", "--credential", "web1-pw")
-	if d := mustRun(t, "host", "ssh", "show", "web1"); d["password_ref"] != "secret:web1-pw" {
+	if d := mustRun(t, "host", "ssh", "show", "web1"); d["password_ref"] != "credential:web1-pw" {
 		t.Errorf("show: %v", d)
 	}
 }

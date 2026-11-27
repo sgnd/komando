@@ -51,7 +51,7 @@ func TestRevealFromAnAppAsksInTheWindow(t *testing.T) {
 	if d["value"] != "s3cret-value-long" || *n != 1 {
 		t.Fatalf("value %v after %d windows", d["value"], *n)
 	}
-	for _, want := range []string{"secret:db-pass", "komando credential password show db-pass --reveal", "Started from: Komando ← launchd"} {
+	for _, want := range []string{"credential:db-pass", "komando credential password show db-pass --reveal", "Started from: Komando ← launchd"} {
 		if !strings.Contains(*text, want) {
 			t.Errorf("window text lacks %q: %q", want, *text)
 		}

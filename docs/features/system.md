@@ -338,7 +338,7 @@ Commands that read use sudo only when you ask: `--sudo` for `logs`,
 
 When sudo wants a password komando does not have, or the login user may not
 use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
-the fix (`komando host ssh edit web1 --sudo-credential secret:web1-sudo`, see
+the fix (`komando host ssh edit web1 --sudo-credential credential:web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
 no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
 holds for `pkg`, `user`, `cron --user`, every `docker` command with

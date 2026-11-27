@@ -7,7 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
@@ -16,39 +18,77 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// On a sealed home each secret is a record of
-// the store, of type "secret". Inside it the value is still sealed by the
-// vault as before, bound to its name, with the value key (sealkey.Values),
-// made from the store's master key, so the store's row key never opens a
-// value by itself.
+// On a sealed home each secret value lives in the store's credential
+// record of the same name (store format 3: Credential.Value), and the
+// approval code's seed in its own record, never a credential. Inside the
+// record the value is still sealed by the vault, bound to its name, with
+// the value key (sealkey.Values) made from the store's master key, so the
+// store's row key never opens a value by itself.
 
-const secretType = "secret"
-
-type sealedEntry struct {
-	Name      string    `json:"name"`
-	Nonce     []byte    `json:"nonce"`
-	Data      []byte    `json:"data"`
-	UpdatedAt time.Time `json:"updated_at"`
+// valueRow is one value the vault keeps, and the record that holds it.
+type valueRow struct {
+	id, typ, name string
+	cred          *store.Credential // nil for the approval seed
 }
 
-// loadSealedTx reads the secrets of tx into a file.
+type seedRecord struct {
+	Value store.SealedValue `json:"value"`
+}
+
+// valueRows lists the records of tx that hold a value.
+func valueRows(tx *sealdb.Tx) ([]valueRow, map[string]*entry, error) {
+	var rows []valueRow
+	entries := map[string]*entry{}
+	add := func(r valueRow, v store.SealedValue, at time.Time) error {
+		if r.name == "" || entries[r.name] != nil {
+			return sealdb.ErrTampered
+		}
+		rows = append(rows, r)
+		entries[r.name] = &entry{Nonce: v.Nonce, Data: v.Data, UpdatedAt: at, id: r.id}
+		return nil
+	}
+	creds, err := tx.List(store.KindCredential)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, r := range creds {
+		var c store.Credential
+		if err := json.Unmarshal(r.Data, &c); err != nil {
+			return nil, nil, err
+		}
+		if c.Value == nil {
+			continue
+		}
+		if err := add(valueRow{id: r.ID, typ: store.KindCredential, name: c.Name, cred: &c}, *c.Value, c.UpdatedAt); err != nil {
+			return nil, nil, err
+		}
+	}
+	seeds, err := tx.List(store.KindApprovalSeed)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(seeds) > 1 {
+		return nil, nil, sealdb.ErrTampered
+	}
+	for _, r := range seeds {
+		var sr seedRecord
+		if err := json.Unmarshal(r.Data, &sr); err != nil {
+			return nil, nil, err
+		}
+		if err := add(valueRow{id: r.ID, typ: store.KindApprovalSeed, name: store.ApprovalSeedName}, sr.Value, r.MTime); err != nil {
+			return nil, nil, err
+		}
+	}
+	return rows, entries, nil
+}
+
+// loadSealedTx reads the values of tx into a file.
 func loadSealedTx(tx *sealdb.Tx) (*file, error) {
-	f := &file{Entries: map[string]*entry{}}
-	rows, err := tx.List(secretType)
+	_, entries, err := valueRows(tx)
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range rows {
-		var e sealedEntry
-		if err := json.Unmarshal(r.Data, &e); err != nil {
-			return nil, err
-		}
-		if e.Name == "" || f.Entries[e.Name] != nil {
-			return nil, sealdb.ErrTampered
-		}
-		f.Entries[e.Name] = &entry{Nonce: e.Nonce, Data: e.Data, UpdatedAt: e.UpdatedAt, id: r.ID}
-	}
-	return f, nil
+	return &file{Entries: entries}, nil
 }
 
 func loadSealed() (*file, error) {
@@ -68,6 +108,79 @@ func loadSealed() (*file, error) {
 	return f, err
 }
 
+// putValue writes e as name's value: into its credential record (which
+// keeps every other field), a new token credential, or the seed record.
+func putValue(tx *sealdb.Tx, name string, e *entry, row *valueRow) error {
+	v := store.SealedValue{Nonce: e.Nonce, Data: e.Data}
+	if name == store.ApprovalSeedName {
+		b, err := json.Marshal(seedRecord{Value: v})
+		if err != nil {
+			return err
+		}
+		id := ""
+		if row != nil {
+			id = row.id
+		}
+		r, err := tx.Put(store.KindApprovalSeed, id, b)
+		e.id = r.ID
+		return err
+	}
+	c := &store.Credential{Name: name, Kind: store.CredToken}
+	id := ""
+	if row != nil && row.cred != nil {
+		c, id = row.cred, row.id
+	} else if r, ok, err := credByName(tx, name); err != nil {
+		return err
+	} else if ok {
+		c, id = r.cred, r.id // a credential with no value yet (an outside item, a key) takes one
+	}
+	c.Name, c.Value, c.UpdatedAt = name, &v, e.UpdatedAt
+	b, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	r, err := tx.Put(store.KindCredential, id, b)
+	e.id = r.ID
+	return err
+}
+
+// credByName is the credential record named name, if any.
+func credByName(tx *sealdb.Tx, name string) (valueRow, bool, error) {
+	rows, err := tx.List(store.KindCredential)
+	if err != nil {
+		return valueRow{}, false, err
+	}
+	for _, r := range rows {
+		var c store.Credential
+		if err := json.Unmarshal(r.Data, &c); err != nil {
+			return valueRow{}, false, err
+		}
+		if c.Name == name {
+			return valueRow{id: r.ID, typ: store.KindCredential, name: name, cred: &c}, true, nil
+		}
+	}
+	return valueRow{}, false, nil
+}
+
+// dropValue removes row's value: a credential that holds only its value
+// goes; one that also names an outside item or a key keeps those.
+func dropValue(tx *sealdb.Tx, row valueRow) error {
+	if row.cred == nil || row.cred.Store == "" && row.cred.Key == nil && !row.cred.Ask {
+		if err := tx.Delete(row.id); err != nil && !errors.Is(err, sealdb.ErrNotFound) {
+			return err
+		}
+		return nil
+	}
+	c := *row.cred
+	c.Value = nil
+	b, err := json.Marshal(&c)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Put(store.KindCredential, row.id, b)
+	return err
+}
+
 // changeSealed is change on a sealed home: one write step of the store.
 func changeSealed(fn func(f *file) error) error {
 	d, err := store.DB(true)
@@ -75,42 +188,41 @@ func changeSealed(fn func(f *file) error) error {
 		return err
 	}
 	return d.Update(context.Background(), func(tx *sealdb.Tx) error {
-		f, err := loadSealedTx(tx)
+		rows, entries, err := valueRows(tx)
 		if err != nil {
 			return err
 		}
+		f := &file{Entries: entries}
+		byID := map[string]valueRow{}
 		before := map[string]entry{}
-		for _, e := range f.Entries {
-			before[e.id] = *e
+		for _, r := range rows {
+			byID[r.id] = r
+			before[r.id] = *entries[r.name]
 		}
 		if err := fn(f); err != nil {
 			return err
 		}
 		kept := map[string]bool{}
-		for name, e := range f.Entries {
+		for _, name := range sortedNames(f.Entries) {
+			e := f.Entries[name]
 			old, had := before[e.id]
-			if had && e.id != "" && !kept[e.id] && string(old.Nonce) == string(e.Nonce) && string(old.Data) == string(e.Data) && old.UpdatedAt.Equal(e.UpdatedAt) {
+			row, ok := byID[e.id]
+			if had && ok && row.name == name && !kept[e.id] && string(old.Nonce) == string(e.Nonce) && string(old.Data) == string(e.Data) && old.UpdatedAt.Equal(e.UpdatedAt) {
 				kept[e.id] = true
 				continue
 			}
-			id := e.id
-			if kept[id] {
-				id = "" // a copy that took another entry's ID
+			var at *valueRow
+			if ok && row.name == name && !kept[e.id] {
+				at = &row
 			}
-			b, err := json.Marshal(sealedEntry{Name: name, Nonce: e.Nonce, Data: e.Data, UpdatedAt: e.UpdatedAt})
-			if err != nil {
+			if err := putValue(tx, name, e, at); err != nil {
 				return err
 			}
-			r, err := tx.Put(secretType, id, b)
-			if err != nil {
-				return err
-			}
-			e.id = r.ID
-			kept[r.ID] = true
+			kept[e.id] = true
 		}
-		for id := range before {
-			if !kept[id] {
-				if err := tx.Delete(id); err != nil && !errors.Is(err, sealdb.ErrNotFound) {
+		for _, r := range rows {
+			if !kept[r.id] {
+				if err := dropValue(tx, r); err != nil {
 					return err
 				}
 			}
@@ -170,3 +282,5 @@ func sealedStrength() (Strength, error) {
 	}
 	return s, nil
 }
+
+func sortedNames(m map[string]*entry) []string { return slices.Sorted(maps.Keys(m)) }

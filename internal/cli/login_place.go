@@ -176,7 +176,7 @@ func importVpnPlaces(cl *call, st *store.State, vpns []*store.Vpn) error {
 // key, a WireGuard or IPsec key), the CA of a WinRM server, or a secret
 // the conn's URL names (its CA, a NATS creds file).
 func secretPlaceChanges(s *store.State, name string) []string {
-	ref := "secret:" + name
+	ref := "credential:" + name
 	var what []string
 	for _, n := range sortedVpnNames(s) {
 		v := s.Vpns[n]

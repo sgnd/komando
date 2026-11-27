@@ -70,7 +70,7 @@ func TestSQLServerCA(t *testing.T) {
 	driver.ResolveSecret = func(string) (string, error) {
 		return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})), nil
 	}
-	raw := "sqlserver://app@db.internal/sales?encrypt=true&ca=secret:corp-ca"
+	raw := "sqlserver://app@db.internal/sales?encrypt=true&ca=credential:corp-ca"
 	tg, err := driver.Parse(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestMSSQLErrors(t *testing.T) {
 			t.Errorf("connect %d: %v, want %s", n, e, code)
 		}
 	}
-	if h := tlsHint("sqlserver", fmt.Errorf("TLS Handshake failed: tls: failed to verify certificate: x509: certificate signed by unknown authority")); !strings.Contains(h, "tls=skip-verify") || !strings.Contains(h, "ca=secret:NAME") {
+	if h := tlsHint("sqlserver", fmt.Errorf("TLS Handshake failed: tls: failed to verify certificate: x509: certificate signed by unknown authority")); !strings.Contains(h, "tls=skip-verify") || !strings.Contains(h, "ca=credential:NAME") {
 		t.Errorf("tls hint %q", h)
 	}
 	if !readOnlyTx("postgres", false) || readOnlyTx("sqlserver", false) || readOnlyTx("sqlite", false) || readOnlyTx("mysql", true) {

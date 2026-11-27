@@ -7,9 +7,9 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// An AI agent sees every vault value as [secret:NAME]. That masking would
+// An AI agent sees every vault value as [credential:NAME]. That masking would
 // tell it which of its guesses is a secret: `credential password show GUESS` or `exec
-// web1 -- echo GUESS` print [secret:NAME] on a hit; and refusing such
+// web1 -- echo GUESS` print [credential:NAME] on a hit; and refusing such
 // input would tell it the same. So an agent's arguments, script or input
 // that hold a vault value get the answer any other value gets: the value
 // it typed is not hidden in that command's output (Printer.Spare), which

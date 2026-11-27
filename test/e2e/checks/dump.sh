@@ -3,7 +3,7 @@
 # used when a conn is reached directly or through a VPN, as here.
 echo "==> built-in dump and restore"
 q $K host ssh tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
-q $K conn add pg-lab2 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
+q $K conn add pg-lab2 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref credential:pg-pass
 NOTOOLS=(env PATH=/usr/bin:/bin)
 q $K database postgres query pg --write --allow-dangerous "drop schema if exists dumpt cascade"
 q $K database postgres query pg --write "create schema dumpt;
@@ -30,7 +30,7 @@ refresh materialized view dumpt.order_count;"
 check "built-in dump through a VPN" komando "$("${NOTOOLS[@]}" $K database postgres backup pg-lab2 --to "$TMP/builtin.sql" | jget 'd["data"]["tool"][0]' || true)"
 check "the dump holds the data" True "$(grep -q 'COPY "dumpt"."customers"' "$TMP/builtin.sql" && grep -q 'CREATE MATERIALIZED VIEW "dumpt"."order_count"' "$TMP/builtin.sql" && echo True)"
 q $K database postgres query pg --write "create database app_copy"
-q $K conn add pg-copy 'postgres://app@pg:5432/app_copy?sslmode=disable' --via lab --password-ref secret:pg-pass
+q $K conn add pg-copy 'postgres://app@pg:5432/app_copy?sslmode=disable' --via lab --password-ref credential:pg-pass
 "${NOTOOLS[@]}" $K database postgres restore pg-copy --from "$TMP/builtin.sql" --allow-dangerous > "$TMP/restore.json" || true
 check "built-in restore" komando "$(jget 'd["data"]["tool"][0]' < "$TMP/restore.json" || true)"
 grep -q '"ok":true' "$TMP/restore.json" || { echo "  restore said:"; head -c 1500 "$TMP/restore.json"; echo; }
@@ -39,8 +39,8 @@ grep -q '"ok":true' "$TMP/restore.json" || { echo "  restore said:"; head -c 150
 # newer pg_dump prints each column's pg_attver, an internal number that differs
 # per database, so those lines are left out of the comparison
 PGD='pg_dump -h pg -U app --schema-only --no-owner --no-acl'
-$K host ssh exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-a.txt"
-$K host ssh exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app_copy | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-b.txt"
+$K host ssh exec bastion -e PGPASSWORD=credential:pg-pass -- "$PGD app | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-a.txt"
+$K host ssh exec bastion -e PGPASSWORD=credential:pg-pass -- "$PGD app_copy | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-b.txt"
 check "restored schema equals the original (pg_dump compares)" "" "$(diff "$TMP/schema-a.txt" "$TMP/schema-b.txt" | head -20)"
 ROWS="select (select string_agg(name || '|' || coalesce(note,'') || '|' || name_upper, ',' order by id) from dumpt.customers) || (select string_agg(total::text, ',' order by id) from dumpt.orders) || (select n::text from dumpt.order_count) || (select count(*)::text from dumpt.events)"
 check "restored rows equal the original" "$($K database postgres query pg "$ROWS" | jget 'd["data"]["results"][0]["rows"][0][0]')" "$($K database postgres query pg-copy "$ROWS" | jget 'd["data"]["results"][0]["rows"][0][0]')"
@@ -54,7 +54,7 @@ q $K conn rm pg-copy
 q $K database postgres query pg --write --allow-dangerous "drop database app_copy"
 
 # MySQL / MariaDB through the VPN
-q $K conn add maria-lab 'mysql://shop@maria:3306/shop' --via lab --password-ref secret:maria-pass
+q $K conn add maria-lab 'mysql://shop@maria:3306/shop' --via lab --password-ref credential:maria-pass
 q $K database mysql query maria-lab --write --yes "create table dumpm (id int auto_increment primary key, name varchar(50), raw blob, made datetime, n decimal(8,3))"
 q $K database mysql query maria-lab --write --yes "insert into dumpm (name, raw, made, n) values ('it''s; ok', x'00ff10', '2026-01-02 03:04:05', 1.5), (null, null, null, -2.25), ('back\\\\slash\nnew', '', '2026-12-31 23:59:59', 0)"
 q $K database mysql query maria-lab --write --yes "create view dumpm_v as select id, name from dumpm"

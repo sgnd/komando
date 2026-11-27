@@ -6,7 +6,7 @@ q $K vpn socks add lab --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
 check "status lists the running tunnel" True "$($K status | jget '"127.0.0.1:'"$E2E_SOCKS"'" in [t["spec"] for t in d["data"]["tunnels"]]')"
 check "status in text names it" 1 "$($K -o text status | grep -c '^tunnel ' || true)"
 check "status --short counts the tunnel" 1 "$($K status --short | grep -c 'tun:[1-9]' || true)"
-q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref secret:pg-pass
+q $K conn add pg-lab 'postgres://app@pg:5432/app?sslmode=disable' --via lab --password-ref credential:pg-pass
 check "db through a SOCKS VPN" 1 "$($K database postgres query pg-lab 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K host ssh add target-lab agent@target --via lab --credential agent-pass
 # target-lab is the protected target under a second name, so it is protected too

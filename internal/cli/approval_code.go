@@ -186,7 +186,7 @@ func approvalCodeCmd() *cobra.Command {
 			b32 := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(raw)
 			host, _ := os.Hostname()
 			uri := "otpauth://totp/" + url.PathEscape("komando:"+actor(cl)+"@"+host) + "?" + url.Values{"secret": {b32}, "issuer": {"komando"}}.Encode()
-			fmt.Fprintf(cl.out.Err, "Add this to your authenticator app (it is shown only now):\n\n  secret: %s\n  or the link: %s\n\n", groupBy4(b32), uri)
+			fmt.Fprintf(cl.out.Err, "Add this to your authenticator app (it is shown only now):\n\n  secret key: %s\n  or the link: %s\n\n", groupBy4(b32), uri)
 			typed := ask(cl, "Type the 6-digit code the app shows now, to check it: ")
 			if cl.interrupted { // Ctrl-C: nothing was changed
 				return term.Interrupted()

@@ -152,7 +152,7 @@ The `komando export` document (`komando-export/1`: `hosts`, `conns`,
 ```
 "secrets":             {"NAME": "value", ...}   every secret the records use that is in the vault
 "keys":                {"NAME": "OpenSSH private key text", ...}   only with --with-keys
-"key_passphrase_refs": {"NAME": "secret:NAME"}  a key in keys that has a passphrase
+"key_passphrase_refs": {"NAME": "credential:NAME"}  a key in keys that has a passphrase
 ```
 
 `secrets_needed` still lists every secret the records name; a name in it

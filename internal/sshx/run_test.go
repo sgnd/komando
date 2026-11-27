@@ -94,8 +94,8 @@ func TestSecretEnvGoesOnInput(t *testing.T) {
 	if err := vault.Set(store.Save(), "db", weird); err != nil {
 		t.Fatal(err)
 	}
-	c := &Client{Host: &store.Host{Env: map[string]string{"APP_ENV": "prod", "TOKEN": "secret:db"}}}
-	r := RunRequest{Command: `printf '%s|%s|%s|' "$APP_ENV" "$DB_PASS" "$TOKEN"; cat`, Env: map[string]string{"DB_PASS": "secret:db"}, Stdin: []byte("rest of input")}
+	c := &Client{Host: &store.Host{Env: map[string]string{"APP_ENV": "prod", "TOKEN": "credential:db"}}}
+	r := RunRequest{Command: `printf '%s|%s|%s|' "$APP_ENV" "$DB_PASS" "$TOKEN"; cat`, Env: map[string]string{"DB_PASS": "credential:db"}, Stdin: []byte("rest of input")}
 	cmd, _, stdin, err := runCommand(c, r)
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +148,7 @@ func TestSecretEnvTooLongForTerminal(t *testing.T) {
 	if err := vault.Set(store.Save(), "cert", strings.Repeat("A", maxTerminalLine+1)); err != nil {
 		t.Fatal(err)
 	}
-	r := RunRequest{Command: "true", Env: map[string]string{"CERT": "secret:cert"}}
+	r := RunRequest{Command: "true", Env: map[string]string{"CERT": "credential:cert"}}
 	if _, _, _, err := buildCommand(nil, r); err != nil {
 		t.Errorf("without a terminal: %v", err)
 	}

@@ -446,8 +446,8 @@ func secret(v *store.Vpn, ref string) (string, error) {
 // SecretHint says how to provide a secret reference that does not resolve.
 func SecretHint(ref string) string {
 	switch {
-	case strings.HasPrefix(ref, "secret:"):
-		return "store it with `komando credential password add " + strings.TrimPrefix(ref, "secret:") + "`"
+	case strings.HasPrefix(ref, "credential:"):
+		return "store it with `komando credential password add " + strings.TrimPrefix(ref, "credential:") + "`"
 	case strings.HasPrefix(ref, "env:"):
 		return "set the environment variable " + strings.TrimPrefix(ref, "env:")
 	case strings.HasPrefix(ref, "file:"):

@@ -8,7 +8,7 @@ set +e
 CHC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 printf 'Admin-pass-1' | $K credential password add ch-admin >/dev/null
 printf 'Ro-pass-1x' | $K credential password add ch-ro >/dev/null
-q $K conn add admin-ch 'clickhouse://admin@clickhouse:8123/default' --via bastion --password-ref secret:ch-admin
+q $K conn add admin-ch 'clickhouse://admin@clickhouse:8123/default' --via bastion --password-ref credential:ch-admin
 for _ in $(seq 1 60); do [ "$($K conn test admin-ch | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 if [ "$($K conn test admin-ch | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" != True ]; then
   echo "  clickhouse is not answering; its state and last log lines:"
@@ -23,7 +23,7 @@ fi
 check "clickhouse conn test logs in through --via" login "$($K conn test admin-ch | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "clickhouse create database needs --write" WRITE_REQUIRES_FLAG "$($K database clickhouse query admin-ch 'create database e2e_ch' | jget 'd["error"]["code"]')"
 q $K database clickhouse query admin-ch --write 'create database e2e_ch'
-q $K conn add shop-ch 'clickhouse://admin@clickhouse:8123/e2e_ch' --via bastion --password-ref secret:ch-admin
+q $K conn add shop-ch 'clickhouse://admin@clickhouse:8123/e2e_ch' --via bastion --password-ref credential:ch-admin
 q $K database clickhouse query shop-ch --write "create table orders (id UInt64, item String, total Decimal(10, 2), placed DateTime default now()) engine = MergeTree order by id"
 check "clickhouse insert needs --write" WRITE_REQUIRES_FLAG "$($K database clickhouse query shop-ch "insert into orders (id, item, total) values (1, 'pen', 1.5)" | jget 'd["error"]["code"]')"
 check "clickhouse a dry run only reports a write" True "$($K database clickhouse query shop-ch --write --dry-run "insert into orders (id, item, total) values (1, 'pen', 1.5)" | jget '"skipped" in d["data"]["results"][0]')"
@@ -42,9 +42,9 @@ check "clickhouse explain" True "$($K db explain shop-ch 'select * from orders w
 check "clickhouse sizes lists the table" True "$($K db sizes admin-ch | jget 'any(t["name"] == "orders" for t in d["data"]["tables"])')"
 check "clickhouse activity answers" True "$($K db activity admin-ch | jget 'd["ok"]')"
 check "clickhouse locks is not supported" NOT_SUPPORTED "$($K db locks admin-ch | jget 'd["error"]["code"]')"
-q $K db user add admin-ch e2e_ro --password-ref secret:ch-ro --allow-dangerous
+q $K db user add admin-ch e2e_ro --password-ref credential:ch-ro --allow-dangerous
 q $K db grant admin-ch e2e_ro --privileges SELECT --on 'e2e_ch.*' --allow-dangerous
-q $K conn add ro-ch 'clickhouse://e2e_ro@clickhouse:8123/e2e_ch' --via bastion --password-ref secret:ch-ro
+q $K conn add ro-ch 'clickhouse://e2e_ro@clickhouse:8123/e2e_ch' --via bastion --password-ref credential:ch-ro
 check "clickhouse: the new user logs in with the vault password" 2 "$($K database clickhouse query ro-ch 'select count() from orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "clickhouse: and may only read what was granted" False "$($K database clickhouse query ro-ch --write "insert into orders (id) values (9)" | jget 'd["ok"]')"
 check "clickhouse db user show shows SELECT" True "$($K db user show admin-ch e2e_ro | jget 'any(g["object"] == "e2e_ch.*" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"

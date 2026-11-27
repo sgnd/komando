@@ -34,14 +34,14 @@ is for the SASL login and its password goes in the vault, never in the URL:
 ```bash
 komando credential password add kafka-pass
 komando queue kafka add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --credential kafka-pass
-komando queue kafka add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=secret:kafka-ca&sasl=plain' --ask-password
+komando queue kafka add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=credential:kafka-ca&sasl=plain' --ask-password
 komando queue kafka add staging-kafka kafka://broker1.internal:9092 --via web1          # no TLS, through an SSH server
 ```
 
 | Option | What it does |
 |---|---|
 | `tls=true` | TLS; the brokers' certificates are checked against your computer's CAs |
-| `ca=secret:NAME` | also trust your own CA (a company CA, a cloud's own); store it with `komando credential token add NAME < ca.pem` |
+| `ca=credential:NAME` | also trust your own CA (a company CA, a cloud's own); store it with `komando credential token add NAME < ca.pem` |
 | `tls=skip-verify` | TLS without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `sasl=plain`, `sasl=scram-sha-256`, `sasl=scram-sha-512` | how to log in; needs a user in the URL |
 | `insecure=1` | accept a connection without TLS that crosses the network |
@@ -218,7 +218,7 @@ komando queue rabbitmq message list prod-rabbit emails                # the firs
 | Option | What it does |
 |---|---|
 | `management=PORT` | also use the management HTTP API on this port of the same host (HTTPS for `amqps://`), for `topic list`, the nodes and the totals in `info`, and the details in `topic show` |
-| `ca=secret:NAME` | `amqps://`: also trust your own CA (`komando credential token add NAME < ca.pem`) |
+| `ca=credential:NAME` | `amqps://`: also trust your own CA (`komando credential token add NAME < ca.pem`) |
 | `tls=skip-verify` | `amqps://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `amqp://` across the network without TLS |
 
@@ -291,7 +291,7 @@ komando credential password add nats-pass
 komando queue nats add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --credential nats-pass
 komando queue nats add staging-nats nats://nats.internal:4222 --via web1 --credential nats-pass
 komando credential token add ngs-creds < user.creds
-komando queue nats add ngs-nats 'tls://connect.ngs.global?creds=secret:ngs-creds'
+komando queue nats add ngs-nats 'tls://connect.ngs.global?creds=credential:ngs-creds'
 komando queue nats info prod-nats                     # version, server, the account's streams and limits
 komando queue nats topic list prod-nats                       # streams: subjects, messages, size, consumers
 komando queue nats message list prod-nats ORDERS              # the newest 10 messages; none is taken away
@@ -309,16 +309,16 @@ komando queue nats message list prod-nats ORDERS              # the newest 10 me
 - How komando logs in:
   - a user in the URL and `--credential`: user and password;
   - `--credential` without a user: the password is sent as a token;
-  - `?creds=secret:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
+  - `?creds=credential:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
     Cloud) that you keep in the vault with `komando credential token add NAME < user.creds`;
   - none of these: no login.
 - `komando test prod-nats` logs in and shows the server's version.
 
 | Option | What it does |
 |---|---|
-| `creds=secret:NAME` | log in with the `.creds` file kept in the vault |
+| `creds=credential:NAME` | log in with the `.creds` file kept in the vault |
 | `domain=NAME` | the JetStream domain, for a leaf node with its own JetStream |
-| `ca=secret:NAME` | `tls://`: also trust your own CA (`komando credential token add NAME < ca.pem`) |
+| `ca=credential:NAME` | `tls://`: also trust your own CA (`komando credential token add NAME < ca.pem`) |
 | `tls=skip-verify` | `tls://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `nats://` across the network without TLS |
 

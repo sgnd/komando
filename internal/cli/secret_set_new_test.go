@@ -46,7 +46,7 @@ func TestSecretSetNew(t *testing.T) {
 	}
 	withStdin(t, "fresh-value\n", func() {
 		d := mustRun(t, "credential", "password", "add", "fresh", "--new")
-		if d["action"] != "stored" || d["replaced"] != false || d["ref"] != "secret:fresh" {
+		if d["action"] != "stored" || d["replaced"] != false || d["ref"] != "credential:fresh" {
 			t.Errorf("result: %v", d)
 		}
 	})

@@ -10,7 +10,7 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 echo -n natspass | $K credential password add nats-pass >/dev/null
-q $K conn add stream 'nats://app@nats:4222' --via bastion --password-ref secret:nats-pass
+q $K conn add stream 'nats://app@nats:4222' --via bastion --password-ref credential:nats-pass
 for _ in $(seq 1 30); do [ "$($K conn test stream | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 check "nats conn test logs in through --via" login "$($K conn test stream | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "nats info sees JetStream" True "$($K queue nats info stream | jget 'd["data"]["jetstream"]')"

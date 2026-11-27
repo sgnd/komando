@@ -259,7 +259,7 @@ komando export [--to FILE]
   reported. Existing items are replaced only with `--overwrite`.
 - Fields komando does not take are reported, never dropped quietly.
 - Names that clash between sources get a suggested new name.
-- Secrets from any source go into the vault and are used as `secret:NAME`.
+- Secrets from any source go into the vault and are used as `credential:NAME`.
 
 ## 11. Help and ease of use
 

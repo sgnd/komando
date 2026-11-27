@@ -472,11 +472,11 @@ func formSentence(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// formRefProblem checks a secret reference (secret:NAME, env:VAR ...): a
+// formRefProblem checks a secret reference (credential:NAME, env:VAR ...): a
 // pasted password or token is refused before it reaches a command line.
 func formRefProblem(v string) string {
 	if !vault.ValidRef(v) {
-		return "type where the secret is kept, like secret:NAME (komando credential list), not the secret itself"
+		return "type where the secret is kept, like credential:NAME (komando credential list), not the secret itself"
 	}
 	return ""
 }

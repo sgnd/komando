@@ -163,7 +163,7 @@ func TestInvProtectedEditNeedsYes(t *testing.T) {
 	mustRun(t, "host", "ssh", "edit", "prod", "--add-tag", "x") // a label is no login change
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--protected")
 	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--via", "jump")
-	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "env:X")
+	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "credential:x")
 }
 
 func TestInvHostEditConflicts(t *testing.T) {
@@ -250,10 +250,12 @@ func TestInvKeys(t *testing.T) {
 	if !strings.Contains(e.Hint, "public key") || e.Exit != out.ExitUsage {
 		t.Errorf("hint: %+v", e)
 	}
-	// key edit says what it did, warns about a secret not stored yet, and
-	// clears with --unset like host and conn edit ('' still works)
+	// key edit takes a saved secret's name only (rule R2), says what it did,
+	// and clears with --unset like host and conn edit ('' still works)
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--passphrase-credential", "kp")
+	saveSecrets(t, "kp")
 	d = mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp")
-	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
+	if d["action"] != "changed" {
 		t.Errorf("key edit: %v", d)
 	}
 	if d = mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp"); d["action"] != "unchanged" {
@@ -265,7 +267,7 @@ func TestInvKeys(t *testing.T) {
 		t.Errorf("--unset: %v", d)
 	}
 	mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp")
-	mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "")
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--passphrase-credential", "") // --unset clears (rule R2)
 
 	ext := filepath.Join(t.TempDir(), "ext")
 	b, _ := store.ReadPrivateKey(st.Keys["k"])

@@ -45,7 +45,7 @@ func TestPgDumpTLSRoots(t *testing.T) {
 		"postgres://app@db.example.com/app?sslmode=require",
 		"postgres://app@db.example.com/app?sslmode=disable",
 		"postgres://app@db.example.com/app?sslmode=verify-ca&sslrootcert=/etc/ssl/db-ca.pem",
-		"postgres://app@db.example.com/app?sslmode=verify-full&ca=secret:pg-ca",
+		"postgres://app@db.example.com/app?sslmode=verify-full&ca=credential:pg-ca",
 	} {
 		before := *runs
 		if got := args(url); got[2] != url {

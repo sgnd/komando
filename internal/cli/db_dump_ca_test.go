@@ -22,19 +22,19 @@ import (
 func TestLibpqCAURL(t *testing.T) {
 	const file = "/tmp/komando-ca-x/ca.crt"
 	for raw, want := range map[string]string{
-		"postgres://app@db.internal/app?ca=secret:pg-ca": "postgres://app@db.internal/app?sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
-		"postgres://app@db.internal:5432/app?sslmode=require&ca=secret:pg-ca&options=-c%20search_path%3Dapp&application_name=a+b": "postgres://app@db.internal:5432/app?options=-c%20search_path%3Dapp&application_name=a+b&sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
+		"postgres://app@db.internal/app?ca=credential:pg-ca":                                                                          "postgres://app@db.internal/app?sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
+		"postgres://app@db.internal:5432/app?sslmode=require&ca=credential:pg-ca&options=-c%20search_path%3Dapp&application_name=a+b": "postgres://app@db.internal:5432/app?options=-c%20search_path%3Dapp&application_name=a+b&sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
 		// the CA named by ca= is the one komando checks against: a path
 		// from this computer, or a weaker mode, does not go along
-		"postgresql://app@db.internal/app?sslrootcert=/etc/ssl/db.pem&sslmode=verify-ca&ca=secret:pg-ca&": "postgresql://app@db.internal/app?sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
-		"postgres://app@h1:5432,h2:5432/app?target_session_attrs=read-write&%63a=secret:pg-ca":            "postgres://app@h1:5432,h2:5432/app?target_session_attrs=read-write&sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
+		"postgresql://app@db.internal/app?sslrootcert=/etc/ssl/db.pem&sslmode=verify-ca&ca=credential:pg-ca&": "postgresql://app@db.internal/app?sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
+		"postgres://app@h1:5432,h2:5432/app?target_session_attrs=read-write&%63a=credential:pg-ca":            "postgres://app@h1:5432,h2:5432/app?target_session_attrs=read-write&sslmode=verify-full&sslrootcert=/tmp/komando-ca-x/ca.crt",
 	} {
 		if got := libpqCAURL(raw, file); got != want {
 			t.Errorf("%s\n got %s\nwant %s", raw, got, want)
 		}
 	}
 	// a temporary folder here may hold any character
-	got := libpqCAURL("postgres://app@db/app?ca=secret:x", `/Users/A B/tmp&x=1/ca.crt`)
+	got := libpqCAURL("postgres://app@db/app?ca=credential:x", `/Users/A B/tmp&x=1/ca.crt`)
 	u, err := url.Parse(got)
 	if err != nil || u.Query().Get("sslrootcert") != `/Users/A B/tmp&x=1/ca.crt` || strings.Contains(got, "+") {
 		t.Errorf("escaped path: %s (%v)", got, err)
@@ -63,7 +63,7 @@ printf 'stdin<<%s>>\n' "$(cat)"
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	caPEM, _ := testRegistryCert(t, "db.internal")
 	dir := filepath.Join(t.TempDir(), "komando-ca-test")
-	argv := []string{"pg_dump", "--dbname", libpqCAURL("postgres://app@db.internal/app?ca=secret:pg-ca", dir+"/ca.crt"), "--format=custom"}
+	argv := []string{"pg_dump", "--dbname", libpqCAURL("postgres://app@db.internal/app?ca=credential:pg-ca", dir+"/ca.crt"), "--format=custom"}
 	run := func() (string, error) {
 		cmd := exec.Command("sh", "-c", toolScript(argv, "PGPASSWORD", dir, true))
 		cmd.Stdin = strings.NewReader("s3cret\n" + string(caPEM) + "\nPGDMP archive\nbytes")
@@ -111,7 +111,7 @@ func TestToolWithCALocal(t *testing.T) {
 	if err := vault.Set(store.Save(), "db-ca", string(caPEM)); err != nil {
 		t.Fatal(err)
 	}
-	c := &store.Conn{Name: "pg", URL: "postgres://app@db.internal/app?ca=secret:db-ca"}
+	c := &store.Conn{Name: "pg", URL: "postgres://app@db.internal/app?ca=credential:db-ca"}
 	tool := dumpTool{dump: []string{"pg_dump"}, passwordEnv: "PGPASSWORD"}
 	_, argv, ca, err := toolWithCA(c, nil, tool, []string{"pg_dump", "--dbname", c.URL})
 	if err != nil {
@@ -136,7 +136,7 @@ func TestToolWithCALocal(t *testing.T) {
 	}
 }
 
-// TestDumpOnHostCA: a conn with ?ca=secret:NAME dumps and restores with
+// TestDumpOnHostCA: a conn with ?ca=credential:NAME dumps and restores with
 // the tools on a server. The CA follows the password line on stdin (never
 // on the command line), libpq gets sslrootcert= and verify-full instead of
 // ca=, and mysqldump --ssl-ca with a checked TLS connection.
@@ -144,15 +144,14 @@ func TestDumpOnHostCA(t *testing.T) {
 	invHome(t)
 	srv := startFakeServer(t)
 	const pw = "s3cret-Pa55"
-	t.Setenv("KOMANDO_TEST_DB_PW", pw)
 	caPEM, _ := testRegistryCert(t, "db.internal")
 	ca := string(caPEM)
 	if err := vault.Set(store.Save(), "db-ca", "Our CA, from the cloud console\n\n"+ca); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "conn", "add", "pg", "postgres://app@db.internal:5432/app?ca=secret:db-ca&application_name=nightly%20backup", "--password-ref", "env:KOMANDO_TEST_DB_PW")
-	mustRun(t, "conn", "add", "shop", "mysql://shop@db.internal:3306/shop?ca=secret:db-ca", "--password-ref", "env:KOMANDO_TEST_DB_PW")
-	mustRun(t, "conn", "add", "lost", "postgres://app@db.internal:5432/app?ca=secret:no-such-ca", "--password-ref", "env:KOMANDO_TEST_DB_PW")
+	mustRun(t, "conn", "add", "pg", "postgres://app@db.internal:5432/app?ca=credential:db-ca&application_name=nightly%20backup", "--password-ref", savedRef(t, "pg-pw", pw))
+	mustRun(t, "conn", "add", "shop", "mysql://shop@db.internal:3306/shop?ca=credential:db-ca", "--password-ref", savedRef(t, "shop-pw", pw))
+	mustRun(t, "conn", "add", "lost", "postgres://app@db.internal:5432/app?ca=credential:no-such-ca", "--password-ref", savedRef(t, "lost-pw", pw))
 	dir := t.TempDir()
 	run := func(args ...string) (map[string]any, *out.Error) {
 		return invRun(t, append([]string{"--host-key-policy", "accept-new"}, args...)...)

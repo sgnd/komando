@@ -159,7 +159,7 @@ func tlsErr(err error, kind string) error {
 	if kind == "webdav" {
 		return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL", "the storage server's TLS certificate does not verify: %v", err)
 	}
-	return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the certificate comes from your own CA, store it with `komando credential token add NAME < ca.crt` and add &ca=secret:NAME (or ?ca=) to the conn URL",
+	return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the certificate comes from your own CA, store it with `komando credential token add NAME < ca.crt` and add &ca=credential:NAME (or ?ca=) to the conn URL",
 		"the storage server's TLS certificate does not verify: %v", err)
 }
 

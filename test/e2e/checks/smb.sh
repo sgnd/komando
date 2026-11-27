@@ -5,8 +5,8 @@
 # removes them at the end.
 set +e
 echo -n deploypass | $K credential password add smb-pass >/dev/null
-q $K conn add smb-files 'smb://WORKGROUP;deploy@samba/files/e2e' --via bastion --password-ref secret:smb-pass
-q $K conn add smb-noshare 'smb://deploy@samba/nope' --via bastion --password-ref secret:smb-pass
+q $K conn add smb-files 'smb://WORKGROUP;deploy@samba/files/e2e' --via bastion --password-ref credential:smb-pass
+q $K conn add smb-noshare 'smb://WORKGROUP;deploy@samba/nope' --via bastion --password-ref credential:smb-pass # the same login as smb-files
 for _ in $(seq 1 30); do [ "$($K conn test smb-files | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 check "smb conn test reaches the share through --via" True "$($K conn test smb-files | jget 'd["data"]["results"][0]["ok"]')"
 echo e2esmb > "$TMP/e2esmb.txt"

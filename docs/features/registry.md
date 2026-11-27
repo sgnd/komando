@@ -164,7 +164,7 @@ an internal CA) is refused with `REGISTRY_TLS`. Two ways to fix it:
 
 ```bash
 komando credential token add harbor-ca < ca.crt        # 1. better: trust that CA (its PEM certificate), the check stays on
-komando registry oci add harbor 'registry://alice@harbor.lan?ca=secret:harbor-ca' --credential harbor-token
+komando registry oci add harbor 'registry://alice@harbor.lan?ca=credential:harbor-ca' --credential harbor-token
 komando registry oci add harbor 'registry://alice@harbor.lan?tls=skip-verify' --credential harbor-token   # 2. no check at all
 ```
 
@@ -181,7 +181,7 @@ gets a new certificate, store the new one.
 
 ```bash
 komando credential token add harbor-cert < registry.crt    # the registry's own certificate, PEM
-komando registry oci add harbor 'registry://alice@harbor.lan?ca=secret:harbor-cert'
+komando registry oci add harbor 'registry://alice@harbor.lan?ca=credential:harbor-cert'
 ```
 
 ### When DNS points somewhere else
@@ -196,7 +196,7 @@ server on the `--via` path, and that server looks it up, so its
 still use the name in the URL:
 
 ```bash
-komando registry oci add harbor 'registry://alice@registry.example.com?ca=secret:harbor-ca' --via web1
+komando registry oci add harbor 'registry://alice@registry.example.com?ca=credential:harbor-ca' --via web1
 ```
 
 With `?resolve=`: if you can reach the registry from your computer, you do
@@ -207,7 +207,7 @@ checked against the name (with or without `ca=`), or not checked at all
 with `tls=skip-verify`:
 
 ```bash
-komando registry oci add harbor 'registry://alice@registry.example.com?ca=secret:harbor-ca&resolve=203.0.113.10'
+komando registry oci add harbor 'registry://alice@registry.example.com?ca=credential:harbor-ca&resolve=203.0.113.10'
 komando registry oci add harbor 'registry://alice@harbor.lan?tls=skip-verify&resolve=203.0.113.20'
 komando test harbor
 ```
@@ -361,7 +361,7 @@ any image.
 | `REPOSITORY_NOT_FOUND` (exit 3) | no such repository | `komando registry oci image list harbor` shows the repositories |
 | `REGISTRY_UNSUPPORTED` (exit 5) | the registry does not allow it: no list of every repository, or deletes turned off | name the repository; turn deletes on in the registry |
 | `REGISTRY_RATE_LIMIT` (exit 5) | too many requests (Docker Hub's pull limit) | wait the time the hint says, or log in |
-| `REGISTRY_TLS` (exit 4) | the certificate is from a private CA, or for another name | add `?ca=secret:NAME`, or use the name the certificate is for |
+| `REGISTRY_TLS` (exit 4) | the certificate is from a private CA, or for another name | add `?ca=credential:NAME`, or use the name the certificate is for |
 | `CONN_UNREACHABLE` (exit 4) | the registry did not answer | `komando test harbor`, and check its `--via` path |
 | `AWS_LOGIN_REQUIRED` (exit 4) | the ECR profile's AWS login ran out | a person runs `komando login aws --profile prod` |
 | `AZURE_LOGIN_REQUIRED` (exit 4) | no Azure login found | set a service principal, or a person runs `az login` |
@@ -375,7 +375,7 @@ URL options of a `registry://` conn:
 | URL option | What it does |
 |---|---|
 | (none) | HTTPS, certificate checked against your computer's CAs |
-| `?ca=secret:NAME` | HTTPS, certificate checked against those CAs plus the PEM certificate in the vault secret `NAME`: a CA, or the registry's own certificate |
+| `?ca=credential:NAME` | HTTPS, certificate checked against those CAs plus the PEM certificate in the vault secret `NAME`: a CA, or the registry's own certificate |
 | `?resolve=IP` | connect to this IP address instead of the one DNS gives for the name (like `curl --resolve`). `IP:PORT` sets the port too; write IPv6 in brackets: `[2001:db8::1]:443`. TLS keeps using the name in the URL. Goes with every other option in this table; see [When DNS points somewhere else](#when-dns-points-somewhere-else) |
 | `?tls=skip-verify` | HTTPS, but the certificate is not checked (like Docker's `insecure-registries`). Anyone on the path can pretend to be the registry; `komando doctor` warns about it |
 | `?tls=false` | plain HTTP, nothing encrypted (a `registry:2` on a private network) |

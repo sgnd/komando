@@ -357,7 +357,7 @@ func TestSudoProblem(t *testing.T) {
 			t.Errorf("%q: %+v", c.stderr, e)
 		}
 	}
-	if e := sudoProblem("", &sshx.RunResult{Stderr: "sudo: a password is required", ExitCode: 1}); !strings.Contains(e.Hint, "--sudo-ref secret:NAME-sudo") {
+	if e := sudoProblem("", &sshx.RunResult{Stderr: "sudo: a password is required", ExitCode: 1}); !strings.Contains(e.Hint, "--sudo-credential NAME-sudo") {
 		t.Errorf("a group names NAME: %q", e.Hint)
 	}
 }

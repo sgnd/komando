@@ -227,7 +227,7 @@ func TestOpenFails(t *testing.T) {
 	if _, err := Open(ctx, tg, "", nil, time.Second, "test"); code(err) != "QUEUE_CONNECT" {
 		t.Errorf("nothing listening: %v", err)
 	}
-	tg, _ = driver.Parse("amqps://" + addr + "/?ca=secret:missing")
+	tg, _ = driver.Parse("amqps://" + addr + "/?ca=credential:missing")
 	driver.ResolveSecret = func(string) (string, error) { return "", driver.ErrSecretNotFound }
 	defer func() { driver.ResolveSecret = nil }()
 	if _, err := Open(ctx, tg, "", nil, time.Second, "test"); err == nil {

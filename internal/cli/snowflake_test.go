@@ -30,7 +30,7 @@ func TestSnowflakeConns(t *testing.T) {
 	wantCode(t, "USAGE", "database", "snowflake", "backup", "sf")  // no backup leaf+"/s.sql")
 	wantCode(t, "USAGE", "database", "snowflake", "restore", "sf") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "sf", "select 1", "--analyze")
-	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "sf", "bob", "--password-ref", "secret:x")
+	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "sf", "bob", "--password-ref", "credential:x")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "rm", "sf", "bob")
 	wantCode(t, "NOT_SUPPORTED", "db", "grant", "sf", "bob", "--role", "readers")
 	// the classifier says what needs --write before anything connects

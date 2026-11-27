@@ -324,7 +324,7 @@ func TestGateLocalTargets(t *testing.T) {
 		`database sqlite query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:                R,
 		"database postgres restore pg --from x.sql":                                          R, // reads a file here
 		"db explain appdb --analyze 'select 1'":                                              R,
-		"db user add appdb x --password-ref secret:x":                                        R,
+		"db user add appdb x --password-ref credential:x":                                    R,
 		"database sqlite query appdb 'select 1'":                                             R, // a read of a file here
 		"database postgres query pg --write 'delete from t'":                                 "",
 		`database postgres query pglocal --write "COPY t TO PROGRAM 'sh'"`:                   R,

@@ -8,7 +8,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// A database, cache or queue conn's ?ca=secret:NAME is read from the vault
+// A database, cache or queue conn's ?ca=credential:NAME is read from the vault
 // where its client is made (dbx, cachex, queuex), for every command that
 // opens it.
 func init() {

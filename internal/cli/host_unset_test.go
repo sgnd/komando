@@ -11,7 +11,8 @@ import (
 // body words and the settings a WinRM server does not have are refused.
 func TestHostUnsetTakesTheLeafWords(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "secret:web1-pw", "--sudo-credential", "secret:web1-sudo")
+	saveSecrets(t, "web1-pw", "web1-sudo")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "web1-pw", "--sudo-credential", "web1-sudo")
 	mustRun(t, "host", "winrm", "add", "win1", "Administrator@10.0.0.9")
 	for _, args := range [][]string{
 		{"host", "ssh", "edit", "web1", "--unset", "password-ref"},
@@ -45,13 +46,14 @@ func TestHostSetAndUnsetNameTheLeafFlags(t *testing.T) {
 	}
 }
 
-// A reference komando does not know is refused in the leaf's words.
+// A value that names no saved secret is refused in the leaf's words, and
+// the value is not repeated (rule R2).
 func TestHostRefErrorNamesNoBodyFlag(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	for _, flag := range []string{"--credential", "--sudo-credential"} {
 		e := wantCode(t, "USAGE", "host", "ssh", "edit", "web1", flag, "nosuch:x")
-		if strings.Contains(e.Message, "-ref") || !strings.Contains(e.Message, "takes a reference") {
+		if strings.Contains(e.Message, "-ref") || strings.Contains(e.Message+e.Hint, "nosuch") || !strings.Contains(e.Message, "takes the name of a saved secret") {
 			t.Errorf("%s: %s", flag, e.Message)
 		}
 	}

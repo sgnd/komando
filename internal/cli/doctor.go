@@ -98,10 +98,10 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		switch {
 		case r == "":
 		case !vault.ValidRef(r):
-			fail(name, flag+" holds plain text instead of a reference: store it with `komando credential password add NAME` and use secret:NAME")
-		case strings.HasPrefix(r, "secret:") && !secrets[strings.TrimPrefix(r, "secret:")]:
+			fail(name, flag+" holds plain text instead of a reference: store it with `komando credential password add NAME` and use credential:NAME")
+		case strings.HasPrefix(r, "credential:") && !secrets[strings.TrimPrefix(r, "credential:")]:
 			// no fix: secret set asks for the value
-			warn(name, flag+" "+r+" is not in the vault: `komando credential password add "+argQ(strings.TrimPrefix(r, "secret:"))+"`")
+			warn(name, flag+" names a secret that is not in the vault: `komando credential password add NAME`") // never the name: it may be a password
 		}
 	}
 	for _, h := range st.SortedHosts() {
@@ -135,7 +135,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		}
 		ref(name, "password_ref", c.PasswordRef)
 		for _, r := range inventory.URLSecretRefs(c.URL) {
-			ref(name, "URL option "+r.Option, "secret:"+r.Name)
+			ref(name, "URL option "+r.Option, "credential:"+r.Name)
 		}
 	}
 	connHygiene(st, warn)
@@ -172,21 +172,21 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 	prot := map[string][]string{} // secret name → the protected targets using it
 	for _, h := range st.SortedHosts() {
 		for _, r := range []string{h.PasswordRef, h.SudoRef} {
-			if n, ok := strings.CutPrefix(r, "secret:"); ok && h.Protected && !slices.Contains(prot[n], "server "+h.Name) {
+			if n, ok := strings.CutPrefix(r, "credential:"); ok && h.Protected && !slices.Contains(prot[n], "server "+h.Name) {
 				prot[n] = append(prot[n], "server "+h.Name)
 			}
 		}
 	}
 	for _, c := range st.SortedConns() {
-		if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && c.Protected {
+		if n, ok := strings.CutPrefix(c.PasswordRef, "credential:"); ok && c.Protected {
 			prot[n] = append(prot[n], "conn "+c.Name)
 		}
 	}
 	same := map[string]string{} // kind, URL and via → the first conn with them
 	for _, c := range st.SortedConns() {
 		name := "conn:" + c.Name
-		if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok && !c.Protected && len(prot[n]) > 0 {
-			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret cp %s NEW` and `komando conn edit %s --password-ref secret:NEW`",
+		if n, ok := strings.CutPrefix(c.PasswordRef, "credential:"); ok && !c.Protected && len(prot[n]) > 0 {
+			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret cp %s NEW` and `komando conn edit %s --password-ref credential:NEW`",
 				c.PasswordRef, strings.Join(prot[n], ", "), n, c.Name))
 		}
 		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
@@ -217,6 +217,11 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if resealMetaFlag || acceptOld {
 				return doctorRepair(cl, resealMetaFlag)
+			}
+			if cl.dryRun() {
+				if done, err := doctorDryRunMove(cl, cmd.Context()); done {
+					return err
+				}
 			}
 			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}

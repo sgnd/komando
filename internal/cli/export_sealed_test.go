@@ -46,9 +46,18 @@ func sealLab(t *testing.T) {
 	setSecret(t, "web1-pass", "s3cret value")
 	setSecret(t, "shop-pass", "db s3cret")
 	mustRun(t, "credential", "key", "create", "deploy")
-	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5", "--credential", "web1-pass", "--key", "deploy")
-	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.6", "--credential", "missing-pass")
-	mustRun(t, "conn", "add", "shop", "postgres://app@db.example.com/shop", "--password-ref", "secret:shop-pass")
+	// a key and a sudo password: a server logs in with one credential (format 3)
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5", "--sudo-credential", "web1-pass", "--key", "deploy")
+	// a server whose credential is not saved, as an import can leave one: the
+	// table refuses such a name (rule R2), so the record is written directly
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.6")
+	if err := store.Update(store.Save(), func(s *store.State) error {
+		s.Hosts["web2"].PasswordRef = "credential:missing-pass"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "conn", "add", "shop", "postgres://app@db.example.com/shop", "--password-ref", "credential:shop-pass")
 }
 
 func TestExportSealedRoundTrip(t *testing.T) {
@@ -95,10 +104,10 @@ func TestExportSealedRoundTrip(t *testing.T) {
 		t.Errorf("web1-pass: %q %v", v, err)
 	}
 	st, _ := store.Load()
-	if h := st.Hosts["web1"]; h.Key != "deploy" || h.PasswordRef != "secret:web1-pass" {
+	if h := st.Hosts["web1"]; h.Key != "deploy" || h.SudoRef != "credential:web1-pass" {
 		t.Errorf("web1 %+v", h)
 	}
-	if st.Conns["shop"].PasswordRef != "secret:shop-pass" {
+	if st.Conns["shop"].PasswordRef != "credential:shop-pass" {
 		t.Errorf("shop %+v", st.Conns["shop"])
 	}
 	k := st.Keys["deploy"]
@@ -130,7 +139,7 @@ func TestImportSealedKeepsOtherSecrets(t *testing.T) {
 	if v, _ := vault.Get("web1-pass"); v != "mine" || strings.Contains(asJSON(d["secrets"]), "web1-pass") {
 		t.Fatalf("%v (web1-pass %q)", d, v)
 	}
-	if st, _ := store.Load(); st.Hosts["web1"].PasswordRef != "" {
+	if st, _ := store.Load(); st.Hosts["web1"].SudoRef != "" {
 		t.Errorf("web1 points at this computer's secret: %+v", st.Hosts["web1"])
 	}
 	if !strings.Contains(asJSON(d["not_imported"]), "web1-pass: kept the value here") {
@@ -142,7 +151,7 @@ func TestImportSealedKeepsOtherSecrets(t *testing.T) {
 	if v, _ := vault.Get("web1-pass"); v != "s3cret value" || !strings.Contains(asJSON(d["secrets"]), "web1-pass") {
 		t.Fatalf("%v (web1-pass %q)", d, v)
 	}
-	if st, _ := store.Load(); st.Hosts["web1"].PasswordRef != "secret:web1-pass" {
+	if st, _ := store.Load(); st.Hosts["web1"].SudoRef != "credential:web1-pass" {
 		t.Errorf("web1 %+v", st.Hosts["web1"])
 	}
 }
@@ -391,7 +400,7 @@ func TestExportSealedSkipsReserved(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := store.Update(store.Save(), func(s *store.State) error {
-		s.Hosts["web2"].PasswordRef = "secret:" + approvalSecret // past host add's refusal
+		s.Hosts["web2"].PasswordRef = "credential:" + approvalSecret // past host add's refusal
 		return nil
 	})
 	if err != nil {

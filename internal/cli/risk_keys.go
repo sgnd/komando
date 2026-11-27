@@ -56,6 +56,9 @@ func keyID(key safetyKey) string {
 // a group of today that is left until cut step D (secret, host ca) share
 // its key with the moved group of the same key.
 func keyGroups(typ string, gone []string, tables []idTable) {
+	if typ == "" { // a top-level leaf (copy) has no group of its own
+		return
+	}
 	if _, ok := cmdKeys[typ]; !ok {
 		cmdKeys[typ] = safetyKey{typ: typ}
 	}

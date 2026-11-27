@@ -91,7 +91,7 @@ func secretSetCmd() *cobra.Command {
 			if err := guardTrustSecret(cl, st, args[0], was, replaced, v, ""); err != nil {
 				return err
 			}
-			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(cl, replaced)}
+			res := map[string]any{"name": args[0], "ref": "credential:" + args[0], "replaced": replaced, "action": secretSetAction(cl, replaced)}
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
@@ -132,7 +132,7 @@ func secretSetExists(name string) error {
 const secretShowLong = `Says whether the secret exists and what uses it, without its value. A person
 at a terminal can add --reveal to print it; from a program without a terminal
 (the Komando Mac app), komando first asks the person in its own window. AI
-agents never get the value (they reference it as secret:NAME instead). A warning says when the value
+agents never get the value (they reference it as credential:NAME instead). A warning says when the value
 starts or ends with a space, tab or line break, a common cause of a failing
 login; 'komando secret check NAME' lets a person compare it.`
 
@@ -158,11 +158,11 @@ func secretGetCmd() *cobra.Command {
 				// agents never see passwords (secret_reveal.go); a person at a terminal can
 				// still pipe the value, e.g. into pbcopy, and the Mac app asks in
 				// komando's window
-				if via, err = revealGate(cl, "secret.show", "secret", args[0], "secret:"+args[0]); err != nil {
+				if via, err = revealGate(cl, "secret.show", "secret", args[0], "credential:"+args[0]); err != nil {
 					return err
 				}
 			}
-			res := map[string]any{"name": args[0], "exists": true, "ref": "secret:" + args[0]}
+			res := map[string]any{"name": args[0], "exists": true, "ref": "credential:" + args[0]}
 			if st, err := loadState(); err == nil {
 				res["used_by"] = orEmpty(inventory.SecretUsers(st, args[0]))
 			}

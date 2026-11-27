@@ -216,7 +216,7 @@ name starts with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD
 it is renamed too (--starts-with shop- acme-shop- turns group shop into acme-shop).
 
 Every reference follows, as with ` + "`host rename`" + ` and ` + "`credential password rename`" + `: --via paths,
-password, sudo, key, preshared key and passphrase references, secret:NAME
+password, sudo, key, preshared key and passphrase references, credential:NAME
 options in conn URLs, the key a server uses, group membership, jobs and
 tunnels. A key komando made (credential key create) lives in the sealed store, so no file
 moves; a key file you added stays where it is.

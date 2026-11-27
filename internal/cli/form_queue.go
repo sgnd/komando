@@ -425,11 +425,11 @@ func pubsubForm(_ *call) formSpec {
 }
 
 // natsCredsProblem: a .creds file is kept in komando's own vault
-// (?creds=secret:NAME).
+// (?creds=credential:NAME).
 func natsCredsProblem(_ *store.State, _ formAnswers, v string) string {
-	n := strings.TrimPrefix(v, "secret:")
+	n := strings.TrimPrefix(v, "credential:")
 	if strings.ContainsAny(v, " \t") || inventory.ValidName("secret", n) != nil {
-		return "pick a name from komando credential list, or type secret:NAME; save the file first with komando credential token add NAME < user.creds"
+		return "pick a name from komando credential list, or type credential:NAME; save the file first with komando credential token add NAME < user.creds"
 	}
 	return ""
 }

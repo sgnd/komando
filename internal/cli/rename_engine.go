@@ -21,7 +21,7 @@ import (
 // The rename engine behind `komando rename --starts-with`, `credential key rename` and `group
 // mv`: many renames at once, in one step. The inventory and the vault are
 // each written once, after every check passed, or not at all. Every
-// reference follows (--via paths, password and other refs, secret:NAME in a
+// reference follows (--via paths, password and other refs, credential:NAME in a
 // conn URL, the key a server uses, group membership), as `host mv`, `secret
 // mv` and the others do for one entry.
 
@@ -278,9 +278,9 @@ func (w *refRewriter) change(entry, field string, p *string, v string) {
 
 // ref is a reference with a renamed secret's new name.
 func (w *refRewriter) ref(r string) string {
-	if n, ok := strings.CutPrefix(r, "secret:"); ok {
+	if n, ok := strings.CutPrefix(r, "credential:"); ok {
 		if to, ok := w.rs["secret"][n]; ok {
-			return "secret:" + to
+			return "credential:" + to
 		}
 	}
 	return r
@@ -301,7 +301,7 @@ func (w *refRewriter) via(v string) string {
 	return strings.Join(chain, ",")
 }
 
-// url changes only ?option=secret:NAME in a conn URL: names of buckets,
+// url changes only ?option=credential:NAME in a conn URL: names of buckets,
 // users and databases in it are the resource's own, not komando's.
 func (w *refRewriter) url(u string) string {
 	return inventory.MapURLSecretRefs(u, func(_, name string) string {
@@ -471,7 +471,7 @@ type renameChecker struct {
 // (servers, conns and VPNs share one name space, ignoring case; so do
 // groups), a key file in the way, or two old names with one new name. A
 // new name that exists is refused even when it is renamed too: no swaps or
-// chains, so a reference komando does not know of (a {{secret:NAME}} in a
+// chains, so a reference komando does not know of (a {{credential:NAME}} in a
 // file on a server) never gets another entry's value.
 func checkRenameSet(cl *call, s *store.State, set renameSet) error {
 	c := &renameChecker{cl: cl, s: s, groups: slices.Sorted(maps.Keys(allGroups(s).Groups)), shared: map[string]string{}}
@@ -663,7 +663,7 @@ func newNameText(s *store.State, rs renameSet, prefix *renamePair) *nameText {
 
 // urlWords are the names in a conn URL that belong to the resource: the
 // user, the host (an S3 bucket), each path segment (a database, a bucket)
-// and each query value but secret:NAME.
+// and each query value but credential:NAME.
 func urlWords(raw string) []string {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -677,7 +677,7 @@ func urlWords(raw string) []string {
 	w = append(w, strings.Split(u.Path, "/")...)
 	for _, vs := range u.Query() {
 		for _, v := range vs {
-			if !strings.HasPrefix(v, "secret:") {
+			if !strings.HasPrefix(v, "credential:") {
 				w = append(w, v)
 			}
 		}

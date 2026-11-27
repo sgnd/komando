@@ -60,7 +60,7 @@ messages.
 | Field | Meaning |
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
-| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit list --command` takes the same IDs |
+| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit list --command` takes the same IDs, and those of v0.17 |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `copy` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
@@ -172,12 +172,12 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `POLICY_BLOCKED` | the command looks destructive | double-check it; at your terminal you type the name of what goes, a script adds `--allow-dangerous` |
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` | a change to something marked protected | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | at your terminal komando asks; a script adds `--yes` |
-| `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
+| `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{credential:NAME}}`, `--env K=credential:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
 | `NEEDS_PERSON` | something only a person can do: type a password (`credential password add`, `--ask-password`, a `--login ask` server), log in (`komando login`), compare a secret with `secret check`, set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
 | `DECLINED` | a person answered no to komando's question | nothing was changed; run it again to be asked again |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
-| `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
+| `HIDDEN_VALUE` | the text holds `[hidden]` or `[credential:NAME]` | change one line with `fs replace`; set a secret with `{{credential:NAME}}` |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
 | `TARGET_NOT_FOUND` | a typo in a server, conn or VPN name, whatever the command | the hint suggests the closest match; `komando list` |
 | `TARGET_EMPTY` | a group, tag or pattern picked nothing | `komando list GROUP` shows what it picks |

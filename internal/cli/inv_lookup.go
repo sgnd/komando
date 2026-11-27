@@ -213,13 +213,13 @@ func (r rmResult) Text() string {
 	return t
 }
 
-// unusedSecrets is the vault secrets among refs (secret:NAME) that nothing
+// unusedSecrets is the vault secrets among refs (credential:NAME) that nothing
 // in s uses any more: what a removal left behind, for the person to remove
 // too (komando never deletes a secret by itself).
 func unusedSecrets(s *store.State, refs []string) []string {
 	var names []string
 	for _, r := range refs {
-		n, ok := strings.CutPrefix(r, "secret:")
+		n, ok := strings.CutPrefix(r, "credential:")
 		if !ok || n == "" || slices.Contains(names, n) || len(inventory.SecretUsers(s, n)) > 0 {
 			continue
 		}

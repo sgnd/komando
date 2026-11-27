@@ -74,7 +74,7 @@ func asPerson(t *testing.T, answer func(stderr string) string, fn func()) {
 // codeFor is what the authenticator app shows for the secret on screen.
 func codeFor(t *testing.T, screen string) string {
 	t.Helper()
-	_, after, ok := strings.Cut(screen, "secret: ")
+	_, after, ok := strings.Cut(screen, "secret key: ")
 	if !ok {
 		t.Errorf("no secret shown: %q", screen)
 		return ""

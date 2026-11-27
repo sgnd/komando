@@ -85,7 +85,12 @@ func TestLoginAskServeReadsTicketThenLogins(t *testing.T) {
 // it, so the import that would make it gives the VPN the agent's key.
 func TestLoginAskImportCannotMakeTheSecretOnTheWay(t *testing.T) {
 	secretHome(t)
+	// --credential takes a saved name only: the secret goes after the add
+	saveSecrets(t, "corp-pass")
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "corp-pass")
+	if err := vault.Delete(store.Save(), "corp-pass"); err != nil {
+		t.Fatal(err)
+	}
 	mustRun(t, "host", "ssh", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	env := writeTemp(t, ".env", "CORP_URL=postgres://app:tskey-the-agents@127.0.0.1:5432/app\n")

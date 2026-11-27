@@ -82,7 +82,7 @@ var personalPasses = []struct {
 }
 
 // spans: where re matches in s, for the matches keep accepts. A match
-// inside one of komando's labels ([secret:ops@corp.example], [hidden:
+// inside one of komando's labels ([credential:ops@corp.example], [hidden:
 // email]) is the label, not personal data.
 func spans(re *regexp.Regexp, s string, keep func(string) bool) [][2]int {
 	var at [][2]int

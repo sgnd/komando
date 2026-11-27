@@ -72,11 +72,11 @@ under a pseudo-terminal and komando does not know your agent, set
    terminal. Only they change where such a password goes (its address,
    `--via`, a jump host or VPN on its way).
 9. Secrets stay hidden from agents. Output shows `[hidden]` or
-   `[secret:NAME]`, and personal data on protected targets shows as
+   `[credential:NAME]`, and personal data on protected targets shows as
    `[hidden: email]` (or phone, card, iban, column). Never write such a
    value back; ask the human if a task needs the real one.
    - Change such a line with `fs replace --old 'NAME=[hidden]' --new
-     'NAME={{secret:VAULT_NAME}}'`. Sending a secret anywhere stops with
+     'NAME={{credential:VAULT_NAME}}'`. Sending a secret anywhere stops with
      `SECRET_DESTINATION` until the human agrees and you add `--yes`.
    - `credential password show --reveal` and `credential key show --reveal` work only for a person.
    - Do not read `~/.komando`, private keys or `.env` files on this

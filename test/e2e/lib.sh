@@ -58,7 +58,6 @@ export E2E_SSH_SWARM=${E2E_SSH_SWARM:-2224} E2E_REGISTRY=${E2E_REGISTRY:-5005}
 export E2E_BAO=${E2E_BAO:-8201} E2E_MOTO=${E2E_MOTO:-5016} E2E_VW=${E2E_VW:-8090} E2E_K3S_OLD=${E2E_K3S_OLD:-16444}
 export E2E_AZURITE=${E2E_AZURITE:-10010}
 E2E_SOCKS=${E2E_SOCKS:-18080}
-BAOENV=(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=e2e-root)
 PASS=0
 FAIL=0
 
@@ -117,17 +116,17 @@ lab_down() {
 # bastion, direct, and target (protected, only reachable through bastion)
 setup_hosts() {
   echo "==> inventory & vault"
-  echo -n agentpass | $K credential password add agent-pass >/dev/null
+  q sh -c 'printf %s agentpass | "$0" credential password add agent-pass' "$K"
   if has_service bastion; then
     wait_port "$E2E_SSH_BASTION"
-    $K host ssh add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --credential secret:agent-pass -g lab >/dev/null
+    q $K host ssh add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --credential agent-pass -g lab
   fi
   if has_service direct; then
     wait_port "$E2E_SSH_DIRECT"
-    $K host ssh add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential secret:agent-pass -g lab -t test >/dev/null
+    q $K host ssh add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential agent-pass -g lab -t test
   fi
   if has_service target; then
-    $K host ssh add target agent@target --via bastion --credential secret:agent-pass -g lab --protected >/dev/null
+    q $K host ssh add target agent@target --via bastion --credential agent-pass -g lab --protected
   fi
   sleep 1
 }
@@ -140,9 +139,9 @@ setup_data() {
   echo -n apppass | $K credential password add pg-pass >/dev/null
   echo -n shoppass | $K credential password add maria-pass >/dev/null
   echo -n redispass | $K credential password add redis-pass >/dev/null
-  q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
-  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
-  q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
+  q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref credential:pg-pass
+  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref credential:maria-pass --protected
+  q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref credential:redis-pass
   setup_bucket
 }
 
@@ -154,14 +153,14 @@ setup_bucket() {
   G bucket create backups >/dev/null && G key create komando > "$TMP/s3key" && G bucket allow --read --write --owner backups --key komando >/dev/null
   S3ID=$(awk '/Key ID/{print $3}' "$TMP/s3key")
   awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K credential password add s3-secret >/dev/null
-  q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
+  q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref credential:s3-secret
 }
 
 # +maria_conn: the protected conn maria, for checks that only edit the
 # inventory (no MariaDB runs)
 setup_maria_conn() {
   echo -n shoppass | $K credential password add maria-pass >/dev/null
-  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
+  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref credential:maria-pass --protected
 }
 
 # +vpns: the SOCKS VPN lab (through the bastion, in use by target-lab) and
@@ -175,7 +174,7 @@ setup_vpns() {
 # +swarm: swarm1, a one-node Docker Swarm manager over SSH
 setup_swarm() {
   wait_port "$E2E_SSH_SWARM"
-  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --credential secret:agent-pass
+  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --credential credential:agent-pass
   for _ in $(seq 1 60); do $K host ssh exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
 }
 

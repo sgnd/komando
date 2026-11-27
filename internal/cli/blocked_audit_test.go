@@ -47,7 +47,7 @@ func TestBlockedAttemptsAreAudited(t *testing.T) {
 		m := e.(map[string]any)
 		got = append(got, m["command"].(string)+"="+m["blocked"].(string))
 	}
-	want := "host.rm=PROTECTED_TARGET policy.remove=SAFETY_SETTING exec=PROTECTED_TARGET"
+	want := "host.ssh.remove=PROTECTED_TARGET policy.remove=SAFETY_SETTING host.ssh.exec=PROTECTED_TARGET" // rule R1: the leaf that ran
 	if strings.Join(got, " ") != want {
 		t.Errorf("blocked in the audit: %v, want %s", got, want)
 	}

@@ -20,7 +20,12 @@ func TestMaskSecretsText(t *testing.T) {
 		{"root:$6$saltsalt$abcdefghijklmnop:19000:0", "root:[hidden]:19000:0"},
 		{"-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaA\n-----END OPENSSH PRIVATE KEY-----\nnext", "[hidden: private key]\nnext"},
 		// left alone: references, booleans, ordinary words
-		{"password_ref: secret:db", "password_ref: secret:db"},
+		{"password_ref: credential:db", "password_ref: credential:db"},
+		{"secret=[credential:db]", "secret=[credential:db]"},
+		// only a well-formed name after credential: is a reference
+		{"password: credential:hunter2!#x", "password: [hidden]"},
+		{"Credential:Hunt3r!#x", "Credential:[hidden]"},
+		{"secret=[credential:a!b]", "secret=[hidden]"},
 		{"PASSWORD=${DB_PASS}", "PASSWORD=${DB_PASS}"},
 		{"require_password: true", "require_password: true"},
 		{"host: web1 user: deploy", "host: web1 user: deploy"},
@@ -58,7 +63,7 @@ func TestMaskSecretsText(t *testing.T) {
 		{"user default on nopass ~* +@all", "user default on nopass ~* +@all"},
 		// left alone: comments, references, names in prose
 		{"# requirepass foobared", "# requirepass foobared"},
-		{"requirepass {{secret:REDIS_PW}}", "requirepass {{secret:REDIS_PW}}"},
+		{"requirepass {{credential:REDIS_PW}}", "requirepass {{credential:REDIS_PW}}"},
 		{"requirepass [hidden]", "requirepass [hidden]"},
 		{"set requirepass to protect the server", "set requirepass to protect the server"},
 	}
@@ -103,7 +108,7 @@ func TestMaskSecretsWordsHoldingSecretWords(t *testing.T) {
 
 func TestMaskJSONStaysValid(t *testing.T) {
 	in := `{"ok":true,"data":{"stdout":"DB_PASSWORD=hunter2\nX=1","rows":[{"user":"a","password":"h4sh","login_count":3}],` +
-		`"secret":{"data":{"tls.key":"c2VjcmV0dmFsdWU=","note":"plain words"}},"password_ref":"secret:db","token_count":5}}`
+		`"secret":{"data":{"tls.key":"c2VjcmV0dmFsdWU=","note":"plain words"}},"password_ref":"credential:db","token_count":5}}`
 	got := maskJSON([]byte(in))
 	var v map[string]any
 	if err := json.Unmarshal(got, &v); err != nil {
@@ -115,7 +120,7 @@ func TestMaskJSONStaysValid(t *testing.T) {
 			t.Errorf("%q leaked: %s", leak, s)
 		}
 	}
-	for _, keep := range []string{`"login_count":3`, `"secret:db"`, `"token_count":5`, `"plain words"`, `X=1`} {
+	for _, keep := range []string{`"login_count":3`, `"credential:db"`, `"token_count":5`, `"plain words"`, `X=1`} {
 		if !strings.Contains(s, keep) {
 			t.Errorf("%q should stay: %s", keep, s)
 		}
@@ -135,13 +140,15 @@ func TestPrinterMaskOnlyWhenAsked(t *testing.T) {
 
 func TestVaultValueEncodings(t *testing.T) {
 	p := &Printer{Secrets: func() map[string]string { return map[string]string{"db": "pa ss/word"} }}
-	if got := p.Redact("cGEgc3Mvd29yZA== and pa+ss%2Fword"); got != "[secret:db] and [secret:db]" {
+	if got := p.Redact("cGEgc3Mvd29yZA== and pa+ss%2Fword"); got != "[credential:db] and [credential:db]" {
 		t.Errorf("got %q", got)
 	}
 }
 
 func TestHasHidden(t *testing.T) {
-	for s, want := range map[string]bool{"A=[hidden]": true, "A=[secret:db]": true, "[hidden: private key]": true, "A=1": false, "[secret]": false} {
+	// [secret:db] is the label komando v0.17 printed: text an agent read
+	// then still holds it, and writing it back would destroy the value
+	for s, want := range map[string]bool{"A=[hidden]": true, "A=[credential:db]": true, "A=[secret:db]": true, "[hidden: private key]": true, "A=1": false, "[secret]": false} {
 		if HasHidden(s) != want {
 			t.Errorf("HasHidden(%q) = %v", s, !want)
 		}
@@ -236,7 +243,7 @@ func TestNestedCredentialsAreHidden(t *testing.T) {
 		}
 	}
 	// komando's own lists of names under such a key stay readable
-	own := `{"ok":true,"data":{"secrets":[{"name":"db-pass"}],"would_set":["web1-pass"],"password_ref":"secret:db","credentials":{"note":"secret:db"}}}`
+	own := `{"ok":true,"data":{"secrets":[{"name":"db-pass"}],"would_set":["web1-pass"],"password_ref":"credential:db","credentials":{"note":"credential:db"}}}`
 	if got := string(maskJSON([]byte(own))); got != own {
 		t.Errorf("komando's own output changed: %s", got)
 	}

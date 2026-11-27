@@ -37,7 +37,7 @@ func TestTextHintIsRedactedAndSafe(t *testing.T) {
 		if !strings.Contains(got, `\e[8mhidden`) || !strings.Contains(got, `cover\rup`) {
 			t.Errorf("%s: conceal and carriage return are not shown as escapes: %q", name, got)
 		}
-		if !strings.Contains(got, "[secret:DB_PASS]") {
+		if !strings.Contains(got, "[credential:DB_PASS]") {
 			t.Errorf("%s: hint lost the vault label: %q", name, got)
 		}
 	}

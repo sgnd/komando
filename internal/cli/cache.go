@@ -540,7 +540,7 @@ func cacheRunCmd() *cobra.Command {
 				}
 			}
 			v := cachex.ClassifyFor(kind, command)
-			rec := map[string]any{"command": strings.ToUpper(command[0])} // arguments may be personal data
+			rec := map[string]any{"cache_command": strings.ToUpper(command[0])} // arguments may be personal data
 			if v.Risk > driver.RiskRead && !write {
 				st, _ := loadState()
 				e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",

@@ -15,12 +15,12 @@ import (
 
 // --ask-password lets a person give a server or conn its password in the
 // same step as adding it: typed once, hidden, stored in the vault as
-// secret:NAME-pass and used as its --password-ref. Without it a password
+// credential:NAME-pass and used as its --password-ref. Without it a password
 // login takes three commands and a made-up secret name (secret set, host
 // edit --password-ref, test).
 
 func askPasswordFlag(c *cobra.Command, ask *bool) {
-	c.Flags().BoolVar(ask, "ask-password", false, "type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref")
+	c.Flags().BoolVar(ask, "ask-password", false, "type the password now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-pass and used as --password-ref")
 }
 
 // askSecret is a secret a command can ask for now, hidden: a password
@@ -55,7 +55,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 			"--%s gives one %s its %s; %q is not one name", a.flag, kind, a.what, name)
 	}
 	sec := name + "-" + a.suffix
-	ref = "secret:" + sec
+	ref = "credential:" + sec
 	if cl.dryRun() {
 		return ref, undo, nil
 	}
@@ -81,7 +81,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	existed := getErr == nil
 	if existed && len(others) > 0 {
 		return "", undo, out.Errf(out.ExitConflict, "SECRET_EXISTS",
-			fmt.Sprintf("use it with --%s %s, or store this one under another name: `komando credential password add NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
+			fmt.Sprintf("use it with --%s %s, or store this one under another name: `komando credential password add NAME`, then --%s credential:NAME", a.refFlag, ref, a.refFlag),
 			"secret %s is used by %s already; --ask-password and --ask-psk do not replace it", sec, strings.Join(others, ", "))
 	}
 	// a new password for a protected server or conn changes how komando
@@ -110,15 +110,12 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	if err := put(cl.storeWrite(), sec, v); err != nil {
 		if errors.Is(err, vault.ErrExists) {
 			return "", undo, out.Errf(out.ExitConflict, "SECRET_EXISTS",
-				fmt.Sprintf("use it with --%s %s, or store yours under another name: `komando credential password add NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
+				fmt.Sprintf("use it with --%s %s, or store yours under another name: `komando credential password add NAME`, then --%s credential:NAME", a.refFlag, ref, a.refFlag),
 				"secret %s was stored by something else while you typed; nothing was replaced", sec)
 		}
 		return "", undo, err
 	}
-	as := cl.out.As
-	cl.out.As = "credential.password.add" // the stored password's own record, whichever command asked for it
-	audit(cl, nil, "credential.password.add", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
-	cl.out.As = as
+	auditEvent(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
 	warnCommonWord(cl, sec, v)
 	if !existed {
 		undo = func() { _ = vault.Delete(cl.storeWrite(), sec) }
@@ -126,18 +123,19 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	return ref, undo, nil
 }
 
-// missingSecretWarnings says which secret: references point at nothing in
+// missingSecretWarnings says which credential: references point at nothing in
 // the vault yet, with the command that stores each, so a typo shows when it
 // is made rather than at the next login.
 func missingSecretWarnings(refs ...string) []string {
 	var w []string
 	for _, r := range refs {
-		n, ok := strings.CutPrefix(r, "secret:")
+		n, ok := strings.CutPrefix(r, "credential:")
 		if !ok || n == "" {
 			continue
 		}
-		if _, err := vault.Get(n); err == vault.ErrNotFound {
-			w = append(w, fmt.Sprintf("secret %s is not in the vault yet: store it with `komando credential password add %s`", n, n))
+		if _, err := vault.Get(n); errors.Is(err, vault.ErrNotFound) {
+			// never the name: a password typed where a name goes would be shown
+			w = append(w, "a secret it names is not in the vault yet: store it with `komando credential password add NAME`")
 		}
 	}
 	return w

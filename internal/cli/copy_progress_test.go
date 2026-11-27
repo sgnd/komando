@@ -207,7 +207,7 @@ func TestProgressHidesSecretsInNames(t *testing.T) {
 	ctx, p := withProgress(tcl, context.Background(), &buf)
 	progressFrom(ctx).start("dump-s3cr3t-v4lue-42.sql")
 	p.done(true)
-	if strings.Contains(buf.String(), "s3cr3t-v4lue-42") || !strings.Contains(buf.String(), "[secret:tok]") {
+	if strings.Contains(buf.String(), "s3cr3t-v4lue-42") || !strings.Contains(buf.String(), "[credential:tok]") {
 		t.Errorf("progress line: %s", buf.String())
 	}
 }
