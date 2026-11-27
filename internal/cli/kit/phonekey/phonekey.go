@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"path/filepath"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -230,7 +230,7 @@ func (f Facts) ownedByRoot() string {
 		if want == "/" {
 			return ""
 		}
-		want = filepath.Dir(want)
+		want = path.Dir(want) // the server's paths are always slash paths
 	}
 	return "komando could not check " + want + " and the folders above it"
 }

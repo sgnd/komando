@@ -1,9 +1,20 @@
 package gatehere
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/testhome"
 )
+
+// No test of this package sees the real home folder (internal/testhome).
+func TestMain(m *testing.M) {
+	homeDone := testhome.Use()
+	code := m.Run()
+	homeDone()
+	os.Exit(code)
+}
 
 // TestRunsOnlyTheTypedCommands pins rule d: in server mode exec and every
 // other shell is refused, and only readings and the typed service,
