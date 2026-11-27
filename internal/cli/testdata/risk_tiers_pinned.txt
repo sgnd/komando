@@ -218,10 +218,10 @@ probe conn edit app-db --protected=false	safety
 probe export --for-phone	person
 probe export --sealed	person
 probe group rm big	change
-probe host add web2 root@10.0.0.6 --proxy-command nc	read
-probe host edit web1 --protected=false	read
-probe host edit web1 --proxy-command nc	read
-probe host trust web1 --reset	read
+probe host ssh add web2 root@10.0.0.6 --proxy-command nc	safety
+probe host ssh edit web1 --protected=false	safety
+probe host ssh edit web1 --proxy-command nc	safety
+probe host ssh trust web1 --reset	person
 probe import komando backup.json	person
 probe import kubeconfig	safety
 probe key rm k1 --delete-file	dangerous

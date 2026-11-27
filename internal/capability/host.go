@@ -177,9 +177,8 @@ func completeHost(l *Leaf, p provider) {
 		l.Options = []Option{endOpt, waitOpt}
 		l.Short = "Check that saved " + many + " answer and let you in"
 		l.Example = lines(cmd+"test @web", cmd+"test @new --wait 5m", cmd+"test --end")
-		if p.name == "ssh" {
-			l.Carries = []string{"login", "logout"}
-		}
+		// login and logout stay top-level commands until the person step moves
+		// into test (cut plan C325): host ssh test does not log in yet
 	}
 }
 

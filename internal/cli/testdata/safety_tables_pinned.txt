@@ -218,6 +218,10 @@ probe conn edit app-db --protected=false	safety|turns protection off||
 probe export --for-phone	person|||
 probe export --sealed	person|||
 probe group rm big	change|||deleting a group of more than 3 members
+probe host ssh add web2 root@10.0.0.6 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host ssh edit web1 --protected=false	safety|turns protection off||
+probe host ssh edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy command runs on this computer)|
+probe host ssh trust web1 --reset	person|replaces a pinned host key||
 probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
 probe import kubeconfig	safety||an AI agent imports a context whose login runs a program or sends a file of this computer|
 probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||

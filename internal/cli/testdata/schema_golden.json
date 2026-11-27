@@ -5303,6 +5303,7 @@
           },
           {
             "name": "group",
+            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
             "usage": "put it in these groups"
@@ -5374,6 +5375,7 @@
           },
           {
             "name": "tag",
+            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
             "usage": "tags, like prod"
@@ -5416,12 +5418,14 @@
         "flags": [
           {
             "name": "add-group",
+            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
             "usage": "put it in these groups"
           },
           {
             "name": "add-tag",
+            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
             "usage": "add these tags"
@@ -6015,6 +6019,7 @@
           },
           {
             "name": "group",
+            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
             "usage": "put it in these groups"
@@ -6055,6 +6060,7 @@
           },
           {
             "name": "tag",
+            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
             "usage": "tags, like prod"
@@ -6097,12 +6103,14 @@
         "flags": [
           {
             "name": "add-group",
+            "shorthand": "g",
             "type": "stringSlice",
             "default": "[]",
             "usage": "put it in these groups"
           },
           {
             "name": "add-tag",
+            "shorthand": "t",
             "type": "stringSlice",
             "default": "[]",
             "usage": "add these tags"

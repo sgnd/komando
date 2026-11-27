@@ -4950,7 +4950,7 @@ Flags:
       --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string           what it logs in with
   -e, --env stringArray             env KEY=VALUE exported before every command (default [])
-      --group strings               put it in these groups
+  -g, --group strings               put it in these groups
   -h, --help[=true|false]           help for add
       --identity string             the path of a private key file
       --key string                  the name of a key in komando's key list
@@ -4964,7 +4964,7 @@ Flags:
       --proxy-command string        a program on this computer that makes the connection
       --ssm[=true|false]            reach it through AWS Systems Manager; the address is the instance ID
       --sudo-credential string      the password sudo asks for (today's --sudo-ref)
-      --tag strings                 tags, like prod
+  -t, --tag strings                 tags, like prod
       --user string                 the user to log in as
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
@@ -4998,8 +4998,8 @@ Examples:
   komando host ssh edit db1 --protected
 
 Flags:
-      --add-group strings            put it in these groups
-      --add-tag strings              add these tags
+  -g, --add-group strings            put it in these groups
+  -t, --add-tag strings              add these tags
       --address string               the host name or IP address, instead of the second word
       --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string            what it logs in with
@@ -5479,7 +5479,7 @@ Flags:
       --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string           what it logs in with
   -e, --env stringArray             env KEY=VALUE exported before every command (default [])
-      --group strings               put it in these groups
+  -g, --group strings               put it in these groups
   -h, --help[=true|false]           help for add
       --label stringArray           label KEY=VALUE (default [])
       --login string                how komando logs in: ask at every connect, a stored password, a key, or the ssh-agent
@@ -5487,7 +5487,7 @@ Flags:
       --overwrite[=true|false]      replace an entry that has the same name
       --port int                    the port
       --protected[=true|false]      changes need a person's yes
-      --tag strings                 tags, like prod
+  -t, --tag strings                 tags, like prod
       --user string                 the user to log in as
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
 
@@ -5521,8 +5521,8 @@ Examples:
   komando host winrm edit db1 --protected
 
 Flags:
-      --add-group strings           put it in these groups
-      --add-tag strings             add these tags
+  -g, --add-group strings           put it in these groups
+  -t, --add-tag strings             add these tags
       --address string              the host name or IP address, instead of the second word
       --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
       --credential string           what it logs in with

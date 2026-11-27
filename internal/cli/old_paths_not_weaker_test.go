@@ -216,3 +216,17 @@ func tableLeaf(words []string) (capability.Leaf, bool) {
 	}
 	return best, bestLen > 0
 }
+
+// host ssh exec carries reads (fs cat, svc list, ...) that need no network and
+// exec itself, which does: a read key without --network must still be refused
+// (the reason wins over the reads the leaf carries).
+func TestHostExecKeepsItsNetworkRule(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	for _, provider := range []string{"ssh", "winrm"} {
+		_, _, e := gateCheck([]string{"host", provider, "exec", "web1", "--read-only", "--", "uptime"}, readKey)
+		if e == nil || e.Code != "SSH_GATE_NETWORK_REQUIRED" {
+			t.Errorf("host %s exec --read-only for a read key: %v, want SSH_GATE_NETWORK_REQUIRED", provider, e)
+		}
+	}
+}
