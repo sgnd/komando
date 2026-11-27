@@ -34,7 +34,7 @@ office   wireguard      -     -       db1       connects for each command
 | Kind | What it is | Runs | Changes your computer's network? |
 |------|------------|------|----------------------------------|
 | `wireguard` | WireGuard | inside komando | no |
-| `openvpn` (also `pritunl`) | OpenVPN and Pritunl profiles | inside komando | no |
+| `openvpn` | OpenVPN and Pritunl profiles | inside komando | no |
 | `anyconnect` | Cisco AnyConnect and ocserv | inside komando | no |
 | `tailscale` | Tailscale, or your own Headscale server (`--server URL`) | inside komando | no |
 | `fortinet` | Fortinet SSL VPN (FortiClient) | inside komando, experimental (see below) | no |
@@ -42,7 +42,7 @@ office   wireguard      -     -       db1       connects for each command
 | `f5` | F5 BIG-IP SSL VPN | inside komando, experimental | no |
 | `pulse` | Pulse Secure / Ivanti Connect Secure | inside komando, experimental | no |
 | `l2tp` | L2TP/IPsec with a pre-shared key (Windows Server, MikroTik, strongSwan + xl2tpd, many routers) | inside komando | no |
-| `ipsec` (also `cisco`, `xauth`) | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
+| `ipsec` | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
 | `ikev2` | IKEv2/IPsec, with a pre-shared key or a user login (EAP-MSCHAPv2) checked against the server's certificate | inside komando | no |
 | `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy); with a login: `--user` and `--credential` | already running | no |
 | `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--proxy-address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--credential` | already running | no |

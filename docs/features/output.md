@@ -121,18 +121,17 @@ Tiers are `read`, `change`, `dangerous` (`--allow-dangerous`), `safety`
 on a protected server or conn also needs a yes; the target decides that,
 so it is not listed. See [What needs a yes](safety.md#what-needs-a-yes).
 
-The add commands also list the kinds they take, under `add_kinds`, so a
-program can build its add forms from them. `komando schema vpn add` gives
-each VPN kind its `id`, `display_name`, `family` (`portal`, `config_file`,
-`server_psk`, `auth_key`, `system` or `proxy`), `aliases`, the flags it
-needs (`required`, and `one_of`: groups where one flag is enough), the
-flags it may take (`optional`), `flag_notes`, and `opens_browser`: whether
-`vpn KIND start` opens a browser to sign in (`browser_note` says when).
-`komando schema conn add` (and `db add`, `cache redis add`, `queue kafka add`,
-`storage add`, `cluster add`, `registry oci add` for their own kinds) gives
-each conn kind its `id`, `display_name`, `family`, `url_schemes`,
-`url_example`, `default_port` and the same flag lists. They come from the
-same table as `komando vpn KIND add --help` and `komando conn kinds`.
+The conn add commands also list the kinds they take, under `add_kinds`, so a
+program can build its add forms from them. `komando schema conn add` (and
+`db add`, `cache redis add`, `queue kafka add`, `storage add`,
+`cluster add`, `registry oci add` for their own kinds) gives each conn kind
+its `id`, `display_name`, `family`, `url_schemes`, `url_example`,
+`default_port`, the flags it needs (`required`, and `one_of`: groups where
+one flag is enough) and the flags it may take (`optional`), from the same
+table as `komando conn kinds`. A VPN has no such list: its kind is a word of
+the path, and `komando schema vpn KIND add` (for example
+`komando schema vpn wireguard add`) gives the flags of that kind, the same
+as `komando vpn KIND add --help`.
 
 ## Troubleshooting
 
