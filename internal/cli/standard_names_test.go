@@ -185,13 +185,14 @@ func TestDbUserShowReplacesGrants(t *testing.T) {
 }
 
 // The top-level `forward` (another name for tunnel, which read like
-// `cluster kubernetes tunnel start`) is gone; `pf` stays a synonym (C-V17).
+// `cluster kubernetes tunnel start`) is gone (C-V17), and so is `pf` since
+// tunnel is `host ssh tunnel` (C6; chief, 2026-11-28: a moved area takes
+// no second spelling).
 func TestForwardGone(t *testing.T) {
 	invHome(t)
-	if code, _ := runMain(t, "forward", "list"); code != out.ExitUsage {
-		t.Errorf("forward list: exit %d", code)
-	}
-	if code, text := runMain(t, "pf", "list"); code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) {
-		t.Errorf("pf list: exit %d %s", code, text)
+	for _, word := range []string{"forward", "pf"} {
+		if code, _ := runMain(t, word, "list"); code != out.ExitUsage {
+			t.Errorf("%s list: exit %d", word, code)
+		}
 	}
 }
