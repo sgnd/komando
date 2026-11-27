@@ -479,10 +479,17 @@ func credentialRef(flag, v string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("--%s: the saved secrets cannot be read: %w", flag, err)
 	}
-	if v == "" || !slices.ContainsFunc(saved, func(i vault.Info) bool { return i.Name == v }) {
+	i := slices.IndexFunc(saved, func(i vault.Info) bool { return i.Name == v })
+	if v == "" || i < 0 {
 		return "", out.Errf(out.ExitUsage, "USAGE",
 			"save the secret with `komando credential password add NAME` (it asks for the value, hidden), then pass --"+flag+" NAME",
 			"--%s takes the name of a saved secret, and this is none", flag)
+	}
+	// a key can hold a value too (C625): it is still a key, never a password
+	if saved[i].Kind == store.CredKey {
+		return "", out.Errf(out.ExitUsage, "USAGE",
+			"save a password with `komando credential password add NAME`, then pass --"+flag+" NAME",
+			"--%s takes a password or a token, and %s names an SSH key", flag, v)
 	}
 	return "credential:" + v, nil
 }

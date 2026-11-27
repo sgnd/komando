@@ -61,3 +61,23 @@ func TestBareCredentialInVaultIsTheSecret(t *testing.T) {
 		t.Errorf("show: %v", d)
 	}
 }
+
+// Row C625 (3): a credential option takes a password or a token. The name
+// of an SSH key is refused as USAGE, even when a value was saved under it.
+func TestCredentialOptionRefusesAKey(t *testing.T) {
+	invHome(t)
+	mustRun(t, "credential", "key", "create", "deploy")
+	if err := vault.Set(store.Save(), "deploy", "v"); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	for _, flag := range []string{"--credential", "--sudo-credential"} {
+		_, e := invRun(t, "host", "ssh", "edit", "web1", flag, "deploy")
+		if e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "names an SSH key") {
+			t.Errorf("%s deploy: want USAGE naming the key, got %+v", flag, e)
+		}
+	}
+	if d := mustRun(t, "host", "ssh", "show", "web1"); d["password_ref"] != nil || d["sudo_ref"] != nil {
+		t.Errorf("the key was taken as a password: %v", d)
+	}
+}
