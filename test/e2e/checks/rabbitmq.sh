@@ -4,11 +4,8 @@
 # shows it and gives it back (redelivered), and purge and rm need
 # --allow-dangerous.
 set +e
-RDC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
-for _ in $(seq 1 90); do
-  RDC exec -T rabbitmq rabbitmq-diagnostics -q check_port_connectivity >/dev/null 2>&1 && break
-  sleep 1
-done
+# the lab waits for the server's healthcheck (compose.yml): no command of the
+# check runs in the container, which as root would break the server (C560)
 echo -n rabbitpass | $K secret set rabbit-pass >/dev/null
 q $K conn add jobs 'amqp://app@rabbitmq:5672/%2F?management=15672' --via bastion --password-ref secret:rabbit-pass
 for _ in $(seq 1 30); do [ "$($K conn test jobs | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
