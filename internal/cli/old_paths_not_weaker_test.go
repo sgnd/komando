@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -30,6 +31,17 @@ var replacedByExec = func() map[string]bool {
 // read here. Each is the row commandKinds had before the move.
 var goneKinds = map[safetyKey]cmdKind{
 	{"credential", "", "show"}: reads, // secret show, split into credential password and token show
+}
+
+// TestGoneKindsReviewed: a goneKinds row lowers a floor, so the table holds
+// only the reviewed rows, each the kind main's
+// testdata/safety_tables_pinned.txt gave its command before the move
+// (secret.show kind=read at d6e40622).
+func TestGoneKindsReviewed(t *testing.T) {
+	reviewed := map[safetyKey]cmdKind{{"credential", "", "show"}: reads}
+	if !maps.Equal(goneKinds, reviewed) {
+		t.Errorf("goneKinds is %v, reviewed %v: a new row needs the kind main's safety_tables_pinned.txt had for its command, and a security review", goneKinds, reviewed)
+	}
 }
 
 // todayHighest is the highest tier c can have today: change unless its
