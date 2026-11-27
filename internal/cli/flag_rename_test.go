@@ -14,8 +14,6 @@ var flagSynonyms = []struct {
 }{
 	{[]string{"cluster", "rollback"}, "revision", "to-revision"},
 	{[]string{"fs", "write"}, "content", "value"},
-	{[]string{"host", "ssh", "edit"}, "add-group", "group"},
-	{[]string{"host", "ssh", "edit"}, "add-tag", "tag"},
 	{[]string{"conn", "edit"}, "add-group", "group"},
 	{[]string{"conn", "edit"}, "add-tag", "tag"},
 }
