@@ -440,7 +440,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	// restore below reads it through that seal, so it runs what was checked.
 	seal := &backupSeal{}
 	v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}
-	if err := checkRestoreSQL(cl, t.Kind.Name, from, seal, &v); err != nil {
+	if err := checkRestoreSQL(cl, c, t.Kind.Name, from, seal, &v); err != nil {
 		return err
 	}
 	afterRestoreSeal(from)
@@ -502,7 +502,7 @@ var afterRestoreSeal = func(string) {}
 // shown whole (a .gz unpacked) or no window; a pg_dump archive is not
 // text, so the window names its size and SHA-256. The window's own read
 // must match the seal, or the restore stops with FILE_CHANGED.
-func noteRestoreFile(cl *call, from string, custom bool, seal *backupSeal) error {
+func noteRestoreFile(cl *call, conn *store.Conn, from string, custom bool, seal *backupSeal) error {
 	if !cl.caller().IsAgent() {
 		setBody(cl, &approvalBody{label: "the backup " + from, big: true, sum: seal.body})
 		return nil
@@ -522,7 +522,7 @@ func noteRestoreFile(cl *call, from string, custom bool, seal *backupSeal) error
 	}
 	c, err := readCapped(from, unzip)
 	if err != nil {
-		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `komando database KIND backup`", "%v", err)
+		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `"+dbPathOf(conn, "backup")+" "+conn.Name+"`", "%v", err)
 	}
 	return sealedBody(cl, from, seal, c, label, false)
 }
@@ -544,7 +544,7 @@ func sealedBody(cl *call, from string, seal *backupSeal, c capped, label string,
 // checkRestoreSQL checks the whole file before sending any of it: what the
 // SQL does beyond writing data (COPY ... PROGRAM, INTO OUTFILE, GRANT, ...)
 // is added to v, so it is named in the approval and in POLICY_BLOCKED.
-func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Verdict) error {
+func checkRestoreSQL(cl *call, conn *store.Conn, kind, from string, seal *backupSeal, v *driver.Verdict) error {
 	var sqlV driver.Verdict
 	if err := withBackup(cl, from, seal, func(r io.Reader) (err error) {
 		if seal.archive() {
@@ -553,7 +553,7 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 			if sqlV, err = driver.CheckRestoreArchive(r); errors.Is(err, driver.ErrArchiveTooLarge) {
 				return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "dump fewer objects (pg_dump -Fc -n SCHEMA or -t TABLE) and restore each part, or restore this one with pg_restore by hand", "%s: %v", from, err)
 			} else if err != nil {
-				return out.Errf(out.ExitUsage, "BAD_FILE", "back it up again with `komando database postgres backup --format custom` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
+				return out.Errf(out.ExitUsage, "BAD_FILE", "back it up again with `"+dbPathOf(conn, "backup")+" "+conn.Name+" --format custom` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
 			}
 			_, err = io.Copy(io.Discard, r)
 			return err
@@ -704,7 +704,7 @@ func runOnSecret(cl *call, st *store.State, c *store.Conn, h *store.Host) error 
 }
 
 // toolFailed maps a failed dump or restore tool to the same error codes
-// as `db query`: a refused login is DB_AUTH (exit 4), a missing database
+// as `database KIND query`: a refused login is DB_AUTH (exit 4), a missing database
 // DB_NOT_FOUND (exit 3), a database the tool cannot reach from where it
 // runs CONN_UNREACHABLE (exit 4), a tool older than the server or archive
 // TOOL_TOO_OLD, anything else TOOL_FAILED.

@@ -82,7 +82,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			case ref != "" && !vault.ValidRef(ref):
 				return out.Usage("--password-ref: %s", vault.RefHelp())
 			}
-			// the same tier as the statement in `db query` (sql-privileges):
+			// the same tier as the statement in `database KIND query` (sql-privileges):
 			// a new login, a new role or another user's password gives rights
 			askTypes(cl, args[1:2], "users")
 			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user", "sql-privileges"},
@@ -210,7 +210,7 @@ with database mongodb query --write). --dry-run shows the statement.`,
 			if privs != "" && on == "" {
 				return out.Usage("--privileges needs --on OBJECT").WithHint(ex)
 			}
-			// the same tier as GRANT and REVOKE in `db query` (sql-privileges)
+			// the same tier as GRANT and REVOKE in `database KIND query` (sql-privileges)
 			askTypes(cl, args[1:2], "users")
 			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-grant", "sql-privileges"},
 				Reasons: []string{"db " + verb + " for " + args[1] + ": " + driver.RuleReason("sql-privileges")}}

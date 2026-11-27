@@ -12,7 +12,7 @@ import (
 )
 
 // An AI agent's command that saves a file on this computer (download, cp,
-// sync, storage download, db dump --to, export --to, cluster cp) never
+// sync, storage download, database KIND backup --to, export --to, cluster cp) never
 // writes into komando's own folder, ssh's folder or the cloud and cluster
 // tools' credentials: a download over ~/.komando/store.db destroys the
 // vault, inventory and audit log; one into ~/.ssh adds an authorized key.

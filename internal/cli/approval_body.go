@@ -61,7 +61,7 @@ type bodyKind int
 const (
 	bodyInput  bodyKind = iota // code sent on stdin (exec --stdin-file, job start)
 	bodyScript                 // a script file (exec --script, job start --script)
-	bodySQL                    // the SQL of db query --file
+	bodySQL                    // the SQL of database KIND query --file
 	bodyData                   // content stored or sent, not run (noteApprovalData)
 )
 

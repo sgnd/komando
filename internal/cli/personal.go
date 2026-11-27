@@ -118,7 +118,7 @@ func refuseHiddenWrite(texts ...string) error {
 	return nil
 }
 
-// refuseHiddenSQL is refuseHiddenWrite for `db query --write`: the SQL and
+// refuseHiddenSQL is refuseHiddenWrite for `database KIND query --write`: the SQL and
 // its --arg values.
 func refuseHiddenSQL(write bool, query string, args []string) error {
 	if !write {
