@@ -283,26 +283,6 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 	return c
 }
 
-// leafExtras give the leaves of a key what cobra keeps outside the table:
-// the annotations their help and output read (tableOutput, helpNotes,
-// timeoutHelp) and their own flag error. Keyed by (type, area, verb), so
-// every provider of a verb gets the same.
-var leafExtras = map[safetyKey]func(c *cobra.Command){
-	{"database", "", "query"}: func(c *cobra.Command) {
-		c.Annotations = map[string]string{tableOutput: "yes", helpNotes: queryNotes, timeoutHelp: queryTimeout}
-		c.SetFlagErrorFunc(sqlFlagError)
-	},
-	{"database", "", "shell"}: func(c *cobra.Command) {
-		c.Annotations = map[string]string{helpNotes: shellNotes, timeoutHelp: queryTimeout}
-	},
-	{"database", "", "backup"}: func(c *cobra.Command) {
-		c.Annotations = map[string]string{helpNotes: backupNotes}
-	},
-	{"database", "", "restore"}: func(c *cobra.Command) {
-		c.Annotations = map[string]string{helpNotes: restoreNotes}
-	},
-}
-
 // addOption declares o on fs and keeps where its value lands in vals.
 func addOption(fs *pflag.FlagSet, o capability.Option, vals map[string]any) {
 	if o.Short == "" {
