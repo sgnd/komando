@@ -41,7 +41,7 @@ func TestOutsideStoreOnCredentialFlagRefused(t *testing.T) {
 		{"host password", []string{"host", "add", "web1", "u@10.0.0.5", "--password-ref", "env:WEB_PW", "--dry-run"}},
 		{"host sudo", []string{"host", "add", "web1", "u@10.0.0.5", "--sudo-ref", "file:/tmp/pw", "--dry-run"}},
 		{"service password", []string{"conn", "add", "web1-db", "postgres://app@10.0.0.5/shop", "--password-ref", "op://ops/db/password", "--dry-run"}},
-		{"vpn psk", []string{"vpn", "add", "web1-vpn", "l2tp", "--server", "vpn.example.com", "--psk-ref", "vault:kv/vpn#psk", "--user", "alice", "--dry-run"}},
+		{"vpn psk", []string{"vpn", "l2tp", "add", "web1-vpn", "--server", "vpn.example.com", "--psk-credential", "vault:kv/vpn#psk", "--user", "alice", "--dry-run"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
@@ -84,10 +84,10 @@ func TestFormsTakeSavedSecretOnly(t *testing.T) {
 			}
 		}
 	}
-	if got := vpnPassArgs(nil, formAnswers{"user": "alice", "pass": "ref", "ref": "office-pw"}); strings.Join(got, " ") != "--password-ref credential:office-pw" {
+	if got := vpnPassArgs(nil, formAnswers{"user": "alice", "pass": "ref", "ref": "office-pw"}); strings.Join(got, " ") != "--credential office-pw" {
 		t.Errorf("vpnPassArgs: %v", got)
 	}
-	if got := vpnPskArgs(nil, formAnswers{"psk": "ref", "pskref": "office-psk"}); strings.Join(got, " ") != "--psk-ref credential:office-psk" {
+	if got := vpnPskArgs(nil, formAnswers{"psk": "ref", "pskref": "office-psk"}); strings.Join(got, " ") != "--psk-credential office-psk" {
 		t.Errorf("vpnPskArgs: %v", got)
 	}
 }
