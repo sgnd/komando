@@ -27,7 +27,8 @@ import (
 
 // revealNever are the commands whose --reveal an AI agent never gets: the
 // root's masking does not ask the person for them.
-var revealNever = map[string]bool{"credential.password.show": true, "credential.token.show": true, "credential.key.show": true, "db.dump": true}
+var revealNever = map[string]bool{"credential.password.show": true, "credential.token.show": true, "credential.key.show": true,
+	"database.postgres.backup": true, "database.mysql.backup": true, "database.sqlite.backup": true}
 
 // valueShow are the commands that show a saved password or token.
 var valueShow = map[string]bool{"credential.password.show": true, "credential.token.show": true}
