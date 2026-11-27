@@ -1451,7 +1451,6 @@
         "flags": [
           {
             "name": "limit",
-            "shorthand": "n",
             "type": "int",
             "default": "0",
             "usage": "show at most this many (0 = all)"
@@ -13195,8 +13194,8 @@
       {
         "code": "WRONG_KIND",
         "exit": 2,
-        "example": "… is a … URL, not one for `komando … add`",
-        "hint": "add it with `… add` (or `komando conn add`)"
+        "example": "… is a Kubernetes cluster, not a Swarm manager",
+        "hint": "use `komando cluster kubernetes raw …`"
       },
       {
         "code": "WRONG_PASSPHRASE",

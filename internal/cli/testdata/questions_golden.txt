@@ -364,9 +364,9 @@ title: Show the version, the nodes and what is not healthy
 title: Docker Swarm: run docker commands on a manager server
 ### komando cluster swarm raw
 title: Run one docker command on a Swarm manager and show the result
-- arg0 | Name | Name? |  |  | check
-- arg1 | Command | Command? (several: separate them with spaces) |  |  | 
-- flag:write | --write | Allow a command that changes data (it only reads without this) |  |  | advanced,default,choices
+- arg0 | Name | Which Swarm manager server? | A server that is a Swarm manager. |  | choices,check
+- arg1 | Command | Which docker command? (without docker in front) | It runs as docker would run it on the manager. | service ls | 
+- flag:write | --write | Does it change the Swarm? | No: komando refuses a command that would change something. |  | default,choices
 ### komando completion
 title: Print a tab-completion script for your shell
 ### komando completion bash

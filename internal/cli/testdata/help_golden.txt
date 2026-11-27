@@ -1546,7 +1546,7 @@ Examples:
 
 Flags:
   -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many (0 = all)
+      --limit int           show at most this many (0 = all)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
