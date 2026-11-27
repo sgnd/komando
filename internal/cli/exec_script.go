@@ -92,7 +92,7 @@ func scriptReadOnly(cl *call, body, interpreter string, args, env []string) (mut
 	return false, nil
 }
 
-// scriptArgsShown are --arg values as they show in a job's command.
+// scriptArgsShown are --arg values as they show in a session's command.
 func scriptArgsShown(args []string) []string {
 	var shown []string
 	for _, a := range args {

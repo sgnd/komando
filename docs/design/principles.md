@@ -147,7 +147,7 @@ Selectors pick everything: servers and conns alike.
   Progress, prompts and warnings always go to stderr.
 - Colour only in a terminal, never with `NO_COLOR`.
 - Lists are sorted by name, as one list; a KIND or TYPE column tells kinds
-  apart. Lists without names keep their own order: jobs and tunnels by
+  apart. Lists without names keep their own order: exec sessions and tunnels by
   start time, crontab lines as in the file, `audit` by time.
 - Many targets: `data.results[]` per target, `data.summary` (`ok`,
   `failed`), skipped targets in `meta.skipped[]`. Top-level `ok` is false
@@ -364,7 +364,7 @@ A family is done when:
 - **Our own code where no suitable open library exists, and fully open
   source**: no closed or prebuilt parts. Never copy GPL code.
 - **No pool and no daemon.** One connection per command. Tunnels, VPN
-  sessions, kept logins and jobs are the only background processes
+  sessions, kept logins and exec sessions are the only background processes
   (`komando status` lists them).
 - **The paid boundary.** The CLI never syncs between devices. Sync and the
   AI assistant are only in the paid apps, and these rules keep paid-plan
@@ -479,7 +479,7 @@ Use this list for every feature and every review.
 - `~` in local and remote paths, spaces and unicode in names, symlinks, very large files (progress on stderr)
 
 **Processes**
-- Over about 2 minutes: `job`; the connection drops while a job runs; orphan jobs are cleaned up
+- Over about 2 minutes: an exec session; the connection drops while it runs; old sessions are cleaned up
 - Ctrl-C: roll back, clean up, `CANCELLED`; at a question, a no with echo back on
 - Two komando processes on the same state
 

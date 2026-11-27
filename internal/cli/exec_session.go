@@ -81,7 +81,8 @@ func (s *sessionOpts) wants(c *cobra.Command) bool {
 
 // attachCall is exec on sessions that run already: --attach IDs and no
 // command (command says one was given); with --stop or --remove, one ID.
-func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command, args []string, command bool) error {
+// --read-only only reads: it refuses --stop and --remove.
+func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command, args []string, command, readOnly bool) error {
 	f := c.Flags()
 	one := len(s.attach) == 1 && !f.Changed("offset") && !f.Changed("wait")
 	switch {
@@ -91,6 +92,8 @@ func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command
 		return out.Usage("--attach works on sessions that run already: give no command with it")
 	case f.Changed("signal") && !s.stop:
 		return out.Usage("--signal goes with --stop")
+	case readOnly && (s.stop || s.remove):
+		return out.Usage("--read-only only reads: --stop and --remove change the session on the server")
 	case s.stop && s.remove:
 		return out.Usage("--stop and --remove go one at a time: stop the run, then remove it once it has ended")
 	case (s.stop || s.remove) && !one:
@@ -110,6 +113,7 @@ func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command
 // on. A nil sessionRun runs the command as before.
 type sessionRun struct {
 	opts     sessionOpts
+	st       *store.State // for the audit entry of the start
 	shown    string
 	id       string // empty: no session (none could be made, or the start failed)
 	nextFrom *int64 // where an --attach reads on, while the run goes on
@@ -117,11 +121,11 @@ type sessionRun struct {
 
 // sessionFor is exec's session for this run, or nil: the run is a plain
 // exec on one Unix server without --pty.
-func sessionFor(name string, hosts []*store.Host, o execOpts, shown string) *sessionRun {
+func sessionFor(st *store.State, name string, hosts []*store.Host, o execOpts, shown string) *sessionRun {
 	if o.session == nil || name != "exec" || len(hosts) != 1 || hosts[0].Windows() || o.pty {
 		return nil
 	}
-	return &sessionRun{opts: *o.session, shown: shown}
+	return &sessionRun{opts: *o.session, st: st, shown: shown}
 }
 
 // fill puts the session into a server's result: its ID (null when it ran
@@ -187,6 +191,7 @@ func (s *sessionRun) run(cl *call, ctx context.Context, c *sshx.Client, r sshx.R
 		cl.out.Warn(host + ": " + w)
 	}
 	s.id = id
+	audit(cl, s.st, "exec", []string{host}, s.shown, true, map[string]any{"session": id, "started": true, "sudo": r.Sudo})
 	rec := &store.ExecSession{ID: id, Host: host, Command: s.shown, PID: facts.PID, PGID: facts.PGID, ProcStart: facts.Start,
 		StartedAt: time.Now().UTC(), Sudo: r.Sudo, SudoUser: r.SudoUser, Actor: actor(cl), Agent: cl.isAgent()}
 	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.ExecSessions[id] = rec; return nil }); err != nil {
@@ -234,7 +239,7 @@ func (s *sessionRun) follow(cl *call, ctx context.Context, c *sshx.Client, from 
 	done, err := f.Run(ctx, read)
 	res.Stdout, res.DurationMS = buf.String(), time.Since(t0).Milliseconds()
 	if err != nil {
-		s.nextFrom = &done.NextFrom
+		s.nextFrom, res.ExitCode = &done.NextFrom, -1 // no exit code yet
 		return res, err
 	}
 	st := done.Status

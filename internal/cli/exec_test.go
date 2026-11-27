@@ -116,6 +116,7 @@ type sessionResult struct {
 			Session  *string `json:"session"`
 			ExitCode int     `json:"exit_code"`
 			Stdout   string  `json:"stdout"`
+			Cut      bool    `json:"stdout_truncated"`
 			NextFrom *int64  `json:"next_from"`
 		} `json:"results"`
 	} `json:"data"`
@@ -170,6 +171,19 @@ func TestExecSessionFirstLine(t *testing.T) {
 	}
 	if rt, _ := store.ReadRuntime(); rt.ExecSessions[id] != nil {
 		t.Fatal("the record stayed after a full read")
+	}
+}
+
+// --max-output holds when a session is read: the output stops there and
+// the result says it was cut.
+func TestExecSessionOutputLimit(t *testing.T) {
+	startSessionServer(t, "0123456789abcdef\n", true)
+	_, res, err := runSession(t, "exec", "dev", "--read-only", "--max-output", "8", "--", "uptime")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := res.Data.Results[0]; r.Stdout != "01234567" || !r.Cut {
+		t.Fatalf("result %+v", r)
 	}
 }
 
@@ -286,7 +300,7 @@ func TestSessionForOneUnixServer(t *testing.T) {
 		{"not exec", "logs", []*store.Host{unix}, o, false},
 		{"no session flags", "exec", []*store.Host{unix}, execOpts{}, false},
 	} {
-		if got := sessionFor(tc.cmd, tc.hosts, tc.o, "x") != nil; got != tc.want {
+		if got := sessionFor(nil, tc.cmd, tc.hosts, tc.o, "x") != nil; got != tc.want {
 			t.Errorf("%s: session %v", tc.name, got)
 		}
 	}

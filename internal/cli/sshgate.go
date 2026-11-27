@@ -61,7 +61,7 @@ var gateExec = syscall.Exec
 // change something, or "". The checks read flag values, which an old
 // spelling of a flag shares (flag_alias.go), so every spelling counts.
 var gateReadForm = map[safetyKey]func(c *cobra.Command) string{
-	{"host", "", "exec"}:              needFlag("read-only"),
+	{"host", "", "exec"}:              gateExecRead,
 	{"host", "docker", "exec"}:        needFlag("read-only"),
 	{"cluster", "", "exec"}:           needFlag("read-only"),
 	{"database", "", "query"}:         noFlag("write"),
@@ -222,6 +222,15 @@ func needFlag(name string) func(c *cobra.Command) string {
 		}
 		return ""
 	}
+}
+
+// gateExecRead: exec reads with --read-only, but --stop signals a run and
+// --remove deletes its folder on the server, whatever --read-only says.
+func gateExecRead(c *cobra.Command) string {
+	if why := noFlag("stop", "remove")(c); why != "" {
+		return why
+	}
+	return needFlag("read-only")(c)
 }
 
 func noFlag(names ...string) func(c *cobra.Command) string {

@@ -101,7 +101,7 @@ t1108-195255-ab12cd34  bastion  local  127.0.0.1:53412  prod-db (10.0.0.9:5432) 
 - `tunnel stop` takes IDs or `--all`, not both.
 - A tunnel whose process is gone, or whose process ID now belongs to
   another program, shows as down and is never signalled.
-- `komando status` shows tunnels together with VPNs, logins and jobs
+- `komando status` shows tunnels together with VPNs, logins and exec sessions
   ([What is still running](commands.md#see-what-is-still-running)).
 
 ## Behind a company proxy

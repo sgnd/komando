@@ -192,8 +192,8 @@ komando host rename web1 web-01
 ```
 
 The address, login, references, protected mark, groups, tags and labels
-stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
-and tunnels, follow the new name in the same step. Pinned host keys belong
+stay. Servers, conns and tunnels that go through it (`--via`), and its exec
+sessions and tunnels, follow the new name in the same step. Pinned host keys belong
 to the address, so `host trust` is not needed again. Renaming a protected
 server asks first. `conn rename` and `vpn rename` do the same for conns and
 VPNs, `key rename` for a key, and `group rename` for a group.
@@ -230,7 +230,7 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
 - Every reference follows: `--via` paths (also a server in the middle
   of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
   key and passphrase references, `secret:NAME` options in conn URLs, the
-  key a server uses, group membership, jobs and tunnels. A key komando made
+  key a server uses, group membership, exec sessions and tunnels. A key komando made
   (`key gen`) lives in the sealed store, so no file moves; a key file you
   added stays where it is.
 - The protected mark, labels, notes and creation time stay.

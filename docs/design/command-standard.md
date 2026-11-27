@@ -120,7 +120,6 @@ uses for a noun (S-2.3) always resolves as that noun.
 | `key` | an SSH key komando knows | keys |
 | `recipe` | a saved command | recipes |
 | `policy` | your own block rules | policies |
-| `job` | a long command running on a server | jobs |
 | `tunnel` | a port forward komando keeps running | tunnels, pf |
 | `config` | komando settings | |
 | `fs` | files on servers | files |
@@ -174,13 +173,13 @@ tool-word list S-3.3]
 | `describe` | everything about one object | | kubectl describe |
 | `get` | the raw value of one item | | kubectl get, redis GET |
 | `info` | a summary of the target: version, role, size | | redis INFO, docker info |
-| `status` | state of something that runs (unit, job, rollout, release, VPN session) | | systemctl status |
+| `status` | state of something that runs (unit, rollout, release, VPN session) | | systemctl status |
 | `logs`, `history`, `events` | what happened | | kubectl logs/events, helm history |
 | `create` | make a new thing on the target | | kubectl create, gh |
 | `set` | write one value | | redis SET, gh secret set |
 | `rm` | delete a thing on the target (needs `--allow-dangerous`) | remove, delete, del | kubectl delete |
 | `start`, `stop`, `restart`, `reload`, `enable`, `disable` | change the run state of an existing thing | | systemctl, docker |
-| `kill` | signal something running now | stop (on job) | kill, docker kill |
+| `kill` | signal something running now | | kill, docker kill |
 | `wait` | wait until it ends | | kubectl wait |
 | `purge` | empty it but keep it | | rabbitmqctl purge_queue |
 | `prune` | delete old things by a rule | | docker prune |
@@ -254,7 +253,7 @@ words; the completion and picker map has one entry per word]
 | `NAME` | one item of the command's own noun (or a new name in `add`; a cron entry's name in `cron`) | that noun |
 | `GROUP` | an inventory group | groups |
 | `USER` | an account (Linux or database) | none |
-| `JOB`, `TUNNEL`, `RULE` (policy), `SETTING` (config) | that item | jobs, tunnels, none |
+| `TUNNEL`, `RULE` (policy), `SETTING` (config) | that item | tunnels, none |
 | `KEY` | a cache key only | none |
 | `OBJECT` | a storage object | none |
 | `CONSUMER` | a queue consumer group | none |
@@ -687,7 +686,6 @@ here as "none". [schema: for each kind, each verb resolves]
 | group | add | test @GROUP | show | list | add/rm members | rename | rm (no TARGET) | export |
 | recipe | add | none | show | list | add --overwrite | none | rm | export |
 | policy rule | deny (alias add) | check | none | list | none | none | rm | export |
-| job | start | none | status (alias show) | list | none | none | kill (alias stop), rm | none |
 | tunnel | start | none | show | list | none | none | stop | none |
 
 **S-10.2** Flags match across kinds: `vpn add/edit` take the same

@@ -202,6 +202,8 @@ func TestExecSessionStopRefusals(t *testing.T) {
 		{[]string{"--remove", "--", "uptime"}, "USAGE"},
 		{[]string{"--signal", "KILL", "--", "uptime"}, "USAGE"},
 		{[]string{"--attach", "../x", "--remove"}, "USAGE"},
+		{[]string{"--attach", attachID, "--stop", "--read-only"}, "USAGE"},
+		{[]string{"--attach", attachID, "--remove", "--read-only"}, "USAGE"},
 		{[]string{"--attach", attachID, "--stop"}, "SESSION_RECORD_MISSING"},
 		{[]string{"--attach", "b" + attachID[1:], "--stop"}, "SESSION_RECORD_MISSING"},
 	} {
@@ -217,10 +219,14 @@ func TestExecSessionStopRefusals(t *testing.T) {
 // U14: --stop and --remove are changes: a protected
 // server refuses them without --yes, before komando connects, and the
 // audit log records the refusal. (dev, the same address as prod, is
-// protected too: the other tests pass --yes.)
+// protected too: the other tests pass --yes.) An agent's line with
+// --read-only is still rated a change.
 func TestExecSessionChangeTier(t *testing.T) {
 	for _, flag := range []string{"--stop", "--remove"} {
 		t.Run(flag, func(t *testing.T) {
+			if r := riskOfLine([]string{"exec", "web", "--read-only", "--attach", attachID, flag}); r.tier < tierChange {
+				t.Fatalf("an agent's line is rated %s, want change or higher", r.tier)
+			}
 			srv := stopServer(t, 0)
 			putExecSession(t, &store.ExecSession{ID: attachID, Host: "prod", PID: 4242, PGID: 4242, ProcStart: "proc 99"})
 			if _, err := runChange(t, "exec", "prod", "--attach", attachID, flag); errCode(err) != "PROTECTED_TARGET" {

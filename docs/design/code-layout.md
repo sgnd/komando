@@ -117,7 +117,7 @@ or a listed one is gone.
 | `internal/snippet` | the engine of the ready-made snippets: the built-in type, the checks of a definition, the registry, filling a text with quoted variables, the parse step and the JSON contract; it runs nothing itself |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
-| `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
+| `internal/store` | komando's state: inventory, conns, keys, exec sessions, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
 | `internal/storex/ftptest` | a test FTP and FTPS server for the tests |
 | `internal/testhome` | tests only: a throwaway home folder for each test binary, and the rules that keep tests out of the real one |

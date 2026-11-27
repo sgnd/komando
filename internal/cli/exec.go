@@ -170,7 +170,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if sess.wants(cmd) {
-				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "")
+				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "", readOnly)
 			}
 			o.session = &sess
 			if so.file != "" {
@@ -312,7 +312,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 	if follow {
 		followStatus(cl, st, hosts)
 	}
-	sess := sessionFor(name, hosts, o, shown)
+	sess := sessionFor(st, name, hosts, o, shown)
 	var mu sync.Mutex
 	var failed bool
 	run := func(ctx context.Context, c *sshx.Client) (any, error) {
@@ -446,7 +446,11 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 		data.Results = append(data.Results, hr)
 	}
 	data.Summary.Total = len(results)
-	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe))
+	rec := withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe)
+	if sess != nil && sess.id != "" {
+		rec["session"] = sess.id
+	}
+	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, rec)
 	if o.stream && cl.out.Format != "text" {
 		cl.out.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}

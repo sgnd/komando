@@ -267,7 +267,7 @@ Good to know:
 - A session that ended and was read to its end is removed by the one who
   started it; the others are swept after 7 days.
 - `--stop` and `--remove` are changes: a protected server asks first, and a
-  read-only key may not use them. `--stop` works only from the computer that
+  read-only key may not use them, nor `--read-only` (`USAGE`). `--stop` works only from the computer that
   started the run (`SESSION_RECORD_MISSING` elsewhere); a run started with
   `--sudo` is stopped through sudo as the same user. `--remove` refuses a
   running session (`SESSION_BUSY`): stop it first.

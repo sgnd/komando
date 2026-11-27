@@ -187,7 +187,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`, or `COMMAND_FAILED` when its command exited non-zero) | read `data.results` for each server's exit code and stderr |
 | `USAGE` | a wrong command, flag or value; also `komando` alone or a group such as `komando db` without its sub-command, when piped | the message says what is wrong, often with "did you mean"; the hint gives an example or lists the sub-commands |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
-| `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
+| `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec` or `cluster exec` |
 | `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; a run in a session goes on there: `komando exec TARGET --attach ID` reads it ([details](commands.md#when-the-connection-drops)) |
 | `TIMEOUT` | the command took too long | `--timeout 30m`; a run in a session goes on after `--wait` (`exec --attach ID`) |
 
