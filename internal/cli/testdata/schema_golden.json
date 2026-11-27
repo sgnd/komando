@@ -22909,8 +22909,8 @@
       {
         "code": "KEY_INVALID",
         "exit": 2,
-        "example": "… is not a public key: …",
-        "hint": "give the CA's public key file (.pub)"
+        "example": "cannot parse …: …",
+        "hint": "give an OpenSSH or PEM private key file"
       },
       {
         "code": "KEY_IN_USE",
