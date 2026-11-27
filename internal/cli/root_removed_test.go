@@ -29,6 +29,10 @@ var removedTextOpen = map[string]bool{
 	"user": true, "user.add": true, "user.list": true, "user.lock": true, "user.rm": true, "user.unlock": true,
 }
 
+// removedCodes are the error codes only a removed command gave: no doc,
+// test or program text keeps one.
+var removedCodes = []string{"CERT_PROBLEMS", "NO_CERTIFICATE", "TLS_HANDSHAKE_FAILED"}
+
 // removedGoneAllowed are the files that may still name a removed command: the
 // release history and the frozen v0.17 tables (they say what was there).
 var removedGoneAllowed = map[string]bool{
@@ -83,6 +87,9 @@ func TestRemovedGone(t *testing.T) {
 			forms[id] = removedForms(id)
 		}
 	}
+	for _, code := range removedCodes {
+		forms[code] = []*regexp.Regexp{regexp.MustCompile(`\b` + code + `\b`)}
+	}
 	for _, root := range removedGoneRoots {
 		err := filepath.WalkDir(filepath.Join("..", "..", root), func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
@@ -106,7 +113,7 @@ func TestRemovedGone(t *testing.T) {
 				for id, res := range forms {
 					for _, re := range res {
 						if matchesAtStart(re, line) {
-							t.Errorf("%s:%d names the removed command %q: %s", rel, n+1, id, strings.TrimSpace(line))
+							t.Errorf("%s:%d names the removed command or code %q: %s", rel, n+1, id, strings.TrimSpace(line))
 						}
 					}
 				}
