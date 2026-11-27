@@ -23,7 +23,8 @@ func TestSuggestedCommandsParse(t *testing.T) {
 	}
 	for kind, cmds := range itemCommands {
 		for _, c := range cmds {
-			check("show "+kind, strings.ReplaceAll(c, "{}", "web1"))
+			// a show of a VPN fills in its kind (itemHelp does the same)
+			check("show "+kind, strings.ReplaceAll(strings.ReplaceAll(c, "{}", "web1"), "vpn KIND ", "vpn wireguard "))
 		}
 	}
 	for key, h := range formHints {

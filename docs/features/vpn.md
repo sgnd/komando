@@ -391,7 +391,7 @@ komando test office
   server. A server that insists stops with an error that says so. The link
   never comes up before the login. If the server cannot do better and you
   accept that, allow the weak logins for that VPN only:
-  `komando vpn wireguard edit office --allow-pap`.
+  `komando vpn l2tp edit office --allow-pap`.
 - `ipsec` with a group name (`--id`) logs in with IKEv1 aggressive mode,
   like Cisco's own clients. Anyone who sees that login can guess the group
   password offline, and with it pretend to be the server. The session log
@@ -408,7 +408,7 @@ komando test office
   weak (a well-funded attacker can break them) and are not offered: a
   server that wants them stops with an error that says so. If its admin
   cannot change that, allow them for that VPN only:
-  `komando vpn wireguard edit office --legacy-crypto`. They then come after the
+  `komando vpn l2tp edit office --legacy-crypto`. They then come after the
   strong ones, and the session log warns when the server picks one. IKEv2:
   AES-GCM and AES-CBC with SHA-2 or SHA-1, DH groups 14, 19, 20, 31 (and 2
   for old servers). Single DES and MD5 are never used.
@@ -456,7 +456,7 @@ komando test office
 | `VPN_CLIENT_MISSING` (exit 3) | `openconnect` or `ocproxy` is not installed | install the program the message names |
 | `VPN_IN_USE` (exit 8) | `vpn KIND remove` on a VPN still on a `--via` path | change those `--via` paths first |
 | `VPN_KEY_IN_USE` (exit 8) | another komando session runs the same WireGuard key (another home, or one that does not answer) | stop it with the `vpn KIND stop` command the hint names, or give this VPN its own key |
-| `VPN_CONFIG` (exit 2) | the stored settings or config file are wrong | fix them with `komando vpn add NAME ... --overwrite` |
+| `VPN_CONFIG` (exit 2) | the stored settings or config file are wrong | fix them with `komando vpn KIND add NAME ... --overwrite` |
 | `OVPN_UNSUPPORTED` (exit 2) | the OpenVPN profile has an option komando's client does not support | change the profile; the message names the option |
 | `SECRET_EXISTS` (exit 8) | a vault secret with the VPN's name exists already | pick another VPN name, or move the secret away first |
 

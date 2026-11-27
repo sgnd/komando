@@ -127,8 +127,8 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	add := []string{"vpn", "l2tp", "add", "branch", "--server", "vpn.example.com", "--psk-credential", "branch-psk", "--user", "alice", "--credential", "db-pass"}
 	for _, args := range [][]string{
 		add,
-		{"vpn", "socks", "add", "lab", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--password-ref", "env:GITHUB_TOKEN"},
-		{"vpn", "tailscale", "add", "tailnet", "--password-ref", "file:/etc/ssl/private/site.key"},
+		{"vpn", "socks", "add", "lab", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--credential", "env:GITHUB_TOKEN"},
+		{"vpn", "tailscale", "add", "tailnet", "--credential", "file:/etc/ssl/private/site.key"},
 		{"vpn", "openvpn", "edit", "office", "--credential", "other"},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SECRET_DESTINATION" {

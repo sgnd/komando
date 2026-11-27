@@ -149,7 +149,7 @@ func TestOutputShapes(t *testing.T) {
 	for _, setup := range [][]string{
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
-		{"conn", "add", "pg", "postgres://app@db.lan:5432/app", "--credential", "pg-pass"},
+		{"conn", "add", "pg", "postgres://app@db.lan:5432/app", "--password-ref", "secret:pg-pass"},
 		{"recipe", "add", "hello", "echo {{who=world}}"},
 	} {
 		if s, err := runCache(t, append([]string{"-o", "json"}, setup...)...); err != nil {

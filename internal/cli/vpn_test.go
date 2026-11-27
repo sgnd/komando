@@ -266,12 +266,12 @@ func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	d := mustRun(t, "vpn", "globalprotect", "start", "client-x", "--dry-run")
+	d := mustRun(t, "vpn", "anyconnect", "start", "client-x", "--dry-run")
 	meta, _ := d["_meta"].(map[string]any)
 	if b, _ := meta["would_be_blocked"].(map[string]any); d["would_connect"] != false || b["code"] != "VPN_LOGIN_REQUIRED" {
 		t.Errorf("dry run: %v", d)
 	}
-	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "globalprotect", "start", "client-x")
+	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "anyconnect", "start", "client-x")
 	a := mustRun(t, "audit", "--command", "vpn.up")
 	var real []map[string]any
 	for _, e := range a["entries"].([]any) {

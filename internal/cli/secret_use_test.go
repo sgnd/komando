@@ -119,16 +119,16 @@ func TestEnvSecretNeedsAPerson(t *testing.T) {
 func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	secretHome(t)
 	// a script is not asked, but a reserved secret is refused
-	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--credential", "db-pass")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass")
 	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
-	wantCode(t, "RESERVED_SECRET", "host", "add", "x", "u@10.0.0.9", "--credential", ""+approvalSecret)
-	wantCode(t, "RESERVED_SECRET", "conn", "edit", "shop", "--credential", ""+approvalSecret)
+	wantCode(t, "RESERVED_SECRET", "host", "add", "x", "u@10.0.0.9", "--password-ref", "secret:"+approvalSecret)
+	wantCode(t, "RESERVED_SECRET", "conn", "edit", "shop", "--password-ref", "secret:"+approvalSecret)
 	if _, err := vault.Resolve("secret:" + approvalSecret); toErr(err).Code != "RESERVED_SECRET" {
 		t.Errorf("a reference never reads the approval code's key: %v", err)
 	}
 
 	texts := windowText(t, true)
-	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--credential", "db-pass")
+	wantCode(t, "SECRET_DESTINATION", "conn", "add", "shop2", "postgres://app@evil.example/app", "--password-ref", "secret:db-pass")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--url", "postgres://app@evil.example/app")
 	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "shop", "--via", "jump")
 	wantCode(t, "SECRET_DESTINATION", "host", "add", "web1", "deploy@10.0.0.1", "--password-ref", "env:GITHUB_TOKEN")
@@ -145,7 +145,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)
 	}
 
-	mustRun(t, "host", "edit", "web1", "--credential", "db-pass", "--yes")
+	mustRun(t, "host", "edit", "web1", "--password-ref", "secret:db-pass", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
 	}
@@ -170,7 +170,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 
 	// the person says no
 	windowText(t, false)
-	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "cache", "--credential", "db-pass", "--yes")
+	wantCode(t, "SECRET_DESTINATION", "conn", "edit", "cache", "--password-ref", "secret:db-pass", "--yes")
 	st, _ := store.Load()
 	if st.Conns["cache"].PasswordRef != "" || st.Hosts["web1"].Address != "10.0.0.1" {
 		t.Error("a refused change was saved")
@@ -230,7 +230,7 @@ func TestWeakTLS(t *testing.T) {
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
-	mustRun(t, "conn", "add", "files", "ftp://u@10.0.0.8/www?insecure=1", "--credential", "db-pass", "--yes")
+	mustRun(t, "conn", "add", "files", "ftp://u@10.0.0.8/www?insecure=1", "--password-ref", "secret:db-pass", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to 10.0.0.8:21 (insecure=1) (conn files)") || !strings.Contains((*texts)[0], "files: insecure=1") {
 		t.Errorf("one window for the secret and the setting: %q", *texts)
 	}
@@ -362,11 +362,11 @@ func TestDBUserPasswordNeedsAPerson(t *testing.T) {
 	mustRun(t, "conn", "add", "local", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
 	texts := windowText(t, true)
 	// a new login is a privilege change: that stop comes first
-	wantCode(t, "POLICY_BLOCKED", "db", "user", "add", "local", "app", "--credential", "db-pass")
+	wantCode(t, "POLICY_BLOCKED", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
-	e := wantCode(t, "SECRET_DESTINATION", "db", "user", "add", "local", "app", "--credential", "db-pass", "--allow-dangerous")
+	e := wantCode(t, "SECRET_DESTINATION", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass", "--allow-dangerous")
 	if !strings.Contains(e.Message, "database user app (conn local)") {
 		t.Errorf("message: %q", e.Message)
 	}

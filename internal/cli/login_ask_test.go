@@ -199,7 +199,7 @@ func TestLoginAskFlag(t *testing.T) {
 	// what each word needs, and what it cannot go with
 	for _, bad := range [][]string{
 		{"--login", "always"},
-		{"--login", "ask", "--credential", "web2-pass"},
+		{"--login", "ask", "--password-ref", "secret:web2-pass"},
 		{"--login", "ask", "--ask-password"},
 		{"--login", "password"},
 		{"--login", "password", "--password-ref", "env:X", "--identity", keyFile},
@@ -254,7 +254,7 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "s3cret-in-env")
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--credential", "web1-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
 	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
 		if err != nil {
@@ -283,10 +283,10 @@ func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "shared-pass", "--from-env", "PW")
 	mustRun(t, "secret", "set", "web4-pass", "--from-env", "PW")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--credential", "web1-pass")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--credential", "shared-pass")
-	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--credential", "shared-pass")
-	mustRun(t, "host", "add", "web4", "u@10.0.0.4", "--credential", "web4-pass")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "secret:shared-pass")
+	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "secret:shared-pass")
+	mustRun(t, "host", "add", "web4", "u@10.0.0.4", "--password-ref", "secret:web4-pass")
 
 	d := mustRun(t, "host", "edit", "web1", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["web1-pass"]` ||

@@ -173,6 +173,7 @@ func (k vpnKind) editOptions() []Option {
 		case "config", "ask-password", "ask-psk", "overwrite", "mfa", "protected", "label", "group", "tag", "notes":
 			continue
 		}
+		a.Required = false // an edit gives only what changes
 		o = append(o, a)
 	}
 	unset = append(unset, vpnCheckOpt)

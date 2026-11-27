@@ -388,7 +388,11 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 // table option that the body names differently is in renames; the
 // credential option is the body's --password-ref (credentialRef).
 func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, renames map[string]string) error {
-	body.SetArgs(bodyArgv(in, renames))
+	argv := bodyArgv(in, renames)
+	if argv == nil {
+		argv = []string{} // nil would make cobra read the process's own arguments
+	}
+	body.SetArgs(argv)
 	body.SilenceErrors, body.SilenceUsage = true, true
 	before := cl.out.As
 	cl.out.As = in.ID // the envelope and the audit record carry the leaf's ID
