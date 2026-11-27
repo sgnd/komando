@@ -198,15 +198,6 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 			}
 		}
 		leaf := buildLeaf(l, h)
-		if l.Key.Type == "host" && l.Key.Verb == "exec" && !sessionsOn {
-			// exec's session flags are listed in the table, and hidden and
-			// refused (refuseOff) until the cut turns sessions on
-			for _, n := range sessionFlags {
-				if f := leaf.Flags().Lookup(n); f != nil {
-					f.Hidden = true
-				}
-			}
-		}
 		parent.AddCommand(leaf)
 	}
 	return nil

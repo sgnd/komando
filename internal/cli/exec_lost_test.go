@@ -78,7 +78,7 @@ func TestExecSessionSudoPassword(t *testing.T) {
 	if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].SudoRef = "credential:dev-sudo"; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := runSession(t, "exec", "dev", "--sudo", "--read-only", "--", "uptime"); err != nil {
+	if _, _, err := runSession(t, "host", "ssh", "exec", "dev", "--sudo", "--read-only", "--", "uptime"); err != nil {
 		t.Fatal(err)
 	}
 	execs := srv.take()
@@ -104,7 +104,7 @@ func TestExecSessionSudoPassword(t *testing.T) {
 // starts, and the end names the same session.
 func TestExecSessionAudit(t *testing.T) {
 	startSessionServer(t, "up\n", true)
-	first, _, err := runSession(t, "exec", "dev", "--read-only", "--", "uptime")
+	first, _, err := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
 	if err != nil {
 		t.Fatal(err)
 	}

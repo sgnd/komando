@@ -151,7 +151,7 @@ func execLine(name string, h *store.Host, command string, stdin []byte, o execOp
 	if name != "exec" || piped || o.pty || o.display != "" || h.Windows() {
 		return ""
 	}
-	parts := []string{"komando", "exec", h.Name}
+	parts := []string{"komando", "host", "ssh", "exec", h.Name}
 	if o.sudo {
 		parts = append(parts, "--sudo")
 	}

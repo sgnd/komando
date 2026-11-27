@@ -224,7 +224,7 @@ func TestExecSessionStopRefusals(t *testing.T) {
 func TestExecSessionChangeTier(t *testing.T) {
 	for _, flag := range []string{"--stop", "--remove"} {
 		t.Run(flag, func(t *testing.T) {
-			if r := riskOfLine([]string{"exec", "web", "--read-only", "--attach", attachID, flag}); r.tier < tierChange {
+			if r := riskOfLine([]string{"host", "ssh", "exec", "web", "--read-only", "--attach", attachID, flag}); r.tier < tierChange {
 				t.Fatalf("an agent's line is rated %s, want change or higher", r.tier)
 			}
 			srv := stopServer(t, 0)
