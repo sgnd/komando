@@ -79,7 +79,7 @@ func TestChangeCommandsOwnText(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, a := range [][]string{
-		{"host", "ssh", "add", "web1", "u@10.0.0.1"}, {"host", "ssh", "edit", "web1", "--port", "2222"}, {"host", "rename", "web1", "web2"},
+		{"host", "ssh", "add", "web1", "u@10.0.0.1"}, {"host", "ssh", "edit", "web1", "--port", "2222"}, {"host", "ssh", "rename", "web1", "web2"},
 		{"conn", "add", "app-db", "postgres://app@10.0.0.9/app"}, {"conn", "edit", "app-db", "--notes", "x"}, {"conn", "rename", "app-db", "db2"},
 		{"vpn", "socks", "add", "office", "--proxy-address", "10.0.0.1:1080"}, {"vpn", "socks", "edit", "office", "--notes", "x"}, {"vpn", "socks", "rename", "office", "off2"},
 		{"group", "create", "g1", "web2"}, {"group", "rename", "g1", "g2"}, {"group", "remove", "g2", "web2"},

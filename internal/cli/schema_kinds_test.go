@@ -71,7 +71,7 @@ func TestSchemaConnAddKinds(t *testing.T) {
 	wantCode(t, "USAGE", "conn", "add", "local", "sqlite:///var/lib/app.db", "--via", "web1")
 
 	for family := range connAddKinds {
-		if slices.Contains(movedTypes, family) {
+		if slices.Contains(movedTypes, typeWord(family)) { // the family db is the type database
 			continue // its adds are per provider, from the table
 		}
 		kinds, _ := schemaAddKinds[connKindSchema](t, family, "add")

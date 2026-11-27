@@ -266,7 +266,7 @@ func TestClusterAddKind(t *testing.T) {
 	wantCode(t, "USAGE", "cluster", "kubernetes", "add", "k1", "k8s://127.0.0.1:6451")
 	wantCode(t, "WRONG_KIND", "cluster", "kubernetes", "add", "r1", "registry://ghcr.io")
 	wantCode(t, "WRONG_KIND", "registry", "oci", "add", "k3", "k8s://1.2.3.4")
-	if e := wantCode(t, "USAGE", "cluster", "kubernetes", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host add") {
+	if e := wantCode(t, "USAGE", "cluster", "kubernetes", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host ssh add") {
 		t.Errorf("swarm: %+v", e)
 	}
 	saveSecrets(t, "k2-kubeconfig")

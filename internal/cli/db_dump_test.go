@@ -330,7 +330,7 @@ func TestDatabaseBodyDefaultsMatchTable(t *testing.T) {
 func TestDatabaseSelectorWrongKind(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "my", "mysql://app@10.0.0.3:3306/app", "--label", "env=shop")
-	mustRun(t, "group", "add", "g", "my")
+	mustRun(t, "group", "create", "g", "my")
 	cases := 0
 	for _, sel := range []string{"my", "@g", "label:env=shop"} {
 		for _, verb := range [][]string{

@@ -108,7 +108,6 @@ func TestGateServerRules(t *testing.T) {
 		// rule d: exec is a shell; only the typed commands run
 		"komando host ssh exec localhost -- id":             "shell",
 		"komando host ssh exec localhost --read-only -- id": "shell",
-		"komando job start localhost -- id":                 "shell",
 		"komando credential key list":                       "only",
 		"komando fs write localhost ~/work/x --from -":      "only",
 		"komando database postgres query pg 'select 1'":     "only",

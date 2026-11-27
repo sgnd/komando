@@ -151,7 +151,7 @@ func TestSchemaResolvesNames(t *testing.T) {
 		{[]string{"fs", "ls"}, "komando fs list"},
 		{[]string{"credential", "password", "show"}, "komando credential password show"},
 		{[]string{"credential.password.show"}, "komando credential password show"},
-		{[]string{"host.rename"}, "komando host rename"},
+		{[]string{"host.ssh.rename"}, "komando host ssh rename"},
 		{[]string{"group", "show"}, "komando group show"},
 		{[]string{"cluster", "info"}, "komando cluster status"},
 		{[]string{"servers"}, "komando host"},
