@@ -325,7 +325,7 @@ This page is made from the code (`komando schema` lists the same under
 | `VIA_ORDER` | 2 | …: the --via path reaches VPN … after another step | a path can use one VPN, as its first step |
 | `VPN_CLIENT_MISSING` | 3 | … VPNs need the … program, which is not installed | install the program the message names (macOS: `brew install NAME`; Linux: its package) |
 | `VPN_CONFIG` | 2 | …: … | check the file is a WireGuard (wg-quick) config |
-| `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn KIND test …` tries again, and a person reads the whole log in … |
+| `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn … test …` tries again, and a person reads the whole log in … |
 | `VPN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first: `komando host edit TARGET --via OTHER` |
 | `VPN_KEY_IN_USE` | 8 | VPN …: its WireGuard key is in use by komando process … (VPN …, komando home …) | one WireGuard key runs in one session at a time: stop the other with `…`, or give this VPN a key of its own with `komando vpn wireguard add … --config FILE` |

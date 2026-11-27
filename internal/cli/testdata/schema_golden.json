@@ -10924,7 +10924,7 @@
         "path": "komando status",
         "usage": "komando status [flags]",
         "short": "What komando left running: VPNs, logins, tunnels, jobs",
-        "long": "Lists what still runs after the command that started it ended: VPN sessions\n(from vpn up, or started by a command), server logins kept by `komando login\nSERVER`, AWS IAM Identity Center (SSO) logins of the profiles in\n~/.aws/config and when they end, tunnels, and the jobs started on servers.\nNothing is contacted, so it is quick and works offline. A job is listed\nuntil `komando job rm`; whether it still runs is known on its server:\n`komando job list --refresh` asks.\n\n--short prints one line for your shell prompt: \"vpn:1 tun:2\" when one VPN\nis up and two tunnels run, nothing when nothing runs. It reads only the\nprocess numbers komando keeps beside its sealed store (no names, no key),\nprints no JSON and never fails, so it is safe to run on every prompt.\n\nzsh (also with oh-my-zsh), in ~/.zshrc:\n  setopt PROMPT_SUBST\n  RPROMPT='$(komando status --short)'\n\nbash, in ~/.bashrc:\n  PS1='$(p=$(komando status --short); [ -n \"$p\" ] && echo \"[$p] \")'\"$PS1\"\n\nstarship, in ~/.config/starship.toml:\n  [custom.komando]\n  command = \"komando status --short\"\n  when = true",
+        "long": "Lists what still runs after the command that started it ended: VPN sessions\n(from vpn KIND start, or started by a command), server logins kept by\n`komando login SERVER`, AWS IAM Identity Center (SSO) logins of the profiles\nin ~/.aws/config and when they end, tunnels, and the jobs started on\nservers. Nothing is contacted, so it is quick and works offline. A job is\nlisted until `komando job rm`; whether it still runs is known on its server:\n`komando job list --refresh` asks.\n\n--short prints one line for your shell prompt: \"vpn:1 tun:2\" when one VPN\nis up and two tunnels run, nothing when nothing runs. It reads only the\nprocess numbers komando keeps beside its sealed store (no names, no key),\nprints no JSON and never fails, so it is safe to run on every prompt.\n\nzsh (also with oh-my-zsh), in ~/.zshrc:\n  setopt PROMPT_SUBST\n  RPROMPT='$(komando status --short)'\n\nbash, in ~/.bashrc:\n  PS1='$(p=$(komando status --short); [ -n \"$p\" ] && echo \"[$p] \")'\"$PS1\"\n\nstarship, in ~/.config/starship.toml:\n  [custom.komando]\n  command = \"komando status --short\"\n  when = true",
         "example": "  komando status\n  komando status -o json\n  komando status --short   # prints for example vpn:2 tun:1, or nothing",
         "flags": [
           {
@@ -18991,7 +18991,7 @@
         "code": "VPN_DOWN",
         "exit": 4,
         "example": "VPN … did not start: …",
-        "hint": "the message ends with its log; `komando vpn KIND test …` tries again, and a person reads the whole log in …"
+        "hint": "the message ends with its log; `komando vpn … test …` tries again, and a person reads the whole log in …"
       },
       {
         "code": "VPN_EXISTS",
