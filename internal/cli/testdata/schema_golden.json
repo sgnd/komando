@@ -12296,6 +12296,12 @@
         "hint": "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"
       },
       {
+        "code": "SESSION_ACL_FAILED",
+        "exit": 5,
+        "example": "…: the session folder's access list could not be limited to the login user and SYSTEM; the folder is deleted and nothing ran",
+        "hint": "look with `komando exec TARGET -- icacls $env:LOCALAPPDATA\\komando\\sessions`: a policy may add entries to new folders there"
+      },
+      {
         "code": "SESSION_BUSY",
         "exit": 8,
         "example": "session … on … is still running",
@@ -12336,6 +12342,12 @@
         "exit": 5,
         "example": "…: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran",
         "hint": "free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`"
+      },
+      {
+        "code": "SESSION_START_DENIED",
+        "exit": 5,
+        "example": "…: Constrained Language Mode or AppLocker blocked the start of the run in a session; nothing ran and no session folder is left",
+        "hint": "look with `komando exec TARGET -- $ExecutionContext.SessionState.LanguageMode`: komando runs no command there without the session's protections, so the server's administrator allows its session scripts in the AppLocker rules first"
       },
       {
         "code": "SESSION_START_FAILED",

@@ -1,6 +1,7 @@
 package execsession
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strconv"
@@ -21,6 +22,7 @@ type Follow struct {
 	Every    time.Duration // the pause after a read that found nothing new
 	Lines    *Lines
 	Show     func(string)
+	Windows  bool // the session is on a Windows server: ReadScriptPS reads it
 }
 
 // Followed is where a follow stopped.
@@ -39,7 +41,7 @@ func (f Follow) Run(ctx context.Context, read Reader) (Followed, error) {
 	defer pause.Stop()
 	<-pause.C
 	for {
-		script, err := ReadScript(f.ID, from)
+		script, err := f.script(from)
 		if err != nil {
 			return Followed{NextFrom: from}, err
 		}
@@ -50,9 +52,14 @@ func (f Follow) Run(ctx context.Context, read Reader) (Followed, error) {
 		if err := f.readExit(exit); err != nil {
 			return Followed{NextFrom: from}, err
 		}
-		st, data, err := ParseRead(stdout, f.ID)
+		st, data, err := f.parse(stdout)
 		if err != nil {
 			return Followed{NextFrom: from}, fmt.Errorf("%s: %w", f.Host, err)
+		}
+		// Windows PowerShell 5.1 starts out.log with a byte order mark:
+		// not shown, and offsets stay the file's own (A-C324-11)
+		if f.Windows && from == 0 && bytes.HasPrefix(data, []byte(bom)) {
+			data, from = data[len(bom):], int64(len(bom))
 		}
 		end := st.Ended() && from+int64(len(data)) >= st.Size
 		text, used := f.Lines.Read(data, end)
@@ -67,7 +74,7 @@ func (f Follow) Run(ctx context.Context, read Reader) (Followed, error) {
 				"it is still running: `komando exec "+f.Host+" --attach "+f.ID+" --offset "+strconv.FormatInt(res.NextFrom, 10)+"` reads on",
 				"session %s on %s still running after %s", f.ID, f.Host, f.Wait)
 		}
-		if len(data) < ReadMax {
+		if len(data) < f.readMax() {
 			pause.Reset(f.Every)
 			select {
 			case <-ctx.Done():
@@ -87,9 +94,34 @@ func (f Follow) readExit(exit int) error {
 			"check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it",
 			"no session %s on %s", f.ID, f.Host)
 	case ExitUnsafe:
+		if f.Windows {
+			return folderDeniedPS(f.Host)
+		}
 		return folderDenied(f.Host)
 	}
 	return fmt.Errorf("%s: the session read failed (exit %d)", f.Host, exit)
+}
+
+// script, parse and readMax are the read of the server's OS.
+func (f Follow) script(from int64) (string, error) {
+	if f.Windows {
+		return ReadScriptPS(f.ID, from)
+	}
+	return ReadScript(f.ID, from)
+}
+
+func (f Follow) parse(stdout string) (Status, []byte, error) {
+	if f.Windows {
+		return ParseReadPS(stdout, f.ID)
+	}
+	return ParseRead(stdout, f.ID)
+}
+
+func (f Follow) readMax() int {
+	if f.Windows {
+		return ReadMaxPS
+	}
+	return ReadMax
 }
 
 // TruncatedNote says how much output past the log cap was dropped. The
