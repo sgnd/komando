@@ -25,7 +25,7 @@ check "db shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/b
 check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
 check "conn test logs in" login "$($K conn test pg | jget 'd["data"]["results"][0]["detail"]["check"]')"
 echo -n wrongpass | $K secret set pg-wrong >/dev/null
-q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-wrong
+q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref credential:pg-wrong
 check "conn test catches a wrong password" False "$($K conn test pg-wrong | jget 'd["data"]["results"][0]["ok"]' || true)"
 q $K conn rm pg-wrong
 q $K conn edit pg --option statement_timeout=1s
@@ -71,7 +71,7 @@ check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) fr
 q $K db dump pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
 # --run-on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
-q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
+q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref credential:pg-pass
 check "custom dump without a server names --run-on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
 check "dump --run-on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --run-on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
 q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --run-on bastion
@@ -109,7 +109,7 @@ set -e
 
 # memcached (with a login), through the bastion
 printf mcpass | $K secret set mc-pass >/dev/null
-q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref secret:mc-pass --via bastion
+q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref credential:mc-pass --via bastion
 q $K cache set mc greeting halo --ttl 1h
 check "memcached get via bastion, with its time to live" "halo True" "$($K cache get mc greeting | jget 'd["data"]["value"] + " " + str(d["data"]["ttl_seconds"] > 3500)')"
 check "memcached keys" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
@@ -160,8 +160,8 @@ check "rm --prefix removes them" True "$($K storage rm bucket --prefix tree/ --a
 
 # file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
 echo -n deploypass | $K secret set files-pass >/dev/null
-q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
-q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
+q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref credential:files-pass
+q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref credential:files-pass
 for c in files-sftp files-ftps; do
   # check the upload itself, so a failed upload shows its own error instead of an empty listing below
   check "$c upload" True "$($K storage upload "$c" "$TMP/obj.txt" 2026/11/obj.txt | jget 'd["ok"] or "%s: %s" % (d["error"]["code"], d["error"]["message"])' || true)"

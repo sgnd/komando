@@ -51,10 +51,10 @@ done
 
 LIFETIME=40s
 add() { in_client komando vpn add "$@" >/dev/null || fail "vpn add $1"; }
-add l2tp l2tp --server ipsecsrv --psk-ref secret:l2tp-psk --user l2tp-user --password-ref secret:l2tp-pass --check 10.30.0.1:8080
-add cisco ipsec --server ipsecsrv --id staff --psk-ref secret:group --user xauth-user --password-ref secret:xauth --check 10.40.0.1:8080
-add v2psk ikev2 --server ipsecsrv --id psk-client --psk-ref secret:v2psk --check 10.50.0.1:8080
-add v2eap ikev2 --server ipsecsrv --user eap-user --password-ref secret:eap --ca /pki/ca.pem --check 10.50.0.1:8080
+add l2tp l2tp --server ipsecsrv --psk-ref credential:l2tp-psk --user l2tp-user --password-ref credential:l2tp-pass --check 10.30.0.1:8080
+add cisco ipsec --server ipsecsrv --id staff --psk-ref credential:group --user xauth-user --password-ref credential:xauth --check 10.40.0.1:8080
+add v2psk ikev2 --server ipsecsrv --id psk-client --psk-ref credential:v2psk --check 10.50.0.1:8080
+add v2eap ikev2 --server ipsecsrv --user eap-user --password-ref credential:eap --ca /pki/ca.pem --check 10.50.0.1:8080
 for spec in "l2tp L2TP/IPsec (IKEv1 main mode, PPP MS-CHAPv2)" "cisco Cisco-style IPsec (aggressive mode, XAUTH, mode config)" \
   "v2psk IKEv2 with a pre-shared key" "v2eap IKEv2 with EAP-MSCHAPv2 and the server's certificate"; do
   name=${spec%% *}
@@ -123,17 +123,17 @@ refused() { # name want-in-message add-args...
   grep -qi -- "$want" <<<"$out" || { echo "$out" | head -c 600; echo; show_log "$name"; fail "$name: want '$want'"; }
   echo "ok   $name is refused: $want"
 }
-refused bad-psk "pre-shared key" l2tp --server ipsecsrv --psk-ref secret:wrong --user l2tp-user --password-ref secret:l2tp-pass --check 10.30.0.1:8080
-refused bad-ppp "wrong user name or password" l2tp --server ipsecsrv --psk-ref secret:l2tp-psk --user l2tp-user --password-ref secret:wrong --check 10.30.0.1:8080
-refused bad-xauth "XAUTH" ipsec --server ipsecsrv --id staff --psk-ref secret:group --user xauth-user --password-ref secret:wrong --check 10.40.0.1:8080
-refused bad-group "pre-shared key" ipsec --server ipsecsrv --id staff --psk-ref secret:wrong --user xauth-user --password-ref secret:xauth --check 10.40.0.1:8080
-refused bad-v2psk "AUTHENTICATION_FAILED" ikev2 --server ipsecsrv --id psk-client --psk-ref secret:wrong --check 10.50.0.1:8080
-refused bad-eap "wrong user name or password" ikev2 --server ipsecsrv --user eap-user --password-ref secret:wrong --ca /pki/ca.pem --check 10.50.0.1:8080
-refused bad-ca "not trusted" ikev2 --server ipsecsrv --user eap-user --password-ref secret:eap --ca /pki/other-ca.pem --check 10.50.0.1:8080
+refused bad-psk "pre-shared key" l2tp --server ipsecsrv --psk-ref credential:wrong --user l2tp-user --password-ref credential:l2tp-pass --check 10.30.0.1:8080
+refused bad-ppp "wrong user name or password" l2tp --server ipsecsrv --psk-ref credential:l2tp-psk --user l2tp-user --password-ref credential:wrong --check 10.30.0.1:8080
+refused bad-xauth "XAUTH" ipsec --server ipsecsrv --id staff --psk-ref credential:group --user xauth-user --password-ref credential:wrong --check 10.40.0.1:8080
+refused bad-group "pre-shared key" ipsec --server ipsecsrv --id staff --psk-ref credential:wrong --user xauth-user --password-ref credential:xauth --check 10.40.0.1:8080
+refused bad-v2psk "AUTHENTICATION_FAILED" ikev2 --server ipsecsrv --id psk-client --psk-ref credential:wrong --check 10.50.0.1:8080
+refused bad-eap "wrong user name or password" ikev2 --server ipsecsrv --user eap-user --password-ref credential:wrong --ca /pki/ca.pem --check 10.50.0.1:8080
+refused bad-ca "not trusted" ikev2 --server ipsecsrv --user eap-user --password-ref credential:eap --ca /pki/other-ca.pem --check 10.50.0.1:8080
 # the certificate is made out to ipsecsrv, not to the server's address
 SRV_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$SERVER")
-refused bad-name "is not for" ikev2 --server "$SRV_IP" --user eap-user --password-ref secret:eap --ca /pki/ca.pem --check 10.50.0.1:8080
-refused no-server "does not answer" l2tp --server 10.255.255.1 --psk-ref secret:l2tp-psk --user l2tp-user --password-ref secret:l2tp-pass --check 10.30.0.1:8080
+refused bad-name "is not for" ikev2 --server "$SRV_IP" --user eap-user --password-ref credential:eap --ca /pki/ca.pem --check 10.50.0.1:8080
+refused no-server "does not answer" l2tp --server 10.255.255.1 --psk-ref credential:l2tp-psk --user l2tp-user --password-ref credential:l2tp-pass --check 10.30.0.1:8080
 
 # mistakes are caught when the VPN is added
 usage() { # want-in-message add-args...
@@ -141,10 +141,10 @@ usage() { # want-in-message add-args...
   out=$(in_client komando vpn add bad "$@" 2>&1 || true)
   grep -q -- "$want" <<<"$out" || { echo "$out"; fail "vpn add $*: want '$want'"; }
 }
-usage "needs --server" l2tp --psk-ref secret:l2tp-psk --user u
+usage "needs --server" l2tp --psk-ref credential:l2tp-psk --user u
 usage "l2tp needs --psk-ref" l2tp --server ipsecsrv --user u
 usage "ikev2 needs --psk-ref" ikev2 --server ipsecsrv
-usage "--config is not used" ipsec --server ipsecsrv --psk-ref secret:group --config /etc/hosts
+usage "--config is not used" ipsec --server ipsecsrv --psk-ref credential:group --config /etc/hosts
 usage "--ca takes a PEM" ikev2 --server ipsecsrv --user u --ca /etc/hosts
 out=$(in_client komando vpn edit v2psk --remote-id x --id y --dry-run 2>&1); grep -q would_change <<<"$out" || fail "vpn edit --remote-id on ikev2"
 out=$(in_client komando vpn edit l2tp --remote-id x 2>&1 || true); grep -q "not used by l2tp" <<<"$out" || fail "vpn edit --remote-id on l2tp is refused"

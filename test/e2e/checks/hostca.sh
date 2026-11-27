@@ -21,7 +21,7 @@ set +e
 hostcert -n web.corp.example
 ptyrun '' env NO_COLOR=1 TERM=dumb "$K" host ca add lab --key "$TMP/hostca.pub" --hosts '*.corp.example' >/dev/null
 check "host ca: a person adds the lab CA" lab "$($K host ca list | jget 'd["data"]["items"][0]["name"]')"
-$K host add t-hostca agent@web.corp.example --via bastion --password-ref secret:agent-pass >/dev/null
+$K host add t-hostca agent@web.corp.example --via bastion --password-ref credential:agent-pass >/dev/null
 $K --host-key-policy strict exec t-hostca -- true >/dev/null
 check "host ca: a certificate for the dialled name is trusted with no pin" 0 $?
 check "host ca: host show names the CA" lab "$($K host show t-hostca | jget 'd["data"]["host_ca"]')"

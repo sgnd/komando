@@ -18,7 +18,7 @@ if ! BQC exec -T bigquery test -s /e2e/sa.json 2>/dev/null; then
 fi
 BQC exec -T bigquery cat /e2e/ca.crt | $K secret set bq-ca >/dev/null
 BQC exec -T bigquery cat /e2e/sa.json | $K secret set bq-sa >/dev/null
-q $K conn add bq 'bigquery://e2e-project/shop?location=EU&endpoint=https://bigquery.e2e.internal&ca=secret:bq-ca' --via bastion --password-ref secret:bq-sa
+q $K conn add bq 'bigquery://e2e-project/shop?location=EU&endpoint=https://bigquery.e2e.internal&ca=credential:bq-ca' --via bastion --password-ref credential:bq-sa
 check "bigquery conn test logs in with a service account key through --via" login "$($K conn test bq | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "bigquery reads with a ? placeholder" "['hi', 42]" "$($K db query bq 'select ? as greeting, 42 as n' --arg hi | jget 'd["data"]["results"][0]["rows"][0]')"
 check "bigquery insert needs --write" WRITE_REQUIRES_FLAG "$($K db query bq "insert into shop.orders values (1, 'pen')" | jget 'd["error"]["code"]')"
@@ -37,8 +37,8 @@ check "bigquery explain is the dry run" DELETE "$($K db explain bq 'delete from 
 check "bigquery schema lists the dataset's tables" orders "$($K db schema bq | jget 'd["data"]["tables"][0]["name"]')"
 check "bigquery schema shows a table's columns" INT64 "$($K db schema bq shop.orders | jget 'd["data"]["tables"][0]["columns"][0]["type"]')"
 check "bigquery dump is not supported" NOT_SUPPORTED "$($K db dump bq --to "$TMP/bq.sql" | jget 'd["error"]["code"]')"
-check "bigquery user add is not supported" NOT_SUPPORTED "$($K db user add bq bob --password-ref secret:bq-ca | jget 'd["error"]["code"]')"
-q $K conn add bq-noca 'bigquery://e2e-project/shop?endpoint=https://bigquery.e2e.internal' --via bastion --password-ref secret:bq-sa
+check "bigquery user add is not supported" NOT_SUPPORTED "$($K db user add bq bob --password-ref credential:bq-ca | jget 'd["error"]["code"]')"
+q $K conn add bq-noca 'bigquery://e2e-project/shop?endpoint=https://bigquery.e2e.internal' --via bastion --password-ref credential:bq-sa
 check "bigquery: a certificate from an unknown CA is refused" DB_CONNECT "$($K db query bq-noca 'select 1' | jget 'd["error"]["code"]')"
 check "no bigquery key in the audit log" 0 "$(audit_text | grep -c 'PRIVATE KEY' || true)"
 q $K conn rm bq

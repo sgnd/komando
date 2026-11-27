@@ -11,12 +11,12 @@ check "agent exec output is masked" False "$(A exec direct --read-only -- cat /h
 check "agent text output is masked" 0 "$(A exec direct --read-only -o text -- cat /home/agent/app/.env | { grep -c hunter22 || true; })"
 check "agent --reveal without a person stays masked" False "$(A fs cat direct /home/agent/app/.env --reveal | jget '"hunter22" in json.dumps(d)')"
 check "masked text is never written back" HIDDEN_VALUE "$(A fs write direct /home/agent/app/.env --content 'DB_PASSWORD=[hidden]' | jget 'd["error"]["code"]' || true)"
-check "an agent needs a person to send a vault secret" SECRET_DESTINATION "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' | jget 'd["error"]["code"]' || true)"
-check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' --dry-run | jget 'd["data"]["results"][0]["would_change"], d["meta"]["would_be_blocked"]["code"]')"
+check "an agent needs a person to send a vault secret" SECRET_DESTINATION "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:ops-pass}}' | jget 'd["error"]["code"]' || true)"
+check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:ops-pass}}' --dry-run | jget 'd["data"]["results"][0]["would_change"], d["meta"]["would_be_blocked"]["code"]')"
 check "an agent with another KOMANDO_HOME is stopped" NEEDS_PERSON "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" list | jget 'd["error"]["code"]' || true)"
 check "an agent with HOME and KOMANDO_HOME moved together is stopped" NEEDS_PERSON "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 HOME="$AGENT_HOME" KOMANDO_HOME="$AGENT_HOME/.komando" "$K" list | jget 'd["error"]["code"]' || true)"
-q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
-check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
+q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:ops-pass}}'
+check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[credential:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
 check "an agent's guess of a vault value gets the answer any value gets" True "$(A exec direct --read-only -- echo opspass | jget 'd["ok"]' || true)"
 check "the guess is in the audit log" True "$($K audit --limit 5 | jget '"secret_value_in_input" in json.dumps(d) and "opspass" not in json.dumps(d)')"
 check "agent cannot copy .env here" SENSITIVE_FILE "$(A download direct /home/agent/app/.env --to "$TMP/" | jget 'd["error"]["code"]' || true)"

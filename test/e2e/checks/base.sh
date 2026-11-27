@@ -13,7 +13,7 @@ check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass
 check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
 # renaming a secret moves every reference with it; the logins below prove the value survived the round trip
 check "secret mv updates the 3 servers" 3 "$($K secret mv agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
-check "the server follows the rename" secret:agent-pass-renamed "$($K host show direct | jget 'd["data"]["password_ref"]')"
+check "the server follows the rename" credential:agent-pass-renamed "$($K host show direct | jget 'd["data"]["password_ref"]')"
 check "secret mv back" 3 "$($K secret mv agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
 $K secret cp agent-pass agent-pass-copy >/dev/null
 check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
@@ -28,7 +28,7 @@ check "host test all ok" 3 "$($K host test @lab | jget 'd["data"]["summary"]["ok
 echo "==> exec"
 check "exec stdout via jump" "target" "$($K exec target --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # six servers behind one bastion: one login to the bastion, not six
-for i in 1 2 3 4 5 6; do $K host add "fan$i" agent@target --via bastion --password-ref secret:agent-pass -g fan >/dev/null; done
+for i in 1 2 3 4 5 6; do $K host add "fan$i" agent@target --via bastion --password-ref credential:agent-pass -g fan >/dev/null; done
 logins() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" logs bastion 2>/dev/null | grep -c 'Accepted password' || true; }
 before=$(logins)
 check "exec -P 6 through one bastion" 6 "$($K exec @fan -P 6 --read-only -- hostname | jget 'd["data"]["summary"]["ok"]')"
@@ -37,7 +37,7 @@ check "the bastion saw one login for six servers" 1 "$(( $(logins) - before ))"
 $K host rm fan1 fan2 fan3 fan4 fan5 fan6 --yes >/dev/null
 # many servers at once: import a CSV, edit a group in one go, rename one
 CSV=$(mktemp)
-printf 'name,address,user,via,password-ref,groups,protected\nbulk1,target,agent,bastion,secret:agent-pass,bulk,no\nbulk2,target,agent,bastion,secret:agent-pass,bulk,yes\n' >"$CSV"
+printf 'name,address,user,via,password-ref,groups,protected\nbulk1,target,agent,bastion,credential:agent-pass,bulk,no\nbulk2,target,agent,bastion,credential:agent-pass,bulk,yes\n' >"$CSV"
 check "import csv --dry-run adds nothing" 2 "$($K import csv "$CSV" --dry-run | jget 'len(d["data"]["hosts"])')"
 check "import csv" 2 "$($K import csv "$CSV" | jget 'len(d["data"]["hosts"])')"
 rm -f "$CSV"
@@ -140,7 +140,7 @@ echo payload > "$TMP/f"
 
 echo "==> sudo password"
 echo -n opspass | $K secret set ops-pass >/dev/null
-$K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass --sudo-ref secret:ops-pass >/dev/null
+$K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref credential:ops-pass --sudo-ref credential:ops-pass >/dev/null
 printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "sudo password then stdin" payload "$($K exec ops --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
@@ -167,7 +167,7 @@ $K job wait "$SJ" --interval 1s >/dev/null
 check "job start --script --arg" "got:a b:c" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
 check "job list shows the script, not its text" True "$($K job list | jget 'any(j["command"].startswith("--script") for j in d["data"]["jobs"])')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
-$K host edit direct --sudo-ref secret:agent-pass >/dev/null
+$K host edit direct --sudo-ref credential:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 SJ=$($K job start direct --sudo --stdin-file "$TMP/f" -- 'cat' | jget 'd["data"]["jobs"][0]["id"]')
@@ -194,13 +194,13 @@ check "a timed-out job leaves no process" 0 "$($K exec direct --read-only -o tex
 J2=$($K job start direct -- 'exit 3' | jget 'd["data"]["jobs"][0]["id"]')
 set +e; $K job wait "$JID" "$J2" --interval 1s >/dev/null; check "job wait several: worst exit" 5 $?; set -e
 check "job wait several" 1 "$($K job wait "$JID" "$J2" --interval 1s | jget 'd["data"]["summary"]["ok"]' || true)"
-check "exec gets a vault secret as env" match "$($K exec direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-JID=$($K job start direct -e P=secret:agent-pass -- 'test "$P" = agentpass && echo job-match' | jget 'd["data"]["jobs"][0]["id"]')
+check "exec gets a vault secret as env" match "$($K exec direct -e P=credential:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+JID=$($K job start direct -e P=credential:agent-pass -- 'test "$P" = agentpass && echo job-match' | jget 'd["data"]["jobs"][0]["id"]')
 $K job wait "$JID" --interval 1s >/dev/null
 check "job gets a vault secret as env" True "$($K job logs "$JID" | jget '"job-match" in d["data"]["content"]')"
 check "job env file is deleted" False "$($K fs stat direct ".komando/jobs/$JID/env" | jget 'd["data"]["exists"]')"
 $K fs write direct /home/agent/t/app.env --content 'DB_PASSWORD=agentpass' >/dev/null
-check "secret values hidden in output" "DB_PASSWORD=[secret:agent-pass]" "$($K fs cat direct /home/agent/t/app.env | jget 'd["data"]["content"].strip()')"
+check "secret values hidden in output" "DB_PASSWORD=[credential:agent-pass]" "$($K fs cat direct /home/agent/t/app.env | jget 'd["data"]["content"].strip()')"
 
 echo "==> keys"
 $K key gen deploy >/dev/null

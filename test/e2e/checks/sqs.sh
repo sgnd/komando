@@ -7,7 +7,7 @@ set +e
 echo -n test | $K secret set sqs-secret >/dev/null
 printf '[e2e-sqs]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/aws-sqs-credentials"
 SQSENV=(env AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-sqs-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
-q $K conn add sqs 'sqs://test@us-east-1?endpoint=http://moto:5000' --via bastion --password-ref secret:sqs-secret
+q $K conn add sqs 'sqs://test@us-east-1?endpoint=http://moto:5000' --via bastion --password-ref credential:sqs-secret
 q $K conn add sqs-profile 'sqs://us-east-1?endpoint=http://moto:5000' --via bastion --option aws_profile=e2e-sqs
 check "sqs conn test logs in with keys through --via" login "$($K conn test sqs | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "sqs conn test logs in with an AWS profile" login "$("${SQSENV[@]}" $K conn test sqs-profile | jget 'd["data"]["results"][0]["detail"]["check"]')"

@@ -14,9 +14,9 @@ check "azure blob against Azurite (signatures, blocks, SAS link)" 0 $?
 
 # Azurite's published development key (not a secret)
 echo -n 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==' | $K secret set az-key >/dev/null
-q $K conn add cloud-az 'azblob://devstoreaccount1@media/e2e?endpoint=http://azurite:10000/devstoreaccount1' --via bastion --password-ref secret:az-key
+q $K conn add cloud-az 'azblob://devstoreaccount1@media/e2e?endpoint=http://azurite:10000/devstoreaccount1' --via bastion --password-ref credential:az-key
 q $K conn add cloud-gcs 'gs://media/e2e?endpoint=http://gcs:4443' --via bastion
-q $K conn add cloud-dav 'webdav://deploy@webdav:8080/e2e?insecure=1' --via bastion --password-ref secret:files-pass
+q $K conn add cloud-dav 'webdav://deploy@webdav:8080/e2e?insecure=1' --via bastion --password-ref credential:files-pass
 
 check "conn test reaches azure blob through --via" True "$($K conn test cloud-az | jget 'd["data"]["results"][0]["ok"]')"
 echo e2ecloud > "$TMP/e2ecloud.txt"

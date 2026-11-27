@@ -49,7 +49,7 @@ q $K user add direct t-fixopsns --key t-fixops-k --shell /bin/sh
 q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
 q $K host trust t-fixops-ns
 check "svc restart without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K svc restart t-fixops-ns ssh | jget "${r0}['error']['code']" || true)"
-check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
+check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref credential:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
 check "user add without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K user add t-fixops-ns t-fixopsx | jget "${r0}['error']['code']" || true)"
 for sub in ps stats images; do
   check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
@@ -135,7 +135,7 @@ check "person: a wrong name stops docker prune (6)" 6 "$RC"
 O=$(tty 'wrong\n' pkg rm direct openssh-server); RC=$?
 check "person: removing an essential package asks for its name" 1 "$(grep -c 'Type the name openssh-server to continue' <<<"$O")"
 check "person: a wrong name keeps the package (6)" "6 True" "$RC $($K pkg installed direct openssh-server | jget "${r0}['data'][0]['installed']")"
-q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:agent-pass --protected
+q $K host add t-fixops-p "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref credential:agent-pass --protected
 q $K host trust t-fixops-p
 O=$(tty 'n\n' svc restart t-fixops-p ssh); RC=$?
 check "person: svc restart on a protected server asks [y/N]" 1 "$(grep -c 't-fixops-p (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
