@@ -172,6 +172,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if sess.wants(cmd) {
 				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "")
 			}
+			o.session = &sess
 			if so.file != "" {
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
@@ -196,7 +197,6 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if err != nil {
 				return err
 			}
-			o.session = &sess
 			return runFleet(cl, cmd.Context(), "exec", args[0], command, stdin, o, mutating)
 		}),
 	}

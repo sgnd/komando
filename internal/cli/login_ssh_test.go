@@ -71,7 +71,12 @@ func twoFactorSSHD(t *testing.T) (port string, logins *atomic.Int32) {
 							_ = r.Reply(true, nil)
 							var p struct{ Cmd string }
 							_ = ssh.Unmarshal(r.Payload, &p)
-							_, _ = ch.Write([]byte("ran on web1\n"))
+							const ran = "ran on web1\n"
+							o, _, ok := sessionAnswer(p.Cmd, ran, true, 0)
+							if !ok {
+								o = ran
+							}
+							_, _ = ch.Write([]byte(o))
 							_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{0}))
 							_ = ch.Close()
 						}

@@ -61,25 +61,35 @@ func startSessionServer(t *testing.T, log string, ended bool) *sessionServer {
 	t.Helper()
 	s := &sessionServer{fakeServer: startFakeServer(t), log: log, ended: ended}
 	s.answer = func(cmd string) (string, int) {
-		switch {
-		case strings.Contains(cmd, "mkfifo"):
-			if s.begin != 0 {
-				return "", s.begin
-			}
-			id := startID.FindStringSubmatch(cmd)[1]
-			return "facts-begin " + id + "\npid 4242\npgid 4242\nstart proc 99\nfacts-end " + id + "\n", 0
-		case readID.MatchString(cmd):
-			id := readID.FindStringSubmatch(cmd)[1]
-			from, _ := strconv.Atoi(readAt.FindStringSubmatch(cmd)[1])
-			head := "read-begin " + id + "\n"
-			if s.ended {
-				head += "exit 0\n"
-			}
-			return head + "size " + strconv.Itoa(len(s.log)) + "\nread-end " + id + "\n" + s.log[min(from-1, len(s.log)):], 0
+		if out, status, ok := sessionAnswer(cmd, s.log, s.ended, s.begin); ok {
+			return out, status
 		}
 		return "direct\n", 0
 	}
 	return s
+}
+
+// sessionAnswer is a Unix server's reply to a session start (the run's
+// facts, or nothing and begin as the exit) or a read (status and log from
+// the offset); ok is false for any other call.
+func sessionAnswer(cmd, log string, ended bool, begin int) (out string, status int, ok bool) {
+	switch {
+	case strings.Contains(cmd, "mkfifo"):
+		if begin != 0 {
+			return "", begin, true
+		}
+		id := startID.FindStringSubmatch(cmd)[1]
+		return "facts-begin " + id + "\npid 4242\npgid 4242\nstart proc 99\nfacts-end " + id + "\n", 0, true
+	case readID.MatchString(cmd):
+		id := readID.FindStringSubmatch(cmd)[1]
+		from, _ := strconv.Atoi(readAt.FindStringSubmatch(cmd)[1])
+		head := "read-begin " + id + "\n"
+		if ended {
+			head += "exit 0\n"
+		}
+		return head + "size " + strconv.Itoa(len(log)) + "\nread-end " + id + "\n" + log[min(from-1, len(log)):], 0, true
+	}
+	return "", 0, false
 }
 
 // kinds sorts the server's execs: start, read, remove or other.
