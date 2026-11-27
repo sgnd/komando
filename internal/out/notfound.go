@@ -1,7 +1,5 @@
 package out
 
-import "fmt"
-
 // notFoundCodes is the code of each kind NotFound knows, written out so
 // the error catalog and agents can find every code in the source (S-8.1).
 var notFoundCodes = map[string]string{
