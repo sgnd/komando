@@ -294,8 +294,17 @@ func (r *screenRun) restored() {
 	if now, want := r.termiosNow(), fmt.Sprintf("termios %+v %v", r.before, nil); now != want {
 		r.t.Errorf("the terminal was not put back:\n before %s\n after  %s", want, now)
 	}
-	out := r.shown()
-	on, off := strings.LastIndex(out, screenOn), strings.LastIndex(out, screenOff)
+	// the reader goroutine may not have taken the child's last bytes off the
+	// terminal yet when the child has ended: give it a moment to drain
+	var out string
+	var on, off int
+	for end := time.Now().Add(2 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		out = r.shown()
+		on, off = strings.LastIndex(out, screenOn), strings.LastIndex(out, screenOff)
+		if (on >= 0 && off >= on) || time.Now().After(end) {
+			break
+		}
+	}
 	if on < 0 || off < on {
 		r.t.Errorf("bracketed paste on at %d, off at %d: the screen did not undo what it turned on; it wrote %q", on, off, out)
 	}
