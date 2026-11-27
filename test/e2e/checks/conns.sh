@@ -178,7 +178,7 @@ q $K group add stack 'bastion,pg,cache'
 check "list @stack has both" "bastion,cache,pg" "$($K list @stack | jget '",".join(t["name"] for t in d["data"]["targets"])')"
 check "test @stack checks both" 3 "$($K test @stack | jget 'd["data"]["summary"]["ok"]')"
 check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"
-check "database postgres query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "database postgres query @stack finds pg" 1 "$($K database postgres query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
 
 # one verb pair for files, and tunnels to conns by name
