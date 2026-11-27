@@ -4,7 +4,6 @@ import (
 	"maps"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -181,120 +180,79 @@ func bodyOutputs(body string) []string {
 // here-document: inside the first two, quotes and command outputs are
 // read, and an open brace or bracket nests, as zsh reads them.
 func heredocs(line string) []heredoc {
-	type frame struct {
-		q            byte
-		paren, depth int
-		tick         bool
-		close        byte // } or ] of ${ or $[; 0 for $( and `
-	}
 	var out, pending []heredoc
 	var words []string
-	var stack []frame
-	var q byte
-	paren, depth, lineStart, word := 0, 0, 0, false
-	push := func(f frame) {
-		f.q, f.paren, f.depth = q, paren, depth
-		stack = append(stack, f)
-		q, paren, depth = 0, 0, 0
-	}
-	pop := func() {
-		n := len(stack)
-		q, paren, depth, stack = stack[n-1].q, stack[n-1].paren, stack[n-1].depth, stack[:n-1]
-	}
-	in := func() byte { // the close of the ${ or $[ the parser is right inside
-		if n := len(stack); n > 0 {
-			return stack[n-1].close
-		}
-		return 0
-	}
+	var s lineScan
+	lineStart, word := 0, false
 	for i := 0; i < len(line); i++ {
 		c := line[i]
 		switch {
-		case q == '\'':
+		case s.q == '\'':
 			if c == '\'' {
-				q = 0
+				s.q = 0
 			}
 		case c == '\\':
 			i++
 			word = true
-		case strings.HasPrefix(line[i:], "$(("), q == 0 && !word && strings.HasPrefix(line[i:], "(("):
+		case strings.HasPrefix(line[i:], "$(("), s.q == 0 && !word && strings.HasPrefix(line[i:], "(("):
 			i, word = arithEnd(line, i), true // arithmetic: << shifts
 		case c == '$' && i+1 < len(line) && line[i+1] == '(':
-			push(frame{})
+			s.push(scanFrame{})
 			word = false
 			i++
 		case c == '$' && i+1 < len(line) && (line[i+1] == '{' || line[i+1] == '['):
-			f := frame{close: '}'}
+			f := scanFrame{close: '}'}
 			if line[i+1] == '[' {
 				f.close = ']'
 			}
-			push(f)
-			depth, word = 1, true
+			s.push(f)
+			s.depth, word = 1, true
 			i++
 		case c == '`':
-			if n := len(stack); n > 0 && stack[n-1].tick && q == 0 {
-				pop()
+			if n := len(s.stack); n > 0 && s.stack[n-1].tick && s.q == 0 {
+				s.pop()
 				word = true
 			} else {
-				push(frame{tick: true})
+				s.push(scanFrame{tick: true})
 				word = false
 			}
-		case q == '"':
+		case s.q == '"':
 			if c == '"' {
-				q = 0
+				s.q = 0
 			}
 		case c == '$' && i+1 < len(line) && line[i+1] == '\'':
-			for i += 2; i < len(line) && line[i] != '\''; i++ {
-				if line[i] == '\\' {
-					i++ // $'...': \' is text
-				}
-			}
-			word = true
+			i, word = dollarQuoteEnd(line, i), true
 		case c == '\'' || c == '"':
-			q, word = c, true
-		case in() == '}' && c == '{', in() == ']' && c == '[':
-			depth++
-		case in() != 0 && c == in():
-			if depth--; depth == 0 {
-				pop()
+			s.q, word = c, true
+		case s.in() == '}' && c == '{', s.in() == ']' && c == '[':
+			s.depth++
+		case s.in() != 0 && c == s.in():
+			if s.depth--; s.depth == 0 {
+				s.pop()
 			}
 			word = true
-		case in() != 0 && strings.HasPrefix(line[i:], "<<"):
+		case s.in() != 0 && strings.HasPrefix(line[i:], "<<"):
 			i++ // text in ${...} or $[...]
 		case c == '#' && !word:
 			for i+1 < len(line) && line[i+1] != '\n' {
 				i++ // a comment
 			}
 		case c == '(':
-			paren++
+			s.paren++
 			word = false
 		case c == ')':
 			word = false
-			if paren > 0 {
-				paren--
-			} else if n := len(stack); n > 0 && !stack[n-1].tick && stack[n-1].close == 0 {
-				pop()
+			if s.paren > 0 {
+				s.paren--
+			} else if n := len(s.stack); n > 0 && !s.stack[n-1].tick && s.stack[n-1].close == 0 {
+				s.pop()
 				word = true
 			}
 		case strings.HasPrefix(line[i:], "<<<"):
 			i, word = i+2, false
 		case strings.HasPrefix(line[i:], "<<"):
-			j := i + 2
-			if j < len(line) && line[j] == '-' {
-				j++
-			}
-			for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
-				j++
-			}
-			k := j
-			for k < len(line) && !strings.ContainsRune(" \t\n;&|<>()", rune(line[k])) {
-				k++
-			}
-			w := line[j:k]
-			segs := splitShell(line[lineStart:i])
-			prog, _ := program(shellWords(segs[len(segs)-1]))
-			pending = append(pending, heredoc{quoted: strings.ContainsAny(w, `'"\`), script: isShell(filepath.Base(prog))})
-			words = append(words, strings.NewReplacer(`'`, "", `"`, "", `\`, "").Replace(w))
+			h, w, k := heredocAt(line, i, lineStart)
+			pending, words = append(pending, h), append(words, w)
 			i, word = k-1, false
 		case c == '\n':
 			done, pos := endHeredocs(line, i+1, pending, words)
@@ -308,6 +266,74 @@ func heredocs(line string) []heredoc {
 		}
 	}
 	return out
+}
+
+// lineScan is where heredocs is in a line: the quote it is in, the ( open,
+// the { or [ open in the ${ or $[ it is right inside, and the frames of the
+// $(, `, ${ and $[ around it.
+type lineScan struct {
+	q            byte
+	paren, depth int
+	stack        []scanFrame
+}
+
+// scanFrame is a $(, `, ${ or $[ with the state outside it.
+type scanFrame struct {
+	q            byte
+	paren, depth int
+	tick         bool
+	close        byte // } or ] of ${ or $[; 0 for $( and `
+}
+
+func (s *lineScan) push(f scanFrame) {
+	f.q, f.paren, f.depth = s.q, s.paren, s.depth
+	s.stack = append(s.stack, f)
+	s.q, s.paren, s.depth = 0, 0, 0
+}
+
+func (s *lineScan) pop() {
+	f := s.stack[len(s.stack)-1]
+	s.q, s.paren, s.depth, s.stack = f.q, f.paren, f.depth, s.stack[:len(s.stack)-1]
+}
+
+// in is the close of the ${ or $[ the scan is right inside, or 0.
+func (s *lineScan) in() byte {
+	if n := len(s.stack); n > 0 {
+		return s.stack[n-1].close
+	}
+	return 0
+}
+
+// dollarQuoteEnd is where the $'...' at i of line ends: there \ makes the
+// next character text, a \' too.
+func dollarQuoteEnd(line string, i int) int {
+	for i += 2; i < len(line) && line[i] != '\''; i++ {
+		if line[i] == '\\' {
+			i++
+		}
+	}
+	return i
+}
+
+// heredocAt reads the << at i of line, in the command that starts at
+// lineStart: the here-document, its word, and where the word ends.
+func heredocAt(line string, i, lineStart int) (heredoc, string, int) {
+	j := i + 2
+	if j < len(line) && line[j] == '-' {
+		j++
+	}
+	for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
+		j++
+	}
+	k := j
+	for k < len(line) && !strings.ContainsRune(" \t\n;&|<>()", rune(line[k])) {
+		k++
+	}
+	w := line[j:k]
+	segs := splitShell(line[lineStart:i])
+	prog, _ := program(shellWords(segs[len(segs)-1]))
+	h := heredoc{quoted: strings.ContainsAny(w, `'"\`), script: isShell(filepath.Base(prog))}
+	return h, strings.NewReplacer(`'`, "", `"`, "", `\`, "").Replace(w), k
 }
 
 // endHeredocs gives the here-documents pending, whose words are words, with
@@ -578,90 +604,6 @@ func checkReadWords(cl *call, base string, words []string, globs []bool, args []
 
 // findPattern are find's tests that take a name pattern.
 var findPattern = map[string]bool{"-name": true, "-iname": true, "-path": true, "-ipath": true, "-wholename": true, "-iwholename": true, "-regex": true, "-iregex": true, "-lname": true, "-ilname": true}
-
-func isShell(base string) bool {
-	switch base {
-	case "sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish":
-		return true
-	}
-	return false
-}
-
-// shellScript is the script a shell's arguments give with -c, or "": -c can
-// come in a cluster (`bash -lc`, `sh -ec`), and options and their values
-// (`-o pipefail`, `--`) can come between it and the script.
-func shellScript(args []string) string {
-	c := false
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--":
-			if c && i+1 < len(args) {
-				return args[i+1]
-			}
-			return ""
-		case a == "--rcfile" || a == "--init-file":
-			i++
-		case strings.HasPrefix(a, "--"):
-		case len(a) > 1 && (a[0] == '-' || a[0] == '+'):
-			if a[0] == '-' && strings.ContainsRune(a[1:], 'c') {
-				c = true
-			}
-			if strings.ContainsAny(a[1:], "oO") {
-				i++ // -o pipefail
-			}
-		default:
-			if c {
-				return a
-			}
-			return "" // a script file
-		}
-	}
-	return ""
-}
-
-// scriptOption are programs that run the text of their -c (or --command)
-// option as a shell line.
-var scriptOption = map[string]bool{"script": true, "su": true, "runuser": true, "flock": true}
-
-// commandScript is the shell line base ARGS runs: watch's words after its
-// options, the -c text of a scriptOption program, or the command BSD's
-// script FILE COMMAND runs; "" when there is none.
-func commandScript(base string, args []string) string {
-	if base == "script" && !slices.ContainsFunc(args, func(a string) bool { return a == "-c" || strings.HasPrefix(a, "--command") }) {
-		for i, a := range args {
-			if !strings.HasPrefix(a, "-") {
-				if i+1 < len(args) {
-					return findCommandLine(args[i+1:], "{}")
-				}
-				return ""
-			}
-		}
-		return ""
-	}
-	if base == "watch" {
-		for i := 0; i < len(args); i++ {
-			switch a := args[i]; {
-			case a == "-n" || a == "--interval" || a == "-q" || a == "--equexit":
-				i++
-			case a == "--":
-				return strings.Join(args[i+1:], " ")
-			case !strings.HasPrefix(a, "-"):
-				return strings.Join(args[i:], " ")
-			}
-		}
-		return ""
-	}
-	for i, a := range args {
-		if (a == "-c" || a == "--command") && i+1 < len(args) {
-			return args[i+1]
-		}
-		if v, ok := strings.CutPrefix(a, "--command="); ok {
-			return v
-		}
-	}
-	return ""
-}
 
 // shellWords splits a simple command into words, removing quotes and
 // redirections' operators.

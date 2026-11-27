@@ -579,3 +579,87 @@ func envLongOption(w string) (opt, val string, hasVal bool) {
 	}
 	return name, val, hasVal
 }
+
+func isShell(base string) bool {
+	switch base {
+	case "sh", "bash", "zsh", "dash", "ksh", "mksh", "ash", "fish":
+		return true
+	}
+	return false
+}
+
+// shellScript is the script a shell's arguments give with -c, or "": -c can
+// come in a cluster (`bash -lc`, `sh -ec`), and options and their values
+// (`-o pipefail`, `--`) can come between it and the script.
+func shellScript(args []string) string {
+	c := false
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			if c && i+1 < len(args) {
+				return args[i+1]
+			}
+			return ""
+		case a == "--rcfile" || a == "--init-file":
+			i++
+		case strings.HasPrefix(a, "--"):
+		case len(a) > 1 && (a[0] == '-' || a[0] == '+'):
+			if a[0] == '-' && strings.ContainsRune(a[1:], 'c') {
+				c = true
+			}
+			if strings.ContainsAny(a[1:], "oO") {
+				i++ // -o pipefail
+			}
+		default:
+			if c {
+				return a
+			}
+			return "" // a script file
+		}
+	}
+	return ""
+}
+
+// scriptOption are programs that run the text of their -c (or --command)
+// option as a shell line.
+var scriptOption = map[string]bool{"script": true, "su": true, "runuser": true, "flock": true}
+
+// commandScript is the shell line base ARGS runs: watch's words after its
+// options, the -c text of a scriptOption program, or the command BSD's
+// script FILE COMMAND runs; "" when there is none.
+func commandScript(base string, args []string) string {
+	if base == "script" && !slices.ContainsFunc(args, func(a string) bool { return a == "-c" || strings.HasPrefix(a, "--command") }) {
+		for i, a := range args {
+			if !strings.HasPrefix(a, "-") {
+				if i+1 < len(args) {
+					return findCommandLine(args[i+1:], "{}")
+				}
+				return ""
+			}
+		}
+		return ""
+	}
+	if base == "watch" {
+		for i := 0; i < len(args); i++ {
+			switch a := args[i]; {
+			case a == "-n" || a == "--interval" || a == "-q" || a == "--equexit":
+				i++
+			case a == "--":
+				return strings.Join(args[i+1:], " ")
+			case !strings.HasPrefix(a, "-"):
+				return strings.Join(args[i:], " ")
+			}
+		}
+		return ""
+	}
+	for i, a := range args {
+		if (a == "-c" || a == "--command") && i+1 < len(args) {
+			return args[i+1]
+		}
+		if v, ok := strings.CutPrefix(a, "--command="); ok {
+			return v
+		}
+	}
+	return ""
+}
