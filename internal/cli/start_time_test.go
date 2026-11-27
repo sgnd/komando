@@ -327,8 +327,8 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 			slices.Concat(strings.Fields(tc.cmd), []string{"--help", "-o", "text"}),
 		} {
 			var o, e bytes.Buffer
-			call := engine.Call{Program: "komando", LookupEnv: envOf(env, &sync.Map{}), Stdout: &o, Stderr: &e}
-			if code := RunCall(context.Background(), call, args); code != 0 {
+			ec := engine.Call{Program: "komando", LookupEnv: envOf(env, &sync.Map{}), Stdout: &o, Stderr: &e}
+			if code := RunCall(context.Background(), ec, args); code != 0 {
 				t.Errorf("%q: exit %d, stderr %q", args, code, e.String())
 			}
 			printed[strings.Join(args, " ")] = [2]string{o.String(), e.String()}
