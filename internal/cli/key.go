@@ -694,7 +694,7 @@ for that user on one server, always behind the server's own komando gate
 (restrict, ssh-gate --here; from= with --from-address).`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web --set-default
   komando key deploy ~/.ssh/id_ed25519.pub web1
-  komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub --from-address 10.0.0.0/8`,
+  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8`,
 		Args: dev.args,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if dev.file != "" {

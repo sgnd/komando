@@ -735,11 +735,9 @@ audit setting is off.`,
 	c.Flags().BoolVar(&shellAccess, "shell-access", false, "also komando shell SERVER, with a terminal")
 	c.Flags().BoolVar(&here, "here", false, "server mode: the key runs komando on this server itself (a phone's key)")
 	// set by the line `ssh-gate line` writes, not typed: its help lists them
-	_ = c.Flags().MarkHidden("name")
-	_ = c.Flags().MarkHidden("read-only")
-	_ = c.Flags().MarkHidden("network")
-	_ = c.Flags().MarkHidden("shell-access")
-	_ = c.Flags().MarkHidden("here")
+	for _, f := range []string{"name", "read-only", "network", "shell-access", "here"} {
+		_ = c.Flags().MarkHidden(f)
+	}
 	c.AddCommand(sshGateLineCmd(), sshGateStatusCmd())
 	return c
 }

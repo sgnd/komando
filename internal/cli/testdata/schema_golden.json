@@ -6204,14 +6204,29 @@
         "path": "komando key deploy",
         "usage": "komando key deploy NAME TARGET [flags]",
         "short": "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
-        "long": "Installs a public key on servers, like ssh-copy-id. KEY is a key in\nkomando's key list or a .pub file. komando logs in the way each server is\nset up now (a password, for example) and appends the key to\n~/.ssh/authorized_keys unless it is already there. With --set-default the\nservers then log in with this key.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
-        "example": "  komando key gen deploy && komando key deploy deploy @web --set-default\n  komando key deploy ~/.ssh/id_ed25519.pub web1\n  komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run",
+        "long": "Installs a public key on servers, like ssh-copy-id. KEY is a key in\nkomando's key list or a .pub file. komando logs in the way each server is\nset up now (a password, for example) and appends the key to\n~/.ssh/authorized_keys unless it is already there. With --set-default the\nservers then log in with this key.\n\nSafety: a change; try it with --dry-run first; with --public-key-file: only\na person at a terminal can run it; on a protected server or conn, a person's\nyes (--yes) as well.\n\nWith --public-key-file and --user (no NAME), a person installs a phone's key\nfor that user on one server, always behind the server's own komando gate\n(restrict, ssh-gate --here; from= with --from-address).",
+        "example": "  komando key gen deploy && komando key deploy deploy @web --set-default\n  komando key deploy ~/.ssh/id_ed25519.pub web1\n  komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run\n  komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub --from-address 10.0.0.0/8",
         "flags": [
+          {
+            "name": "from-address",
+            "type": "string",
+            "usage": "with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)"
+          },
+          {
+            "name": "public-key-file",
+            "type": "string",
+            "usage": "a device's public key file (a phone's): install it for --user behind komando's gate on the server; a person at a terminal only"
+          },
           {
             "name": "set-default",
             "type": "bool",
             "default": "false",
             "usage": "servers that got the key log in with it from now on"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "usage": "with --public-key-file: the user the device logs in as (never root)"
           }
         ],
         "runnable": true,
@@ -6219,6 +6234,10 @@
         "confirm": [
           {
             "tier": "change"
+          },
+          {
+            "tier": "person",
+            "when": "with --public-key-file"
           }
         ]
       },
@@ -8600,7 +8619,7 @@
         "path": "komando ssh-gate status",
         "usage": "komando ssh-gate status [flags]",
         "short": "Say which ssh-gate key runs this, and what it may do",
-        "long": "Through an SSH key that ssh-gate limits, prints the key's name and what it\nmay do: change things, or read only, whether its reads may reach the\nnetwork (--network on its line), and whether it may open a login shell on\na server (--shell-access on its line). ssh-gate answers it itself, so an app\ncan check what its key is before it sends anything else. Typed on the\nkomando computer, it says the command did not come through a key.",
+        "long": "Through an SSH key that ssh-gate limits, prints the key's name and what it\nmay do: change things, or read only, whether its reads may reach the\nnetwork (--network on its line), and whether it may open a login shell on\na server (--shell-access on its line), and whether it acts on this server\nonly (here: a phone's key on a server, see key deploy --public-key-file).\nssh-gate answers it itself, so an app can check what its key is before it\nsends anything else. Typed on the\nkomando computer, it says the command did not come through a key.",
         "example": "  ssh HOST komando ssh-gate status -o json\n  komando ssh-gate status",
         "runnable": true,
         "kind": "read",
@@ -11433,6 +11452,18 @@
         "hint": "add -p/--parents to create it"
       },
       {
+        "code": "GATE_BINARY_INVALID",
+        "exit": 2,
+        "example": "the server's komando could be replaced by the paired user (owner, mode or place), so no gate line is written",
+        "hint": "fix it on the server as the message says, then run this again"
+      },
+      {
+        "code": "GATE_UNSUPPORTED",
+        "exit": 2,
+        "example": "komando on the server has no server mode (ssh-gate --here)",
+        "hint": "fix it on the server as the message says, then run this again"
+      },
+      {
         "code": "GCP_LOGIN_REQUIRED",
         "exit": 4,
         "example": "…: …",
@@ -11672,6 +11703,12 @@
         "hint": "give the server another key first: `komando host edit … --key OTHER`"
       },
       {
+        "code": "KEY_LINE_CONFLICT",
+        "exit": 8,
+        "example": "…: the key is there already in another line, which sshd would use first; nothing was written",
+        "hint": "remove the older line for this key from …'s ~/.ssh/authorized_keys on the server, then run this again"
+      },
+      {
         "code": "KEY_PASSPHRASE_REQUIRED",
         "exit": 2,
         "example": "key … is encrypted and …",
@@ -11684,10 +11721,22 @@
         "hint": "check the key path (`komando key list` shows the keys komando knows)"
       },
       {
+        "code": "KEY_USER_INVALID",
+        "exit": 2,
+        "example": "the user is root (uid 0) or is not on the server, so no device key is written for it",
+        "hint": "name a user that is not root: fix it on the server as the message says, then run this again"
+      },
+      {
         "code": "KILL_FAILED",
         "exit": 5,
         "example": "the server did not stop session …",
         "hint": "you may lack the right to stop another user's session"
+      },
+      {
+        "code": "KOMANDO_MISSING",
+        "exit": 3,
+        "example": "komando is not installed on the server, so no gate line can run it",
+        "hint": "fix it on the server as the message says, then run this again"
       },
       {
         "code": "KUBECONFIG",
@@ -12473,6 +12522,12 @@
         "exit": 1,
         "example": "komando cannot tell its own full path, which the line needs",
         "hint": "run komando by its full path, for example /usr/local/bin/komando ssh-gate line ..."
+      },
+      {
+        "code": "SSH_GATE_PATH_DENIED",
+        "exit": 5,
+        "example": "komando … is refused for this server's key: …; no key changes it",
+        "hint": "a person changes it on this server itself; no key through the gate does"
       },
       {
         "code": "SSH_GATE_READ_ONLY",

@@ -164,7 +164,7 @@ job.status	kind=read|	target="servers"
 job.wait	kind=read|	target="servers"	
 key	kind=read|	target="servers"	
 key.add	kind=change|	target="servers"	
-key.deploy	kind=change|	target="servers"	
+key.deploy	kind=change|	target="servers"	person|with --public-key-file|lets a device's key log in to the server through komando's gate||||
 key.edit	kind=change|	target="servers"	
 key.gen	kind=change|	target="servers"	
 key.list	kind=read|	target="servers"	
@@ -214,6 +214,7 @@ probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy c
 probe host trust web1 --reset	person|replaces a pinned host key||
 probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
 probe import kubeconfig	safety||an AI agent imports a context whose login runs a program or sends a file of this computer|
+probe key deploy web1 --user anna --public-key-file k.pub	person|lets a device's key log in to the server through komando's gate||
 probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
 probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|

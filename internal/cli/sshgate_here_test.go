@@ -53,11 +53,11 @@ func serverHome(t *testing.T) (home string) {
 // ("" when allowed).
 func serverAnswer(t *testing.T, line string, key gateKey) (code, msg string) {
 	t.Helper()
-	words, err := gateWords(line)
-	if err != nil {
-		t.Fatal(err)
+	req, perr := parseGate(line)
+	if perr != nil {
+		t.Fatal(perr)
 	}
-	_, _, e := gateCheck(words, key)
+	_, _, e := gateCheck(req.args, key)
 	if e == nil {
 		return "", ""
 	}
