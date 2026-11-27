@@ -10,16 +10,28 @@ import (
 // and parentheses, but not inside quotes: `grep 'a|ssh' f` is one command.
 // $( and ` start a command even inside double quotes, because they run.
 func splitShell(line string) []string {
-	var segs []string
+	segs, _ := shellCuts(line)
+	return segs
+}
+
+// shellCuts is splitShell, and for each command the byte that ended it:
+// ; | & a newline ( ) ` $ (for $(), or 0 at the end of the line. The & of
+// >& and <& (2>&1, >&FILE) is part of a redirect, not a command's end.
+// ends is nil when a quote is left open.
+func shellCuts(line string) (segs []string, ends []byte) {
 	var cur strings.Builder
-	cut := func() {
+	cut := func(end byte) {
 		segs = append(segs, cur.String())
+		ends = append(ends, end)
 		cur.Reset()
 	}
 	var q byte
-	subst := 0 // open $( inside double quotes
+	subst := 0        // open $( inside double quotes
+	redirect := false // the byte before was an unquoted, unescaped > or <
 	for i := 0; i < len(line); i++ {
 		c := line[i]
+		after := redirect
+		redirect = false
 		switch {
 		case q == '\'':
 			if c == '\'' {
@@ -34,7 +46,7 @@ func splitShell(line string) []string {
 			q = 0
 			cur.WriteByte(c)
 		case c == '`' || c == '$' && i+1 < len(line) && line[i+1] == '(':
-			cut() // a command substitution: its own command, quoted or not
+			cut(c) // a command substitution: its own command, quoted or not
 			if c == '$' {
 				i++
 				if q == '"' {
@@ -42,26 +54,29 @@ func splitShell(line string) []string {
 				}
 			}
 		case q == '"' && c == ')' && subst > 0:
-			cut()
+			cut(c)
 			subst--
 		case q == '"':
 			cur.WriteByte(c)
 		case c == '\'' || c == '"':
 			q = c
 			cur.WriteByte(c)
+		case c == '&' && after:
+			cur.WriteByte(c)
 		case c == ';' || c == '|' || c == '&' || c == '\n' || c == '(' || c == ')':
-			cut()
+			cut(c)
 		default:
+			redirect = c == '>' || c == '<'
 			cur.WriteByte(c)
 		}
 	}
-	cut()
+	cut(0)
 	if q != 0 {
 		// an unclosed quote: the shell refuses the line, but be strict and
 		// look at every part of it
-		return anyOperator.Split(line, -1)
+		return anyOperator.Split(line, -1), nil
 	}
-	return segs
+	return segs, ends
 }
 
 var anyOperator = regexp.MustCompile(`[;|&\n()` + "`" + `"']`)
@@ -146,7 +161,7 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 		}
 		prog, args := program(words)
 		base := filepath.Base(prog)
-		if d := checkGuardFiles(cl, line, seg, prog, args, home, cwd); d.Deny {
+		if d := checkWrites(cl, line, seg, prog, args, home, cwd); d.Deny {
 			return d
 		}
 		switch {
@@ -716,24 +731,6 @@ var wrapperValue = map[string]map[string]bool{
 // timeout DURATION, chrt PRIORITY, taskset MASK.
 var wrapperPositional = map[string]int{"timeout": 1, "chrt": 1, "taskset": 1}
 
-// looksLikePath: a word that names a file, not a flag or a plain word
-// (e.g. `grep password` is fine, `cat .env` is not).
-func looksLikePath(w string) bool {
-	w = strings.Trim(w, `"'`)
-	if strings.ContainsAny(w, " \t") {
-		return false // a sentence, e.g. a commit message
-	}
-	if i := strings.Index(w, "="); i >= 0 && strings.HasPrefix(w, "-") {
-		w = w[i+1:]
-	}
-	for _, v := range []string{"$HOME", "${HOME}", "$KOMANDO_HOME", "${KOMANDO_HOME}"} {
-		if strings.HasPrefix(w, v) {
-			return true
-		}
-	}
-	return strings.ContainsAny(w, "/~.") || w == "credentials" || strings.HasPrefix(w, "id_")
-}
-
 // shellWords splits a simple command into words, removing quotes and
 // redirections' operators.
 func shellWords(s string) []string {
@@ -758,8 +755,10 @@ func shellWordsGlob(s string) ([]string, []bool) {
 		}
 		glob, brace, inWord = false, false, false
 	}
-	escaped := false
+	escaped, redirect := false, false
 	for _, r := range s {
+		after := redirect
+		redirect = false
 		switch {
 		case escaped: // \x is a plain x, as in the shell: \" opens no quote
 			cur.WriteRune(r)
@@ -776,7 +775,9 @@ func shellWordsGlob(s string) ([]string, []bool) {
 		case r == '\'' || r == '"':
 			q = r
 			inWord = true
+		case r == '&' && after: // >&FILE writes FILE; 2>&1 names no file
 		case r == ' ' || r == '\t' || r == '<' || r == '>':
+			redirect = r != ' ' && r != '\t'
 			flush()
 		default:
 			if strings.ContainsRune("*?[", r) {

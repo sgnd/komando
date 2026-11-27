@@ -247,7 +247,15 @@ func exampleOf(c *cobra.Command, l string) bool {
 	if !strings.HasPrefix(cmd, "komando ") || strings.ContainsAny(cmd, "|<>$`;&") {
 		return false
 	}
-	found, _, err := c.Root().Find(shellWords(cmd)[1:])
+	words := shellWords(cmd)[1:]
+	if c.HasParent() && !c.HasSubCommands() {
+		// a leaf's own words at the start name it; Find, which merges the
+		// flags of every level it passes, only decides aliases and groups
+		if path := strings.Fields(c.CommandPath())[1:]; len(words) >= len(path) && slices.Equal(words[:len(path)], path) {
+			return true
+		}
+	}
+	found, _, err := c.Root().Find(words)
 	return err == nil && found == c
 }
 
