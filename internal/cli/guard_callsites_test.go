@@ -22,7 +22,7 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         22, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (credential_key_uninstall.go): a phone's key on one server, C372
+	"guard":         19, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (credential_key_uninstall.go): a phone's key on one server, C372; -3 job start/kill/rm (D2): exec runFleet and changeSession guard them
 	"guardScript":   5,
 	"guardConns":    25, // +1 snippetTierStop (snippet.go): a dangerous built-in snippet, C368 S1-1
 	"confirmObject": 4,
