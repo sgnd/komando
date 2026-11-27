@@ -42,8 +42,7 @@ const exampleFromTable = "example_from_table"
 
 // applyConventions applies the rules every command shares to c, so a new
 // command cannot forget them; the tree runs it on each command it lists
-// (listCmd, root.go). TestConventions checks the rest.
-
+// (listNode, cmdid.go). TestConventions checks the rest.
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
