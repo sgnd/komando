@@ -116,7 +116,7 @@ This page is made from the code (`komando schema` lists the same under
 | `KEYSCAN_FAILED` | 4 | cannot fetch host key from …: … | check the address and port with `komando host ssh show …` |
 | `KEY_EXISTS` | 8 | key … already exists | choose another name, or `komando credential key remove …` first |
 | `KEY_FAILED` | 1 | could not read key …: …; nothing was written | check the key with `komando credential key show …`, or leave out --with-keys |
-| `KEY_INVALID` | 2 | … is not a public key: … | give the CA's public key file (.pub) |
+| `KEY_INVALID` | 2 | cannot parse …: … | give an OpenSSH or PEM private key file |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host ssh edit … --key OTHER` |
 | `KEY_LINE_CONFLICT` | 8 | …: the key is there already in another line, which sshd would use first; nothing was written | remove the older line for this key from …'s ~/.ssh/authorized_keys on the server, then run `komando credential key install` again |
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando credential password add NAME` (the hint gives the whole commands) |
