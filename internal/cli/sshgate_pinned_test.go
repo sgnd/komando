@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // TestGateAnswersPinned pins the ssh gate's answer to every command of
@@ -19,7 +21,13 @@ import (
 func TestGateAnswersPinned(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	var lines []string
+	type probeKey struct {
+		name string
+		key  gateKey
+	}
+	keys := []probeKey{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}}
+	var ids []string
+	paths := map[string][]string{}
 	seen := map[string]bool{}
 	for _, c := range allCommands(newRoot(tcl)) {
 		id := cmdID(c)
@@ -27,21 +35,38 @@ func TestGateAnswersPinned(t *testing.T) {
 			continue
 		}
 		seen[id] = true
-		path := strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando"))
+		ids = append(ids, id)
+		paths[id] = strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando"))
+	}
+	// the answers there must be: one per command, probe and key, counted
+	// before any is asked
+	probes := 0
+	for _, id := range ids {
+		probes += len(gateProbeFlags(id)) * len(keys)
+	}
+	// one tree for every question: gateCheck builds a tree of its own per
+	// question, which is most of this test's time; the flags a probe sets
+	// are put back after each answer
+	sc, root := gateTree()
+	answers := 0
+	var lines []string
+	for _, id := range ids {
 		for _, extra := range gateProbeFlags(id) {
-			words := slices.Concat(path, extra)
-			for _, k := range []struct {
-				name string
-				key  gateKey
-			}{{"read", readKey}, {"netread", netReadKey}, {"full", fullKey}, {"shell", shellAccessKey}} {
-				name, _, e := gateCheck(slices.Clone(words), k.key)
+			words := slices.Concat(paths[id], extra)
+			for _, k := range keys {
+				name, _, e := gateCheckIn(sc, root, slices.Clone(words), k.key)
+				answers++
 				answer := "runs"
 				if e != nil {
 					answer = e.Code + "|" + e.Message
 				}
 				lines = append(lines, fmt.Sprintf("%q\t%s\t%s\t%s", strings.Join(words, " "), k.name, name, answer))
 			}
+			resetProbeFlags(root, words)
 		}
+	}
+	if err := pinCount("gate answer", answers, probes); err != nil {
+		t.Error(err)
 	}
 	slices.Sort(lines)
 	got := strings.Join(lines, "\n") + "\n"
@@ -57,14 +82,39 @@ func TestGateAnswersPinned(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
+	wantSet := map[string]bool{}
+	for _, l := range want {
+		wantSet[l] = true
+	}
+	gotSet := map[string]bool{}
 	for _, l := range lines {
-		if !slices.Contains(want, l) {
+		gotSet[l] = true
+		if !wantSet[l] {
 			t.Errorf("changed or new: %s", l)
 		}
 	}
 	for _, l := range want {
-		if !slices.Contains(lines, l) {
+		if !gotSet[l] {
 			t.Errorf("gone: %s", l)
+		}
+	}
+}
+
+// probeFlagNames are the flags gateProbeFlags sets after a command's path.
+var probeFlagNames = []string{"help", "read-only", "write", "analyze", "refresh", "to"}
+
+// resetProbeFlags puts the flags a probe set on the command words name back
+// to their defaults, so the next question on the same tree reads none of
+// them.
+func resetProbeFlags(root *cobra.Command, words []string) {
+	c, _, err := root.Find(words)
+	if err != nil {
+		return
+	}
+	for _, n := range probeFlagNames {
+		if f := c.Flags().Lookup(n); f != nil && f.Changed {
+			_ = f.Value.Set(f.DefValue)
+			f.Changed = false
 		}
 	}
 }
