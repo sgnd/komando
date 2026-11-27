@@ -37,25 +37,25 @@ func csvRun(t *testing.T, args ...string) (string, *out.Error) {
 func TestDBQueryCSVExportsEveryRow(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")
 	const q = "with recursive c(x) as (select 1 union all select x+1 from c where x < 1000) select x from c"
-	s, e := csvRun(t, "db", "query", "lite", "-o", "csv", q)
+	s, e := csvRun(t, "database", "sqlite", "query", "lite", "-o", "csv", q)
 	if e != nil || strings.Count(s, "\n") != 1001 {
 		t.Errorf("csv: %v, %d lines", e, strings.Count(s, "\n"))
 	}
-	s, e = csvRun(t, "db", "query", "lite", "-o", "tsv", "-n", "10", q)
+	s, e = csvRun(t, "database", "sqlite", "query", "lite", "-o", "tsv", "-n", "10", q)
 	if e != nil || strings.Count(s, "\n") != 11 {
 		t.Errorf("-n 10: %v, %d lines", e, strings.Count(s, "\n"))
 	}
 	// the error goes to stderr, so stdout stays CSV only
-	if s, e = csvRun(t, "db", "query", "lite", "-o", "csv", "--max-output", "1024", q); e == nil || e.Exit != out.ExitError || strings.Contains(s, "{") {
+	if s, e = csvRun(t, "database", "sqlite", "query", "lite", "-o", "csv", "--max-output", "1024", q); e == nil || e.Exit != out.ExitError || strings.Contains(s, "{") {
 		t.Errorf("cut by --max-output: %+v\n%s", e, s)
 	}
 	tcl.out.Format = "json"
-	if d := mustRun(t, "db", "query", "lite", q); d["results"].([]any)[0].(map[string]any)["truncated"] != "rows" {
+	if d := mustRun(t, "database", "sqlite", "query", "lite", q); d["results"].([]any)[0].(map[string]any)["truncated"] != "rows" {
 		t.Errorf("JSON keeps the 500-row default: %v", d["results"])
 	}
-	if e := wantCode(t, "USAGE", "db", "query", "lite"); !strings.Contains(e.Message, "no SQL") {
+	if e := wantCode(t, "USAGE", "database", "sqlite", "query", "lite"); !strings.Contains(e.Message, "no SQL") {
 		t.Errorf("no SQL: %s", e.Message)
 	}
 }
@@ -65,13 +65,13 @@ func TestDBQueryDryRunCreatesNoFile(t *testing.T) {
 	invHome(t)
 	path := filepath.Join(t.TempDir(), "new.db")
 	mustRun(t, "conn", "add", "ne", "sqlite://"+path)
-	invRun(t, "db", "query", "ne", "--write", "--dry-run", "create table z (a)")
+	invRun(t, "database", "sqlite", "query", "ne", "--write", "--dry-run", "create table z (a)")
 	if _, err := os.Stat(path); err == nil {
 		t.Fatal("a dry run created the file")
 	}
-	wantCode(t, "DB_CONNECT", "db", "query", "ne", "--write", "--dry-run", "create table z (a)")
-	mustRun(t, "db", "query", "ne", "--write", "create table z (a)")
-	if d := mustRun(t, "db", "query", "ne", "--write", "--dry-run", "insert into z values (1)"); d["rolled_back"] != true {
+	wantCode(t, "DB_CONNECT", "database", "sqlite", "query", "ne", "--write", "--dry-run", "create table z (a)")
+	mustRun(t, "database", "sqlite", "query", "ne", "--write", "create table z (a)")
+	if d := mustRun(t, "database", "sqlite", "query", "ne", "--write", "--dry-run", "insert into z values (1)"); d["rolled_back"] != true {
 		t.Errorf("dry run on an existing file: %v", d)
 	}
 }
@@ -106,7 +106,7 @@ func TestKindAddChecksFamily(t *testing.T) {
 			t.Errorf("%v %s: hint %q", c.words, c.url, e.Hint)
 		}
 	}
-	mustRun(t, "db", "add", "pg", "postgres://x@127.0.0.1/x")
+	mustRun(t, "database", "postgres", "add", "pg", "postgres://x@127.0.0.1/x")
 	mustRun(t, "cache", "redis", "add", "rc", "redis://127.0.0.1:6379/0")
 }
 

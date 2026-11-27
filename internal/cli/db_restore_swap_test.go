@@ -35,7 +35,7 @@ func TestRestoreStopsWhenTheFileChangesAfterTheCheck(t *testing.T) {
 	}
 	t.Cleanup(func() { askOnScreen = saved; resetApproval() })
 	resetApproval()
-	_, e := invRun(t, "db", "restore", "pg", "--from", file, "--allow-dangerous")
+	_, e := invRun(t, "database", "postgres", "restore", "pg", "--from", file, "--allow-dangerous")
 	if windows == 0 {
 		t.Fatal("no approval window was opened")
 	}
@@ -63,7 +63,7 @@ func TestRestoreBodySHA256IsTheSealedContent(t *testing.T) {
 	afterRestoreSeal = func(path string) { os.WriteFile(path, []byte("INSERT INTO t VALUES (2);\n"), 0o600) }
 	t.Cleanup(func() { afterRestoreSeal = saved; resetApproval() })
 	resetApproval()
-	_, e := invRun(t, "db", "restore", "pg", "--from", file, "--allow-dangerous")
+	_, e := invRun(t, "database", "postgres", "restore", "pg", "--from", file, "--allow-dangerous")
 	if e == nil || e.Code != "FILE_CHANGED" {
 		t.Fatalf("want FILE_CHANGED, got %+v", e)
 	}
@@ -82,7 +82,7 @@ func TestRestoreBodySHA256ForAPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(b)
-	d := mustRun(t, "db", "restore", "pg", "--from", file, "--dry-run")
+	d := mustRun(t, "database", "postgres", "restore", "pg", "--from", file, "--dry-run")
 	if got := d["_meta"].(map[string]any)["body_sha256"]; got != hex.EncodeToString(sum[:]) {
 		t.Errorf("body_sha256 %v, want %x", got, sum)
 	}

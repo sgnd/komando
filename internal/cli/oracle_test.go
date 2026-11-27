@@ -63,8 +63,8 @@ func TestOracleConnsCheckTLS(t *testing.T) {
 		t.Errorf("weakTLS false: %v", w)
 	}
 	// what Oracle cannot do says so before connecting
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "erp", "--to", t.TempDir()+"/o.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "o-local", "--from", "x.sql", "--dry-run")
+	wantCode(t, "NOT_SUPPORTED", "database", "oracle", "backup", "erp", "--to", t.TempDir()+"/o.sql")
+	wantCode(t, "NOT_SUPPORTED", "database", "oracle", "restore", "o-local", "--from", "x.sql", "--dry-run")
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "o-local", "select 1 from dual", "--analyze")
 }
 

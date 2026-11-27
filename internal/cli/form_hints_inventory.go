@@ -318,7 +318,7 @@ var invSetupHints = map[string]formHint{
 	"guide uninstall":       {flags: []formFlag{invProject}},
 	"version":               {},
 	"update":                {args: []formArg{{ask: "Which version? (leave empty for the newest)", example: "v0.6.0", help: "Empty installs the newest release."}}},
-	"schema":                {args: []formArg{{ask: "For which command? (leave empty for all)", example: "db query", help: "Its words, like db query. The list is for programs and AI agents."}}},
+	"schema":                {args: []formArg{{ask: "For which command? (leave empty for all)", example: "database postgres query", help: "Its words, like database postgres query. The list is for programs and AI agents."}}},
 	"completion bash":       {},
 	"completion fish":       {},
 	"completion powershell": {},

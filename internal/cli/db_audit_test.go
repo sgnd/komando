@@ -55,12 +55,12 @@ func TestDBDumpToFolder(t *testing.T) {
 	invHome(t)
 	dir := t.TempDir()
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(dir, "app.db"))
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")
 	backups := filepath.Join(dir, "backups")
 	if err := os.Mkdir(backups, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	d := mustRun(t, "db", "dump", "kind:db", "--to", backups)
+	d := mustRun(t, "database", "sqlite", "backup", "lite", "--to", backups)
 	want := filepath.Join(backups, "lite-"+time.Now().Format("2006-01-02")+".db")
 	if d["file"] != want {
 		t.Fatalf("file %v, want %s", d["file"], want)
@@ -68,7 +68,7 @@ func TestDBDumpToFolder(t *testing.T) {
 	if _, err := os.Stat(want); err != nil {
 		t.Fatal(err)
 	}
-	wantCode(t, "USAGE", "db", "dump", "lite", "--to", "-")
+	wantCode(t, "USAGE", "database", "sqlite", "backup", "lite", "--to", "-")
 }
 
 // A db error's hint names the conn that was given, not the CONN
@@ -76,12 +76,12 @@ func TestDBDumpToFolder(t *testing.T) {
 func TestDBHintNamesConn(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")
 	e := wantCode(t, "TABLE_NOT_FOUND", "db", "schema", "lite", "nosuch")
 	if !strings.Contains(e.Hint, "`komando db schema lite`") || strings.Contains(e.Hint, "CONN") {
 		t.Errorf("hint %q", e.Hint)
 	}
-	e = wantCode(t, "DB_ERROR", "db", "query", "lite", "select * from nosuch")
+	e = wantCode(t, "DB_ERROR", "database", "sqlite", "query", "lite", "select * from nosuch")
 	if !strings.Contains(e.Hint, "`komando db schema lite TABLE`") {
 		t.Errorf("hint %q", e.Hint)
 	}

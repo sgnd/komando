@@ -139,7 +139,7 @@ func TestTooLongCodeOnRealPath(t *testing.T) {
 	var buf bytes.Buffer
 	saved := tcl.out.W
 	tcl.out.W = &buf
-	code := executeArgs([]string{"-o", "json", "db", "query", "lite", "--file", long, "--write", "--yes"})
+	code := executeArgs([]string{"-o", "json", "database", "sqlite", "query", "lite", "--file", long, "--write", "--yes"})
 	tcl.out.W = saved
 	lines := bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n"))
 	var env struct {

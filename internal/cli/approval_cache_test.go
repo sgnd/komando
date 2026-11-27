@@ -108,7 +108,7 @@ func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"), "--protected")
 	*texts = nil
 	resetApproval()
-	mustRun(t, "db", "query", "lite", "--write", "--yes", "--allow-dangerous", "drop table if exists t")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "--yes", "--allow-dangerous", "drop table if exists t")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "protected conn lite") {
 		t.Errorf("one window that names the protected conn: %q", *texts)
 	}

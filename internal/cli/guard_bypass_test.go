@@ -19,9 +19,9 @@ func TestGuardDotDotThroughLink(t *testing.T) {
 	os.Symlink(filepath.Join(home, ".komando", "zsub"), filepath.Join(proj, "k"))
 	os.Symlink(filepath.Join(home, ".aws", "sso"), filepath.Join(proj, "a"))
 	for _, args := range [][]string{
-		{"db", "dump", "lite", "--to", filepath.Join(proj, "l") + "/../authorized_keys"},
+		{"database", "sqlite", "backup", "lite", "--to", filepath.Join(proj, "l") + "/../authorized_keys"},
 		{"export", "--to", filepath.Join(proj, "l") + "/../exported"},
-		{"db", "dump", "lite", "--to", filepath.Join(proj, "k") + "/../dump.sql"},
+		{"database", "sqlite", "backup", "lite", "--to", filepath.Join(proj, "k") + "/../dump.sql"},
 		{"export", "--to", filepath.Join(proj, "a") + "/../config", "--overwrite"},
 		{"download", "web1", "/etc/hosts", "--to", filepath.Join(proj, "l") + "/../authorized_keys"},
 	} {
@@ -63,10 +63,10 @@ func TestGuardUnicodeCaseFold(t *testing.T) {
 	t.Cleanup(func() { caseFoldFS = saved })
 	home, _ := agentWriteHome(t)
 	for _, args := range [][]string{
-		{"db", "dump", "lite", "--to", filepath.Join(home, ".ſsh", "authorized_keys")},
+		{"database", "sqlite", "backup", "lite", "--to", filepath.Join(home, ".ſsh", "authorized_keys")},
 		{"export", "--to", filepath.Join(home, ".awſ", "config")},
-		{"db", "dump", "lite", "--to", filepath.Join(home, ".KOMANDO", "x.db")},
-		{"db", "dump", "lite", "--to", filepath.Join(home, ".Kube", "config")},
+		{"database", "sqlite", "backup", "lite", "--to", filepath.Join(home, ".KOMANDO", "x.db")},
+		{"database", "sqlite", "backup", "lite", "--to", filepath.Join(home, ".Kube", "config")},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("%v: want SENSITIVE_FILE, got %+v", args, e)
@@ -101,7 +101,7 @@ func TestAgentLocalWriteMoreProtected(t *testing.T) {
 		".claude/settings.json", ".codex/hooks.json", ".gemini/settings.json", ".cursor/hooks.json", ".agents/skills/x/SKILL.md",
 	} {
 		p := filepath.Join(home, filepath.FromSlash(rel))
-		if _, e := invRun(t, "db", "dump", "lite", "--to", p); e == nil || e.Code != "SENSITIVE_FILE" {
+		if _, e := invRun(t, "database", "sqlite", "backup", "lite", "--to", p); e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("%s: want SENSITIVE_FILE, got %+v", rel, e)
 		}
 	}

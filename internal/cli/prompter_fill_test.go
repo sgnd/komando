@@ -37,7 +37,7 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"logs"}, []string{"web1"}, "logs web1", []string{"TARGET: ", "web1", "prod1"}},
 		{[]string{"logs", "--since", "1h"}, []string{"1"}, "logs --since 1h prod1", nil},
 		{[]string{"db", "query"}, []string{"select 1"}, "db query app-db 'select 1'", []string{"Using app-db (the only one of your databases)", "SQL: "}},
-		{[]string{"db", "query", "app-db", "--file", "q.sql"}, nil, "db query app-db --file q.sql", nil}, // typed in full
+		{[]string{"database", "postgres", "query", "app-db", "--file", "q.sql"}, nil, "db query app-db --file q.sql", nil}, // typed in full
 		{[]string{"exec", "--", "uptime"}, []string{"web1", "y"}, "exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
 		{[]string{"fs", "replace", "web1", "/etc/x", "--backup"}, []string{"a", "b", "y"}, "fs replace web1 /etc/x --backup --old=a --new=b", []string{"--old: "}},

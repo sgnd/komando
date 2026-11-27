@@ -116,7 +116,7 @@ func TestPromptNext(t *testing.T) {
 	tcl.nextNow = nil
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	drawn := promptFake(t)
-	tcl.fillSeen = fillInfo{person: true, key: "db add", first: "app-db", prompted: true, line: []string{"db", "add", "app-db", "postgres://app@10.0.0.9/app"}}
+	tcl.fillSeen = fillInfo{person: true, key: "db add", first: "app-db", prompted: true, line: []string{"database", "postgres", "add", "app-db", "postgres://app@10.0.0.9/app"}}
 	defer func() { tcl.fillSeen = fillInfo{} }()
 	promptNext(tcl)
 	for _, want := range []string{"Next time: komando db add app-db postgres://app@10.0.0.9/app", "Next: komando db info app-db · komando db query app-db"} {

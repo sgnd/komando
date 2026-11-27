@@ -28,7 +28,7 @@ var t3Cases = []struct {
 	{"cluster.scale", "the name web", []string{"cluster", "scale", "prod", "deploy/web", "0"}},
 	{"registry.oci.image.delete", "the name a:1", []string{"registry", "oci", "image", "delete", "reg1", "a:1"}},
 	{"registry.oci.image.prune", "the name a", []string{"registry", "oci", "image", "prune", "reg1", "a", "--keep", "5"}},
-	{"db.restore", "the name db1", []string{"db", "restore", "db1", "--from", "testdata/golden_restore.sql"}},
+	{"db.restore", "the name db1", []string{"database", "postgres", "restore", "db1", "--from", "testdata/golden_restore.sql"}},
 	{"db.user.rm", "the name bob", []string{"db", "user", "rm", "db1", "bob"}},
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x"}},
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x", "--recursive"}},
