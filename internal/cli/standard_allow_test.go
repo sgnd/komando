@@ -52,9 +52,6 @@ var (
 	allowExamples = []string{
 		"audit",
 		"audit verify",
-		"cluster helm history",
-		"cluster helm status",
-		"cluster history",
 		"config show",
 		"conn kinds",
 		"conn show",

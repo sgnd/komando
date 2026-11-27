@@ -22,12 +22,11 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":         22, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (key_revoke.go): a phone's key on one server, C372
-	"guardScript":   5,
-	"guardConns":    25, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1
-	"confirmObject": 4,
-	"dangerOK":      17, // 16 commands (-1 reboot, C493: TestRulePower), and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
-	"askPerson":     3,  // the third: the window of the move to format 3 (migrateCallFor)
+	"guard":       22, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (key_revoke.go): a phone's key on one server, C372
+	"guardScript": 3,  // -2 swarmApply, swarmDo (D4, C496): `cluster swarm raw` is rated by guardSwarmRun, pinned by TestRawProtectedYes
+	"guardConns":  22, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1; -3 withKubeWhy, kubeApply, swarmDo (D4, C496): the raw leaf is guarded by capability/build.go, pinned by TestRawProtectedYes
+	"dangerOK":    16, // 15 commands (-1 reboot, C493: TestRulePower; -1 swarmDo, D4 C496: TestRawScaleToZeroDangerous), and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
+	"askPerson":   3,  // the third: the window of the move to format 3 (migrateCallFor)
 }
 
 func TestGuardCallSitesAreReviewed(t *testing.T) {

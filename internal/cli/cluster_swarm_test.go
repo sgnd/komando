@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"github.com/spf13/cobra"
-	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
@@ -94,52 +94,6 @@ func TestDockerErr(t *testing.T) {
 	}
 }
 
-func TestSwarmErr(t *testing.T) {
-	for stderr, want := range map[string]string{
-		"komando: docker not found":     "direct is not a Swarm manager (docker not found)",
-		"komando: swarm worker":         "direct is a Swarm worker, not a manager",
-		"komando: swarm inactive false": "direct is not a Swarm manager (swarm inactive)",
-		"Error: No such service: nope":  "No such service: nope",
-		"":                              "docker exited 1",
-	} {
-		e := swarmErr("direct", stderr, "", 1)
-		if e.Message != want {
-			t.Errorf("%q: %q, want %q", stderr, e.Message, want)
-		}
-	}
-	if e := swarmErr("m", "Error: No such service: nope", "", 1); e.Exit != out.ExitNotFound {
-		t.Errorf("a missing service is not found (3), got %d", e.Exit)
-	}
-}
-
-func TestObjectRef(t *testing.T) {
-	for in, want := range map[string]string{
-		"deployment/api":      "deployment api",
-		"deployment api":      "deployment api",
-		"deployment.apps/api": "deployment.apps api",
-		"svc web":             "svc web",
-	} {
-		typ, name, err := objectRef(strings.Fields(in))
-		if err != nil || typ+" "+name != want {
-			t.Errorf("%q: %q %q %v", in, typ, name, err)
-		}
-	}
-	for _, bad := range []string{"deployment", "deployment/api web", "/api", "a/b/c"} {
-		if _, _, err := objectRef(strings.Fields(bad)); err == nil {
-			t.Errorf("%q must be refused", bad)
-		}
-	}
-}
-
-func TestSwarmKind(t *testing.T) {
-	for in, want := range map[string]string{"svc": "service", "services": "service", "task": "task", "tasks": "task",
-		"pods": "task", "nodes": "node", "stack": "stack", "deployment": ""} {
-		if got := swarmKind(in); got != want {
-			t.Errorf("%s: %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestLimitValue(t *testing.T) {
 	n := 0
 	v := &limitValue{&n}
@@ -152,7 +106,7 @@ func TestLimitValue(t *testing.T) {
 }
 
 // C-S01: -n is --namespace on every cluster command that has one; a
-// number given as -n (the old count on events, logs, ls) is refused,
+// number given as -n (the old count) is refused,
 // and --namespace=N still names a namespace N.
 func TestClusterDashN(t *testing.T) {
 	root := newRoot(tcl)
@@ -195,10 +149,10 @@ func TestClusterDashN(t *testing.T) {
 		t.Errorf("%d cluster commands have --namespace, want 21", n)
 	}
 	invHome(t)
-	e := mainErr(t, "cluster", "ls", "x1", "pods", "-n", "50")
+	e := mainErr(t, "cluster", "kubernetes", "exec", "x1", "api", "-n", "50")
 	if e.Code != "USAGE" || e.Exit != 2 || e.Message != "-n: 50 is a count, but -n is --namespace in cluster commands" ||
 		e.Hint != "`--limit 50`, or `--namespace=50` for a namespace named 50" {
-		t.Errorf("cluster ls -n 50: %+v", e)
+		t.Errorf("cluster kubernetes exec -n 50: %+v", e)
 	}
 }
 
@@ -215,102 +169,6 @@ func clusterParse(t *testing.T, path string, args []string) *cobra.Command {
 		return nil
 	}
 	return found
-}
-
-func TestSwarmRolloutState(t *testing.T) {
-	for _, c := range []struct {
-		state, msg, replicas string
-		rollback             bool
-		done, failed         bool
-	}{
-		{"completed", "update completed", "2/2", false, true, false},
-		{"updating", "", "1/2", false, false, false},
-		{"paused", "update paused due to failure", "1/2", false, false, true},
-		{"rollback_started", "update rolled back due to failure", "1/2", false, false, true}, // a deploy that failed
-		{"rollback_started", "manually requested rollback", "2/2", false, false, false},      // someone rolled back
-		{"rollback_started", "manually requested rollback", "2/2", true, false, false},
-		{"rollback_completed", "rollback completed", "2/2", true, true, false},
-		{"rollback_completed", "rollback completed", "2/2", false, true, true}, // an automatic rollback ended a deploy
-		{"rollback_paused", "", "1/2", true, false, true},
-		{"", "", "3/3", false, true, false},
-		{"", "", "0/3", false, false, false},
-	} {
-		done, failed := swarmRolloutState(c.state, c.msg, c.replicas, c.rollback)
-		if done != c.done || failed != c.failed {
-			t.Errorf("%+v: done=%v failed=%v", c, done, failed)
-		}
-	}
-}
-
-func TestSwarmMapping(t *testing.T) {
-	ls := jsonLines(`{"ID":"abc","Name":"shop_web","Image":"nginx:1@sha256:x","Mode":"replicated","Replicas":"1/3","Ports":"*:80->80/tcp"}
-{"ID":"def","Name":"shop_db","Image":"pg:16","Mode":"replicated","Replicas":"1/1","Ports":""}`)
-	ins := jsonLines(`{"ID":"abcdef123","CreatedAt":"2026-01-01T00:00:00.5Z","UpdateStatus":{"State":"completed"}}`)
-	rows := swarmServices(ls, ins)
-	if len(rows) != 2 || rows[1]["name"] != "shop_web" || rows[1]["image"] != "nginx:1" || rows[1]["ready"] != "1/3" || rows[1]["update_state"] != "completed" || rows[1]["age"] == "" {
-		t.Errorf("services: %v", rows)
-	}
-	tasks := swarmTasks(jsonLines(`{"Name":"shop_web.2","Image":"nginx:1","Node":"n1","DesiredState":"Ready","CurrentState":"Preparing 2 seconds ago","Error":""}
-{"Name":"\\_ shop_web.2","Image":"nginx:1","Node":"n1","DesiredState":"Shutdown","CurrentState":"Failed 9 seconds ago","Error":"\"task: non-zero exit (1)\""}
-{"Name":"shop_web.1","Image":"nginx:1","Node":"n1","DesiredState":"Running","CurrentState":"Running 5 minutes ago","Error":""}`))
-	if tasks[1]["name"] != "shop_web.2" || tasks[1]["current"] != false || tasks[1]["state"] != "Failed" || tasks[1]["since"] != "9 seconds ago" || tasks[1]["error"] != "task: non-zero exit (1)" {
-		t.Errorf("tasks: %v", tasks[1])
-	}
-	stuck := stuckTasks(tasks)
-	if !strings.Contains(stuck, "shop_web.2 failed: task: non-zero exit (1)") || strings.Contains(stuck, "shop_web.1") {
-		t.Errorf("stuck: %q", stuck)
-	}
-	nodes := swarmNodes(jsonLines(`{"Hostname":"m1","Status":"Ready","Availability":"Active","ManagerStatus":"Leader"}
-{"Hostname":"w1","Status":"Down","Availability":"Drain","ManagerStatus":""}`))
-	h := swarmHealth("m1", "28.0", nodes, ls, tasks)
-	probs, _ := h["problems"].([]map[string]string)
-	if h["healthy"] != false || h["nodes_ready"] != 1 || h["managers"] != 1 || len(probs) != 3 {
-		t.Fatalf("health: %v", h)
-	}
-	if probs[2]["object"] != "service/shop_web" || !strings.Contains(probs[2]["problem"], "1 of 3 replicas running") {
-		t.Errorf("service problem: %v", probs[2])
-	}
-}
-
-func TestSwarmDescribe(t *testing.T) {
-	ins := jsonLines(`{"ID":"x","CreatedAt":"2026-01-01T00:00:00Z","Spec":{"Name":"web","Mode":{"Replicated":{"Replicas":3}},"TaskTemplate":{"ContainerSpec":{"Image":"nginx:1@sha256:x","Args":["nginx","-g"]}}},"UpdateStatus":{"State":"paused","Message":"update paused"},"Endpoint":{"Ports":[{"Protocol":"tcp","TargetPort":80,"PublishedPort":8080}]}}`)[0]
-	d := swarmService("m1", ins, "2/3", nil)
-	sum := d["summary"].(map[string]any)
-	if d["object"] != "service/web" || sum["image"] != "nginx:1" || sum["replicas"] != 3 || sum["mode"] != "replicated" || sum["ports"] != "8080->80/tcp" || sum["update_state"] != "paused" {
-		t.Errorf("describe: %v", sum)
-	}
-	if txt := d.Text(); !strings.Contains(txt, "service/web") || !strings.Contains(txt, "update state: paused") {
-		t.Errorf("text: %s", txt)
-	}
-}
-
-func TestPickRollback(t *testing.T) {
-	rs := func(rev int, img string, history string) map[string]any {
-		ann := map[string]any{revisionKey: strconv.Itoa(rev)}
-		if history != "" {
-			ann["deployment.kubernetes.io/revision-history"] = history
-		}
-		return map[string]any{"metadata": map[string]any{"annotations": ann},
-			"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"image": img}}}}}}
-	}
-	// deploy good (1), restart (2, same image), deploy bad (3): go to 2
-	sets := []map[string]any{rs(3, "bad", ""), rs(2, "good", ""), rs(1, "good", "")}
-	if got, err := pickRollback(sets, 3); err != nil || rsRevision(got) != 2 {
-		t.Errorf("first rollback: %v %v", got, err)
-	}
-	// after that rollback, 2 became 4 (history "2"); 3 is the bad one: do not go back to it
-	sets = []map[string]any{rs(4, "good", "2"), rs(3, "bad", ""), rs(1, "good", "")}
-	if _, err := pickRollback(sets, 4); err == nil || !strings.Contains(toErr(err).Message, "3 (rolled back from)") {
-		t.Errorf("a second rollback must not bring the bad version back: %v", err)
-	}
-	// a newer deploy after the rollback: back to the good one
-	sets = []map[string]any{rs(5, "v2", ""), rs(4, "good", "2"), rs(3, "bad", "")}
-	if got, err := pickRollback(sets, 5); err != nil || rsRevision(got) != 4 {
-		t.Errorf("rollback after a new deploy: %v %v", got, err)
-	}
-	if got := revisionList(sets); got != "3, 4, 5" {
-		t.Errorf("revision list %q", got)
-	}
 }
 
 func TestDiffObjectSecret(t *testing.T) {
@@ -384,21 +242,6 @@ func TestKindSuggestion(t *testing.T) {
 	}
 }
 
-func TestKubeListText(t *testing.T) {
-	l := kubeList{"type": "Deployment", "namespace": "shop", "items": []map[string]any{{"name": "api", "ready": "2/2", "updated": 2, "available": 2, "age": "5m"}}}
-	txt := l.Text()
-	if !strings.HasPrefix(txt, "NAME  READY  UP-TO-DATE  AVAILABLE  AGE\napi   2/2    2           2          5m") {
-		t.Errorf("deployments:\n%s", txt)
-	}
-	all := kubeList{"type": "Pod", "items": []map[string]any{{"name": "p", "namespace": "a", "ready": "1/1", "status": "Running", "restarts": 0, "age": "40s"}}}
-	if !strings.HasPrefix(all.Text(), "NAMESPACE  NAME") {
-		t.Errorf("every namespace adds the column:\n%s", all.Text())
-	}
-	if !strings.Contains((kubeList{"type": "Pod", "namespace": "x", "items": []map[string]any{}}).Text(), "no pods in namespace x yet") {
-		t.Error("empty list")
-	}
-}
-
 func TestApplyDataJSON(t *testing.T) {
 	a := applyData{Conn: "k", DryRun: true, Objects: []objectChange{{Object: "deployment/web", Action: "create"}}}
 	b, _ := a.MarshalJSON()
@@ -413,17 +256,5 @@ func TestApplyDataJSON(t *testing.T) {
 	}
 	if txt := a.Text(); txt != "deployment/web created\n" {
 		t.Errorf("text %q", txt)
-	}
-}
-
-func TestSinceParam(t *testing.T) {
-	if q, err := sinceParam("10m"); err != nil || q.Get("sinceSeconds") != "600" {
-		t.Errorf("10m: %v %v", q, err)
-	}
-	if q, err := sinceParam("2026-01-02T10:00:00Z"); err != nil || q.Get("sinceTime") != "2026-01-02T10:00:00Z" {
-		t.Errorf("time: %v %v", q, err)
-	}
-	if _, err := sinceParam("yesterday-ish"); err == nil {
-		t.Error("nonsense must be refused")
 	}
 }

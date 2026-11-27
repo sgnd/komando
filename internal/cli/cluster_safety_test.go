@@ -253,19 +253,19 @@ func TestKctlGetMasksForAgents(t *testing.T) {
 	}
 }
 
-// `cluster get` hides env values named like secrets from an agent, also
-// in the last-applied-configuration copy.
+// `cluster kubernetes raw -- get` hides env values named like secrets from an
+// agent, also in the last-applied-configuration copy.
 func TestClusterGetHidesSecretEnv(t *testing.T) {
 	invHome(t)
 	l := newLabCluster(t)
 	mustRun(t, "import", "kubeconfig", l.kubeconfigFile(t, "    token: test-token-abcdef"))
 	asAgent(t, false, false)
-	d, e := cliRun(t, "cluster", "get", "prod", "deploy", "api")
+	d, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "deploy", "api", "-o", "yaml")
 	if e != nil {
 		t.Fatalf("%s %s", e.Code, e.Message)
 	}
 	if b, _ := json.Marshal(d); strings.Contains(string(b), "Sup3rS3cretPw") || !strings.Contains(string(b), "debug") {
-		t.Errorf("cluster get for an agent: %s", b)
+		t.Errorf("raw get for an agent: %s", b)
 	}
 }
 
@@ -815,9 +815,6 @@ func TestApplyRefusesHiddenValues(t *testing.T) {
 		if n := l.seen("PATCH") + l.seen("POST") + l.seen("PUT"); n != before {
 			t.Errorf("%v sent %d writes", args, n-before)
 		}
-	}
-	if _, e := cliRun(t, "cluster", "apply", "prod", "--file", file); e == nil || e.Code != "HIDDEN_VALUE" {
-		t.Errorf("cluster apply: %+v", e)
 	}
 	if code, _, se := runKctl(context.Background(), l.client(t), "lab", []string{"replace", "-f", file}); code == 0 || !strings.Contains(se, "komando hid") || l.seen("PUT") != 0 {
 		t.Errorf("replace: %d %q", code, se)

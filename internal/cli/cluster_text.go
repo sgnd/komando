@@ -4,14 +4,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/sgnd/komando/internal/cli/kit/term"
 )
 
 // -o text for the cluster commands: kubectl-like tables, not YAML dumps.
-
-// kubeList is `cluster list` (Kubernetes or Swarm): {type, count, items}.
-type kubeList map[string]any
 
 // listColumns are the table columns per kind: header and item key.
 var listColumns = map[string][][2]string{
@@ -37,36 +32,6 @@ var listColumns = map[string][][2]string{
 	"Task":          {{"name", "name"}, {"image", "image"}, {"node", "node"}, {"desired", "desired"}, {"state", "state"}, {"since", "since"}, {"error", "error"}},
 	"Node@swarm":    {{"name", "name"}, {"status", "status"}, {"availability", "availability"}, {"manager", "manager"}, {"engine", "engine"}},
 	"Stack":         {{"name", "name"}, {"services", "services"}},
-}
-
-func (l kubeList) Text() string {
-	items, _ := l["items"].([]map[string]any)
-	if len(items) == 0 {
-		where := ""
-		if ns := str(l["namespace"]); ns != "" {
-			where = " in namespace " + ns
-		}
-		return term.NoneYet(strings.ToLower(str(l["type"]))+"s"+where, "")
-	}
-	kind := str(l["type"])
-	if _, swarm := l["host"]; swarm {
-		if _, ok := listColumns[kind+"@swarm"]; ok {
-			kind += "@swarm"
-		}
-	}
-	cols, ok := listColumns[kind]
-	if !ok {
-		cols = [][2]string{{"name", "name"}, {"age", "age"}}
-	}
-	// every namespace: say which one each row is in
-	if _, one := l["namespace"]; !one && items[0]["namespace"] != nil {
-		cols = append([][2]string{{"namespace", "namespace"}}, cols...)
-	}
-	s := tableOf(cols, items)
-	if l["truncated"] == true {
-		s += fmt.Sprintf("(only the first %v; raise --limit for more)\n", l["count"])
-	}
-	return s
 }
 
 // tableOf lays out rows of maps under the given columns.
@@ -152,45 +117,5 @@ func indentText(s, prefix string) string {
 			b.WriteString(prefix + l)
 		}
 	}
-	return b.String()
-}
-
-// statusData is `cluster status` without an object: a few lines and the
-// problems as a table.
-type statusData map[string]any
-
-func (d statusData) Text() string {
-	var b strings.Builder
-	where := str(d["conn"])
-	if h := str(d["host"]); h != "" {
-		where = h + " (Swarm)"
-	}
-	if ns := str(d["namespace"]); ns != "" {
-		where += ", namespace " + ns
-	}
-	fmt.Fprintf(&b, "%s: version %s, %v of %v nodes ready", where, cluCell(d["version"]), d["nodes_ready"], d["nodes"])
-	if n, ok := d["services"]; ok {
-		fmt.Fprintf(&b, ", %v services", n)
-	}
-	b.WriteString("\n")
-	notes, _ := d["notes"].([]string)
-	for _, n := range notes {
-		b.WriteString("note: " + n + "\n")
-	}
-	probs, _ := d["problems"].([]map[string]string)
-	switch {
-	case len(probs) == 0 && d["healthy"] == nil:
-		b.WriteString("no problems found in what was checked\n")
-		return b.String()
-	case len(probs) == 0:
-		b.WriteString("healthy: no problems found\n")
-		return b.String()
-	}
-	fmt.Fprintf(&b, "not healthy: %s\n", countOf(len(probs), "problem"))
-	rows := make([][]string, len(probs))
-	for i, p := range probs {
-		rows[i] = []string{p["object"], p["problem"]}
-	}
-	b.WriteString(textTable([]string{"object", "problem"}, rows))
 	return b.String()
 }

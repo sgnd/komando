@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -21,87 +20,8 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
-
-func clusterRmCmd() *cobra.Command {
-	var ns string
-	c := &cobra.Command{
-		Use:   "rm TARGET TYPE/NAME",
-		Short: "Delete an object, service or stack",
-		Example: `  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous
-  komando cluster rm swarm1 service/web --allow-dangerous`,
-		Args: refArgs(1, 0),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			t, err := resolveCluster(cl, st, args[0])
-			if err != nil {
-				return err
-			}
-			typ, name, err := objectRef(args[1:])
-			if err != nil {
-				return err
-			}
-			if t.host != nil {
-				if err := noNamespace(t, ns); err != nil {
-					return err
-				}
-				kind := swarmKind(typ)
-				if kind != "service" && kind != "stack" {
-					return out.Usage("Swarm removes a service or a stack")
-				}
-				if err := checkSwarmName(name); err != nil {
-					return err
-				}
-				line := "docker " + kind + " rm " + sshx.Q(name)
-				if kind == "service" {
-					if _, err := swarmInspect(cl, cmd.Context(), t, name); err != nil {
-						return err
-					}
-				} else if err := swarmStackExists(cl, cmd.Context(), t, name); err != nil {
-					return err // stack rm of a missing stack says "Nothing found" and exits 0
-				}
-				if err := confirmObject(cl, nil, name, "removes "+kind+" "+name); err != nil {
-					return err
-				}
-				_, ran, err := swarmDo(cl, cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
-				if err != nil {
-					return err
-				}
-				res := map[string]any{"host": t.host.Name, "removed": kind + "/" + name}
-				if !ran {
-					res = map[string]any{"host": t.host.Name, "would_remove": kind + "/" + name, "dry_run": true, "would_run": line}
-				}
-				cl.out.Print("cluster.rm", res, nil)
-				return nil
-			}
-			if err := confirmObject(cl, []string{t.conn.Name}, name, "deletes "+typ+"/"+name+" from the cluster"); err != nil {
-				return err
-			}
-			return withKube(cl, cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := resource(ctx, k, typ)
-				if err != nil {
-					return nil, err
-				}
-				q := url.Values{}
-				if cl.dryRun() {
-					q.Set("dryRun", "All")
-				}
-				space := cmp.Or(ns, k.Namespace)
-				if _, err := k.Do(ctx, "DELETE", r.ObjectPath(space, name), q, nil, ""); err != nil {
-					return nil, err
-				}
-				return map[string]any{"conn": t.conn.Name, "removed": kindRef(r, name), "dry_run": cl.dryRun()}, nil
-			})
-		}),
-	}
-	nsFlags(c, &ns, nil, nil)
-	return c
-}
 
 // kubectlForbidden are flags that would point kubectl at another cluster or
 // identity than the conn's (sending the conn's credentials elsewhere), or
@@ -591,18 +511,6 @@ func redactArgs(args []string) []string {
 		}
 	}
 	return res
-}
-
-// nilData is true for nil and for a nil map, slice or pointer in an any.
-func nilData(v any) bool {
-	if v == nil {
-		return true
-	}
-	switch r := reflect.ValueOf(v); r.Kind() {
-	case reflect.Map, reflect.Slice, reflect.Pointer:
-		return r.IsNil()
-	}
-	return false
 }
 
 // guardSwarmRun is the stop of a Swarm manager's raw command for a destructive docker command on

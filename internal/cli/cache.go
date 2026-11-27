@@ -2,47 +2,34 @@ package cli
 
 import (
 	"context"
-	"fmt"
-	"maps"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cachex"
 	"github.com/sgnd/komando/internal/capability"
-	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Cache commands follow the same rule as db: named actions (set, del) do
-// what they say, behind the usual seatbelts; the raw `cache redis raw` is
-// read-only unless --write. Redis has no read-only mode, so without
-// --write only commands known to be reads are sent.
+// `cache redis raw` is read-only unless --write. Redis has no read-only
+// mode, so without --write only commands known to be reads are sent.
 
 func cacheCmd() *cobra.Command {
-	c := &cobra.Command{
+	return &cobra.Command{
 		Use:     "cache",
 		Aliases: []string{"redis"},
-		Short:   "Caches (Redis, Valkey, memcached): read and change keys",
-		Long: `Read and change keys in Redis, Valkey or memcached. Add a cache with
-` + "`komando cache redis add`" + `.
-
-get, keys and info only read. set changes data (a protected cache asks
-first); rm deletes keys, so it also needs --allow-dangerous. ` + "`cache redis raw`" + `
-sends any command, but only reads unless --write; commands that flush,
-block, run scripts or reconfigure the server also need --allow-dangerous.`,
+		Short:   "Caches (Redis, Valkey, memcached): save them, and run commands on them",
+		Long: `Save a cache with ` + "`komando cache redis add`" + `, then run its native commands with
+` + "`cache redis raw`" + `. raw only reads unless --write (a protected cache asks first);
+commands that flush, block, run scripts, delete keys or reconfigure the server
+also need --allow-dangerous.`,
 		Example: `  komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password
-  komando cache info prod-redis
-  komando cache keys prod-redis 'session:*'
-  komando cache get prod-redis session:42
-  komando cache set prod-redis maintenance on --ttl 30m --dry-run`,
+  komando cache redis raw prod-redis GET session:42
+  komando cache redis raw prod-redis SET maintenance on --write`,
 	}
-	c.AddCommand(cacheGetCmd(), cacheKeysCmd(), cacheInfoCmd(), cacheSetCmd(), cacheRmCmd())
-	return c
 }
 
 type cacheFn func(st *store.State, c *store.Conn, rc cachex.Store) (any, error)
@@ -144,369 +131,11 @@ func cacheIsCluster(cl *call, expr string) bool {
 	return err == nil && t.Cluster
 }
 
-func cacheGetCmd() *cobra.Command {
-	var limit int
-	c := &cobra.Command{
-		Use:   "get CONN KEY",
-		Short: "Show a key: its type, time to live and value (any type)",
-		Example: `  komando cache get prod-redis session:42
-  komando cache get prod-redis leaderboard --limit 10`,
-		Args: cobra.ExactArgs(2),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if limit < 1 {
-				return out.Usage("--limit is the most items to show: 1 or more")
-			}
-			return withCache(cl, cmd.Context(), "cache.get", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
-				func(st *store.State, _ *store.Conn, rc cachex.Store) (any, error) {
-					return rc.Get(cmd.Context(), args[1], int64(limit), maxOutput(cl, st))
-				})
-		}),
-	}
-	c.Flags().IntVarP(&limit, "limit", "n", 100, "the most items to show of a hash, list, set or sorted set")
-	return c
-}
-
-type keyList struct {
-	Conn    string   `json:"conn"`
-	Pattern string   `json:"pattern"`
-	Keys    []string `json:"keys"`
-	Count   int      `json:"count"`
-	More    bool     `json:"more"` // more keys match; narrow the pattern or raise --limit
-	// Items are the keys again with each one's type and time to live
-	// (never its value), in the same order.
-	Items []cachex.KeyInfo `json:"items"`
-}
-
-func newKeyList(conn, pattern string, items []cachex.KeyInfo, more bool) keyList {
-	slices.SortFunc(items, func(a, b cachex.KeyInfo) int { return strings.Compare(a.Key, b.Key) })
-	keys := make([]string, len(items))
-	for i, k := range items {
-		keys[i] = k.Key
-	}
-	return keyList{Conn: conn, Pattern: pattern, Keys: keys, Count: len(keys), More: more, Items: items}
-}
-
-func (l keyList) Text() string {
-	if len(l.Keys) == 0 {
-		if l.Pattern == "" || l.Pattern == "*" {
-			return term.NoneYet("cache keys", "")
-		}
-		return term.NoneMatch("cache keys", cachex.Quote(l.Pattern))
-	}
-	rows := make([][]string, len(l.Items))
-	for i, k := range l.Items {
-		typ := ""
-		if k.Type != nil {
-			typ = *k.Type
-		}
-		rows[i] = []string{cachex.Quote(k.Key), typ, ttlCell(k.TTL)}
-	}
-	var sb strings.Builder
-	sb.WriteString(term.DataTable([]string{"key", "type", "ttl"}, rows))
-	if l.More {
-		fmt.Fprintf(&sb, "(first %d keys; more match: narrow the pattern or raise --limit)\n", l.Count)
-	}
-	return sb.String()
-}
-
-// ttlCell is a key's time to live for people: "none" when it never
-// expires, empty when unknown.
-func ttlCell(ttl *int64) string {
-	switch {
-	case ttl == nil:
-		return ""
-	case *ttl < 0:
-		return "none"
-	}
-	return humanAge(time.Duration(*ttl) * time.Second)
-}
-
-func cacheKeysCmd() *cobra.Command {
-	var limit int
-	c := &cobra.Command{
-		Use:     "keys CONN [PATTERN]",
-		Aliases: []string{"list", "ls"},
-		Short:   "List keys matching a pattern (uses SCAN, so a big cache is not blocked)",
-		Example: `  komando cache keys prod-redis 'session:*'
-  komando cache keys prod-redis --limit 1000`,
-		Args: cobra.RangeArgs(1, 2),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if limit < 1 {
-				return out.Usage("--limit is the most keys to return: 1 or more")
-			}
-			pattern := "*"
-			if len(args) == 2 {
-				pattern = args[1]
-			}
-			return withCache(cl, cmd.Context(), "cache.keys", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
-				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					items, more, err := rc.Keys(cmd.Context(), pattern, limit)
-					if err != nil {
-						return nil, err
-					}
-					if more {
-						cl.out.CutNoted()
-					}
-					return newKeyList(c.Name, pattern, items, more), nil
-				})
-		}),
-	}
-	c.Flags().IntVarP(&limit, "limit", "n", 100, "the most keys to return")
-	return c
-}
-
-func cacheInfoCmd() *cobra.Command {
-	var all bool
-	c := &cobra.Command{
-		Use:   "info CONN [SECTION]",
-		Short: "Server summary: version, role, memory, clients, keys, hit rate",
-		Long: `Without arguments, a short summary: version, role, uptime, memory use and
-limit, eviction policy, clients, keys per database and the hit rate. A
-SECTION (server, clients, memory, persistence, stats, replication, cpu,
-commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
-		Example: `  komando cache info prod-redis
-  komando cache info prod-redis memory
-  komando cache info prod-redis --all`,
-		Args: cobra.RangeArgs(1, 2),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			section := ""
-			if len(args) == 2 {
-				section = strings.ToLower(args[1])
-				if secs := cachex.SectionsFor(cacheKind(cl, args[0])); !slices.Contains(secs, section) {
-					return out.Usage("unknown INFO section %q; pick one of: %s", args[1], strings.Join(secs, ", "))
-				}
-				if all {
-					return out.Usage("give a SECTION or --all, not both")
-				}
-			}
-			return withCache(cl, cmd.Context(), "cache.info", args[0], driver.Verdict{}, nil,
-				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					info, err := rc.Info(cmd.Context(), section)
-					if err != nil {
-						return nil, err
-					}
-					if section == "" && !all {
-						return cacheSummary{Conn: c.Name, Summary: cachex.SummarizeFor(connKind(c), info)}, nil
-					}
-					if len(info) == 0 {
-						return nil, out.Errf(out.ExitNotFound, "CACHE_SECTION_NOT_FOUND", "this server has no such section; try `komando cache info CONN --all`", "INFO %s returned nothing", section)
-					}
-					return cacheInfo{Conn: c.Name, Info: info}, nil
-				})
-		}),
-	}
-	c.Flags().BoolVarP(&all, "all", "a", false, "every field of the default INFO sections")
-	return c
-}
-
-type cacheSummary struct {
-	Conn    string         `json:"conn"`
-	Summary cachex.Summary `json:"summary"`
-}
-
-func (d cacheSummary) Text() string {
-	s := d.Summary
-	var rows [][]string
-	add := func(k, v string) { rows = append(rows, []string{k + ":", v}) }
-	version := s.Version
-	if s.Mode != "" {
-		version += " (" + s.Mode + ")"
-	}
-	add("version", version)
-	add("role", s.Role)
-	add("uptime", humanAge(time.Duration(s.UptimeSeconds)*time.Second))
-	mem := term.HumanBytes(s.UsedMemory) + " used, no limit"
-	if s.MaxMemory > 0 {
-		mem = term.HumanBytes(s.UsedMemory) + " used of " + term.HumanBytes(s.MaxMemory)
-	}
-	if s.EvictionPolicy != "" {
-		mem += " (eviction: " + s.EvictionPolicy + ")"
-	}
-	add("memory", mem)
-	add("clients", fmt.Sprint(s.Clients))
-	if len(s.Keys) == 0 {
-		add("keys", "0")
-	}
-	for _, db := range slices.Sorted(maps.Keys(s.Keys)) {
-		add("keys "+db, fmt.Sprintf("%d (%d with a ttl)", s.Keys[db], s.Expires[db]))
-	}
-	if s.HitRate != nil {
-		add("hit rate", fmt.Sprintf("%.1f%% (%d hits, %d misses)", *s.HitRate*100, s.Hits, s.Misses))
-	} else {
-		add("hit rate", "- (no reads yet)")
-	}
-	tab := term.LayoutTable([]string{"", ""}, rows)
-	return tab[strings.Index(tab, "\n")+1:] + "(all fields: --all, or a section such as memory or stats)\n"
-}
-
-type cacheInfo struct {
-	Conn string                       `json:"conn"`
-	Info map[string]map[string]string `json:"info"`
-}
-
-// Text prints the sections the way INFO does.
-func (d cacheInfo) Text() string {
-	var b strings.Builder
-	for i, sec := range slices.Sorted(maps.Keys(d.Info)) {
-		if i > 0 {
-			b.WriteString("\n")
-		}
-		fmt.Fprintf(&b, "# %s\n", sec)
-		for _, k := range slices.Sorted(maps.Keys(d.Info[sec])) {
-			fmt.Fprintf(&b, "%s:%s\n", k, d.Info[sec][k])
-		}
-	}
-	return b.String()
-}
-
-func cacheSetCmd() *cobra.Command {
-	var ttlFlag string
-	c := &cobra.Command{
-		Use:   "set CONN KEY VALUE",
-		Short: "Set a string key, replacing any old value",
-		Example: `  komando cache set prod-redis feature:dark-mode on
-  komando cache set prod-redis maintenance true --ttl 30m
-  komando cache set prod-redis report:weekly done --ttl 7d`,
-		Args: cobra.ExactArgs(3),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			ttl, err := parseTTL(ttlFlag)
-			if err != nil {
-				return err
-			}
-			if err := refuseHiddenWrite(args[1], args[2]); err != nil {
-				return err
-			}
-			result := func(c *store.Conn) cacheSet {
-				res := cacheSet{Conn: c.Name, Key: args[1]}
-				if ttl > 0 {
-					secs := int64(ttl / time.Second)
-					res.TTL = &secs
-				}
-				return res
-			}
-			return withCachePreview(cl, cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
-				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					if err := rc.Set(cmd.Context(), args[1], args[2], ttl); err != nil {
-						return nil, err
-					}
-					return result(c), nil
-				},
-				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					replaces, err := rc.Exists(cmd.Context(), args[1])
-					if err != nil {
-						return nil, err
-					}
-					res := result(c)
-					res.Replaces, res.DryRun = &replaces, true
-					return res, nil
-				})
-		}),
-	}
-	spanText(c.Flags(), &ttlFlag, "ttl", "", false, "expire the key after this long (like 30m, 24h, 7d); 0 or left out: never")
-	return c
-}
-
-// parseTTL reads --ttl: empty or 0 means no expiry; negative is refused.
-func parseTTL(s string) (time.Duration, error) {
-	if s == "" || s == "0" {
-		return 0, nil
-	}
-	return parseAge(s, "--ttl")
-}
-
-type cacheSet struct {
-	Conn     string `json:"conn"`
-	Key      string `json:"key"`
-	TTL      *int64 `json:"ttl_seconds"` // null = no expiry, as in `cache get`
-	Replaces *bool  `json:"replaces,omitempty"`
-	DryRun   bool   `json:"dry_run,omitempty"`
-}
-
-func (s cacheSet) Text() string {
-	exp := "no expiry"
-	if s.TTL != nil {
-		exp = "expires in " + humanAge(time.Duration(*s.TTL)*time.Second)
-	}
-	if s.DryRun {
-		return fmt.Sprintf("would set %s (%s; replaces existing: %s)\n", cachex.Quote(s.Key), exp, yesNo(s.Replaces != nil && *s.Replaces))
-	}
-	return fmt.Sprintf("set %s (%s)\n", cachex.Quote(s.Key), exp)
-}
-
 func yesNo(b bool) string {
 	if b {
 		return "yes"
 	}
 	return "no"
-}
-
-func cacheRmCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "rm CONN KEY...",
-		Short: "Delete keys by exact name, never by pattern",
-		Example: `  komando cache rm prod-redis session:42 session:43 --dry-run
-  komando cache rm prod-redis session:42 session:43 --allow-dangerous`,
-		Args: cobra.MinimumNArgs(2),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			keys := args[1:]
-			askTypes(cl, keys, "keys in "+args[0])
-			return withCachePreview(cl, cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
-				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					n, err := rc.Del(cmd.Context(), keys...)
-					if err != nil {
-						return nil, err
-					}
-					return cacheRmDone{Conn: c.Name, Deleted: n, Keys: keys}, nil
-				},
-				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					p := cacheRmPreview{Conn: c.Name, WouldDelete: []string{}, Missing: []string{}, DryRun: true}
-					for _, k := range keys {
-						ok, err := rc.Exists(cmd.Context(), k)
-						if err != nil {
-							return nil, err
-						}
-						if ok {
-							p.WouldDelete = append(p.WouldDelete, k)
-						} else {
-							p.Missing = append(p.Missing, k)
-						}
-					}
-					return p, nil
-				})
-		}),
-	}
-}
-
-type cacheRmDone struct {
-	Conn    string   `json:"conn"`
-	Deleted int64    `json:"deleted"`
-	Keys    []string `json:"keys"`
-}
-
-func (d cacheRmDone) Text() string {
-	if int(d.Deleted) == len(d.Keys) {
-		return fmt.Sprintf("deleted %d key%s\n", d.Deleted, term.Plural(int(d.Deleted)))
-	}
-	return fmt.Sprintf("deleted %d of %d keys (the others did not exist)\n", d.Deleted, len(d.Keys))
-}
-
-type cacheRmPreview struct {
-	Conn        string   `json:"conn"`
-	WouldDelete []string `json:"would_delete"`
-	Missing     []string `json:"missing"`
-	DryRun      bool     `json:"dry_run"`
-}
-
-func (p cacheRmPreview) Text() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "would delete %d key%s:\n", len(p.WouldDelete), term.Plural(len(p.WouldDelete)))
-	for _, k := range p.WouldDelete {
-		b.WriteString("  " + cachex.Quote(k) + "\n")
-	}
-	for _, k := range p.Missing {
-		b.WriteString("  " + cachex.Quote(k) + " (does not exist)\n")
-	}
-	return b.String()
 }
 
 func cacheRunCmd() *cobra.Command {

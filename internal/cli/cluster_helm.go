@@ -16,12 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
-
 	"github.com/sgnd/komando/internal/capability"
-	"github.com/sgnd/komando/internal/cli/kit/term"
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/snippet"
@@ -160,84 +155,6 @@ func latest(items []helmItem) []helmItem {
 	return res
 }
 
-// helmList is `cluster helm list`.
-type helmList map[string]any
-
-func (l helmList) Text() string {
-	rels, _ := l["releases"].([]map[string]any)
-	if len(rels) == 0 {
-		if ns, ok := l["namespace"].(string); ok && ns != "" {
-			return term.NoneYet("Helm releases in namespace "+ns, "", "-A looks in every namespace")
-		}
-		return term.NoneYet("Helm releases", "")
-	}
-	rows := make([][]string, len(rels))
-	for i, r := range rels {
-		rows[i] = []string{fmt.Sprint(r["name"]), fmt.Sprint(r["namespace"]), fmt.Sprint(r["revision"]),
-			fmt.Sprint(r["status"]), fmt.Sprint(r["chart"]), fmt.Sprint(r["app_version"]), fmt.Sprint(r["updated"])}
-	}
-	return textTable([]string{"NAME", "NAMESPACE", "REVISION", "STATUS", "CHART", "APP VERSION", "UPDATED"}, rows)
-}
-
-func helmLsCmd() *cobra.Command {
-	var ns string
-	var all bool
-	var limit int
-	c := &cobra.Command{
-		Use:   "list TARGET",
-		Short: "Helm releases: name, revision, status, chart and app version",
-		Example: `  komando cluster helm list prod-k8s -A
-  komando cluster helm list prod-k8s --namespace shop
-  komando cluster helm list @prod -A              # every cluster in the group`,
-		Args: cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := nsOrAll(ns, all); err != nil {
-				return err
-			}
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			ts, err := resolveClusters(cl, st, args[0])
-			if err != nil {
-				return err
-			}
-			return readClusters(cl, cmd.Context(), "cluster.helm.list", st, ts, clusterRead{swarmNo: helmNoSwarm,
-				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
-					space := cmp.Or(ns, k.Namespace)
-					if all {
-						space = ""
-					}
-					items, err := helmItems(ctx, k, space, "")
-					if err != nil {
-						return nil, err
-					}
-					rels := []map[string]any{}
-					for _, it := range latest(items) {
-						row := map[string]any{"name": it.name, "namespace": it.namespace, "revision": it.version, "status": it.status}
-						if r, err := it.decode(); err == nil {
-							row["chart"], row["app_version"], row["updated"] = r.chart(), r.Chart.Metadata.AppVersion, r.Info.LastDeployed
-						} else {
-							row["error"] = "cannot read the stored release: " + err.Error()
-						}
-						rels = append(rels, row)
-					}
-					rels = cutRows(cl, rels, limit)
-					res := helmList{"conn": t.conn.Name, "count": len(rels), "releases": rels}
-					if !all {
-						res["namespace"] = space
-					}
-					return res, nil
-				}})
-		}),
-	}
-	nsFlags(c, &ns, &all, nil)
-	clusterLimitFlag(c, &limit, 0, "releases per cluster")
-	return c
-}
-
-const helmNoSwarm = "Helm is for Kubernetes; on Swarm, `cluster list TARGET stacks` lists the stacks"
-
 // helmRevisions reads every stored revision of one release, oldest first.
 func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]helmRelease, error) {
 	items, err := helmItems(ctx, k, ns, release)
@@ -264,14 +181,6 @@ func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]h
 	return revs, nil
 }
 
-// revisionOK checks --revision before komando connects: revisions count from 1.
-func revisionOK(n int) error {
-	if n < 0 {
-		return out.Usage("--revision counts from 1; leave it out for the newest")
-	}
-	return nil
-}
-
 // pickRevision is revision n of revs, or the newest when n is 0.
 func pickRevision(revs []helmRelease, n int) (helmRelease, error) {
 	if n == 0 {
@@ -284,159 +193,6 @@ func pickRevision(revs []helmRelease, n int) (helmRelease, error) {
 	}
 	return helmRelease{}, out.Errf(out.ExitNotFound, "HELM_REVISION_NOT_FOUND",
 		"see the revisions with `komando cluster helm history TARGET RELEASE`", "%s has no revision %d", revs[0].Name, n)
-}
-
-// helmOne runs a read on one release of one cluster.
-func helmOne(cmd *cobra.Command, name, target, release, ns string, fn func(t clusterTarget, revs []helmRelease) (any, error)) error {
-	cl := callOf(cmd)
-	st, err := loadState()
-	if err != nil {
-		return err
-	}
-	t, err := resolveCluster(cl, st, target)
-	if err != nil {
-		return err
-	}
-	if t.host != nil {
-		return out.Usage("%s", helmNoSwarm)
-	}
-	return withKube(cl, cmd.Context(), name, t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-		revs, err := helmRevisions(ctx, k, cmp.Or(ns, k.Namespace), release)
-		if err != nil {
-			return nil, err
-		}
-		return fn(t, revs)
-	})
-}
-
-// helmText is a short record, then a block of text (notes, values).
-type helmText struct {
-	fields map[string]any
-	order  []string
-	block  string
-}
-
-func (h helmText) MarshalJSON() ([]byte, error) { return json.Marshal(h.fields) }
-
-func (h helmText) Text() string {
-	var b strings.Builder
-	for _, k := range h.order {
-		if v, ok := h.fields[k]; ok && fmt.Sprint(v) != "" {
-			fmt.Fprintf(&b, "%-15s %v\n", strings.ReplaceAll(k, "_", " ")+":", v)
-		}
-	}
-	if h.block != "" {
-		b.WriteString("\n" + strings.TrimRight(h.block, "\n") + "\n")
-	}
-	return b.String()
-}
-
-func helmStatusCmd() *cobra.Command {
-	var ns string
-	var revision int
-	c := &cobra.Command{
-		Use:     "status TARGET RELEASE",
-		Short:   "One Helm release: status, chart, when it was deployed, and its notes",
-		Example: `  komando cluster helm status prod-k8s shop-api --namespace shop`,
-		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := revisionOK(revision); err != nil {
-				return err
-			}
-			return helmOne(cmd, "cluster.helm.status", args[0], args[1], ns, func(t clusterTarget, revs []helmRelease) (any, error) {
-				r, err := pickRevision(revs, revision)
-				if err != nil {
-					return nil, err
-				}
-				f := map[string]any{"conn": t.conn.Name, "name": r.Name, "namespace": r.Namespace, "revision": r.Version,
-					"status": r.Info.Status, "chart": r.chart(), "app_version": r.Chart.Metadata.AppVersion,
-					"first_deployed": r.Info.FirstDeployed, "last_deployed": r.Info.LastDeployed,
-					"description": r.Info.Description, "notes": r.Info.Notes}
-				return helmText{fields: f, block: r.Info.Notes, order: []string{"name", "namespace", "revision", "status",
-					"chart", "app_version", "first_deployed", "last_deployed", "description"}}, nil
-			})
-		},
-	}
-	nsFlags(c, &ns, nil, nil)
-	c.Flags().IntVar(&revision, "revision", 0, "this revision instead of the newest")
-	return c
-}
-
-func helmHistoryCmd() *cobra.Command {
-	var ns string
-	var limit int
-	c := &cobra.Command{
-		Use:     "history TARGET RELEASE",
-		Short:   "Every stored revision of a Helm release, oldest first",
-		Example: `  komando cluster helm history prod-k8s shop-api --namespace shop`,
-		Args:    cobra.ExactArgs(2),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			return helmOne(cmd, "cluster.helm.history", args[0], args[1], ns, func(t clusterTarget, revs []helmRelease) (any, error) {
-				rows := make([]map[string]any, len(revs))
-				for i, r := range revs {
-					rows[i] = map[string]any{"revision": r.Version, "updated": r.Info.LastDeployed, "status": r.Info.Status,
-						"chart": r.chart(), "app_version": r.Chart.Metadata.AppVersion, "description": r.Info.Description}
-				}
-				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": cutLast(cl, rows, limit)}, nil
-			})
-		}),
-	}
-	nsFlags(c, &ns, nil, nil)
-	clusterLimitFlag(c, &limit, 0, "revisions, newest kept")
-	return c
-}
-
-type helmHistory map[string]any
-
-func (h helmHistory) Text() string {
-	revs, _ := h["revisions"].([]map[string]any)
-	if len(revs) == 0 {
-		return term.NoneYet("revisions", "")
-	}
-	rows := make([][]string, len(revs))
-	for i, r := range revs {
-		rows[i] = []string{fmt.Sprint(r["revision"]), fmt.Sprint(r["updated"]), fmt.Sprint(r["status"]),
-			fmt.Sprint(r["chart"]), fmt.Sprint(r["app_version"]), fmt.Sprint(r["description"])}
-	}
-	return textTable([]string{"REVISION", "UPDATED", "STATUS", "CHART", "APP VERSION", "DESCRIPTION"}, rows)
-}
-
-func helmValuesCmd() *cobra.Command {
-	var ns string
-	var revision int
-	var all bool
-	c := &cobra.Command{
-		Use:   "values TARGET RELEASE",
-		Short: "Show the values a Helm release was installed with",
-		Example: `  komando cluster helm values prod-k8s shop-api --namespace shop
-  komando cluster helm values prod-k8s shop-api --namespace shop --all --revision 3`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := revisionOK(revision); err != nil {
-				return err
-			}
-			return helmOne(cmd, "cluster.helm.values", args[0], args[1], ns, func(t clusterTarget, revs []helmRelease) (any, error) {
-				r, err := pickRevision(revs, revision)
-				if err != nil {
-					return nil, err
-				}
-				vals := r.Config
-				if all {
-					vals = mergeValues(r.Chart.Values, r.Config)
-				}
-				if vals == nil {
-					vals = map[string]any{}
-				}
-				y, _ := yaml.Marshal(vals)
-				f := map[string]any{"conn": t.conn.Name, "name": r.Name, "namespace": r.Namespace, "revision": r.Version, "values": vals}
-				return helmText{fields: f, block: string(y), order: []string{"name", "namespace", "revision"}}, nil
-			})
-		},
-	}
-	nsFlags(c, &ns, nil, nil)
-	c.Flags().IntVar(&revision, "revision", 0, "this revision instead of the newest")
-	c.Flags().BoolVarP(&all, "all", "a", false, "the chart's default values too, as Helm merged them")
-	return c
 }
 
 // mergeValues lays over on top of base, map by map, as Helm does.
@@ -455,18 +211,6 @@ func mergeValues(base, over map[string]any) map[string]any {
 		res[k] = v
 	}
 	return res
-}
-
-func clusterHelmCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:   "helm",
-		Short: "Helm releases, read only: see their state, history and values",
-		Long: `Reads the Helm releases stored in a Kubernetes cluster, without the helm
-program. It only reads: install, upgrade and rollback stay with helm. The
-kubeconfig's user needs to list Secrets where the releases are.`,
-	}
-	c.AddCommand(helmLsCmd(), helmStatusCmd(), helmHistoryCmd(), helmValuesCmd())
-	return c
 }
 
 // helmSnippets are the ready-made snippets that keep the Helm reads when

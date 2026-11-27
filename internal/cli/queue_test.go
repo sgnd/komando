@@ -119,7 +119,7 @@ func TestQueueKafka(t *testing.T) {
 	mustRun(t, "queue", "kafka", "topic", "delete", "events", "orders", "--allow-dangerous")
 	setGate(tcl, false, gateAllowDangerous)
 
-	if e := wantCode(t, "NO_MATCHING_TARGETS", "cache", "info", "events"); !strings.Contains(e.Hint, "komando queue") {
+	if e := wantCode(t, "NO_MATCHING_TARGETS", "cache", "redis", "raw", "events", "--", "PING"); !strings.Contains(e.Hint, "komando queue") {
 		t.Errorf("hint: %s", e.Hint)
 	}
 }

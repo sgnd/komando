@@ -42,14 +42,6 @@ var controllerKinds = map[string]string{
 	"argoproj.io/clusterworkflowtemplate":       "runs pods as any service account it names",
 }
 
-// manifestEscalates says why objects in a manifest give more rights than
-// the change itself: "" when none does. `cluster kubernetes raw -- create
-// clusterrolebinding ...` and `-- run --privileged` need
-// --allow-dangerous (classifyKubectl); the same objects in a file need it
-// too. It looks at what the file says, anywhere in an object, so a pod
-// template inside a Deployment, a CronJob, a List or a custom kind counts.
-func manifestEscalates(docs []kubeDoc) string { return manifestEscalatesIn(docs, "") }
-
 // manifestEscalatesIn is manifestEscalates for objects that name no
 // namespace of their own going to ns (kubectl's -n).
 func manifestEscalatesIn(docs []kubeDoc, ns string) string {

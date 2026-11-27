@@ -42,9 +42,6 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
 		{[]string{"fs", "replace", "web1", "/etc/x", "--backup"}, []string{"a", "b", "y"}, "fs replace web1 /etc/x --backup --old=a --new=b", []string{"--old: "}},
 		{[]string{"pkg", "install", "prod1"}, []string{"htop"}, "pkg install prod1 htop", nil}, // protected: the command asks, not Run it?
-		// a step that cannot be undone: Run it? here, the typed name in the
-		// command itself, once (S-7.4; TestPromptedCacheRmAsksOnce)
-		{[]string{"cache", "rm", "cache1"}, []string{"k1", "y"}, "cache rm cache1 k1", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"host", "rm", "--dry-run"}, []string{"web1"}, "host rm --dry-run web1", nil}, // a dry run runs at once
 		// easy to redo, no agent stop (OD-7), yet a person types what goes
 		{[]string{"pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "pkg rm web1 nginx curl", []string{"This removes the packages.", "Type 2 (packages on web1) to continue"}},
@@ -87,10 +84,9 @@ func TestPromptFillCancel(t *testing.T) {
 	fillTest(t)
 	for _, c := range []struct{ args, answers []string }{
 		{[]string{"exec", "web1"}, []string{"reboot", "n"}},
-		{[]string{"exec", "web1"}, []string{"reboot", ""}},           // Enter is No
-		{[]string{"cache", "rm", "cache1"}, []string{"k1", "cache"}}, // not y at Run it?
-		{[]string{"pkg", "rm", "web1"}, []string{"nginx", "web1"}},   // the wrong name
-		{[]string{"logs"}, nil},                                      // Ctrl-C at the first question
+		{[]string{"exec", "web1"}, []string{"reboot", ""}},         // Enter is No
+		{[]string{"pkg", "rm", "web1"}, []string{"nginx", "web1"}}, // the wrong name
+		{[]string{"logs"}, nil},                                    // Ctrl-C at the first question
 	} {
 		promptFake(t, c.answers...)
 		got, err := promptFill(tcl, c.args)
@@ -191,26 +187,6 @@ func TestPolicyAskAtATerminal(t *testing.T) {
 	d := mustRun(t, "audit", "--limit", "5")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), `"confirm":"tty"`) {
 		t.Errorf("the audit does not say a person said yes: %s", b)
-	}
-}
-
-// A prompted cache rm, driven to the end at a real terminal, asks Run it?
-// once and the key's name once (S-7.4, C-C02): before, it asked for the
-// conn's name twice.
-func TestPromptedCacheRmAsksOnce(t *testing.T) {
-	if testing.Short() {
-		t.Skip("starts a process")
-	}
-	invHome(t)
-	mustRun(t, "conn", "add", "cache1", "redis://127.0.0.1:1/0") // nothing listens: it fails after the questions
-	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "cache", "rm", "cache1")
-	p.answer("KEY", "k1\r")
-	p.answer("Run it? [y/N, d = --dry-run first]: ", "y\r")
-	p.answer("Type the name k1 to continue: ", "k1\r")
-	code := p.exit()
-	shown := p.shown()
-	if code == 0 || code == out.ExitPolicy || strings.Count(shown, "Type ") != 1 || strings.Count(shown, "Run it?") != 1 || strings.Contains(shown, "cache1 to") {
-		t.Errorf("exit %d; the screen:\n%s", code, shown)
 	}
 }
 

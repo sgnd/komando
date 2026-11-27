@@ -54,7 +54,6 @@ func TestStandardDurations(t *testing.T) {
 	for _, args := range [][]string{
 		{"storage", "s3", "object", "delete", "s3", "--prefix", "a/", "--older-than", "30", "--dry-run"},
 		{"storage", "s3", "object", "delete", "s3", "--prefix", "a/", "--older-than", "0", "--dry-run"},
-		{"cache", "set", "c", "k", "v", "--ttl", "30", "--dry-run"},
 		{"cert", "check", "web1", "--warn", "-1d", "--dry-run"},
 		{"list", "--timeout", "30"},
 	} {

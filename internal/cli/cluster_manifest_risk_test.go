@@ -54,7 +54,7 @@ func TestManifestEscalates(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if why := manifestEscalates(docs); (why != "") != c.esc {
+		if why := manifestEscalatesIn(docs, ""); (why != "") != c.esc {
 			t.Errorf("%s: escalates %q, want %v", name, why, c.esc)
 		}
 	}

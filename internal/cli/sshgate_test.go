@@ -298,11 +298,8 @@ func TestGateLocalTargets(t *testing.T) {
 		`db query pglocal --write "COPY t TO PROGRAM 'sh'"`:                    R,
 		"db query pgbehind --write 'delete from t'":                            "", // 127.0.0.1 of bastion
 		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":       R,
-		"cache set redislocal a b":                                             R,
 		"cache redis raw c --write SET a b":                                    "",
-		"cluster apply k8slocal --file pod.yaml":                               R,
 		"cluster kubernetes raw k8slocal --write -- delete pod x":              R,
-		"cluster apply k8s --file pod.yaml":                                    R, // reads a file here
 		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
 		"storage sftp object create sftplocal x":                               R, // the storage changes meet the local-target rule too
 		"storage sftp object move sftplocal a.txt b.txt":                       R,
@@ -391,8 +388,6 @@ func TestGateLocalTargets(t *testing.T) {
 		"logs u@127.0.0.1":                                                  R,  // ad hoc
 		"logs web --file /var/log/syslog":                                   "",
 		"logs behind --file /var/log/syslog":                                "", // 127.0.0.1 of bastion
-		"cache get redislocal a":                                            R,
-		"cluster get k8slocal pods":                                         R,
 		"docker ps me":                                                      R,
 		"fs cat web /etc/hostname":                                          "",
 		"cluster kubernetes raw k8s --write -- cp ./x ns/pod:/x":            "SSH_GATE_READ_ONLY",
@@ -792,10 +787,9 @@ func TestGateSynonyms(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
 	for syn, now := range map[string]string{
-		"cluster info k8s": "cluster status k8s",
-		"group show web":   "group list web",
-		"tunnel show t1":   "tunnel list",
-		"recipe show r1":   "recipe list",
+		"group show web": "group list web",
+		"tunnel show t1": "tunnel list",
+		"recipe show r1": "recipe list",
 	} {
 		for _, ro := range []bool{false, true} {
 			if got, want := gateAnswer(t, syn, ro), gateAnswer(t, now, ro); got != want {

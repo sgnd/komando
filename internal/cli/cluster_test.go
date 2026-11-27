@@ -14,20 +14,6 @@ func obj(t *testing.T, s string) map[string]any {
 	return m
 }
 
-func TestPodTrouble(t *testing.T) {
-	for js, want := range map[string]string{
-		`{"phase":"Running","containerStatuses":[{"name":"api","ready":false,"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}`: "api: CrashLoopBackOff",
-		`{"phase":"Pending","containerStatuses":[{"name":"api","state":{"waiting":{"reason":"ImagePullBackOff"}}}]}`:               "api: ImagePullBackOff",
-		`{"phase":"Pending","containerStatuses":[{"name":"api","state":{"waiting":{"reason":"ContainerCreating"}}}]}`:              "",
-		`{"phase":"Running","containerStatuses":[{"name":"api","ready":true,"state":{"running":{}}}]}`:                             "",
-		`{"phase":"Running","containerStatuses":[{"name":"w","ready":false,"state":{"terminated":{"reason":"OOMKilled"}}}]}`:       "w: OOMKilled",
-	} {
-		if got := podTrouble(obj(t, js)); got != want {
-			t.Errorf("%s: %q, want %q", js, got, want)
-		}
-	}
-}
-
 func TestSummarizeMoreKinds(t *testing.T) {
 	job := summarize("Job", obj(t, `{"metadata":{"name":"m"},"spec":{"completions":2},"status":{"succeeded":2,"conditions":[{"type":"Complete","status":"True"}]}}`))
 	if job["completions"] != "2/2" || job["status"] != "complete" {
@@ -68,22 +54,5 @@ func TestRolloutState(t *testing.T) {
 	stuck := obj(t, `{"metadata":{"generation":1},"status":{"observedGeneration":1,"conditions":[{"type":"Progressing","status":"False","reason":"ProgressDeadlineExceeded","message":"took too long"}]}}`)
 	if _, msg, failed := rolloutState("Deployment", stuck); !failed || msg != "took too long" {
 		t.Errorf("ProgressDeadlineExceeded must fail the rollout: %v %q", failed, msg)
-	}
-}
-
-func TestPickContainer(t *testing.T) {
-	one := obj(t, `{"spec":{"template":{"spec":{"containers":[{"name":"api","image":"a:1"}]}}}}`)
-	if n, img, err := pickContainer(one, ""); err != nil || n != "api" || img != "a:1" {
-		t.Errorf("single container: %v %v %v", n, img, err)
-	}
-	two := obj(t, `{"spec":{"template":{"spec":{"containers":[{"name":"api","image":"a:1"},{"name":"proxy","image":"p:1"}]}}}}`)
-	if _, _, err := pickContainer(two, ""); err == nil {
-		t.Error("two containers need --container")
-	}
-	if n, _, err := pickContainer(two, "proxy"); err != nil || n != "proxy" {
-		t.Errorf("named container: %v %v", n, err)
-	}
-	if _, _, err := pickContainer(two, "nope"); err == nil || toErr(err).Code != "K8S_CONTAINER_NOT_FOUND" {
-		t.Errorf("unknown container: %v", err)
 	}
 }

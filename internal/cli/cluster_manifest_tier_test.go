@@ -9,8 +9,7 @@ import (
 
 // Manifests that give out rights or open a node need --allow-dangerous,
 // like `cluster kubernetes raw -- create clusterrolebinding` and `-- run
-// --privileged` do; before, a file took them to the cluster as a plain
-// write. Nothing reaches the cluster without the approval.
+// --privileged` do. Nothing reaches the cluster without the approval.
 func TestManifestTier(t *testing.T) {
 	invHome(t)
 	l := newApplyLab(t)
@@ -28,7 +27,6 @@ func TestManifestTier(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, args := range [][]string{
-			{"cluster", "apply", "prod", "--file", file},
 			{"cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file},
 			{"cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "-f", file},
 		} {
@@ -42,20 +40,17 @@ func TestManifestTier(t *testing.T) {
 		t.Errorf("sent to the cluster without the approval: real %v, dry %v", l.real, l.dry)
 	}
 	// a dry run is not stopped, and says what the real run needs
-	d, e := cliRun(t, "--dry-run", "cluster", "apply", "prod", "--file", filepath.Join(dir, "pod.yaml"))
+	d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", filepath.Join(dir, "pod.yaml"))
 	if e != nil {
 		t.Fatalf("dry run: %+v (%v)", e, d)
 	}
 	// an ordinary file is still a plain change
 	file := filepath.Join(dir, "cm.yaml")
 	os.WriteFile(file, []byte("apiVersion: v1\nkind: ConfigMap\nmetadata: {name: plain}\ndata: {a: b}\n"), 0o600)
-	if _, e := cliRun(t, "cluster", "apply", "prod", "--file", file); e != nil {
-		t.Fatalf("a ConfigMap: %+v", e)
-	}
 	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file); e != nil {
 		t.Fatalf("a ConfigMap through cluster kubernetes raw: %+v", e)
 	}
-	if got := strings.Join(l.real, ","); got != "plain,plain" {
+	if got := strings.Join(l.real, ","); got != "plain" {
 		t.Errorf("applied for real: %q", got)
 	}
 }

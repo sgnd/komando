@@ -23,9 +23,9 @@ func TestRiskOfLineTable(t *testing.T) {
 		// pins today; C353 may lower it with Audit
 		{"a bool flag before a positional", "exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
 		{"fs rm", "fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
-		{"cache rm", "cache rm c1 k", nil, tierDangerous, "deletes the keys"},
-		{"cluster scale to 0", "cluster scale prod deploy/app 0", nil, tierDangerous, "stops every copy of the app"},
-		{"cluster scale to 3", "cluster scale prod deploy/app 3", nil, tierChange, ""},
+		{"cache raw DEL", "cache redis raw c1 --write -- DEL k", nil, tierDangerous, "deletes the keys"},
+		{"cluster raw scale to 0", "cluster kubernetes raw prod --write -- scale deploy/app --replicas=0", nil, tierDangerous, "stops every copy of the app"},
+		{"cluster raw scale to 3", "cluster kubernetes raw prod --write -- scale deploy/app --replicas=3", nil, tierChange, ""},
 		{"a --yes on a host rm does not change the tier", "host rm web1 --yes", nil, tierChange, ""},
 		{"protection off", "host edit web1 --protected=false", nil, tierSafety, "turns protection off"},
 		{"an alias", "host ls", nil, tierRead, ""},
@@ -82,12 +82,12 @@ func TestRiskOfLineNilTreeFailsClosed(t *testing.T) {
 	saved := commandTree
 	t.Cleanup(func() { commandTree = saved })
 	commandTree = nil
-	for _, line := range []string{"cache rm c1 k", "host ls", "version", "no such command", ""} {
+	for _, line := range []string{"queue kafka topic delete q1 t", "host ls", "version", "no such command", ""} {
 		if r := riskOfLine(strings.Fields(line)); r.tier != tierPerson {
 			t.Errorf("riskOfLine(%q) with no tree = tier %s, want %s", line, r.tier, tierPerson)
 		}
 	}
-	if c, words, pos := lineWords([]string{"cache", "rm", "c1", "k"}); c != nil || words != nil || pos != nil {
+	if c, words, pos := lineWords([]string{"queue", "kafka", "topic", "delete", "q1", "t"}); c != nil || words != nil || pos != nil {
 		t.Errorf("lineWords with no tree = %v %v %v, want nothing", c, words, pos)
 	}
 	commandTree = saved

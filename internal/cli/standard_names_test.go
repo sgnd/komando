@@ -34,8 +34,6 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.rename"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.rename"},
 		{[]string{"secret", "show"}, []string{"secret", "get"}, "secret.show"},
-		{[]string{"cluster", "list"}, []string{"cluster", "ls"}, "cluster.list"},
-		{[]string{"cluster", "helm", "list"}, []string{"cluster", "helm", "ls"}, "cluster.helm.list"},
 		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.list"},
 		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
 		{[]string{"queue", "kafka", "topic", "list"}, []string{"queue", "kafka", "topic", "ls"}, "queue.kafka.topic.list"},
@@ -118,7 +116,6 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
 		{[]string{"job", "stop"}, "job.kill"}, {[]string{"secret", "passwd"}, "secret.passphrase"},
-		{[]string{"cluster", "info"}, "cluster.status"},
 	} {
 		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {
 			t.Errorf("%v: ID %q, want %q", c.args, got, c.id)
@@ -160,7 +157,6 @@ func TestSchemaResolvesNames(t *testing.T) {
 		{[]string{"secret.show"}, "komando secret show"},
 		{[]string{"host.rename"}, "komando host rename"},
 		{[]string{"group", "show"}, "komando group list"},
-		{[]string{"cluster", "info"}, "komando cluster status"},
 		{[]string{"servers"}, "komando host"},
 		{[]string{"db.user.show"}, "komando db user show"},
 	} {

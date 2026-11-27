@@ -1,19 +1,14 @@
 package cli
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"net/url"
 	"sort"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/sgnd/komando/internal/cli/kit/term"
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
-	"github.com/sgnd/komando/internal/out"
 )
 
 // clusterEvents reads events, oldest first, optionally for one object or
@@ -59,115 +54,6 @@ func clusterEvents(cl *call, ctx context.Context, k *kube.Client, space, kind, n
 		rows = rows[len(rows)-limit:]
 	}
 	return rows, nil
-}
-
-func clusterEventsCmd() *cobra.Command {
-	var ns, of string
-	var all, warnings bool
-	var limit int
-	c := &cobra.Command{
-		Use:   "events TARGET",
-		Short: "Recent events, oldest first (--warnings for problems only)",
-		Example: `  komando cluster events prod-k8s --namespace shop --warnings
-  komando cluster events @prod --warnings -A    # problems in every cluster of the group
-  komando cluster events prod-k8s --for deployment/api --namespace shop`,
-		Args: cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if err := nsOrAll(ns, all); err != nil {
-				return err
-			}
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			ts, err := resolveClusters(cl, st, args[0])
-			if err != nil {
-				return err
-			}
-			return readClusters(cl, cmd.Context(), "cluster.events", st, ts, clusterRead{
-				swarmNo: "events are a Kubernetes view; on Swarm, `cluster list TARGET tasks` shows failed tasks and their errors",
-				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
-					kind, name := "", ""
-					if of != "" {
-						typ, n, err := splitRef(of)
-						if err != nil {
-							return nil, err
-						}
-						r, err := resource(ctx, k, typ)
-						if err != nil {
-							return nil, err
-						}
-						kind, name = r.KindName(), n
-					}
-					space := cmp.Or(ns, k.Namespace)
-					if all {
-						space = ""
-					}
-					rows, err := clusterEvents(cl, ctx, k, space, kind, name, warnings, limit)
-					if err != nil {
-						return nil, err
-					}
-					return eventList{"conn": t.conn.Name, "namespace": space, "count": len(rows), "events": rows}, nil
-				}})
-		}),
-	}
-	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "the most events to show (the newest)"})
-	c.Flags().BoolVar(&warnings, "warnings", false, "only Warning events")
-	c.Flags().StringVar(&of, "for", "", "only events about this object, like deployment/api")
-	return c
-}
-
-func clusterDescribeCmd() *cobra.Command {
-	var ns string
-	c := &cobra.Command{
-		Use:   "describe TARGET TYPE/NAME",
-		Short: "One object in short: state, images, conditions, pods, events",
-		Example: `  komando cluster describe prod-k8s pod/api-7d9f-x2 --namespace shop
-  komando cluster describe prod-k8s deployment/api --namespace shop
-  komando cluster describe swarm1 service/web`,
-		Args: refArgs(1, 0),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			t, err := resolveCluster(cl, st, args[0])
-			if err != nil {
-				return err
-			}
-			typ, name, err := objectRef(args[1:])
-			if err != nil {
-				return err
-			}
-			if t.host != nil {
-				if err := noNamespace(t, ns); err != nil {
-					return err
-				}
-				if swarmKind(typ) != "service" {
-					return out.Usage("on Swarm, describe works for services (its tasks and their errors)")
-				}
-				res, err := swarmDescribe(cl, cmd.Context(), t, name)
-				if err != nil {
-					return err
-				}
-				cl.out.Print("cluster.describe", res, nil)
-				return nil
-			}
-			return withKube(cl, cmd.Context(), "cluster.describe", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
-				r, err := resource(ctx, k, typ)
-				if err != nil {
-					return nil, err
-				}
-				space := ""
-				if r.IsNamespaced() {
-					space = cmp.Or(ns, k.Namespace)
-				}
-				return describeObject(cl, ctx, k, t.conn.Name, r, name, space)
-			})
-		}),
-	}
-	nsFlags(c, &ns, nil, nil)
-	return c
 }
 
 // describeObject is one object in short: its summary, conditions, pods or

@@ -73,7 +73,7 @@ func TestKubeErrWords(t *testing.T) {
 	}
 }
 
-// An unreachable cluster is CONN_UNREACHABLE in cluster kubernetes raw and apply too,
+// An unreachable cluster is CONN_UNREACHABLE in cluster kubernetes raw,
 // not "no resource type" (exit 5) or a usage error (exit 2).
 func TestClusterUnreachableIsUnreachable(t *testing.T) {
 	invHome(t)
@@ -82,11 +82,6 @@ func TestClusterUnreachableIsUnreachable(t *testing.T) {
 		if _, e := invRun(t, append([]string{"cluster", "kubernetes"}, args...)...); e == nil || e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 			t.Errorf("%v: %+v", args, e)
 		}
-	}
-	f := filepath.Join(t.TempDir(), "cm.yaml")
-	os.WriteFile(f, []byte("apiVersion: v1\nkind: ConfigMap\nmetadata: {name: x}\n"), 0o600)
-	if _, e := invRun(t, "cluster", "apply", "prod", "--file", f); e == nil || e.Code != "CONN_UNREACHABLE" {
-		t.Errorf("apply: %+v", e)
 	}
 }
 
@@ -178,21 +173,6 @@ func statusLab(t *testing.T) string {
 	return srv.URL
 }
 
-// cluster status counts StatefulSets and DaemonSets, reads every page,
-// and still answers for an account that may not list nodes.
-func TestClusterStatusWorkloads(t *testing.T) {
-	invHome(t)
-	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, statusLab(t)))
-	d := mustRun(t, "cluster", "status", "prod", "--namespace", "shop")
-	b, _ := json.Marshal(d)
-	for _, want := range []string{`statefulset/shop/db","problem":"0 of 3 replicas ready"`, `daemonset/shop/db","problem":"3 of 4 pods ready"`,
-		`pod/shop/p","problem":"pending"`, `this account may not list them`, `"healthy":false`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("want %s in %s", want, b)
-		}
-	}
-}
-
 // A context that cannot be imported keeps its name: a context whose name
 // differs only in case does not get it and point the name elsewhere.
 // Relative certificate paths count from the kubeconfig's folder.
@@ -273,36 +253,6 @@ func TestClusterAddKind(t *testing.T) {
 	mustRun(t, "cluster", "kubernetes", "add", "k2", "k8s://127.0.0.1:6451", "--credential", "k2-kubeconfig")
 }
 
-// all and @group read a server as a Swarm manager only when it is tagged
-// swarm or named; other servers are skipped, not failed.
-func TestClusterSelectorSkipsPlainServers(t *testing.T) {
-	invHome(t)
-	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, statusLab(t)))
-	mustRun(t, "host", "add", "web1", "deploy@192.0.2.20")
-	mustRun(t, "host", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
-	st, err := loadState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts, err := resolveClusters(tcl, st, "all")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	for _, x := range ts {
-		names = append(names, x.name())
-	}
-	if strings.Join(names, ",") != "prod,sw1" {
-		t.Errorf("all: %v", names)
-	}
-	if ts, err := resolveClusters(tcl, st, "prod,web1"); err != nil || len(ts) != 2 {
-		t.Errorf("a named server counts: %v %v", ts, err)
-	}
-	if ts, err := resolveClusters(tcl, st, "web1"); err != nil || len(ts) != 1 {
-		t.Errorf("one server alone counts: %v %v", ts, err)
-	}
-}
-
 // `cluster swarm raw` takes a manager server: a Kubernetes entry is WRONG_KIND
 // with its own path, and a destructive docker verb is stopped before komando
 // connects (swarm is rated by the docker rules, not the kubectl ones).
@@ -335,14 +285,4 @@ func TestClusterKubernetesSelectorsCheckProvider(t *testing.T) {
 			t.Errorf("%v: %q", args, e.Message)
 		}
 	}
-}
-
-// Flags that cannot be right are refused before komando connects.
-func TestClusterFlagChecks(t *testing.T) {
-	invHome(t)
-	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
-	if _, e := invRun(t, "cluster", "ls", "prod", "pods", "--namespace", "shop", "-A"); e == nil || e.Exit != out.ExitUsage {
-		t.Errorf("--namespace with -A: %+v", e)
-	}
-	wantCode(t, "USAGE", "cluster", "helm", "values", "prod", "x", "--revision", "-2")
 }
