@@ -447,6 +447,58 @@ func TestGuardNarrowsOnlyPlainLines(t *testing.T) {
 	checkLines(t, home, home, []string{"command -v komando; python3 -c 'print(1)'"}, true)
 }
 
+// C520: the lines of the independent reviews that change the program, a
+// guard file or a key file, or read a key file, stay refused.
+func TestGuardReviewLinesStayRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"rg ~/.komando/vault.key -e .",
+		"grep --regexp=. ~/.komando/vault.key",
+		"grep -r . ~/.komando",
+		"grep -r ~/.komando .",
+		"grep -A ~/.komando/vault.key x",
+		"grep -y ~/.komando/vault.key x",
+		"grep -P ~/.komando/vault.key x",
+		"rg -d 1 ~/.komando/vault.key",
+		"rg --pre=cat x ~/.komando/vault.key",
+		"rg --pre cat ~/.komando/vault.key .",
+		"rg --pre=/bin/cp ~/.komando/vault.key .",
+		`komando version; python3 -c "open('/x/.komando/vault.json','w')"`,
+		"komando version; sleep 1; cp /bin/true ~/bin/komando",
+		`komando version; python3 -c 'import os;os.remove(os.path.expanduser("~/bin/komando"))'`,
+		`command -v komando; rm "$(command -v komando)"`,
+		"type -p komando; rm -f ~/bin/komando",
+		"ls ~/bin/komando; history | tail -1 | python3 -",
+		"ls ~/bin/komando; fc -ln -1 | xargs rm",
+		"ls ~/bin/komando; fc -s ls=rm",
+		"cat ~/.claude/settings.json; sed -i '' s/a/b/ $(!!)",
+		"komando version; perl -pi -e s/a/b/ ~/.claude/settings.json",
+		"jq . ~/.claude/settings.json; jq . notes > ~/.claude/settings.json",
+		"echo ~/bin/komando >&2; cp /bin/true ~/bin/komando",
+		"orca worktree create --repo komando --json -o x",
+		"orca run --repo komando -- rm ~/bin/komando",
+		"orca exec --repo komando rm ~/bin/komando",
+		"orca --repo komando terminal send 'rm ~/bin/komando'",
+		"gh pr list 2>&1 >~/.claude/settings.json",
+		"echo x 1>&2 > ~/bin/komando",
+		"echo x >&2>~/bin/komando",
+		"ls ~/bin/komando 2>&1 | cat; python3 -c 'print(1)'",
+		`grep ~/.komando/vault.key "$@"`,
+		`grep ~/.komando/vault.key ''-e .`,
+		`grep ~/.komando/vault.key ""-e .`,
+		`v=GREP_OPTIONS; export "${v}=-e."; grep ~/.komando/vault.key`,
+		"cp /bin/cat /tmp/grep; /tmp/grep ~/.komando/vault.key",
+		"grep -i ~/.komando/vault.key -ie.",
+		"IFS=e; grep ~/.komando/vault.key -",
+		`read p <<< ~/bin/komando; cp /bin/true "$p"`,
+		`ls ~/bin/komando; read p < /tmp/f; cp /bin/true "$p"`,
+		"command grep ~/.komando/vault.key -e .",
+		"busybox grep ~/.komando/vault.key -e .",
+		"grep --include=* ~/.komando/vault.key -r",
+		"grep -e. --colour=x ~/.komando/vault.key",
+	}, true)
+}
+
 // Programs that only read may name a guard file or the komando program:
 // an agent looks at them all the time. rtk only filters what the program
 // after it prints.
