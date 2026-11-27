@@ -152,7 +152,7 @@ Writes are atomic (temporary file, then rename). `fs write --if-changed` and
 
 Your list itself changes in bulk too, each with `--dry-run` first:
 
-- `komando host ssh edit TARGET --sudo-credential credential:NAME` sets one value on
+- `komando host ssh edit TARGET --sudo-credential NAME` sets one value on
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
 - `komando host ssh rename OLD NEW` renames a server and every reference to it

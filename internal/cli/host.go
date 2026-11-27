@@ -235,10 +235,10 @@ selector (@group, tag:prod, 'web-*') to change many servers at once. Try
 and an AI agent needs your yes in a window. Changing the login of a
 production server, or turning its protection off, asks the same way; one yes
 covers every server in the command.`,
-		Example: `  komando host ssh edit web1 --add-tag canary --label env=prod --sudo-credential credential:web1-sudo
+		Example: `  komando host ssh edit web1 --add-tag canary --label env=prod --sudo-credential web1-sudo
   komando host ssh edit web1 -g web -t prod          # -g/-t add a group/tag
   komando host ssh edit db1 --protected              # production: ask before changes
-  komando host ssh edit @ubuntu --sudo-credential credential:ubuntu-sudo --dry-run
+  komando host ssh edit @ubuntu --sudo-credential ubuntu-sudo --dry-run
   komando host ssh edit web1 web2 web3 --user deploy
   komando host ssh edit vps1 --ask-password          # type a new password (hidden)
   komando host ssh edit web2 --login ask             # never store its password; type it at every connect

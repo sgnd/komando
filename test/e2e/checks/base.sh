@@ -34,7 +34,7 @@ check "host ssh test all ok" 3 "$($K host ssh test @lab | jget 'd["data"]["summa
 echo "==> exec"
 check "exec stdout via jump" "target" "$($K host ssh exec target --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # six servers behind one bastion: one login to the bastion, not six
-for i in 1 2 3 4 5 6; do $K host ssh add "fan$i" agent@target --via bastion --credential credential:agent-pass -g fan >/dev/null; done
+for i in 1 2 3 4 5 6; do $K host ssh add "fan$i" agent@target --via bastion --credential agent-pass -g fan >/dev/null; done
 logins() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" logs bastion 2>/dev/null | grep -c 'Accepted password' || true; }
 before=$(logins)
 check "exec -P 6 through one bastion" 6 "$($K host ssh exec @fan -P 6 --read-only -- hostname | jget 'd["data"]["summary"]["ok"]')"
@@ -104,8 +104,8 @@ curl -sf -H 'X-Amz-Target: secretsmanager.CreateSecret' -H 'Content-Type: applic
 # E1 (format 3): a server keeps its password as credential:NAME only; an outside
 # store on the field is refused. The logins through OpenBao and AWS Secrets
 # Manager come back with C485 (`komando credential`), which adds store items.
-check "a server's password in OpenBao is refused" REFERENCE_UNSUPPORTED "$($K host ssh add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential 'vault:secret/e2e#agentpass' 2>&1 | jget 'd["error"]["code"]' || true)"
-check "a server's password in AWS Secrets Manager is refused" REFERENCE_UNSUPPORTED "$($K host ssh add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential 'aws-sm:e2e/agent#password' 2>&1 | jget 'd["error"]["code"]' || true)"
+check "a server's password in OpenBao is refused" USAGE "$($K host ssh add direct-bao "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential 'vault:secret/e2e#agentpass' 2>&1 | jget 'd["error"]["code"]' || true)"
+check "a server's password in AWS Secrets Manager is refused" USAGE "$($K host ssh add direct-sm "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential 'aws-sm:e2e/agent#password' 2>&1 | jget 'd["error"]["code"]' || true)"
 check "the refusals wrote no server" False "$($K host ssh list | jget '"direct-bao" in json.dumps(d) or "direct-sm" in json.dumps(d)')"
 (cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestSSMKMSMoto$' ./internal/cloud/ >"$KOMANDO_HOME/ssm-kms.log" 2>&1) || true
 check "SSM session key from KMS (moto)" ok "$(grep -q -- '--- PASS: TestSSMKMSMoto' "$KOMANDO_HOME/ssm-kms.log" && echo ok)"
@@ -167,7 +167,7 @@ check "exec --sudo-user deletes the sudo password" False "$($K fs stat ops "$(SD
 printf '#!/usr/bin/env bash\necho "got:$1:$2"\n' > "$TMP/args.sh"
 check "exec --script --arg" "got:a b:c" "$($K host ssh exec direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
-$K host ssh edit direct --sudo-credential credential:agent-pass >/dev/null
+$K host ssh edit direct --sudo-credential agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K host ssh exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K host ssh exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
 O=$($K host ssh exec direct --sudo --stdin-file "$TMP/f" -- 'cat'); SJ=$(echo "$O" | sess_id)

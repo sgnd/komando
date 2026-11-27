@@ -468,7 +468,7 @@ func loginWay(st *store.State, h *store.Host) string {
 	case st.Conns[h.Name] != nil:
 		return fmt.Sprintf("save its password: `komando credential password add %s`, then `komando conn edit %s --password-ref credential:%s`", sec, h.Name, sec)
 	}
-	return "save the server with `komando host ssh add NAME " + h.Name + " --key KEY` (or --credential credential:NAME)"
+	return "save the server with `komando host ssh add NAME " + h.Name + " --key KEY` (or --credential NAME)"
 }
 
 // adhoc reports a server that is not in the inventory: a user@address

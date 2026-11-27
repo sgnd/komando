@@ -155,8 +155,8 @@ To change many servers at once, give several names or a
 changes all of them or none:
 
 ```bash
-komando host ssh edit @web --sudo-credential credential:ubuntu-sudo --dry-run   # which servers would change
-komando host ssh edit @web --sudo-credential credential:ubuntu-sudo
+komando host ssh edit @web --sudo-credential ubuntu-sudo --dry-run   # which servers would change
+komando host ssh edit @web --sudo-credential ubuntu-sudo
 komando host ssh edit web1 web2 db1 --add-tag canary
 ```
 

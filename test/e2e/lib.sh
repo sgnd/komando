@@ -180,7 +180,7 @@ setup_vpns() {
 # +swarm: swarm1, a one-node Docker Swarm manager over SSH
 setup_swarm() {
   wait_port "$E2E_SSH_SWARM"
-  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --credential credential:agent-pass
+  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --credential agent-pass
   for _ in $(seq 1 60); do $K host ssh exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
 }
 
