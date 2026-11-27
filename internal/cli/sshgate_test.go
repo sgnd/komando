@@ -150,7 +150,7 @@ func TestGateCheck(t *testing.T) {
 	}{
 		{"list", "", ""},
 		{"", "", ""}, // `komando` alone: first steps
-		{"host list -o json", "", ""},
+		{"host ssh list -o json", "", ""},
 		{"secret get db --reveal", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret get db --reveal=true", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret get db --reveal=false", "", ""},

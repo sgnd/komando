@@ -257,7 +257,7 @@ func TestGateShellKeyOtherwiseFull(t *testing.T) {
 		}
 		line := append(strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando")), "web")
 		name, _, full := gateCheck(line, fullKey)
-		if name == "host ssh shell" {
+		if isHostShell(name) {
 			continue
 		}
 		_, _, sh := gateCheck(line, shellKey)

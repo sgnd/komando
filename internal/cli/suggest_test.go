@@ -20,7 +20,7 @@ func TestUnknownCommandWords(t *testing.T) {
 			t.Errorf("%s: %+v", word, e)
 		}
 	}
-	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host rm web1" {
+	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host ssh remove web1" {
 		t.Errorf("delete web1: %+v", e)
 	}
 	if e := unknownCommandErr(tcl, root, "delete", []string{"conn", "pg"}); e.Suggestion != "conn rm pg" {
