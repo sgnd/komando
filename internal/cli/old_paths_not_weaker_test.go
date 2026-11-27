@@ -132,7 +132,7 @@ func TestOldPathsNotWeaker(t *testing.T) {
 	for _, c := range allCommands(root) {
 		byID[cmdID(c)] = c
 	}
-	keys := []gateKey{readKey, netReadKey, fullKey, shellAccessKey}
+	keys := []gateKey{readKey, netReadKey, fullKey, shellAccessKey, hereKey, hereReadKey} // the server mode too (U117)
 	n, matched, gated := 0, 0, 0
 	for _, typed := range typedPaths(root) {
 		old, _, err := root.Find(typed)
