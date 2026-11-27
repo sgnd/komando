@@ -373,11 +373,12 @@ type programRun struct {
 }
 
 // valueRuns are what a simple command may run whose program word,
-// words[0], has the values progs; programs given the same words share one
-// run. A value not quoted (split) is split at the line's separators, and
-// its fields and the words after it are read as a line is (program): an
-// empty value is gone and a wrapper runs the program after it. A program
-// that is still a value is one the guard cannot name.
+// words[0], has the values progs (the word itself when it holds none);
+// programs given the same words share one run. A value not quoted (split)
+// is split at the line's separators, and its fields and the words after it
+// are read as a line is (program): an empty value is gone and a wrapper
+// runs the program after it. A program that is still a value is one the
+// guard cannot name.
 func valueRuns(progs, words []string, globs, bare []bool, split bool, seps string) []programRun {
 	var runs []programRun
 	add := func(base string, r programRun) {
@@ -393,10 +394,6 @@ func valueRuns(progs, words []string, globs, bare []bool, split bool, seps strin
 		runs = append(runs, r)
 	}
 	for _, p := range progs {
-		if p == words[0] { // the program written on the line
-			add(filepath.Base(p), programRun{words: words[1:], globs: globs[1:], bare: bare[1:]})
-			continue
-		}
 		fields := []string{p}
 		if split {
 			fields = splitAt(p, seps)
