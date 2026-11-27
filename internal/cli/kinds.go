@@ -206,6 +206,7 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"group", "", "remove"}: changes,
 
 	{"agent", "", ""}:               reads,
+	{"agent", "skill", ""}:          reads,
 	{"agent", "skill", "install"}:   changes,
 	{"agent", "skill", "uninstall"}: changes,
 
