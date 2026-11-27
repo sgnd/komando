@@ -34,8 +34,8 @@ func TestBigQueryConns(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "conn", "add", "bq-tls", "bigquery://my-project?tls=false")
 	wantCode(t, "USAGE", "conn", "add", "bq-user", "bigquery://me@my-project")
-	wantCode(t, "NOT_SUPPORTED", "database", "bigquery", "backup", "bq", "--to", t.TempDir()+"/s.sql")
-	wantCode(t, "NOT_SUPPORTED", "database", "bigquery", "restore", "bq", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "bigquery", "backup", "bq") // BigQuery has no backup leaf
+	wantCode(t, "USAGE", "database", "bigquery", "restore", "bq")
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "bq", "select 1", "--analyze")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "bq", "bob", "--password-ref", "secret:x")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "rm", "bq", "bob")

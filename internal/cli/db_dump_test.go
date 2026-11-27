@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/pflag"
+
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -277,5 +280,47 @@ func TestRestoreOtherPGArchives(t *testing.T) {
 		if e == nil || e.Code != c.code || !strings.Contains(e.Message, c.want) {
 			t.Errorf("%s: want %s %q, got %+v", filepath.Base(c.from), c.code, c.want, e)
 		}
+	}
+}
+
+// The database leaves run today's db query, dump, restore and shell
+// (databaseBodies): each option a leaf names is a flag of its body, with
+// the default the body has, and each flag of a body is an option of the
+// leaf of at least one provider, so the cut loses no flag.
+func TestDatabaseBodyDefaultsMatchTable(t *testing.T) {
+	named := map[string]map[string]bool{} // verb -> options some provider's leaf names
+	leaves := 0
+	for _, l := range capability.All() {
+		body := databaseBodies[l.Verb]
+		if l.Type != "database" || l.State != capability.Built || body == nil {
+			continue
+		}
+		leaves++
+		b := body()
+		if named[l.Verb] == nil {
+			named[l.Verb] = map[string]bool{}
+		}
+		for _, o := range l.Options {
+			named[l.Verb][o.Name] = true
+			f := b.Flags().Lookup(o.Name)
+			switch {
+			case f == nil:
+				t.Errorf("%s: --%s is not a flag of the body", l.Key, o.Name)
+			case o.Default != "" && f.DefValue != o.Default:
+				t.Errorf("%s: --%s defaults to %q in the table, %q in the body", l.Key, o.Name, o.Default, f.DefValue)
+			case o.Short != f.Shorthand:
+				t.Errorf("%s: --%s is -%s in the table, -%s in the body", l.Key, o.Name, o.Short, f.Shorthand)
+			}
+		}
+	}
+	if leaves != 22 { // 9 query, 3 backup, 2 restore, 8 shell
+		t.Fatalf("%d database leaves with a body, want 22", leaves)
+	}
+	for verb, body := range databaseBodies {
+		body().Flags().VisitAll(func(f *pflag.Flag) {
+			if !named[verb][f.Name] {
+				t.Errorf("database KIND %s: no leaf has --%s of today's body", verb, f.Name)
+			}
+		})
 	}
 }

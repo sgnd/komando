@@ -116,7 +116,7 @@ func TestLineLimitFromKind(t *testing.T) {
 func TestTooLongHintByKind(t *testing.T) {
 	for kind, want := range map[bodyKind]string{
 		bodyScript: "`komando exec TARGET --script FILE`",
-		bodySQL:    "`komando db query CONN --file FILE`",
+		bodySQL:    "`komando database KIND query CONN --file FILE`",
 		bodyInput:  "put it in a script file",
 		bodyData:   "smaller pieces",
 	} {
@@ -146,7 +146,7 @@ func TestTooLongCodeOnRealPath(t *testing.T) {
 		Error struct{ Code, Hint string } `json:"error"`
 	}
 	_ = json.Unmarshal(lines[len(lines)-1], &env)
-	if code != 6 || env.Error.Code != "SHORTER_SCRIPT_REQUIRED" || !strings.Contains(env.Error.Hint, "komando db query lite --file FILE") || len(*texts) != 0 {
+	if code != 6 || env.Error.Code != "SHORTER_SCRIPT_REQUIRED" || !strings.Contains(env.Error.Hint, "komando database sqlite query lite --file FILE") || len(*texts) != 0 {
 		t.Errorf("exit %d, code %q, hint %q, %d windows", code, env.Error.Code, env.Error.Hint, len(*texts))
 	}
 }

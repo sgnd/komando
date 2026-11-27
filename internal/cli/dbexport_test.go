@@ -91,15 +91,15 @@ func TestConnAddRelativeFile(t *testing.T) {
 	mustRun(t, "conn", "add", "home", "sqlite:~/app.db")
 }
 
-// `komando db add` saves only a database, `queue add` only a queue, ...
+// `komando database postgres add` saves only a PostgreSQL database, `queue add` only a queue, ...
 func TestKindAddChecksFamily(t *testing.T) {
 	invHome(t)
 	for _, c := range []struct {
 		words     []string
 		url, want string
 	}{
-		{[]string{"db", "add"}, "redis://127.0.0.1:6379/0", "cache redis add"},
-		{[]string{"queue", "add"}, "postgres://x@127.0.0.1/x", "db add"},
+		{[]string{"database", "postgres", "add"}, "redis://127.0.0.1:6379/0", "cache redis add"},
+		{[]string{"queue", "add"}, "postgres://x@127.0.0.1/x", "database postgres add"},
 		{[]string{"cache", "redis", "add"}, "s3://AKIAEXAMPLE@b/p?region=eu-west-1", "storage add"},
 	} {
 		if e := wantCode(t, "WRONG_KIND", append(c.words, "x", c.url)...); !strings.Contains(e.Hint, c.want) {
@@ -116,10 +116,10 @@ func TestDumpRestoreNote(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite:///var/lib/app.db")
 	mustRun(t, "conn", "add", "pg", "postgres://x@127.0.0.1/x")
-	if n := restoreNote(tcl, "lite", "b.db"); strings.Contains(n, "db restore") || !strings.Contains(n, "/var/lib/app.db") {
+	if n := restoreNote(tcl, "lite", "b.db"); strings.Contains(n, "restore") || !strings.Contains(n, "/var/lib/app.db") {
 		t.Errorf("sqlite: %s", n)
 	}
-	if n := restoreNote(tcl, "pg", "b.sql.gz"); !strings.Contains(n, "komando db restore pg --from b.sql.gz") {
+	if n := restoreNote(tcl, "pg", "b.sql.gz"); !strings.Contains(n, "komando database postgres restore pg --from b.sql.gz") {
 		t.Errorf("postgres: %s", n)
 	}
 }
@@ -163,7 +163,7 @@ func TestConnAddKindExample(t *testing.T) {
 // db commands stop a query after 30s, not the global 5m; their help says so.
 func TestDBHelpTimeout(t *testing.T) {
 	root := newRoot(tcl)
-	for _, path := range [][]string{{"db", "query"}, {"db", "user", "ls"}, {"db", "dump"}} {
+	for _, path := range [][]string{{"database", "sqlite", "query"}, {"db", "user", "ls"}, {"database", "sqlite", "backup"}} {
 		c, _, err := root.Find(path)
 		if err != nil {
 			t.Fatal(err)
@@ -171,7 +171,7 @@ func TestDBHelpTimeout(t *testing.T) {
 		var b bytes.Buffer
 		c.SetOut(&b)
 		_ = c.Help()
-		want := map[bool]string{true: "default 30s", false: "default: setting default_timeout, 5m"}[path[1] != "dump"]
+		want := map[bool]string{true: "default 30s", false: "default: setting default_timeout, 5m"}[path[len(path)-1] != "backup"]
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("%v help: no %q in\n%s", path, want, b.String())
 		}

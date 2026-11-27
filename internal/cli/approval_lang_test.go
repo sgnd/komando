@@ -164,7 +164,7 @@ func TestApprovalWindowGoldenIndonesian(t *testing.T) {
 		idView(testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
 			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n")),
 		idView(testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host rm web-1.example.test --yes", "")),
-		idView(testView("Codex", []string{"--reveal"}, "", nil, "komando db query shop --reveal -- select 1", "")),
+		idView(testView("Codex", []string{"--reveal"}, "", nil, "komando database postgres query shop --reveal -- select 1", "")),
 	}
 	windowGolden(t, "approval_window_id.txt", views)
 	// each Indonesian line komando writes fits the window's 60 columns

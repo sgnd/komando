@@ -25,7 +25,7 @@ func TestDBUseLines(t *testing.T) {
 	for len(stack) > 0 {
 		c := stack[0]
 		stack = append(stack[1:], c.Commands()...)
-		if c.HasSubCommands() || c.CommandPath() == "komando db add" {
+		if c.HasSubCommands() {
 			continue
 		}
 		f := strings.Fields(c.Use)
@@ -60,7 +60,7 @@ func TestDBDumpToFolder(t *testing.T) {
 	if err := os.Mkdir(backups, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	d := mustRun(t, "database", "sqlite", "backup", "lite", "--to", backups)
+	d := mustRun(t, "database", "sqlite", "backup", "kind:sqlite", "--to", backups)
 	want := filepath.Join(backups, "lite-"+time.Now().Format("2006-01-02")+".db")
 	if d["file"] != want {
 		t.Fatalf("file %v, want %s", d["file"], want)

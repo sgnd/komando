@@ -50,7 +50,7 @@ check "no cp to this computer" SSH_GATE_REFUSED "$(kssh gate-rw komando cp gx:/e
 # nor through a target that is this computer: a sqlite file, or a server at 127.0.0.1
 gx komando conn add gxdb sqlite:///home/agent/gx.db -o json >/dev/null
 gx komando host add gme agent@127.0.0.1 -o json >/dev/null
-check "no VACUUM INTO a file here" SSH_GATE_REFUSED "$(kssh gate-rw "komando db query gxdb --write \"VACUUM INTO '/home/agent/.ssh/authorized_keys2'\" -o json" | code || true)"
+check "no VACUUM INTO a file here" SSH_GATE_REFUSED "$(kssh gate-rw "komando database sqlite query gxdb --write \"VACUUM INTO '/home/agent/.ssh/authorized_keys2'\" -o json" | code || true)"
 check "no change on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw komando exec gme -o json -- id | code || true)"
 # --read-only checks the words of a command, it is not a sandbox: no key, read-only or not, runs exec here
 check "no read-only exec on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando exec gme --read-only -o json -- id | code || true)"
@@ -58,7 +58,7 @@ check "no read-only exec on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate
 check "no logs --file on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro "komando logs gme --file .ssh/authorized_keys --grep '^ssh' -o json" | code || true)"
 check "no fs cat on a server at 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-ro komando fs cat gme /etc/hostname -o json | code || true)"
 gx komando conn add gxpg 'postgres://agent@db.example.com/app?host=127.0.0.1' -o json >/dev/null
-check "no change on a conn whose ?host= is 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw "komando db query gxpg --write 'SELECT 1' -o json" | code || true)"
+check "no change on a conn whose ?host= is 127.0.0.1" SSH_GATE_REFUSED "$(kssh gate-rw "komando database postgres query gxpg --write 'SELECT 1' -o json" | code || true)"
 check "no authorized_keys2" False "$(gx sh -c 'test -e /home/agent/.ssh/authorized_keys2 && echo True || echo False')"
 check "authorized_keys is as it was" "$AK0" "$(gx sha256sum /home/agent/.ssh/authorized_keys)"
 check "a read-only key reads" True "$(kssh gate-ro komando list -o json | mentions gx)"

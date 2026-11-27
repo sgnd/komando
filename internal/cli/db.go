@@ -49,7 +49,9 @@ func dbCmd() *cobra.Command {
 		Long: `Look at a database's schema, sessions, locks, sizes and users. Add a
 database, query it, back it up and restore it with ` + "`komando database KIND`" + `
 (postgres, mysql, sqlserver, oracle, sqlite, mongodb, clickhouse, snowflake,
-bigquery): ` + "`komando database postgres add`" + `, ` + "`komando database postgres query`" + `.`,
+bigquery): ` + "`komando database postgres add`" + `, ` + "`komando database postgres query`" + `.
+
+Each database is a conn: list them with ` + "`komando list kind:db`" + `.`,
 		Example: `  komando db schema prod-db users
   komando db info prod-db
   komando db activity prod-db
@@ -830,12 +832,14 @@ var databaseGroupShort = map[string]string{
 // provider is WRONG_KIND with the path that fits it. A database whose
 // provider has no such verb (a MongoDB backup, a SQLite restore) goes on
 // to the body, which refuses it with the reason and the way to do it.
+// name may be a selector that picks one database (@group, kind:postgres),
+// as for today's db commands.
 func withDatabase(cl *call, name, provider, verb string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := findConn(cl, st, name)
+	c, err := singleConn(cl, st, name, "db")
 	if err != nil {
 		return err
 	}

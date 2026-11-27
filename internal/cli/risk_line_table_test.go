@@ -33,7 +33,7 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"removing an essential package", "pkg rm web1 openssh-server", nil, tierDangerous, "removes a package the server needs to run or to let you in"},
 		{"removing another package", "pkg rm web1 htop", nil, tierChange, "removes the packages"},
 		{"a security upgrade", "pkg upgrade web1 --security", nil, tierDangerous, "an update would remove a package the server needs"},
-		{"a SQL query", "db query prod DROP TABLE x", nil, tierDangerous, "the query deletes data (DROP, DELETE without WHERE, KILL, ...)"},
+		{"a SQL query", "database postgres query prod DROP TABLE x", nil, tierDangerous, "the query deletes data (DROP, DELETE without WHERE, KILL, ...)"},
 		{"secret rm", "secret rm token", nil, tierDangerous, "deletes the saved passwords"},
 		{"group rm asks for a bulk confirm", "group rm big", nil, tierChange, "deleting a group of more than 3 members"},
 		{"policy rm", "policy rm deny1", nil, tierSafety, "removes a deny rule"},

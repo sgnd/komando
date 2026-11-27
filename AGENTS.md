@@ -33,14 +33,14 @@ under a pseudo-terminal and komando does not know your agent, set
    set to another folder every command of yours stops, a dry run too
    (`NEEDS_PERSON`); no flag clears that one, so leave `KOMANDO_HOME`
    alone.
-   Declare read-only shell commands with `--read-only`. `db query`,
+   Declare read-only shell commands with `--read-only`. `database KIND query`,
    `cache redis raw` and `cluster run` are the other way round: they only read
    unless you add `--write`. A command that hands words to another
    program (`exec`, `job start`, `docker exec`, `cluster run`, `cache redis raw`
    ...) takes them only after `--`, its own flags before it:
    `komando exec web1 --read-only -- df -h`.
 5. Edit files with `komando fs replace ... --backup`, never with `sed -i`
-   over `exec`. Query databases with `komando db query`, never `psql` or
+   over `exec`. Query databases with `komando database KIND query`, never `psql` or
    `mysql` over `exec`.
 6. Use `komando job start` for anything that may take more than about
    2 minutes or runs over a shaky link: a job survives a dropped connection.

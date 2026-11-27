@@ -150,8 +150,8 @@ func TestMongoRefusals(t *testing.T) {
 		{"db", "grant", "m", "app", "--role", "read"},
 		{"db", "revoke", "m", "app", "--role", "read"},
 	} {
-		if e := wantCode(t, "NOT_SUPPORTED", args...); e == nil || !strings.Contains(e.Hint, "db query") {
-			t.Errorf("%v: the hint names db query: %v", args, e)
+		if e := wantCode(t, "NOT_SUPPORTED", args...); e == nil || !strings.Contains(e.Hint, "database mongodb query") {
+			t.Errorf("%v: the hint names database mongodb query: %v", args, e)
 		}
 	}
 }

@@ -255,7 +255,7 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 	t.Setenv("PW", "s3cret-in-env")
 	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
-	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
+	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"database", "postgres", "add"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
 		if err != nil {
 			t.Fatal(err)

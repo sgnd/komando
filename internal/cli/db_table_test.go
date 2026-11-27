@@ -65,7 +65,7 @@ func TestDBQueryTableConflicts(t *testing.T) {
 	if s, e := tableRun(t, "database", "sqlite", "query", "lite", "-o", "tsv", "-o", "csv", q); e != nil || !strings.HasPrefix(s, "id\n") {
 		t.Errorf("the last -o wins: %q %+v", s, e)
 	}
-	if _, e := tableRun(t, "list", "-o", "csv"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "db query") {
+	if _, e := tableRun(t, "list", "-o", "csv"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "database KIND query") {
 		t.Errorf("-o csv elsewhere: %+v", e)
 	}
 }

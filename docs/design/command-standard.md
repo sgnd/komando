@@ -267,7 +267,7 @@ words; the completion and picker map has one entry per word]
 | `-- ARGS...` | arguments for a fixed program | none |
 
 **S-4.3** A required flag is shown in the usage line with an UPPERCASE value
-(`db restore CONN --from FILE`); optional flags never are. A choice of flags
+(`database KIND restore NAME --from FILE`); optional flags never are. A choice of flags
 is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
@@ -310,9 +310,9 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
-| `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue send`) | `-` = stdin |
+| `--from` | | string | a local input file, the pair of `--to` (`database KIND restore`, `fs write`, `queue send`) | `-` = stdin |
 | `--to` | | string | a local output file | `-` = stdout |
-| `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`cluster apply`, `docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
+| `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`cluster apply`, `docker compose`, `database KIND query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
 | `--content` | | string | inline file content (`fs write`) | |
 | `--config` | | tool word | *exception*: `queue create --config KEY=VALUE` (kafka-topics), `vpn add --config FILE` (OpenVPN, WireGuard) | |
 | `--key` | | string | *exception*: `queue send --key` is the message key (Kafka); elsewhere an SSH key file | |
@@ -448,7 +448,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 `error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
 (or the noun in the next word), `get` → `komando list`,
 `ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster run TARGET -- ...`,
-`psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
+`psql`/`mysql` → `komando database KIND query NAME`, `apt`/`yum` → `komando pkg`,
 `systemctl` → `komando svc`; (2) edit distance 1 for words of 4 letters or
 fewer, 2 otherwise, at most 2 suggestions; (3) the hint names a command only
 when there is exactly one suggestion. [code: TestAgentGolden rows for
@@ -534,7 +534,7 @@ on a group of more than 3 members still needs `--yes` from an agent
 **S-7.3** The typed answer is the name of what goes away or stops: one
 item with a name of 60 characters or less → that name; several items or a
 long name → the count, labelled (`Type 37 (objects under daily/ in backups)`);
-the whole target (reboot, db restore, sync --delete, exec hits) → the target
+the whole target (reboot, database restore, sync --delete, exec hits) → the target
 name. Never the bare word "yes". [code: PTY test per T3 command]
 
 **S-7.4** One question per command. A prompted command that reaches a T3
@@ -564,7 +564,7 @@ release note. [schema + rule table]
 **S-7.9** "Blocked by …" is used only for a custom deny rule or a policy or
 classifier hit, never for a command's own built-in tier. [code]
 
-**S-7.10** A command for a person at a terminal (`shell`, `db shell`,
+**S-7.10** A command for a person at a terminal (`shell`, `database KIND shell`,
 `cluster shell`, `secret passphrase` ...) never runs for an AI agent or an
 ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no

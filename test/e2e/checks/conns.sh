@@ -6,22 +6,22 @@ for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/de
 # a database always needs its password, so the secret manager's answer counts
 curl -sf -H "X-Vault-Token: e2e-root" -d '{"data":{"pgpass":"apppass"}}' "http://127.0.0.1:$E2E_BAO/v1/secret/data/pg" >/dev/null
 q $K conn add pg-bao 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'vault:secret/pg#pgpass'
-check "db password from OpenBao" 1 "$("${BAOENV[@]}" $K db query pg-bao 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
-check "wrong OpenBao token is named" True "$(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=bad $K db query pg-bao 'select 1' | jget '"permission denied" in json.dumps(d)' || true)"
+check "db password from OpenBao" 1 "$("${BAOENV[@]}" $K database postgres query pg-bao 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
+check "wrong OpenBao token is named" True "$(env PATH=/usr/bin:/bin VAULT_ADDR="http://127.0.0.1:$E2E_BAO" VAULT_TOKEN=bad $K database postgres query pg-bao 'select 1' | jget '"permission denied" in json.dumps(d)' || true)"
 q $K conn rm pg-bao
 # Bitwarden (Vaultwarden): an account made the way a Bitwarden client makes it, read by komando
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_VW/alive" >/dev/null && break; sleep 1; done
 (cd "$ROOT" && go run ./test/e2e/bwseed "http://127.0.0.1:$E2E_VW" e2e@example.com 'e2e master pw' shop-pg apppass) >/dev/null
 BWENV=(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD='e2e master pw')
 q $K conn add pg-bw 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref 'bw://shop-pg/password'
-check "db password from Vaultwarden (bw://)" 1 "$("${BWENV[@]}" $K db query pg-bw 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
-check "wrong Bitwarden master password is named" True "$(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD=nope $K db query pg-bw 'select 1' | jget '"bitwarden" in json.dumps(d)' || true)"
+check "db password from Vaultwarden (bw://)" 1 "$("${BWENV[@]}" $K database postgres query pg-bw 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]' || true)"
+check "wrong Bitwarden master password is named" True "$(env PATH=/usr/bin:/bin KOMANDO_BW_SERVER="http://127.0.0.1:$E2E_VW" KOMANDO_BW_EMAIL=e2e@example.com KOMANDO_BW_PASSWORD=nope $K database postgres query pg-bw 'select 1' | jget '"bitwarden" in json.dumps(d)' || true)"
 q $K conn rm pg-bw
-# db shell is komando's own SQL shell: no psql or mysql on PATH
-check "db shell on PostgreSQL" 42 "$(ptyrun 'select 41 + 1 as answer;\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | tr -d '\r' | grep -E '^ *42 *$' | tr -d ' ' | head -1 || true)"
-check "db shell is read-only" True "$(ptyrun 'create table nope(x int);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'the shell is read-only' && echo True)"
-check "db shell \\write allows changes after a yes" True "$(ptyrun '\write\ny\ncreate temporary table t_e2e(x int);\ninsert into t_e2e values (1);\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg --yes | tr -d '\r' | grep -q '1 row affected' && echo True)"
-check "db shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'table\|relation' && echo True)"
+# database postgres shell is komando's own SQL shell: no psql or mysql on PATH
+check "database postgres shell on PostgreSQL" 42 "$(ptyrun 'select 41 + 1 as answer;\n\q\n' env PATH=/usr/bin:/bin "$K" database postgres shell pg | tr -d '\r' | grep -E '^ *42 *$' | tr -d ' ' | head -1 || true)"
+check "database postgres shell is read-only" True "$(ptyrun 'create table nope(x int);\n\q\n' env PATH=/usr/bin:/bin "$K" database postgres shell pg | grep -q 'the shell is read-only' && echo True)"
+check "database postgres shell \\write allows changes after a yes" True "$(ptyrun '\write\ny\ncreate temporary table t_e2e(x int);\ninsert into t_e2e values (1);\n\q\n' env PATH=/usr/bin:/bin "$K" database postgres shell pg --yes | tr -d '\r' | grep -q '1 row affected' && echo True)"
+check "database postgres shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/bin "$K" database postgres shell pg | grep -q 'table\|relation' && echo True)"
 check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
 check "conn test logs in" login "$($K conn test pg | jget 'd["data"]["results"][0]["detail"]["check"]')"
 echo -n wrongpass | $K secret set pg-wrong >/dev/null
@@ -29,32 +29,32 @@ q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastio
 check "conn test catches a wrong password" False "$($K conn test pg-wrong | jget 'd["data"]["results"][0]["ok"]' || true)"
 q $K conn rm pg-wrong
 q $K conn edit pg --option statement_timeout=1s
-check "conn statement_timeout option is used" TIMEOUT "$($K db query pg 'select pg_sleep(3)' | jget 'd["error"]["code"]' || true)"
+check "conn statement_timeout option is used" TIMEOUT "$($K database postgres query pg 'select pg_sleep(3)' | jget 'd["error"]["code"]' || true)"
 q $K conn edit pg --option statement_timeout=
 
 # postgres: write, read-only enforcement, dump, destroy, restore
-q $K db query pg --write "create table t(id int primary key, name text); create sequence s; insert into t values (1, 'a'), (2, 'b')"
-check "pg read via bastion" 2 "$($K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K database postgres query pg --write "create table t(id int primary key, name text); create sequence s; insert into t values (1, 'a'), (2, 'b')"
+check "pg read via bastion" 2 "$($K database postgres query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 set +e
-$K db query pg "insert into t values (3, 'c')" >/dev/null; check "pg write needs --write" 6 $?
-$K db query pg "select nextval('s')" >/dev/null; check "pg read-only enforced by server" 6 $?
-$K db query pg --write "drop table t" >/dev/null; check "pg drop needs --allow-dangerous" 6 $?
+$K database postgres query pg "insert into t values (3, 'c')" >/dev/null; check "pg write needs --write" 6 $?
+$K database postgres query pg "select nextval('s')" >/dev/null; check "pg read-only enforced by server" 6 $?
+$K database postgres query pg --write "drop table t" >/dev/null; check "pg drop needs --allow-dangerous" 6 $?
 set -e
-check "pg dry run rolls back" 2 "$($K db query pg --write --dry-run 'delete from t where id > 0' >/dev/null; $K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-q $K db dump pg --to "$TMP/pg.sql.gz"
+check "pg dry run rolls back" 2 "$($K database postgres query pg --write --dry-run 'delete from t where id > 0' >/dev/null; $K database postgres query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K database postgres backup pg --to "$TMP/pg.sql.gz"
 mkdir -p "$TMP/dumps"
-check "db dump --to a folder names the file after the conn" True "$($K db dump pg --to "$TMP/dumps/" | jget 'd["data"]["file"].endswith("/pg-'"$(date +%F)"'.sql.gz")' || true)"
+check "database postgres backup --to a folder names the file after the conn" True "$($K database postgres backup pg --to "$TMP/dumps/" | jget 'd["data"]["file"].endswith("/pg-'"$(date +%F)"'.sql.gz")' || true)"
 check "a db hint names the conn" True "$($K db schema pg no_such_table | jget '"komando db schema pg" in d["error"]["hint"]' || true)"
 check "pg dump is private" 600 "$(stat -c %a "$TMP/pg.sql.gz" 2>/dev/null || stat -f %Lp "$TMP/pg.sql.gz")"
-q $K db query pg --write --allow-dangerous "drop table t; drop sequence s"
-q $K db restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
-check "pg restore brings rows back" 2 "$($K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K database postgres query pg --write --allow-dangerous "drop table t; drop sequence s"
+q $K database postgres restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
+check "pg restore brings rows back" 2 "$($K database postgres query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "db info" primary "$($K db info pg | jget 'd["data"]["role"]')"
 check "db sizes lists the table" True "$($K db sizes pg | jget 'any(r["name"]=="t" for r in d["data"]["tables"])')"
 check "db locks answers" 0 "$($K db locks pg | jget 'd["data"]["count"]')"
-q $K db query pg --write "create table t2(id int primary key, t_id int references t(id) on delete cascade); insert into t2 values (1, 1)"
+q $K database postgres query pg --write "create table t2(id int primary key, t_id int references t(id) on delete cascade); insert into t2 values (1, 1)"
 check "db schema shows foreign keys" "foreign key" "$($K db schema pg t2 | jget 'd["data"]["tables"][0]["constraints"][0]["type"]')"
-($K db query pg 'select pg_sleep(30)' --timeout 60s > "$TMP/slow.json" 2>&1 &)
+($K database postgres query pg 'select pg_sleep(30)' --timeout 60s > "$TMP/slow.json" 2>&1 &)
 for _ in $(seq 1 20); do PID=$($K db activity pg | jget '[s["pid"] for s in d["data"]["sessions"] if "pg_sleep" in (s.get("query") or "")][0]' 2>/dev/null) && break; sleep 1; done
 check "db activity sees the slow query" True "$([ -n "$PID" ] && echo True || echo False)"
 check "db kill --dry-run names the query" True "$($K db kill pg "$PID" --dry-run | jget '"pg_sleep" in d["data"]["session"]["query"]')"
@@ -63,36 +63,36 @@ check "db kill --session --dry-run says it would be blocked" POLICY_BLOCKED "$($
 check "db kill cancels it" "cancel query" "$($K db kill pg "$PID" | jget 'd["data"]["done"]')"
 for _ in $(seq 1 10); do grep -q '"ok"' "$TMP/slow.json" 2>/dev/null && break; sleep 1; done
 check "the cancelled query stopped" False "$(jget 'd["ok"]' < "$TMP/slow.json")"
-q $K db dump pg --to "$TMP/t2.dump" --format custom --table public.t2
+q $K database postgres backup pg --to "$TMP/t2.dump" --format custom --table public.t2
 check "custom dump is a pg archive" PGDMP "$(head -c 5 "$TMP/t2.dump")"
-q $K db query pg --write --allow-dangerous "drop table t2"
-q $K db restore pg --from "$TMP/t2.dump" --allow-dangerous
-check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-q $K db dump pg --to "$TMP/schema.sql" --schema-only
+q $K database postgres query pg --write --allow-dangerous "drop table t2"
+q $K database postgres restore pg --from "$TMP/t2.dump" --allow-dangerous
+check "pg_restore brings the table back" 1 "$($K database postgres query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K database postgres backup pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
 # --run-on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
 q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
-check "custom dump without a server names --run-on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
-check "dump --run-on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --run-on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
-q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --run-on bastion
+check "custom dump without a server names --run-on" True "$($K database postgres backup pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
+check "dump --run-on dry run says where and how" "bastion True" "$($K database postgres backup pg-on --to "$TMP/on.dump" --format custom --run-on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
+q $K database postgres backup pg-on --to "$TMP/on.dump" --format custom --table public.t2 --run-on bastion
 check "dump --run-on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
-check "dump --run-on from a server that cannot reach the database" CONN_UNREACHABLE "$($K db dump pg-on --to "$TMP/on2.sql" --run-on direct | jget 'd["error"]["code"]' || true)"
-q $K db query pg --write --allow-dangerous "drop table t2"
-check "restore --run-on needs --allow-dangerous" POLICY_BLOCKED "$($K db restore pg-on --from "$TMP/on.dump" --run-on bastion | jget 'd["error"]["code"]' || true)"
-q $K db restore pg-on --from "$TMP/on.dump" --run-on bastion --allow-dangerous
-check "pg_restore --run-on brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "dump --run-on from a server that cannot reach the database" CONN_UNREACHABLE "$($K database postgres backup pg-on --to "$TMP/on2.sql" --run-on direct | jget 'd["error"]["code"]' || true)"
+q $K database postgres query pg --write --allow-dangerous "drop table t2"
+check "restore --run-on needs --allow-dangerous" POLICY_BLOCKED "$($K database postgres restore pg-on --from "$TMP/on.dump" --run-on bastion | jget 'd["error"]["code"]' || true)"
+q $K database postgres restore pg-on --from "$TMP/on.dump" --run-on bastion --allow-dangerous
+check "pg_restore --run-on brings the table back" 1 "$($K database postgres query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "audit names where the dump ran" bastion "$($K audit -n 50 | jget '" ".join(sorted({e.get("runs_on", "") for e in d["data"]["entries"] if e.get("command") == "db.dump" and str(e.get("file", "")).endswith("/on.dump")}))')"
 q $K conn rm pg-on
 
 # mariadb (protected): --yes, dump and restore through bastion
-set +e; $K db query maria --write "create table p(id int primary key)" >/dev/null; check "protected conn needs --yes" 6 $?; set -e
-q $K db query maria --write --yes "create table p(id int primary key, name varchar(10))"
-q $K db query maria --write --yes "insert into p values (1, 'kopi'), (2, 'teh')"
-check "maria typed ints" 1 "$($K db query maria 'select id from p order by id' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-q $K db dump maria --to "$TMP/maria.sql"
-q $K db query maria --write --yes --allow-dangerous "drop table p"
-q $K db restore maria --from "$TMP/maria.sql" --yes --allow-dangerous
-check "maria restore brings rows back" 2 "$($K db query maria 'select count(*) from p' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+set +e; $K database mysql query maria --write "create table p(id int primary key)" >/dev/null; check "protected conn needs --yes" 6 $?; set -e
+q $K database mysql query maria --write --yes "create table p(id int primary key, name varchar(10))"
+q $K database mysql query maria --write --yes "insert into p values (1, 'kopi'), (2, 'teh')"
+check "maria typed ints" 1 "$($K database mysql query maria 'select id from p order by id' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+q $K database mysql backup maria --to "$TMP/maria.sql"
+q $K database mysql query maria --write --yes --allow-dangerous "drop table p"
+q $K database mysql restore maria --from "$TMP/maria.sql" --yes --allow-dangerous
+check "maria restore brings rows back" 2 "$($K database mysql query maria 'select count(*) from p' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "maria db info" primary "$($K db info maria | jget 'd["data"]["role"]')"
 check "maria db sizes" True "$($K db sizes maria | jget 'any(r["name"]=="p" for r in d["data"]["tables"])')"
 check "maria db activity answers" True "$($K db activity maria --all | jget '"sessions" in d["data"]')"
@@ -178,7 +178,7 @@ q $K group add stack 'bastion,pg,cache'
 check "list @stack has both" "bastion,cache,pg" "$($K list @stack | jget '",".join(t["name"] for t in d["data"]["targets"])')"
 check "test @stack checks both" 3 "$($K test @stack | jget 'd["data"]["summary"]["ok"]')"
 check "exec @stack skips conns" "cache,pg" "$($K exec @stack --read-only -- true | jget '",".join(s["name"] for s in d["meta"]["skipped"])')"
-check "db query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "database postgres query @stack finds pg" 1 "$($K db query @stack 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "cache on a database says use db" NO_MATCHING_TARGETS "$($K cache info pg | jget 'd["error"]["code"]' || true)"
 
 # one verb pair for files, and tunnels to conns by name

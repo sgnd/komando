@@ -49,8 +49,8 @@ func TestBareGroupsPiped(t *testing.T) {
 
 func TestSchemaLookups(t *testing.T) {
 	invHome(t)
-	if d := mustRun(t, "schema", "db query"); len(d["commands"].([]any)) != 1 {
-		t.Errorf("schema 'db query': %v", d["commands"])
+	if d := mustRun(t, "schema", "database postgres query"); len(d["commands"].([]any)) != 1 {
+		t.Errorf("schema 'database postgres query': %v", d["commands"])
 	}
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "completion")
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "help")

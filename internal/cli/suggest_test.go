@@ -12,8 +12,8 @@ import (
 func TestUnknownCommandWords(t *testing.T) {
 	root := newRoot(tcl)
 	for word, want := range map[string]string{
-		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster run TARGET -- ...", "psql": "db query CONN",
-		"mysql": "db query CONN", "apt": "pkg", "yum": "pkg", "systemctl": "svc",
+		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster run TARGET -- ...", "psql": "database postgres query NAME",
+		"mysql": "database mysql query NAME", "apt": "pkg", "yum": "pkg", "systemctl": "svc",
 	} {
 		e := unknownCommandErr(tcl, root, word, nil)
 		if e.Suggestion != want || e.Hint != "run `komando "+want+"` instead" || e.Code != "USAGE" {
