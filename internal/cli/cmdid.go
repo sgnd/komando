@@ -126,14 +126,16 @@ func openNode(c *cobra.Command) {
 	if prepared(c) {
 		return
 	}
+	// the sub-commands first, as openAll lists every command before any
+	// step: an example of c may name one by an alias
 	listNode(c)
+	for _, s := range c.Commands() {
+		listNode(s)
+	}
 	for _, step := range prepareSteps {
 		step(c)
 	}
 	setReady(c, readyPrepared)
-	for _, s := range c.Commands() {
-		listNode(s)
-	}
 }
 
 // openAll prepares every command of the tree under root.
@@ -168,9 +170,7 @@ func openAll(root *cobra.Command) {
 // the shell's completion prepare the command of the words after them.
 func openPath(root *cobra.Command, line []string) {
 	openNode(root)
-	if len(line) > 0 && (line[0] == cobra.ShellCompRequestCmd || line[0] == cobra.ShellCompNoDescRequestCmd) {
-		line = line[1:]
-	}
+	line = withoutCompleteWord(root, line)
 	for {
 		c, rest, _ := root.Find(line)
 		if c == nil {
@@ -195,4 +195,41 @@ func openPath(root *cobra.Command, line []string) {
 		}
 		return
 	}
+}
+
+// withoutCompleteWord is line without the shell's completion word when that
+// is its first word that is neither a flag nor a flag's value: cobra finds
+// it there too (`-o json __complete host rm`).
+func withoutCompleteWord(root *cobra.Command, line []string) []string {
+	for i := 0; i < len(line); i++ {
+		w := line[i]
+		switch {
+		case w == "--":
+			return line
+		case strings.HasPrefix(w, "-") && len(w) > 1:
+			if !strings.Contains(w, "=") && takesValue(root, w) {
+				i++ // its value
+			}
+		case w == cobra.ShellCompRequestCmd || w == cobra.ShellCompNoDescRequestCmd:
+			return append(append([]string{}, line[:i]...), line[i+1:]...)
+		default:
+			return line
+		}
+	}
+	return line
+}
+
+// takesValue reports whether the global flag w (--name or -x) takes the
+// next word as its value.
+func takesValue(root *cobra.Command, w string) bool {
+	pf := root.PersistentFlags()
+	if name, ok := strings.CutPrefix(w, "--"); ok {
+		f := pf.Lookup(name)
+		return f != nil && f.NoOptDefVal == ""
+	}
+	if len(w) != 2 {
+		return false
+	}
+	f := pf.ShorthandLookup(w[1:])
+	return f != nil && f.NoOptDefVal == ""
 }

@@ -285,6 +285,7 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 		{[]string{"-o", "text", "help", "db"}, "db"},
 		{[]string{cobra.ShellCompRequestCmd, "host", "li"}, "host"},
 		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "list", ""}, "host list"},
+		{[]string{"-o", "json", cobra.ShellCompRequestCmd, "host", "rm"}, "host rm"},
 		{[]string{"host", "lst"}, "host"},
 		{[]string{"nosuchword"}, ""},
 		{nil, ""},
@@ -338,6 +339,33 @@ func TestUnpreparedCommandRunsNothing(t *testing.T) {
 	}
 	if c, _, err := newRoot(tcl).Find([]string{"zzlazy", "run"}); err != nil || !prepared(c) {
 		t.Error("the whole tree does not prepare zzlazy run")
+	}
+	// status --short skips the root's hook: its own refuses it as well
+	root := newRootFor(tcl, []string{"version"})
+	root.SetArgs([]string{"status", "--short"})
+	_, err := root.ExecuteC()
+	if oe := (*out.Error)(nil); !errors.As(err, &oe) || oe.Code != "PREPARE_FAILED" {
+		t.Errorf("prepared for version, status --short gives %v, want PREPARE_FAILED", err)
+	}
+}
+
+// `komando rename OLD NEW` runs the rename of OLD's kind, which its line
+// does not name: it prepares that command before it runs it.
+func TestRenamePreparesTheKindsRename(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
+	line := []string{"--dry-run", "rename", "web1", "web-01"}
+	root := newRootFor(tcl, line)
+	if c, _, _ := root.Find([]string{"host", "rename"}); prepared(c) {
+		t.Fatal("host rename is prepared before rename runs")
+	}
+	root.SetArgs(line)
+	if _, err := root.ExecuteC(); err != nil {
+		t.Fatalf("rename web1: %v", err)
+	}
+	if c, _, _ := root.Find([]string{"host", "rename"}); !prepared(c) {
+		t.Error("rename ran host rename, not prepared")
 	}
 }
 

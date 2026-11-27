@@ -374,9 +374,16 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 		return out.Errf(out.ExitUsage, "USAGE", "say which: "+strings.Join(cmds, " or "),
 			"%q is a %s; rename one of them", old, strings.Join(what, " and a "))
 	}
-	sub, _, err := cmd.Root().Find([]string{found[0], "rename"})
+	// the kind's rename is not on this line's path: prepare it first, and
+	// run it only if that worked (as the root's check would)
+	words := []string{found[0], "rename"}
+	openPath(cmd.Root(), words)
+	sub, _, err := cmd.Root().Find(words)
 	if err != nil || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
+	}
+	if e := notPrepared(sub); e != nil {
+		return e
 	}
 	return sub.RunE(sub, []string{old, new})
 }

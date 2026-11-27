@@ -80,6 +80,9 @@ starship, in ~/.config/starship.toml:
   komando status --short   # prints for example vpn:2 tun:1, or nothing`,
 		Args: cobra.NoArgs,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := notPrepared(cmd); err != nil {
+				return err // the root's hook, which checks it, may be skipped below
+			}
 			if short {
 				// not the root's checks: they close idle VPNs and check
 				// the audit log, which is work and writes on every prompt.
