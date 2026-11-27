@@ -41,17 +41,13 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"exec", "--", "uptime"}, []string{"web1", "y"}, "exec web1 -- uptime", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"exec", "web1"}, []string{"df -h", "y"}, "exec web1 -- 'df -h'", []string{"COMMAND: "}},
 		{[]string{"fs", "replace", "web1", "/etc/x", "--backup"}, []string{"a", "b", "y"}, "fs replace web1 /etc/x --backup --old=a --new=b", []string{"--old: "}},
-		{[]string{"svc", "restart", "prod1"}, []string{"nginx"}, "svc restart prod1 nginx", nil}, // protected: the command asks, not Run it?
+		{[]string{"pkg", "install", "prod1"}, []string{"htop"}, "pkg install prod1 htop", nil}, // protected: the command asks, not Run it?
 		// a step that cannot be undone: Run it? here, the typed name in the
 		// command itself, once (S-7.4; TestPromptedCacheRmAsksOnce)
 		{[]string{"cache", "rm", "cache1"}, []string{"k1", "y"}, "cache rm cache1 k1", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"host", "rm", "--dry-run"}, []string{"web1"}, "host rm --dry-run web1", nil}, // a dry run runs at once
-		{[]string{"reboot"}, []string{"web1", "y"}, "reboot web1", []string{"Run it? [y/N, d = --dry-run first]"}},
-		{[]string{"svc", "stop", "web1"}, []string{"sshd", "y"}, "svc stop web1 sshd", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// easy to redo, no agent stop (OD-7), yet a person types what goes
-		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the cron entry.", "Type the name backup to continue"}},
 		{[]string{"pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "pkg rm web1 nginx curl", []string{"This removes the packages.", "Type 2 (packages on web1) to continue"}},
-		{[]string{"svc", "stop", "web1"}, []string{"nginx", "y"}, "svc stop web1 nginx", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// komando and csv have no usual file, so FILE is asked; the other
 		// sources read their usual file
 		{[]string{"import", "komando"}, []string{"backup.json", "y"}, "import komando backup.json", []string{"FILE: "}},
@@ -59,9 +55,7 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"import", "ssh-config"}, nil, "import ssh-config", nil},
 		// an alias, a plural noun or a global flag before the command is
 		// not counted as what goes
-		{[]string{"cron", "remove", "web1"}, []string{"backup", "backup"}, "cron remove web1 backup", []string{"Type the name backup to continue"}},
-		{[]string{"crons", "rm", "web1"}, []string{"backup", "backup"}, "crons rm web1 backup", []string{"Type the name backup to continue"}},
-		{[]string{"-o", "text", "cron", "rm", "web1"}, []string{"backup", "backup"}, "-o text cron rm web1 backup", []string{"Type the name backup to continue"}},
+		{[]string{"-o", "text", "pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "-o text pkg rm web1 nginx curl", []string{"Type 2 (packages on web1) to continue"}},
 		{[]string{"packages", "rm", "web1"}, []string{"nginx curl", "2"}, "packages rm web1 nginx curl", []string{"Type 2 (packages on web1) to continue"}},
 	} {
 		drawn := promptFake(t, c.answers...)
@@ -95,7 +89,7 @@ func TestPromptFillCancel(t *testing.T) {
 		{[]string{"exec", "web1"}, []string{"reboot", "n"}},
 		{[]string{"exec", "web1"}, []string{"reboot", ""}},           // Enter is No
 		{[]string{"cache", "rm", "cache1"}, []string{"k1", "cache"}}, // not y at Run it?
-		{[]string{"cron", "rm", "web1"}, []string{"backup", "web1"}}, // the wrong name
+		{[]string{"pkg", "rm", "web1"}, []string{"nginx", "web1"}},   // the wrong name
 		{[]string{"logs"}, nil},                                      // Ctrl-C at the first question
 	} {
 		promptFake(t, c.answers...)
@@ -122,8 +116,8 @@ func TestPromptFillPicks(t *testing.T) {
 	promptable = func(*call, string) bool { return true }
 	defer func() { promptable = saved }()
 	drawn := promptFake(t, "1")
-	got, err := promptFill(tcl, []string{"facts"})
-	if err != nil || pickCommandLine(got) != "facts prod1" || strings.Contains(drawn.String(), "Using") {
+	got, err := promptFill(tcl, []string{"pkg", "installed"})
+	if err != nil || pickCommandLine(got) != "pkg installed prod1" || strings.Contains(drawn.String(), "Using") {
 		t.Errorf("%v %v\n%s", got, err, drawn)
 	}
 	drawn = promptFake(t)

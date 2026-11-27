@@ -236,14 +236,10 @@ func TestPwshRealParse(t *testing.T) {
 	}
 	now := time.Now()
 	scripts := map[string]string{
-		"facts":       winFactsScript,
-		"svc status":  winSvcStatusScript([]string{"W3SVC", "sshd"}),
-		"svc start":   winSvcScript("start", []string{"W3SVC"}, false, 10),
-		"svc enable":  winSvcScript("enable", []string{"W3SVC"}, true, 0),
-		"svc disable": winSvcScript("disable", []string{"W3SVC"}, true, 0),
-		"svc list":    winSvcListScript,
-		"write":       winWriteScript(`C:\a b\it's.txt`, winWriteOpts{backup: true, mkdirs: true, noFollow: true, validate: "Test-Path %s", intoDir: "x.txt"}, now),
-		"ls":          winPath("~/x") + winCatch("Get-ChildItem -LiteralPath $p"),
+		"facts":    winFactsScript,
+		"svc list": winSvcListScript,
+		"write":    winWriteScript(`C:\a b\it's.txt`, winWriteOpts{backup: true, mkdirs: true, noFollow: true, validate: "Test-Path %s", intoDir: "x.txt"}, now),
+		"ls":       winPath("~/x") + winCatch("Get-ChildItem -LiteralPath $p"),
 	}
 	for name, s := range scripts {
 		check := `$e = $null; [void][System.Management.Automation.Language.Parser]::ParseInput([Console]::In.ReadToEnd(), [ref]$null, [ref]$e); if ($e) { $e | ForEach-Object { $_.ToString() }; exit 1 }`

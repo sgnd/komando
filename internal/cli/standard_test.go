@@ -71,7 +71,7 @@ func TestStandardTopLevel(t *testing.T) {
 	want := []string{
 		// nouns (S-2.1)
 		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
-		"fs", "svc", "pkg", "user", "cron", "docker", "net", "cert", "db", "cache", "queue", "storage", "cluster", "registry",
+		"fs", "svc", "pkg", "user", "cron", "docker", "net", "db", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
 		"login", "logout", "import", "export", "rename",
@@ -134,7 +134,7 @@ func TestStandardNounAliases(t *testing.T) {
 		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
 		"tunnel": {"tunnels"}, "fs": {"files"}, "svc": {"service", "services"}, "pkg": {"package", "packages"},
 		"user": {"users"}, "cron": {"crons"}, "docker": {"container", "containers"}, "net": {"network"},
-		"cert": {"certs"}, "db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
+		"db": {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
 	} {
 		want := findCmd(t, root, noun)

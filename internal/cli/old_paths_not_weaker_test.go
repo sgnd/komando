@@ -14,6 +14,16 @@ import (
 // PR B3). TestLeafNotWeaker compares rows by command ID; the two below add
 // the read/change floor and compare by the path a person or agent types.
 
+// replacedByExec are the IDs that exec, query or raw does after the cut
+// (capability.Replacements), for a carried command that step D has removed.
+var replacedByExec = func() map[string]bool {
+	m := map[string]bool{}
+	for _, r := range capability.Replacements() {
+		m[r.Today] = true
+	}
+	return m
+}()
+
 // todayHighest is the highest tier c can have today: change unless its
 // kind is read, or the highest row for its key, whatever the condition.
 func todayHighest(c *cobra.Command) tier {
@@ -40,6 +50,11 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 				if k := capability.TodayKeys()[id]; (safetyKey{k.Type, k.Area, k.Verb}) != (safetyKey{l.Type, l.Area, l.Verb}) {
 					t.Errorf("%s: moved from %s, whose key was %v", l.Key, id, k)
 				}
+				continue
+			}
+			if !ok && replacedByExec[id] {
+				// removed in step D: exec carries it, and TestReplacedIDsNameTheirRules
+				// pins the rules and stops that keep its protection
 				continue
 			}
 			if !ok {

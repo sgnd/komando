@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -12,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// `komando svc` on Windows servers: Windows services, through the Service
+// Windows services for the svc snippets, through the Service
 // Control Manager (Get-Service, Start-Service, Win32_Service).
 
 // winService is one Windows service as svc shows it.
@@ -36,9 +35,6 @@ var winServiceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 _.$#@+-]{0,255}$
 // the JSON of winService.
 const winServiceRow = `[pscustomobject]@{ name = $s.Name; display_name = $s.DisplayName; state = $s.State; start_mode = $s.StartMode; delayed_start = [bool]$s.DelayedAutoStart; pid = [int]$s.ProcessId; account = $s.StartName; exit_code = [int]$s.ExitCode; found = $true }`
 
-// winSvcStatusScript prints the services' state as one marker line.
-func winSvcStatusScript(names []string) string { return winSvcStatusText(sshx.PSArray(names)) }
-
 // winSvcStatusText is winSvcStatusScript over an array already written in
 // PowerShell: the svc-status snippet gives its filled list.
 func winSvcStatusText(array string) string {
@@ -49,56 +45,6 @@ func winSvcStatusText(array string) string {
 }
 [Console]::Out.WriteLine('#komando:json=' + (ConvertTo-Json -Compress -InputObject @($rows)))
 `
-}
-
-// badServiceNames is a script that stops on names no service has, or "".
-func badServiceNames(names []string) string {
-	for _, n := range names {
-		if !winServiceName.MatchString(n) {
-			return "[Console]::Error.WriteLine(" + sshx.PSQ("komando: "+n+" is not a Windows service name (letters, digits, space and _ . $ # @ + -)") + "); exit 2\n"
-		}
-	}
-	return ""
-}
-
-// winSvcActions are the PowerShell lines of each svc action, per service.
-var winSvcActions = map[string][]string{
-	"start":   {"Start-Service -Name %s"},
-	"stop":    {"Stop-Service -Name %s"},
-	"restart": {"Restart-Service -Name %s"},
-	"enable":  {"Set-Service -Name %s -StartupType Automatic"},
-	"disable": {"Set-Service -Name %s -StartupType Disabled"},
-}
-
-// winSvcScript is svcScript for Windows: run the action on each service,
-// wait for them to run (--wait), then show their state.
-func winSvcScript(action string, names []string, now bool, wait int) string {
-	steps, ok := winSvcActions[action]
-	if !ok {
-		return ""
-	}
-	if bad := badServiceNames(names); bad != "" {
-		return bad
-	}
-	if now && action == "enable" {
-		steps = append(steps, "Start-Service -Name %s")
-	} else if now && action == "disable" {
-		steps = append(steps, "Stop-Service -Name %s")
-	}
-	var b strings.Builder
-	b.WriteString("$ErrorActionPreference = 'Stop'\n$rc = 0\n")
-	for _, n := range names {
-		for _, st := range steps {
-			fmt.Fprintf(&b, "try { %s } catch { $rc = 1; [Console]::Error.WriteLine(%s + $_.Exception.Message) }\n", fmt.Sprintf(st, sshx.PSQ(n)), sshx.PSQ(n+": "))
-		}
-		if wait > 0 && (action == "start" || action == "restart") {
-			fmt.Fprintf(&b, "try { (Get-Service -Name %s).WaitForStatus('Running', [TimeSpan]::FromSeconds(%d)) } catch {}\n", sshx.PSQ(n), wait)
-		}
-	}
-	b.WriteString("$ErrorActionPreference = 'Continue'\n")
-	b.WriteString(winSvcStatusScript(names))
-	b.WriteString("[Console]::Out.WriteLine(\"#komando:rc=$rc\")\n")
-	return b.String()
 }
 
 // winMarkers reads the "#komando:KEY=VALUE" lines of a script's stdout.
@@ -128,52 +74,10 @@ func winServices(rr *sshx.RunResult) ([]winService, *out.Error) {
 		}
 	}
 	if len(missing) > 0 {
-		return svcs, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando svc list TARGET`",
+		return svcs, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando exec TARGET -- Get-Service`",
 			"service not found: %s", strings.Join(missing, ", "))
 	}
 	return svcs, nil
-}
-
-// winSvcActionResult is svcActionResult for Windows.
-func winSvcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.Error) {
-	svcs, err := winServices(rr)
-	if err != nil {
-		return svcs, err
-	}
-	if winMarkers(rr.Stdout)["rc"] != "0" {
-		return svcs, out.Errf(out.ExitRemote, "SVC_FAILED", "the reason is in the error output (stderr); the service's own log is in the Windows event log: `komando exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
-			"%s failed", commandWord("svc."+action))
-	}
-	if wait > 0 {
-		var down []string
-		for _, s := range svcs {
-			if s.State != "Running" {
-				down = append(down, s.Name+" is "+s.State)
-			}
-		}
-		if len(down) > 0 {
-			return svcs, out.Errf(out.ExitRemote, "UNIT_NOT_ACTIVE", "read why in the event log: `komando exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
-				"not running after %ds: %s", wait, strings.Join(down, ", "))
-		}
-	}
-	return svcs, nil
-}
-
-// winSvcTable is svcTable for Windows services.
-func winSvcTable(svcs []winService) string {
-	rows := [][]string{}
-	for _, s := range svcs {
-		start := s.StartMode
-		if s.Delayed {
-			start += " (delayed)"
-		}
-		pid := ""
-		if s.PID > 0 {
-			pid = fmt.Sprint(s.PID)
-		}
-		rows = append(rows, []string{s.Name, s.State, start, pid, s.Account, s.DisplayName})
-	}
-	return textTable([]string{"service", "state", "start", "pid", "account", "name"}, rows)
 }
 
 // winSvcListScript lists every service.

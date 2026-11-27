@@ -71,8 +71,7 @@ func TestNotFoundSayOtherKind(t *testing.T) {
 	}
 }
 
-// An agent or script cannot use the menu, so the hint is a command line;
-// a command's own words for a person (cert check's website tip) stay.
+// An agent or script cannot use the menu, so the hint is a command line.
 func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	invHome(t)
 	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "host %q not found", "bastion").ForKind("host")
@@ -92,12 +91,6 @@ func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 		if h := e.TextHint(); strings.Contains(h, "pick Add") || strings.Contains(h, "menu") || !strings.Contains(h, c[1]) {
 			t.Errorf("%s at a terminal: %q", c[0], h)
 		}
-	}
-	e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "for a website write https://shop.example.com", "no server, conn or VPN named %q", "shop.example.com")
-	e.Say("Nothing named \"shop.example.com\" in your list to check.", e.Hint)
-	notFoundSay(tcl, e, sayCmd(t, "cert", "check"))
-	if !strings.Contains(e.TextHint(), "https://shop.example.com") {
-		t.Errorf("cert hint lost: %q", e.TextHint())
 	}
 }
 

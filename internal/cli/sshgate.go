@@ -97,15 +97,12 @@ var gateNotForReadKey = map[safetyKey]string{
 // databases, caches, storage and clusters, or connect a VPN komando already
 // knows. A func says why the command as given writes here, or "".
 var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
-	{"host", "", "exec"}: nil, {"host", "", "restart"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
+	{"host", "", "exec"}: nil, {"", "upload", "copy"}: nil, {"snippet", "", "exec"}: nil,
 	{"", "cp", "copy"}: gateLocalDst, {"", "sync", "copy"}: gateLocalDst,
 	{"host", "job", "start"}: nil, {"host", "job", "kill"}: nil, {"host", "job", "rm"}: nil,
 	{"host", "file", "chmod"}: nil, {"host", "file", "mkdir"}: nil, {"host", "file", "mv"}: nil, {"host", "file", "replace"}: nil, {"host", "file", "restore"}: nil, {"host", "file", "rm"}: nil, {"host", "file", "write"}: nil,
-	{"host", "service", "daemon-reload"}: nil, {"host", "service", "disable"}: nil, {"host", "service", "enable"}: nil, {"host", "service", "reload"}: nil,
-	{"host", "service", "restart"}: nil, {"host", "service", "start"}: nil, {"host", "service", "stop"}: nil,
 	{"host", "package", "install"}: nil, {"host", "package", "rm"}: nil, {"host", "package", "security"}: nil, {"host", "package", "update"}: nil, {"host", "package", "upgradable"}: nil, {"host", "package", "upgrade"}: nil,
-	{"host", "user", "add"}: nil, {"host", "user", "lock"}: nil, {"host", "user", "rm"}: nil, {"host", "user", "unlock"}: nil,
-	{"host", "cron", "rm"}: nil, {"host", "cron", "set"}: nil, {"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
+	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
 	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
 	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
 	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "chmod"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,

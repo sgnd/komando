@@ -96,7 +96,7 @@ passwords), and secret-looking text is hidden.
 komando has a small built-in table
 for Ubuntu LTS, Debian, RHEL and its rebuilds (Rocky, AlmaLinux, Oracle
 Linux, CentOS), Alpine and Amazon Linux, taken from each vendor's release
-page (the sources are listed in `internal/cli/facts_support.go`). The JSON
+page (the sources are listed in `internal/cli/host_facts_support.go`). The JSON
 shows the date it was checked (`os_support.dates_checked`). A release that
 is not in the table, such as a short-lived Ubuntu release, is `unknown`. For
 Ubuntu, komando also asks `pro status` whether ESM is enabled.

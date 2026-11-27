@@ -16,8 +16,8 @@ var commonGlobals = []string{"dry-run", "output", "timeout", "yes"}
 const timeoutHelp = "timeoutHelp"
 
 // ownFlags are a command's flags, its own and the ones a parent gives all
-// its sub-commands (`cron --user` for `cron list`): the flags of this
-// command, which --help and `komando schema` list. Global flags are not.
+// its sub-commands: the flags of this command, which --help and
+// `komando schema` list. Global flags are not.
 func ownFlags(c *cobra.Command) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("", pflag.ContinueOnError)
 	c.LocalFlags().VisitAll(func(f *pflag.Flag) { fs.AddFlag(f) })
