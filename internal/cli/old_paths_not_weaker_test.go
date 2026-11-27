@@ -88,7 +88,8 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 				if kind.Kind == kindRead {
 					base = tierRead
 				}
-				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want {
+				_, excepted := notWeakerExceptions[l.Key.String()+" | "+id]
+				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want && !excepted {
 					t.Errorf("%s: carries %s (%s today), but the leaf is at most %s", l.Key, id, want, got)
 				}
 				continue
@@ -97,6 +98,16 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 				// a top-level leaf (copy) took the command's job and path: the leaf is at least as strict
 				if k := capability.TodayKeys()[id]; int(capability.Highest(l.Key)) < int(todayTier(safetyKey{k.Type, k.Area, k.Verb})) {
 					t.Errorf("%s: weaker than %s", l.Key, id)
+				}
+				continue
+			}
+			if !ok && slices.Contains(removedIDs, id) && !slices.Contains(l.Today, id) {
+				// removed in step D, its job carried by a leaf of a lower kind
+				// (status lists the exec sessions that replace job list): the
+				// leaf must not be weaker than the removed command was
+				k := capability.TodayKeys()[id]
+				if int(capability.Highest(l.Key)) < int(todayTier(safetyKey{k.Type, k.Area, k.Verb})) {
+					t.Errorf("%s: weaker than %s, which step D removed", l.Key, id)
 				}
 				continue
 			}

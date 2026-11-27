@@ -18,6 +18,11 @@ import (
 // leaf may stay below today's highest row.
 var notWeakerExceptions = map[string]string{
 	"host winrm add | host.winrm.add": proxyOnlySSH,
+	// today's host add is safety only with --proxy-command (risk_tiers_pinned:
+	// "host ssh add ... --proxy-command nc"); hostSettings gives it to ssh alone
+	"host winrm add | host.add":  proxyOnlySSH + " (host winrm add takes no --proxy-command, --key, --identity or --sudo-credential)",
+	"host telnet add | host.add": proxyOnlySSH + " (not built: state New, no options of its own yet)",
+	"host serial add | host.add": proxyOnlySSH + " (not built: state New, no options of its own yet)",
 }
 
 // proxyOnlySSH: the rows of today's host add are about --proxy-command, an
@@ -84,7 +89,12 @@ func leafTier(k capability.Key) capability.Tier {
 func exceptionUsed(pair string) bool {
 	for _, l := range capability.All() {
 		for _, id := range slices.Concat(l.Today, l.Carries, []string{strings.Join(l.Key.Path(), ".")}) {
-			if l.Key.String()+" | "+id == pair && int(leafTier(l.Key)) < int(todayTier(cmdKeys[id])) {
+			key, ok := cmdKeys[id]
+			if !ok { // moved: today's key, as TestLeafFloorNotWeaker reads it
+				k := capability.TodayKeys()[id]
+				key = safetyKey{k.Type, k.Area, k.Verb}
+			}
+			if l.Key.String()+" | "+id == pair && int(leafTier(l.Key)) < int(todayTier(key)) {
 				return true
 			}
 		}
