@@ -287,7 +287,7 @@ store, as reads go on beside a slow keychain.
 
 **A key file store fails closed too.** A store whose key is in `store.key`
 or a passphrase is compared when the keychain keeps a count for its
-folder: then it is a backup from before `secret keychain`. When the
+folder: then it is a backup from before `config vault keychain`. When the
 keychain cannot say whether it keeps one (`checkGeneration`: anything but
 "no count" or `NoKeychain`), the store is opened read only
 (`KEYCHAIN_FAILED`, or `KEYCHAIN_SLOW` when slow), or as a look for a
@@ -432,7 +432,7 @@ is not.
   `STORE_OLD_COPY`.
 - `TestHooksReadRunningCallsSafely` calls the hooks from one goroutine
   over and over while a person's calls and agents' calls run `version`,
-  `list` and `secret list` (which open the store) through `RunCall`:
+  `list` and `credential list` (which open the store) through `RunCall`:
   under `-race`, nothing a hook reads is written without a lock. It
   fails if the hooks never ran while both kinds of call were running.
 - `TestDryRunBesideARealChange`: a person's `host add --ask-password`

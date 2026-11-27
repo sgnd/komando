@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -298,14 +299,20 @@ func (c configSet) Text() string {
 	return c.Key + ": " + dash(c.Old) + " → " + dash(c.Value) + "\n"
 }
 
-func configCmd() *cobra.Command {
-	c := &cobra.Command{Use: "config", Short: "Settings: read and change timeouts, host keys, the audit"}
+// configSettingsHelp is the Long text of config set: every setting, its
+// values and what it does.
+func configSettingsHelp() string {
 	var keysHelp strings.Builder
 	for _, s := range settings {
 		keysHelp.WriteString("  " + s.Key + strings.Repeat(" ", 17-len(s.Key)) + s.Values + "\n      " + s.Help + "\n")
 	}
+	return "Settings:\n" + keysHelp.String() + "\nTo go back to a default, set the value from the DEFAULT column of `komando config show`."
+}
+
+// configShowCmd is today's config show, the body of the config show leaf.
+func configShowCmd() *cobra.Command {
 	def := store.DefaultSettings()
-	c.AddCommand(&cobra.Command{
+	return &cobra.Command{
 		Use:   "show",
 		Short: "Show settings, their defaults and file locations",
 		Args:  cobra.NoArgs,
@@ -322,8 +329,13 @@ func configCmd() *cobra.Command {
 			cl.out.Print("config.show", res, nil)
 			return nil
 		}),
-	})
-	c.AddCommand(&cobra.Command{
+	}
+}
+
+// configGetCmd is today's config get.
+func configGetCmd() *cobra.Command {
+	def := store.DefaultSettings()
+	return &cobra.Command{
 		Use:     "get SETTING",
 		Short:   "Print one setting",
 		Example: "  komando config get parallel\n  komando config get host_key_policy -o text",
@@ -340,11 +352,15 @@ func configCmd() *cobra.Command {
 			cl.out.Print("config.get", configValue{Key: s.Key, Value: s.get(&st.Settings), Default: s.get(&def)}, nil)
 			return nil
 		}),
-	})
+	}
+}
+
+// configSetCmd is today's config set.
+func configSetCmd() *cobra.Command {
+	def := store.DefaultSettings()
 	set := &cobra.Command{
 		Use:   "set SETTING VALUE",
 		Short: "Change a setting",
-		Long:  "Settings:\n" + keysHelp.String() + "\nTo go back to a default, set the value from the DEFAULT column of `komando config show`.",
 		Example: `  komando config set parallel 20
   komando config set default_timeout 10m
   komando config set host_key_policy strict
@@ -394,8 +410,27 @@ func configCmd() *cobra.Command {
 		}
 		return err
 	})
-	c.AddCommand(set, approvalCodeCmd())
-	return c
+	return set
+}
+
+// The config leaves run today's config bodies, and the vault's keychain
+// and passphrase run today's secret keychain and secret passphrase.
+func init() {
+	for verb, body := range map[string]func() *cobra.Command{"get": configGetCmd, "set": configSetCmd, "show": configShowCmd,
+		"approval-code": approvalCodeCmd} {
+		handlers[capability.Key{Type: "config", Verb: verb}] = bodyHandler(body)
+	}
+	handlers[capability.Key{Type: "config", Area: "vault", Verb: "keychain"}] = bodyHandler(secretKeychainCmd)
+	handlers[capability.Key{Type: "config", Area: "vault", Verb: "passphrase"}] = bodyHandler(secretPassphraseCmd)
+	moveType("config")
+	helpGroups["config"] = "setup"
+	groupShorts["config"] = "Settings: read and change timeouts, host keys, the audit"
+	groupShorts["config vault"] = "The vault: keep its key in the OS keychain, or change its passphrase"
+	// the leaves keep the longer help of today's bodies
+	details["komando config vault keychain"] = vaultKeychainLong
+	details["komando config vault passphrase"] = vaultPassphraseLong
+	details["komando config approval-code"] = approvalCodeLong
+	details["komando config set"] = configSettingsHelp()
 }
 
 // dataFiles is where komando keeps each kind of data: one sealed file for

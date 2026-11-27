@@ -54,6 +54,7 @@ func idTables() []idTable {
 		idTableOf("gateNoNetwork", gateNoNetwork, false),
 		idTableOf("gateLocalFlags", gateLocalFlags, false),
 		idTableOf("gateLocalArgs", gateLocalArgs, false),
+		idTableOf("revealNever", revealNever, false),
 	}
 }
 
@@ -128,8 +129,8 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 		providerIDs[id] = true
 		for i := 1; i < len(words)-1; i++ { // the provider and area groups
 			gid, gkey := strings.Join(words[:i+1], "."), safetyKey{typ: l.Type}
-			if i >= 2 {
-				gkey.area = words[2]
+			if i >= 2 || l.Provider == "" { // komando's own noun has its area first
+				gkey.area = words[i]
 			}
 			cmdKeys[gid], providerIDs[gid] = gkey, true
 			if _, ok := gateNoNetwork[typ]; ok {
@@ -164,6 +165,7 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 			tb.drop(old)
 		}
 	}
+	keyGroups(typ, gone, tables)
 }
 
 // carriedByMoved says whether every built leaf that carries id is of a moved

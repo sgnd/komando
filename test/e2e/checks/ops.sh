@@ -19,8 +19,8 @@ check "logs --file reads the file" direct "$($K logs direct --file /etc/hostname
 
 # a login user without sudo rights: the error names the cause and the next
 # command. The user is made through exec, with the key written as root.
-q $K key gen t-fixops-k
-NSKEY=$($K key show t-fixops-k | jget 'd["data"]["public_key"]')
+q $K credential key create t-fixops-k
+NSKEY=$($K credential key show t-fixops-k | jget 'd["data"]["public_key"]')
 q $K exec direct --sudo -- "useradd -m -s /bin/sh t-fixopsns && mkdir -p ~t-fixopsns/.ssh && echo '$NSKEY' > ~t-fixopsns/.ssh/authorized_keys && chown -R t-fixopsns ~t-fixopsns/.ssh && chmod 700 ~t-fixopsns/.ssh"
 q $K host add t-fixops-ns "t-fixopsns@127.0.0.1:$E2E_SSH_DIRECT" --key t-fixops-k
 q $K host trust t-fixops-ns
@@ -31,7 +31,7 @@ done
 check "docker ps --sudo refused says to leave out --sudo as root" True "$($K docker ps t-fixops-ns --sudo | jget "'--user OTHER' in ${r0}['error']['hint'] or 'leave out --sudo' in ${r0}['error']['hint']" || true)"
 q $K host rm t-fixops-ns
 $K exec direct --sudo --allow-dangerous -- 'userdel -r t-fixopsns' >/dev/null 2>&1 || true
-q $K key rm t-fixops-k
+q $K credential key remove t-fixops-k
 
 # pkg: option injection, essential packages, installed rows, changed, unknown
 set +e

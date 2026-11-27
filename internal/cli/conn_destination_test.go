@@ -117,7 +117,7 @@ func fakePG(t *testing.T, cert *tls.Certificate) (port string, got *atomic.Value
 func TestConnURLSettingsAreThePlace(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "stored-pw")
-	mustRun(t, "secret", "set", "evilca", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "evilca", "--from-env", "PW")
 	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app", "--password-ref", "env:PW")
 	mustRun(t, "conn", "add", "c1", "rediss://default@10.0.0.5:6379/0", "--password-ref", "env:PW")
 	mustRun(t, "conn", "add", "m1", "mongodb://app@10.0.0.5:27017/app", "--password-ref", "env:PW")

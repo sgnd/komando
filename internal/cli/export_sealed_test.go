@@ -45,7 +45,7 @@ func sealLab(t *testing.T) {
 	invHome(t)
 	setSecret(t, "web1-pass", "s3cret value")
 	setSecret(t, "shop-pass", "db s3cret")
-	mustRun(t, "key", "gen", "deploy")
+	mustRun(t, "credential", "key", "create", "deploy")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--password-ref", "secret:web1-pass", "--key", "deploy")
 	mustRun(t, "host", "add", "web2", "u@10.0.0.6", "--password-ref", "secret:missing-pass")
 	mustRun(t, "conn", "add", "shop", "postgres://app@db.example.com/shop", "--password-ref", "secret:shop-pass")

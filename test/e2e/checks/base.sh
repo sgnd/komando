@@ -7,17 +7,17 @@ check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
 # MaxStartups (10:30:100) drops new logins once ten are half-open, which a
 # loaded CI runner reaches (C88, 2026-11-17)
 check "the bastion takes many logins at once" "maxstartups 200:30:400" "$(DC exec -T bastion /usr/sbin/sshd -T 2>/dev/null | grep -i '^maxstartups ' || true)"
-check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
-check "reveal needs a person" REVEAL_NEEDS_TERMINAL "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
-check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
+check "secret never printed" False "$($K credential password show agent-pass | jget '"value" in d["data"]')"
+check "reveal needs a person" REVEAL_NEEDS_TERMINAL "$($K credential password show agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
+check "secret in use cannot be removed" SECRET_IN_USE "$($K credential password remove agent-pass | jget 'd["error"]["code"]' || true)"
 check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
 # renaming a secret moves every reference with it; the logins below prove the value survived the round trip
-check "secret mv updates the 3 servers" 3 "$($K secret mv agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
+check "secret mv updates the 3 servers" 3 "$($K credential password rename agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
 check "the server follows the rename" secret:agent-pass-renamed "$($K host show direct | jget 'd["data"]["password_ref"]')"
-check "secret mv back" 3 "$($K secret mv agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
+check "secret mv back" 3 "$($K credential password rename agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
 $K secret cp agent-pass agent-pass-copy >/dev/null
 check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
-$K secret rm agent-pass-copy --allow-dangerous >/dev/null
+$K credential password remove agent-pass-copy --allow-dangerous >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
 # a run prepares only the commands of its line: help LINE, a group's
@@ -74,7 +74,7 @@ O=$(ptyrun 'agentpass\n' env NO_COLOR=1 "$K" -o text exec nopass --read-only -- 
 check "the question names the server" 1 "$(grep -c 'nopass: Password: ' <<<"$O")"
 check "the typed password logs in" 1 "$(grep -cx 'typed-ok' <<<"$O")"
 check "an agent is not asked for a password" False "$(A exec nopass --read-only -- true </dev/null | jget 'd["ok"]')"
-check "an agent with no value is sent to the user" NEEDS_PERSON "$(A secret set some-pass </dev/null | jget 'd["error"]["code"]' || true)"
+check "an agent with no value is sent to the user" NEEDS_PERSON "$(A credential token add some-pass </dev/null | jget 'd["error"]["code"]' || true)"
 check "the agent playbook reaches an agent whole" 0 "$(A guide -o text | grep -c 'password: \[hidden\]' || true)"
 $K host rm nopass >/dev/null
 # --ask-password: a person types it once while adding the server; later logins use the vault
@@ -84,7 +84,7 @@ check "host add says what to run next" 1 "$(grep -c '^Next: komando test askpw' 
 check "the stored password logs in without a question" "stored-ok" "$($K exec askpw --read-only -- echo stored-ok | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "an agent cannot use --ask-password" NEEDS_PERSON "$(A host add askpw2 "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password </dev/null | jget 'd["error"]["code"]' || true)"
 check "rm names the secret left behind" "['askpw-pass']" "$($K host rm askpw | jget 'd["data"]["secrets_unused"]')"
-$K secret rm askpw-pass --allow-dangerous >/dev/null
+$K credential password remove askpw-pass --allow-dangerous >/dev/null
 # a whole export carries your deny rules, and import adds them in another home
 $K policy deny 'e2e-forbidden-word' >/dev/null
 EXP="$(mktemp -d)/backup.json"
@@ -145,7 +145,7 @@ echo "==> cp"
 echo payload > "$TMP/f"
 
 echo "==> sudo password"
-echo -n opspass | $K secret set ops-pass >/dev/null
+echo -n opspass | $K credential password add ops-pass >/dev/null
 $K host add ops "ops@127.0.0.1:$E2E_SSH_DIRECT" --password-ref secret:ops-pass --sudo-ref secret:ops-pass >/dev/null
 printf '#!/bin/sh\nwhoami\n' > "$TMP/who.sh"
 check "sudo with password" root "$($K exec ops --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
@@ -209,21 +209,21 @@ $K fs write direct /home/agent/t/app.env --content 'DB_PASSWORD=agentpass' >/dev
 check "secret values hidden in output" "DB_PASSWORD=[secret:agent-pass]" "$($K fs cat direct /home/agent/t/app.env | jget 'd["data"]["content"].strip()')"
 
 echo "==> keys"
-$K key gen deploy >/dev/null
-check "key deploy" 3 "$($K key deploy deploy @lab --set-default --yes | jget 'd["data"]["summary"]["ok"]')"
+$K credential key create deploy >/dev/null
+check "key deploy" 3 "$($K credential key install deploy @lab --set-default --yes | jget 'd["data"]["summary"]["ok"]')"
 $K host edit direct --unset password-ref >/dev/null
 check "key-only login" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "revoking the login key needs --allow-dangerous" POLICY_BLOCKED "$($K key revoke deploy direct | jget 'd["error"]["code"]' || true)"
-$K key gen leaver >/dev/null
-$K key deploy leaver direct >/dev/null
-check "key revoke --dry-run counts" 1 "$($K key revoke leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
-check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]["results"][0]["removed"]')"
+check "revoking the login key needs --allow-dangerous" POLICY_BLOCKED "$($K credential key uninstall deploy direct | jget 'd["error"]["code"]' || true)"
+$K credential key create leaver >/dev/null
+$K credential key install leaver direct >/dev/null
+check "key revoke --dry-run counts" 1 "$($K credential key uninstall leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
+check "key revoke removes it" 1 "$($K credential key uninstall leaver direct | jget 'd["data"]["results"][0]["removed"]')"
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # --all-users: the key in two accounts (agent and ops), each file changed as its user
-LEAVER=$($K key show leaver | jget 'd["data"]["public_key"]')
+LEAVER=$($K credential key show leaver | jget 'd["data"]["public_key"]')
 q $K exec direct --sudo -- "for u in agent ops; do h=\$(getent passwd \$u | cut -d: -f6); mkdir -p \$h/.ssh; echo '$LEAVER' >> \$h/.ssh/authorized_keys; chown -R \$u \$h/.ssh; done"
-check "key revoke --all-users --dry-run names each user" "agent:1 ops:1" "$($K key revoke leaver direct --all-users --dry-run | jget '" ".join(u["user"]+":"+str(u["removed"]) for u in d["data"]["results"][0]["users"])')"
-check "key revoke --all-users removes it everywhere" 2 "$($K key revoke leaver direct --all-users | jget 'd["data"]["results"][0]["removed"]')"
+check "key revoke --all-users --dry-run names each user" "agent:1 ops:1" "$($K credential key uninstall leaver direct --all-users --dry-run | jget '" ".join(u["user"]+":"+str(u["removed"]) for u in d["data"]["results"][0]["users"])')"
+check "key revoke --all-users removes it everywhere" 2 "$($K credential key uninstall leaver direct --all-users | jget 'd["data"]["results"][0]["removed"]')"
 check "ops's file keeps its owner" ops "$($K exec direct --sudo -- 'stat -c %U ~ops/.ssh/authorized_keys' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "login still works after --all-users" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
@@ -245,7 +245,7 @@ check "proxy and --via do not mix" USAGE "$($K host add pc2 agent@127.0.0.1 --vi
 $K host add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
 check "--ssm sets the AWS proxy" True "$($K host show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"
 $K host rm pc ssm1 >/dev/null
-check "revoke a public key line" 0 "$($K key revoke "$($K key show leaver | jget 'd["data"]["public_key"]')" direct | jget 'd["data"]["results"][0]["removed"]')"
+check "revoke a public key line" 0 "$($K credential key uninstall "$($K credential key show leaver | jget 'd["data"]["public_key"]')" direct | jget 'd["data"]["results"][0]["removed"]')"
 
 echo "==> tunnel"
 LISTEN=$($K tunnel start target -L 0:localhost:22 | jget 'd["data"]["listen"]')

@@ -54,6 +54,9 @@ var examples = map[string]string{
 		"  komando config get default_timeout\n" +
 		"  komando config set default_timeout 10m --dry-run\n" +
 		"  komando config set default_timeout 10m",
+	"komando config vault": "  komando config vault keychain --dry-run\n" +
+		"  komando config vault keychain\n" +
+		"  komando config vault passphrase   # asks for the new passphrase twice, hidden",
 	"komando conn": "  komando conn add prod-db postgres://app@10.0.0.9/shop --password-ref secret:prod-db-pass\n" +
 		"  komando test prod-db                              # does it answer and let komando in?\n" +
 		"  komando conn edit prod-db --via web1 --dry-run\n" +
@@ -80,18 +83,32 @@ var examples = map[string]string{
 		"  komando job list\n" +
 		"  komando job wait j1103-101500-ab12cd34 --timeout 30m\n" +
 		"  komando job logs j1103-101500-ab12cd34 --limit 50",
-	"komando key": "  komando key gen deploy\n" +
-		"  komando key deploy deploy @web --dry-run\n" +
-		"  komando key deploy deploy @web\n" +
-		"  komando key list",
+	"komando credential": "  komando credential password add web1-pass   # typed hidden\n" +
+		"  komando credential list\n" +
+		"  komando credential key create deploy\n" +
+		"  komando credential run --env TOKEN=secret:gh-token -- ./deploy.sh",
+	"komando credential key": "  komando credential key create deploy\n" +
+		"  komando credential key install deploy @web --dry-run\n" +
+		"  komando credential key install deploy @web\n" +
+		"  komando credential key list",
+	"komando credential password": "  komando credential password add web1-pass   # typed hidden\n" +
+		"  komando credential password show web1-pass\n" +
+		"  komando credential password rename web1-pass web1-pass-old --dry-run\n" +
+		"  komando credential password remove web1-pass-old --dry-run",
+	"komando credential token": "  komando credential token add gh-token   # typed hidden\n" +
+		"  komando credential token add gh-token --from-env GH_TOKEN --dry-run\n" +
+		"  komando credential token show gh-token\n" +
+		"  komando credential token remove gh-token --dry-run",
+	"komando credential certificate": "  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run\n" +
+		"  komando credential certificate list\n" +
+		"  komando credential certificate remove corp --dry-run",
 	"komando policy": "  komando policy list\n" +
 		"  komando policy check 'rm -rf /srv/app'\n" +
 		"  komando policy deny 'systemctl stop postgresql' --dry-run\n" +
 		"  komando policy deny 'systemctl stop postgresql'",
-	"komando secret": "  komando secret set prod-db-pass                   # typed hidden\n" +
-		"  komando secret list\n" +
-		"  komando conn edit prod-db --password-ref secret:prod-db-pass\n" +
-		"  komando secret rm old-pass --dry-run",
+	"komando secret": "  komando secret check db-pass   # type the value to compare, hidden\n" +
+		"  komando secret cp db-pass db-pass-old --dry-run\n" +
+		"  komando secret cp db-pass db-pass-old",
 	"komando vpn": "  komando vpn wireguard add office --config ~/Downloads/office.conf\n" +
 		"  komando vpn wireguard test office\n" +
 		"  komando host edit db1 --via office --dry-run\n" +
@@ -106,7 +123,6 @@ var examples = map[string]string{
 		"  komando recipe rm app-logs",
 
 	"komando audit verify": "  komando audit verify",
-	"komando config show":  "  komando config show",
 	"komando conn kinds":   "  komando conn kinds",
 	"komando conn list":    "  komando conn list\n  komando conn list @prod",
 	"komando conn show":    "  komando conn show prod-db",
@@ -144,9 +160,6 @@ var examples = map[string]string{
 	"komando job rm":     "  komando job rm j1103-101500-ab12cd34",
 	"komando job status": "  komando job status j1103-101500-ab12cd34",
 
-	"komando key list": "  komando key list",
-	"komando key rm":   "  komando key rm old-deploy",
-
 	"komando pkg install":    "  komando pkg install web1 htop jq",
 	"komando pkg installed":  "  komando pkg installed @web nginx openssl",
 	"komando pkg rm":         "  komando pkg rm web1 telnet",
@@ -156,7 +169,6 @@ var examples = map[string]string{
 	"komando policy list": "  komando policy list",
 	"komando recipe list": "  komando recipe list\n  komando recipe list --category security",
 	"komando recipe rm":   "  komando recipe rm du-srv",
-	"komando secret list": "  komando secret list",
 	"komando shell":       "  komando shell web1",
 
 	"komando tunnel list": "  komando tunnel list",

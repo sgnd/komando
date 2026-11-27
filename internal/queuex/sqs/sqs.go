@@ -59,7 +59,7 @@ func Open(ctx context.Context, t driver.Target, password string, dial queuex.Dia
 	case t.User == "":
 		return nil, out.Usage("this sqs conn has no access key ID: give the AWS login with --option aws_profile=NAME, or sqs://ACCESS_KEY_ID@REGION and --password-ref")
 	case password == "":
-		return nil, out.Errf(out.ExitUsage, "USAGE", "store the secret access key with `komando secret set NAME`, then `komando conn edit CONN --password-ref secret:NAME`",
+		return nil, out.Errf(out.ExitUsage, "USAGE", "store the secret access key with `komando credential password add NAME`, then `komando conn edit CONN --password-ref secret:NAME`",
 			"the sqs conn names the access key ID %s but has no secret key", t.User)
 	}
 	return OpenKeys(ctx, t, Keys{ID: t.User, Secret: password}, dial, timeout, clientID)

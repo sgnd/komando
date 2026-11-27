@@ -253,7 +253,7 @@ func TestLoginAskFlag(t *testing.T) {
 func TestLoginAskSchemaNotHidden(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "s3cret-in-env")
-	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "web1-pass", "--from-env", "PW")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
 	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
 		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
@@ -280,9 +280,9 @@ func TestLoginAskSchemaNotHidden(t *testing.T) {
 func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "s3cret-pass")
-	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
-	mustRun(t, "secret", "set", "shared-pass", "--from-env", "PW")
-	mustRun(t, "secret", "set", "web4-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "web1-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "shared-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "web4-pass", "--from-env", "PW")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
 	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "secret:shared-pass")
 	mustRun(t, "host", "add", "web3", "u@10.0.0.3", "--password-ref", "secret:shared-pass")
@@ -290,7 +290,7 @@ func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 
 	d := mustRun(t, "host", "edit", "web1", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["web1-pass"]` ||
-		!strings.Contains(asJSON(d["warnings"]), "komando secret rm web1-pass") {
+		!strings.Contains(asJSON(d["warnings"]), "komando credential password remove web1-pass") {
 		t.Fatalf("edit web1: %v", d)
 	}
 	if _, err := vault.Get("web1-pass"); err != nil {
@@ -428,12 +428,12 @@ func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@10.8.0.5", "--login", "ask", "--via", "office")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	t.Setenv("EVIL", "remote 203.0.113.66 1194")
-	e := wantCode(t, "NEEDS_PERSON", "secret", "set", "office-config", "--from-env", "EVIL")
+	e := wantCode(t, "NEEDS_PERSON", "credential", "password", "add", "office-config", "--from-env", "EVIL")
 	if !strings.Contains(e.Message, "profile of VPN office") || !strings.Contains(e.Message, "server web1") {
 		t.Errorf("%+v", e)
 	}
 	t.Setenv("OTHER", "x")
-	mustRun(t, "secret", "set", "other-thing", "--from-env", "OTHER")
+	mustRun(t, "credential", "password", "add", "other-thing", "--from-env", "OTHER")
 	wantCode(t, "NEEDS_PERSON", "secret", "cp", "other-thing", "office-config", "--overwrite")
 	if v, _ := vault.Get("office-config"); strings.Contains(v, "203.0.113.66") || v == "x" {
 		t.Error("the profile was replaced")

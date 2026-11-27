@@ -46,7 +46,7 @@ docker exec "$SERVER" sh -c 'ipsec statusall 2>/dev/null | grep -q "ikev2-eap:"'
 routes_before=$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)
 for s in "l2tp-psk l2tp-psk" "l2tp-pass l2tp-pass" "group group-secret" "xauth xauth-pass" "v2psk ikev2-psk" "eap eap-pass" "wrong nope"; do
   set -- $s
-  printf '%s' "$2" | in_client komando secret set "$1" >/dev/null
+  printf '%s' "$2" | in_client komando credential password add "$1" >/dev/null
 done
 
 LIFETIME=40s

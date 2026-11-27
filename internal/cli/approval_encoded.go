@@ -101,6 +101,6 @@ func refuseEncodedSecret(command string) error {
 		return nil
 	}
 	return out.Errf(out.ExitUsage, "ENCODED_SECRET_INVALID",
-		"put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line",
+		"put the key in the vault and pass it with secret run: `komando credential token add NAME < key`, then `komando credential run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line",
 		"the script or command holds a private key; komando does not send one this way")
 }

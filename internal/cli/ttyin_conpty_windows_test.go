@@ -234,7 +234,7 @@ func TestConPTYCtrlCAtYesNo(t *testing.T) {
 // A hidden answer is stored and never shows; the console gets its echo back.
 func TestConPTYHiddenValue(t *testing.T) {
 	invHome(t)
-	p := startConPTY(t, "secret", "set", "s1")
+	p := startConPTY(t, "credential", "password", "add", "s1")
 	p.answer("(it stays hidden):", "s3cret\r")
 	if code := p.exit(); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
@@ -253,7 +253,7 @@ func TestConPTYHiddenValue(t *testing.T) {
 // Ctrl-C at a hidden question stores nothing, and echo comes back.
 func TestConPTYCtrlCAtHiddenPrompt(t *testing.T) {
 	invHome(t)
-	p := startConPTY(t, "secret", "set", "s1")
+	p := startConPTY(t, "credential", "password", "add", "s1")
 	p.answer("(it stays hidden):", "half-typed")
 	time.Sleep(200 * time.Millisecond)
 	if _, err := p.in.WriteString("\x03"); err != nil {

@@ -34,8 +34,9 @@ var t3Cases = []struct {
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x", "--recursive"}},
 	{"docker.rm", "the name c1", []string{"docker", "rm", "web1", "c1"}},
 	{"docker.prune", "the name web1", []string{"docker", "prune", "web1"}},
-	{"secret.rm", "the name gsec", []string{"secret", "rm", "gsec"}},
-	{"key.rm", "the name gkey", []string{"key", "rm", "gkey", "--delete-file"}},
+	{"credential.password.remove", "the name gsec", []string{"credential", "password", "remove", "gsec"}},
+	{"credential.token.remove", "the name gsec", []string{"credential", "token", "remove", "gsec"}}, // one saved value for both kinds until step E
+	{"credential.key.remove", "the name gkey", []string{"credential", "key", "remove", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
 	{"sync", "the name web1", []string{"sync", "testdata", "web1:/tmp/x", "--delete"}},
 	// what user rm, svc stop and user lock asked before the cut (D1): exec
@@ -74,8 +75,8 @@ func TestT3AsksTheTypedName(t *testing.T) {
 		{"conn", "add", "st1", "sftp://u@127.0.0.1:1/up"},
 		{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 		{"import", "kubeconfig", l.kubeconfigFile(t, "    token: test-token-abcdef")},
-		{"secret", "set", "gsec", "--from-env", "T3_SECRET"},
-		{"key", "gen", "gkey"},
+		{"credential", "password", "add", "gsec", "--from-env", "T3_SECRET"},
+		{"credential", "key", "create", "gkey"},
 	} {
 		mustRun(t, a...)
 	}
@@ -107,7 +108,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	if _, err := os.Stat(os.Getenv("KOMANDO_HOME")); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "secret", "show", "gsec")
+	mustRun(t, "credential", "password", "show", "gsec")
 	if st, _ := loadState(); st == nil || st.Keys["gkey"] == nil {
 		t.Error("a wrong answer deleted the key")
 	}

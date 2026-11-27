@@ -717,7 +717,7 @@ var meanings = map[string]string{
 	"DB_NOT_FOUND":           "the database named in the conn does not exist",
 	"DB_PRIVILEGE":           "the conn's user lacks a right the command needs",
 	"DB_USER_IN_USE":         "the database user owns objects or has sessions, so it is not removed",
-	"DEPLOY_FAILED":          "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
+	"DEPLOY_FAILED":          "credential key install could not add the key to the server's authorized_keys (the server's words follow)",
 	"GATE_BINARY_INVALID":    "the server's komando could be replaced by the paired user (owner, mode or place), so no gate line is written",
 	"GATE_UNSUPPORTED":       "komando on the server has no server mode (ssh-gate --here)",
 	"KEY_USER_INVALID":       "the user is root (uid 0) or is not on the server, so no device key is written for it",
@@ -814,7 +814,7 @@ var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR", "SHORTER_SCRI
 // hintMeanings stand in for a hint the program builds as it runs (from the
 // key's path, or from the tool's error): what it tells the reader to do.
 var hintMeanings = map[string]string{
-	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
+	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando credential password add NAME` (the hint gives the whole commands)",
 	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando test CONN` checks reachability (for a known problem, the hint names the fix)",

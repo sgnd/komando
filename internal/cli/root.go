@@ -426,7 +426,7 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 // change it cannot record.
 // startMask: AI agents see passwords, keys and tokens as [hidden]; people
 // and scripts see what the server sent (vault values are hidden for all).
-// `secret show --reveal` and `key show --reveal` are for people only
+// `credential password show --reveal` and `credential key show --reveal` are for people only
 // (secret_reveal.go): an agent is never asked and always sees [hidden]. A
 // dry run never approves --reveal.
 func startMask(cl *call, cmd *cobra.Command) {
@@ -568,6 +568,11 @@ func treeOf(cl *call) *cobra.Command {
 	return root
 }
 
+// helpGroups is the heading of `komando --help` that a type's own
+// top-level group goes under, when today's tree has no command of that
+// name (mountTable sets it).
+var helpGroups = map[string]string{}
+
 // addCommands adds komando's commands to root under the groups of
 // `komando` alone (personHelp), so --help reads the same.
 func addCommands(cl *call, root *cobra.Command) {
@@ -590,10 +595,10 @@ func addCommands(cl *call, root *cobra.Command) {
 		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
+	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
-	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
+	add("setup", policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 
@@ -684,7 +689,7 @@ func personHelp() string {
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},
-		{"ACCESS", "vpn  login  secret  key  tunnel"},
+		{"ACCESS", "vpn  login  credential  tunnel"},
 		{"OVERVIEW", "status  audit  list  test  doctor"},
 		{"SETUP", "config  policy  guide  schema  completion"},
 	} {

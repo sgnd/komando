@@ -624,5 +624,5 @@ func sudoHint(h *store.Host) string {
 		return "sudo needs a password; save the server with `komando host add NAME ADDRESS --sudo-ref secret:NAME` to give it one"
 	}
 	sec := secretName(h.Name, "sudo")
-	return fmt.Sprintf("sudo needs a password; store it with `komando secret set %s`, then run `komando host edit %s --sudo-ref secret:%s`", sec, h.Name, sec)
+	return fmt.Sprintf("sudo needs a password; store it with `komando credential password add %s`, then run `komando host edit %s --sudo-ref secret:%s`", sec, h.Name, sec)
 }

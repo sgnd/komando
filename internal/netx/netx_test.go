@@ -70,7 +70,7 @@ func TestDownHintsPerKind(t *testing.T) {
 	if werr.Error() != "no answer from 10.0.0.5:22 within 15s: no WireGuard handshake from vpn.example.com:51820; check its endpoint, its public key and that UDP gets through" {
 		t.Fatal(werr)
 	}
-	if SecretHint("secret:wg-key") != "store it with `komando secret set wg-key`" {
+	if SecretHint("secret:wg-key") != "store it with `komando credential password add wg-key`" {
 		t.Fatal(SecretHint("secret:wg-key"))
 	}
 }

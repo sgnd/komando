@@ -34,7 +34,7 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"removing another package", "pkg rm web1 htop", nil, tierChange, "removes the packages"},
 		{"a security upgrade", "pkg upgrade web1 --security", nil, tierDangerous, "an update would remove a package the server needs"},
 		{"a SQL query", "db query prod DROP TABLE x", nil, tierDangerous, "the query deletes data (DROP, DELETE without WHERE, KILL, ...)"},
-		{"secret rm", "secret rm token", nil, tierDangerous, "deletes the saved passwords"},
+		{"credential password remove", "credential password remove token", nil, tierDangerous, "deletes the saved password"},
 		{"group rm asks for a bulk confirm", "group rm big", nil, tierChange, "deleting a group of more than 3 members"},
 		{"policy rm", "policy rm deny1", nil, tierSafety, "removes a deny rule"},
 		{"a rule switched on", "policy edit r --off=false", nil, tierChange, ""},
@@ -50,7 +50,7 @@ func TestRiskOfLineTable(t *testing.T) {
 		{"a proxy command on a host", "", []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, tierSafety, "an AI agent runs it (the proxy command runs on this computer)"},
 		{"a group selector", "exec @prod -- rm -rf /var/www", nil, tierDangerous, "the command matches a destructive rule"},
 		{"a sudo flag before --", "exec web1 --sudo -- userdel bob", nil, tierDangerous, "the command matches a destructive rule"},
-		{"--reveal is not a tier of its own", "secret show token --reveal", nil, tierRead, ""},
+		{"--reveal is not a tier of its own", "credential token show token --reveal", nil, tierRead, ""},
 	}
 	if len(tests) != 31 {
 		t.Fatalf("%d lines, want 31", len(tests))

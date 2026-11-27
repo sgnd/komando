@@ -18,7 +18,7 @@ import (
 func TestLoginAskImportKeepsTheSecretOnTheWay(t *testing.T) {
 	secretHome(t)
 	t.Setenv("TSKEY", "tskey-the-persons")
-	mustRun(t, "secret", "set", "corp-pass", "--from-env", "TSKEY")
+	mustRun(t, "credential", "password", "add", "corp-pass", "--from-env", "TSKEY")
 	mustRun(t, "vpn", "tailscale", "add", "ts", "--credential", "corp-pass")
 	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
 	setCallerEnv(t, "CLAUDECODE", "1")

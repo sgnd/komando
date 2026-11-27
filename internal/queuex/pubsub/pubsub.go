@@ -138,7 +138,7 @@ func tokens(t driver.Target, key string, plain *http.Client) (oauth2.TokenSource
 	}
 	if err != nil {
 		return nil, out.Errf(out.ExitConnect, "QUEUE_AUTH",
-			"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME < key.json` and pass --password-ref secret:NAME",
+			"log in with `gcloud auth application-default login`, or store a service account key with `komando credential token add NAME < key.json` and pass --password-ref secret:NAME",
 			"pubsub: no Google Cloud login: %v", err)
 	}
 	return creds.TokenSource, nil

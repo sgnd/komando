@@ -17,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// revokeTarget reads what `key revoke` should remove: a key in the
+// revokeTarget reads what `credential key uninstall` should remove: a key in the
 // keychain, a .pub file, or a public key line ("ssh-ed25519 AAAA... who").
 // It returns the key's base64 part, which is what authorized_keys lines
 // are matched on, and a label.
@@ -25,7 +25,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	line := arg
 	if key, ok := st.Keys[arg]; ok {
 		if key.PublicKey == "" {
-			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+key.Path+".pub next to the key, then `komando key rm "+key.Name+"` and add it again", "komando does not have the public key of %s", key.Name)
+			return "", "", nil, out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+key.Path+".pub next to the key, then `komando credential key remove "+key.Name+"` and add it again", "komando does not have the public key of %s", key.Name)
 		}
 		line, label, k = key.PublicKey, "key "+key.Name, key
 	} else if b, rerr := os.ReadFile(inventory.ExpandHome(arg)); rerr == nil {
@@ -33,7 +33,7 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	}
 	f := strings.Fields(line)
 	if len(f) < 2 || !strings.HasPrefix(f[0], "ssh-") && !strings.HasPrefix(f[0], "ecdsa-") && !strings.HasPrefix(f[0], "sk-") {
-		return "", "", nil, out.Usage("give a key name from `komando key list`, a .pub file, or a public key line (ssh-ed25519 AAAA...)")
+		return "", "", nil, out.Usage("give a key name from `komando credential key list`, a .pub file, or a public key line (ssh-ed25519 AAAA...)")
 	}
 	if label == "" {
 		label = f[0] + " ..." + f[1][max(0, len(f[1])-12):]
@@ -41,24 +41,26 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 	return f[1], label, k, nil
 }
 
-func keyRevokeCmd() *cobra.Command {
-	var user string
-	var allUsers bool
-	c := &cobra.Command{
-		Use:   "revoke NAME TARGET",
-		Short: "Take a public key off servers' authorized_keys",
-		Long: `KEY is a key in komando's key list, a .pub file, or a public key line. Every line
+const keyUninstallLong = `NAME is a key in komando's key list, a .pub file, or a public key line. Every line
 with that key is removed from ~/.ssh/authorized_keys of the login user, or
 of --user NAME (with sudo), or of every user on the server with --all-users
 (with sudo: someone who left may have put the key in another account too;
 the dry run names each user whose file holds it). The file keeps its owner
 and mode, and is read and written as its user. Revoking the
 key komando itself logs in with needs --allow-dangerous: you would lock
-yourself out. --dry-run counts the lines it would remove.`,
-		Example: `  komando key revoke ~/keys/alice.pub @prod --dry-run
-  komando key revoke "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
-  komando key revoke old-deploy @web --user deploy
-  komando key revoke ~/keys/alice.pub @prod --all-users --dry-run`,
+yourself out. --dry-run counts the lines it would remove.`
+
+func keyRevokeCmd() *cobra.Command {
+	var user string
+	var allUsers bool
+	c := &cobra.Command{
+		Use:   "revoke NAME TARGET",
+		Short: "Take a public key off servers' authorized_keys",
+		Long:  keyUninstallLong,
+		Example: `  komando credential key uninstall ~/keys/alice.pub @prod --dry-run
+  komando credential key uninstall "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
+  komando credential key uninstall old-deploy @web --user deploy
+  komando credential key uninstall ~/keys/alice.pub @prod --all-users --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -249,7 +251,7 @@ func revokeScript(user, blob string, dry bool) string {
 	return asUserFunc(q) + "h=$(getent passwd " + q + " | cut -d: -f6); ku " + sshx.Q(edit) + ` sh "$h" ` + sshx.Q(blob)
 }
 
-// A device's key (C372, U108; option C of the U107 design): `key deploy
+// A device's key (C372, U108; option C of the U107 design): `credential key install
 // TARGET --user NAME --public-key-file FILE [--from-address ADDRESS]`,
 // the --public-key-file form of credential key install, writes a phone's
 // public key for a named user on one server, and always behind komando's
@@ -264,7 +266,7 @@ func (o *deviceKeyOpts) flags(c *cobra.Command) {
 	c.Flags().StringVar(&o.from, "from-address", "", "with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)")
 }
 
-// args: key deploy takes NAME TARGET, its --public-key-file form TARGET.
+// args: key install takes NAME TARGET, its --public-key-file form TARGET.
 func (o *deviceKeyOpts) args(c *cobra.Command, args []string) error {
 	if o.file != "" {
 		return cobra.ExactArgs(1)(c, args)
@@ -275,7 +277,7 @@ func (o *deviceKeyOpts) args(c *cobra.Command, args []string) error {
 	return cobra.ExactArgs(2)(c, args)
 }
 
-// deviceKey is what `key deploy --public-key-file` prints.
+// deviceKey is what `credential key install --public-key-file` prints.
 type deviceKey struct {
 	Host        string   `json:"host"`
 	User        string   `json:"user"`
@@ -320,7 +322,7 @@ func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target stri
 		return err
 	}
 	if cl.isAgent() || !cl.interactive() {
-		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando key deploy SERVER --user NAME --public-key-file FILE` in their own terminal",
+		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `komando credential key install SERVER --user NAME --public-key-file FILE` in their own terminal",
 			"installing a device's key lets that device log in to the server, so only a person at a terminal does it").NoFlag()); err != nil {
 			return err
 		}
@@ -370,10 +372,10 @@ func deviceKeyInstall(cl *call, cmd *cobra.Command, o deviceKeyOpts, target stri
 	switch {
 	case err != nil, res.Status == "added", res.Status == "present":
 	case res.Status == "other":
-		err = out.Errf(out.ExitConflict, "KEY_LINE_CONFLICT", "remove the older line for this key from "+o.user+"'s ~/.ssh/authorized_keys on the server, then run `komando key deploy` again",
+		err = out.Errf(out.ExitConflict, "KEY_LINE_CONFLICT", "remove the older line for this key from "+o.user+"'s ~/.ssh/authorized_keys on the server, then run `komando credential key install` again",
 			"%s: the key is there already in another line, which sshd would use first; nothing was written", res.Host)
 	default:
-		err = out.Errf(out.ExitRemote, "DEPLOY_FAILED", "make ~/.ssh and its key files plain files and folders on the server, then run `komando key deploy` again",
+		err = out.Errf(out.ExitRemote, "DEPLOY_FAILED", "make ~/.ssh and its key files plain files and folders on the server, then run `komando credential key install` again",
 			"%s: %s; komando writes through no link, so nothing was written", res.Host, res.Status)
 	}
 	audit(cl, st, "key.deploy", []string{res.Host}, "", err == nil, map[string]any{"key": k.Name, "fingerprint": k.Fingerprint, "user": o.user,
@@ -436,12 +438,12 @@ func deviceKeyRun(cl *call, ctx context.Context, st *store.State, hosts []*store
 // b), or a komando without the server mode.
 func deviceKeyRefusal(f phonekey.Facts, user, host string) error {
 	code, why := f.Refusal(user)
-	hint := "fix it on the server as the message says, then run `komando key deploy` again"
+	hint := "fix it on the server as the message says, then run `komando credential key install` again"
 	switch code {
 	case "":
 		return nil
 	case "KEY_USER_INVALID":
-		return out.Errf(out.ExitUsage, "KEY_USER_INVALID", "name a user that is not root: fix it on the server as the message says, then run `komando key deploy` again", "%s: %s", host, why)
+		return out.Errf(out.ExitUsage, "KEY_USER_INVALID", "name a user that is not root: fix it on the server as the message says, then run `komando credential key install` again", "%s: %s", host, why)
 	case "KOMANDO_MISSING":
 		return out.Errf(out.ExitNotFound, "KOMANDO_MISSING", hint, "%s: %s", host, why)
 	case "GATE_UNSUPPORTED":

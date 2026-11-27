@@ -236,54 +236,52 @@ func TestInvTrustDryRun(t *testing.T) {
 
 func TestInvKeys(t *testing.T) {
 	invHome(t)
-	wantCode(t, "USAGE", "key", "gen", "k", "--type", "rsa", "-b", "1024")
-	wantCode(t, "USAGE", "key", "gen", "k", "-C", "a\nssh-rsa AAAA evil")
-	d := mustRun(t, "key", "gen", "k", "--type", "ECDSA", "--dry-run")
+	wantCode(t, "USAGE", "credential", "key", "create", "k", "--type", "rsa", "-b", "1024")
+	wantCode(t, "USAGE", "credential", "key", "create", "k", "-C", "a\nssh-rsa AAAA evil")
+	d := mustRun(t, "credential", "key", "create", "k", "--type", "ECDSA", "--dry-run")
 	if d["fingerprint"] != nil || d["action"] != "would_add" {
 		t.Errorf("dry-run: %v", d)
 	}
-	mustRun(t, "key", "gen", "k", "--type", "ecdsa", "-b", "384")
+	mustRun(t, "credential", "key", "create", "k", "--type", "ecdsa", "-b", "384")
 	st, _ := loadState()
 	pub := filepath.Join(t.TempDir(), "k.pub")
 	os.WriteFile(pub, []byte(st.Keys["k"].PublicKey+"\n"), 0o600)
-	e := wantCode(t, "KEY_INVALID", "key", "add", "p", pub)
+	e := wantCode(t, "KEY_INVALID", "credential", "key", "add", "p", pub)
 	if !strings.Contains(e.Hint, "public key") || e.Exit != out.ExitUsage {
 		t.Errorf("hint: %+v", e)
 	}
-	wantCode(t, "USAGE", "key", "add", "p", pub, "--passphrase-ref", "pw123")
-	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
 	// key edit says what it did, warns about a secret not stored yet, and
 	// clears with --unset like host and conn edit ('' still works)
-	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
+	d = mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp")
 	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "secret kp is not in the vault") {
 		t.Errorf("key edit: %v", d)
 	}
-	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp"); d["action"] != "unchanged" {
+	if d = mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp"); d["action"] != "unchanged" {
 		t.Errorf("same again: %v", d)
 	}
-	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "secret:kp")
-	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "path")
-	if d = mustRun(t, "key", "edit", "k", "--unset", "passphrase-ref"); d["passphrase_ref"] != nil || d["action"] != "changed" {
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--unset", "passphrase-credential", "--passphrase-credential", "kp")
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--unset", "path")
+	if d = mustRun(t, "credential", "key", "edit", "k", "--unset", "passphrase-credential"); d["passphrase_ref"] != nil || d["action"] != "changed" {
 		t.Errorf("--unset: %v", d)
 	}
-	mustRun(t, "key", "edit", "k", "--passphrase-ref", "secret:kp")
-	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
+	mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp")
+	mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "")
 
 	ext := filepath.Join(t.TempDir(), "ext")
 	b, _ := store.ReadPrivateKey(st.Keys["k"])
 	os.WriteFile(ext, b, 0o600)
 	// the same key under a second name is added, with a warning naming the first
-	if d = mustRun(t, "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
+	if d = mustRun(t, "credential", "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
 		t.Errorf("same key twice: %v", d)
 	}
-	d = mustRun(t, "key", "rm", "ext", "--delete-file")
+	d = mustRun(t, "credential", "key", "remove", "ext", "--delete-file")
 	if d["file_deleted"] != false {
 		t.Errorf("an added key's file stays: %v", d)
 	}
 	if _, err := os.Stat(ext); err != nil {
 		t.Error("the file was deleted")
 	}
-	audit := mustRun(t, "audit", "-n", "0", "--command", "key.")
+	audit := mustRun(t, "audit", "-n", "0", "--command", "credential.key.")
 	if audit["count"].(float64) < 4 {
 		t.Errorf("key changes are audited: %v", audit["count"])
 	}
@@ -291,7 +289,7 @@ func TestInvKeys(t *testing.T) {
 
 func TestInvCleanPubLine(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "k")
+	mustRun(t, "credential", "key", "create", "k")
 	st, _ := loadState()
 	f := filepath.Join(t.TempDir(), "x.pub")
 	os.WriteFile(f, []byte(st.Keys["k"].PublicKey+" a\rb\n"), 0o600)
@@ -305,28 +303,28 @@ func TestInvSecrets(t *testing.T) {
 	invHome(t)
 	for _, n := range []string{"s1", "s2"} {
 		t.Setenv("INV_S", "value-"+n)
-		mustRun(t, "secret", "set", n, "--from-env", "INV_S")
+		mustRun(t, "credential", "password", "add", n, "--from-env", "INV_S")
 	}
-	d := mustRun(t, "secret", "get", "s1")
+	d := mustRun(t, "credential", "password", "show", "s1")
 	if _, ok := d["length"]; ok {
 		t.Error("secret get leaks the length")
 	}
-	e := wantCode(t, "SECRET_NOT_FOUND", "secret", "get", "s3")
+	e := wantCode(t, "SECRET_NOT_FOUND", "credential", "password", "show", "s3")
 	if e.Suggestion == "" || !strings.Contains(e.Hint, e.Suggestion) {
 		t.Errorf("no suggestion: %+v", e)
 	}
 	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected", "--password-ref", "secret:s1")
-	wantCode(t, "PROTECTED_TARGET", "secret", "set", "s1", "--from-env", "INV_S")
-	d = mustRun(t, "secret", "set", "s2", "--from-env", "INV_S")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "add", "s1", "--from-env", "INV_S")
+	d = mustRun(t, "credential", "password", "add", "s2", "--from-env", "INV_S")
 	if d["replaced"] != true {
 		t.Errorf("replaced: %v", d)
 	}
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "s1", "s2")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "s1", "s2")
 	mustRun(t, "host", "rm", "prod", "--yes")
-	wantCode(t, "POLICY_BLOCKED", "secret", "rm", "s1", "s2") // a deleted secret has no copy (OD-7)
-	personTypes(t, "2")                                       // a person types how many go
-	mustRun(t, "secret", "rm", "s1", "s2")
-	d = mustRun(t, "secret", "list")
+	wantCode(t, "POLICY_BLOCKED", "credential", "password", "remove", "s1", "s2") // a deleted secret has no copy (OD-7)
+	personTypes(t, "2")                                                           // a person types how many go
+	mustRun(t, "credential", "password", "remove", "s1", "s2")
+	d = mustRun(t, "credential", "list")
 	if d["count"].(float64) != 0 {
 		t.Errorf("both removed: %v", d)
 	}
@@ -521,7 +519,7 @@ func TestInvEmptyListText(t *testing.T) {
 // instead of leaving the server out.
 func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "deploy")
+	mustRun(t, "credential", "key", "create", "deploy")
 	mustRun(t, "host", "add", "db1", "root@10.0.0.20", "--key", "deploy")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
 	f := filepath.Join(t.TempDir(), "backup.json")
@@ -540,7 +538,7 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	if len(d["hosts"].([]any)) != 2 {
 		t.Fatalf("both servers come in: %v", d)
 	}
-	if !strings.Contains(fmt.Sprint(d), "run `komando key add deploy PATH`") || !strings.Contains(fmt.Sprint(d), "`komando key gen deploy`") || !strings.Contains(fmt.Sprint(d), "then `komando host edit db1 --key deploy`") {
+	if !strings.Contains(fmt.Sprint(d), "run `komando credential key add deploy PATH`") || !strings.Contains(fmt.Sprint(d), "`komando credential key create deploy`") || !strings.Contains(fmt.Sprint(d), "then `komando host edit db1 --key deploy`") {
 		t.Errorf("the import says how to bring the key: %v", d)
 	}
 	h := mustRun(t, "host", "show", "db1")

@@ -9,17 +9,17 @@ Make the new key, put it on the servers, check that every server logs in
 with it, and only then take the old one away:
 
 ```bash
-komando key gen deploy-2                          # a new key pair, sealed in komando's store
-komando key deploy deploy-2 @web --set-default    # on the servers, and komando logs in with it from then on
+komando credential key create deploy-2                          # a new key pair, sealed in komando's store
+komando credential key install deploy-2 @web --set-default    # on the servers, and komando logs in with it from then on
 komando test @web                                 # every server still logs in
-komando key revoke deploy @web --dry-run          # how many lines the old key has
-komando key revoke deploy @web                    # take the old key off the servers
-komando key rm deploy                             # and out of komando (refused while a server uses it)
+komando credential key uninstall deploy @web --dry-run          # how many lines the old key has
+komando credential key uninstall deploy @web                    # take the old key off the servers
+komando credential key remove deploy                             # and out of komando (refused while a server uses it)
 ```
 
-Typed alone, `komando key deploy` asks for the key, then the servers.
+Typed alone, `komando credential key install` asks for the key, then the servers.
 
-`key revoke` stops before it removes the key komando itself still logs in
+`credential key uninstall` stops before it removes the key komando itself still logs in
 with (you would lock yourself out): at your terminal you type the name to
 go on; an AI agent or a script adds `--allow-dangerous` after a person
 agrees.
@@ -35,8 +35,8 @@ komando host edit web1 --ask-password        # type the new one (stored as secre
 komando test web1
 ```
 
-A password several servers share: `komando secret set NAME` with the
-secret's name (`komando secret list` shows what uses each one).
+A password several servers share: `komando credential password add NAME` with the
+secret's name (`komando credential list` shows what uses each one).
 
 ## Rotate a database password
 
@@ -44,11 +44,11 @@ Store the new password under a new name, let the database take it, point
 the conn at it, check, then remove the old one:
 
 ```bash
-komando secret set prod-db-pass-2                                 # the new password, typed once
+komando credential password add prod-db-pass-2                                 # the new password, typed once
 komando db user passwd prod-db app --password-ref secret:prod-db-pass-2
 komando conn edit prod-db --password-ref secret:prod-db-pass-2    # komando logs in with it from then on
 komando test prod-db
-komando secret rm prod-db-pass                                    # the old one
+komando credential password remove prod-db-pass                                    # the old one
 ```
 
 On a protected conn, `db user passwd` and `conn edit` ask you first at your
@@ -60,8 +60,8 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 1. Take their SSH key off every server, by its public key file or line:
 
    ```bash
-   komando key revoke ~/keys/alice.pub all --dry-run
-   komando key revoke ~/keys/alice.pub all
+   komando credential key uninstall ~/keys/alice.pub all --dry-run
+   komando credential key uninstall ~/keys/alice.pub all
    ```
 
 2. Lock their own account on the servers (or remove it later):
@@ -70,10 +70,10 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
    komando user lock all alice
    ```
 
-3. Change every password they knew: `komando secret list` shows each secret
+3. Change every password they knew: `komando credential list` shows each secret
    and what uses it; rotate them as above.
 4. Did they know the vault's passphrase? Give it a new one:
-   `komando secret passphrase` (then set the new `KOMANDO_VAULT_PASS`
+   `komando config vault passphrase` (then set the new `KOMANDO_VAULT_PASS`
    wherever you use it).
 5. See what they did with komando:
 
@@ -86,9 +86,9 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 
 ## Limits
 
-- `key rm` is refused while a server still uses the key: point those
-  servers at the new key first (`key deploy --set-default` does it).
-- `key revoke` removes the key from `~/.ssh/authorized_keys` of the login
+- `credential key remove` is refused while a server still uses the key: point those
+  servers at the new key first (`credential key install --set-default` does it).
+- `credential key uninstall` removes the key from `~/.ssh/authorized_keys` of the login
   user, or of `--user NAME` (with sudo). Keys in other users' files stay.
 - `audit --actor` finds only what was done through komando.
 
@@ -96,8 +96,8 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 
 | Error | What it means | What to do |
 |-------|---------------|------------|
-| `POLICY_BLOCKED` (exit 6) | `key revoke` of the key komando logs in with | deploy another key with `--set-default` first |
-| `KEY_IN_USE` (exit 8) | `key rm` of a key a server still uses | point the server at another key first |
-| `KEY_EXISTS` (exit 8) | `key gen` to a name that is taken | choose another name, or `komando key rm NAME` first |
+| `POLICY_BLOCKED` (exit 6) | `credential key uninstall` of the key komando logs in with | deploy another key with `--set-default` first |
+| `KEY_IN_USE` (exit 8) | `credential key remove` of a key a server still uses | point the server at another key first |
+| `KEY_EXISTS` (exit 8) | `credential key create` to a name that is taken | choose another name, or `komando credential key remove NAME` first |
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` (exit 6) | a change on a protected server or conn | at your terminal komando asks first; a script adds `--yes` |
 | `AUTH_FAILED` (exit 4) | the new key or password does not log in | check it before you remove the old one; see [Results and errors](output.md#troubleshooting) |

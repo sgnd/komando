@@ -23,7 +23,7 @@ func TestMongoLive(t *testing.T) {
 		t.Skip("KOMANDO_TEST_MONGO is not set")
 	}
 	invHome(t)
-	withStdin(t, "rootpw\n", func() { mustRun(t, "secret", "set", "mongo-pass") })
+	withStdin(t, "rootpw\n", func() { mustRun(t, "credential", "password", "add", "mongo-pass") })
 	mustRun(t, "conn", "add", "shop", "mongodb://root@"+addr+"/shop_e2e?authSource=admin", "--password-ref", "secret:mongo-pass")
 	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 

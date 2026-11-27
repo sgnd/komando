@@ -83,7 +83,7 @@ func checkTool(cl *call, tool string, in map[string]any, home, cwd string) guard
 
 func viaKomando(why string) string {
 	if why == komandoData {
-		return ". Use komando commands instead: `komando list`, `komando secret list`, `komando audit`"
+		return ". Use komando commands instead: `komando list`, `komando credential list`, `komando audit`"
 	}
 	return ""
 }

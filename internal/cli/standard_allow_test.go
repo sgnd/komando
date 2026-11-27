@@ -17,7 +17,6 @@ var (
 	allowPairs = []string{
 		"host ca grant/revoke",
 		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
-		"key grant/revoke",
 		"pkg install/uninstall",
 	}
 	// S-5.1 exceptions: --wait is a bool on cluster commands; --config a file on vpn add, KEY=VALUE on queue create;
@@ -55,7 +54,6 @@ var (
 		"cluster helm history",
 		"cluster helm status",
 		"cluster history",
-		"config show",
 		"conn kinds",
 		"conn show",
 		"db info",
@@ -73,10 +71,8 @@ var (
 		"fs stat",
 		"host show",
 		"job status",
-		"key list",
 		"pkg installed",
 		"policy list",
-		"secret list",
 		"shell",
 		"ssh-gate",
 		"storage download",
@@ -107,7 +103,7 @@ var (
 		"pkg security",
 		"pkg upgradable",
 		"recipe run",
-		"secret run",
+		"credential run",
 		"shell",
 	}
 )

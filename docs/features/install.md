@@ -178,7 +178,7 @@ For fish and PowerShell, see `komando completion --help`.
 3. Keep a copy of `~/.komando` if you may need your servers or secrets
    again (see [Move to another computer](import.md#move-to-another-computer)),
    then delete the folder. Is the vault key in the system keychain? If you
-   keep the copy, first run `komando secret keychain --off`, or the copy
+   keep the copy, first run `komando config vault keychain --off`, or the copy
    cannot be opened later. Otherwise remove the keychain item named
    `komando vault ...` (macOS: the Keychain Access app; Windows:
    Credential Manager).

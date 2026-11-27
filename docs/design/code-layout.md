@@ -80,7 +80,7 @@ or a listed one is gone.
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cli/kit/gatehere` | the rules of ssh-gate's server mode (`--here`): which commands a phone's key may run on the server, the files the gate protects and the files it never reads; pure, the cli hands in the paths and the words |
-| `internal/cli/kit/phonekey` | what `key deploy --public-key-file` checks and writes: a phone's public key line behind komando's gate, the facts read from the server, and the scripts that probe and write them; nothing is spliced into a script's text |
+| `internal/cli/kit/phonekey` | what `credential key install --public-key-file` checks and writes: a phone's public key line behind komando's gate, the facts read from the server, and the scripts that probe and write them; nothing is spliced into a script's text |
 | `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, reading one answer at the terminal, and the raw-mode screen and the keys of the interactive mode; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |

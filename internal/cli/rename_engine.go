@@ -18,7 +18,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// The rename engine behind `komando rename --starts-with`, `key mv` and `group
+// The rename engine behind `komando rename --starts-with`, `credential key rename` and `group
 // mv`: many renames at once, in one step. The inventory and the vault are
 // each written once, after every check passed, or not at all. Every
 // reference follows (--via paths, password and other refs, secret:NAME in a
@@ -111,7 +111,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 		}
 		if sec := set["secret"]; len(sec) > 0 {
 			if err := vault.RenameMany(cl.storeWrite(), sec); err != nil {
-				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando credential list`, KOMANDO_VAULT_PASS)",
 					"the vault cannot rename the secrets: %v; nothing was renamed", err)
 			}
 			secrets = sec
@@ -175,7 +175,7 @@ func applyRenames(cl *call, s *store.State, set renameSet, opts renameOpts) (ren
 // renameProtected is the protected servers and conns a rename changes:
 // renamed, or a group of theirs renamed. Pointing a reference at a new name
 // of the same secret, key or VPN sends the same thing to the same place,
-// so it needs no yes (as with `secret mv` and `vpn mv`).
+// so it needs no yes (as with `credential password rename` and `vpn mv`).
 func renameProtected(s *store.State, set renameSet) []string {
 	prot := []string{}
 	for _, h := range s.SortedHosts() {

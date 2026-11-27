@@ -151,7 +151,7 @@ func sshGateStatusCmd() *cobra.Command {
 may do: change things, or read only, whether its reads may reach the
 network (--network on its line), and whether it may open a login shell on
 a server (--shell-access on its line), and whether it acts on this server
-only (here: a phone's key on a server, see key deploy --public-key-file).
+only (here: a phone's key on a server, see credential key install --public-key-file).
 ssh-gate answers it itself, so an app can check what its key is before it
 sends anything else. Typed on the
 komando computer, it says the command did not come through a key.`,
@@ -262,7 +262,7 @@ func gateServerRoot() *out.Error {
 	if gateUID() != 0 {
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person removes this key's line from root's ~/.ssh/authorized_keys and pairs a user that is not root with `komando key deploy`",
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person removes this key's line from root's ~/.ssh/authorized_keys and pairs a user that is not root with `komando credential key install`",
 		"this server's key logs in as root (uid 0), and the gate runs nothing as root")
 }
 

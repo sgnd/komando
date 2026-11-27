@@ -45,7 +45,7 @@ The flags you will use most:
 | Flag | What it does |
 |------|--------------|
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
-| `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando key`), or with a key file. |
+| `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando credential key`), or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [Use a password](#use-a-password)). |
 | `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
@@ -134,7 +134,7 @@ import and lists every problem. Servers that already exist are skipped;
 with `#` are comments.
 
 Passwords never go into the file: point `password-ref` and `sudo-ref` at
-the vault (`komando secret set ubuntu-sudo` first).
+the vault (`komando credential password add ubuntu-sudo` first).
 
 ## Change a server
 
@@ -196,16 +196,16 @@ stay. Servers, conns and tunnels that go through it (`--via`), and its jobs
 and tunnels, follow the new name in the same step. Pinned host keys belong
 to the address, so `host trust` is not needed again. Renaming a protected
 server asks first. `conn rename` and `vpn KIND rename` do the same for conns and
-VPNs, `key rename` for a key, and `group rename` for a group.
+VPNs, `credential key rename` for a key, and `group rename` for a group.
 
 `komando rename OLD NEW` finds the kind for you: it renames the one
 server, conn, VPN, secret, key or group named OLD with that kind's own
 rename. When two kinds share the name, it names the two commands to pick
 from.
 
-`key rename OLD NEW` renames one key: the servers that use it follow. A key
+`credential key rename OLD NEW` renames one key: the servers that use it follow. A key
 komando made lives in the sealed store, so no file moves; a key you added
-with `key add` stays where it is. Public keys already installed on servers
+with `credential key add` stays where it is. Public keys already installed on servers
 keep their comment; they still work, since the key itself does not change.
 
 `group rename OLD NEW` renames a group on every member (it asks first when
@@ -231,7 +231,7 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
   of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
   key and passphrase references, `secret:NAME` options in conn URLs, the
   key a server uses, group membership, jobs and tunnels. A key komando made
-  (`key gen`) lives in the sealed store, so no file moves; a key file you
+  (`credential key create`) lives in the sealed store, so no file moves; a key file you
   added stays where it is.
 - The protected mark, labels, notes and creation time stay.
   Names inside URLs belong to the resource, not to komando, so in
@@ -299,16 +299,16 @@ To use a new key, create it and install it on your servers. komando logs in
 with the servers' current login (for example a password) to install it:
 
 ```bash
-komando key gen deploy                           # ed25519; --type rsa|ecdsa, -b BITS, -C COMMENT
-komando key deploy deploy @web --set-default     # install it, then log in with it
-komando key deploy ~/.ssh/id_ed25519.pub web1    # a .pub file works too
-komando key deploy web1 --user anna --public-key-file komando-phone-anna.pub  # a phone's key, behind the gate (a person only)
-komando key list                                 # NAME TYPE FINGERPRINT USED BY
-komando key show deploy                          # the public part
-komando key show deploy --reveal                 # a person: the private key of a key komando made
+komando credential key create deploy                           # ed25519; --type rsa|ecdsa, -b BITS, -C COMMENT
+komando credential key install deploy @web --set-default     # install it, then log in with it
+komando credential key install ~/.ssh/id_ed25519.pub web1    # a .pub file works too
+komando credential key install web1 --user anna --public-key-file komando-phone-anna.pub  # a phone's key, behind the gate (a person only)
+komando credential key list                                 # NAME TYPE FINGERPRINT USED BY
+komando credential key show deploy                          # the public part
+komando credential key show deploy --reveal                 # a person: the private key of a key komando made
 ```
 
-Keys made with `key gen` are sealed in komando's store (`store.db`); they
+Keys made with `credential key create` are sealed in komando's store (`store.db`); they
 are never written to a file. `host ssh-command` hands one to the running
 ssh-agent when another program needs it. RSA keys need at least 3072 bits.
 
@@ -316,15 +316,15 @@ To use a key file you already have, add it to komando's key list. The file
 stays where it is. If it has a passphrase, store the passphrase in the vault first:
 
 ```bash
-komando secret set work-pass
-komando key add work ~/.ssh/id_work --passphrase-ref secret:work-pass
-komando key edit work --passphrase-ref secret:new-pass      # change it later (--unset passphrase-ref clears it)
+komando credential password add work-pass
+komando credential key add work ~/.ssh/id_work --passphrase-credential work-pass
+komando credential key edit work --passphrase-credential new-pass      # change it later (--unset passphrase-credential clears it)
 ```
 
-`komando key rm NAME` takes a key out of komando's key list; it refuses
+`komando credential key remove NAME` takes a key out of komando's key list; it refuses
 while servers still use it (`KEY_IN_USE`). `--delete-file` also deletes the
 key itself, but only for keys komando made (it removes the sealed record; a
-key added with `key add` stays on disk). Such a key has no copy, so at your
+key added with `credential key add` stays on disk). Such a key has no copy, so at your
 terminal you type the key's name; an AI agent or a script adds
 `--allow-dangerous` after a person agrees.
 
@@ -334,18 +334,18 @@ To replace a key everywhere, in order, see [Rotate keys and passwords](rotate.md
 
 Where servers trust a certificate authority (SSH CA, `TrustedUserCAKeys`)
 instead of each key, komando logs in with the key's OpenSSH user
-certificate, as `ssh` does: `KEY-cert.pub` next to a key file (`key add`,
+certificate, as `ssh` does: `KEY-cert.pub` next to a key file (`credential key add`,
 `--identity`, `~/.ssh/id_*`) is offered first, then the key alone. For a
 certificate kept elsewhere, or for a key komando made, name it:
 
 ```bash
-komando key add corp ~/.ssh/id_corp --cert ~/certs/id_corp-cert.pub
-komando key edit deploy --cert ~/Downloads/deploy-cert.pub   # --unset cert goes back to KEY-cert.pub
+komando credential key add corp ~/.ssh/id_corp --cert ~/certs/id_corp-cert.pub
+komando credential key edit deploy --cert ~/Downloads/deploy-cert.pub   # --unset cert goes back to KEY-cert.pub
 ```
 
 komando reads the certificate at each login, so a renewed file is used at
 once. A certificate for another key is refused (`KEY_INVALID`); one that is
-not valid now is left out (`key add` warns), and the key alone is offered.
+not valid now is left out (`credential key add` warns), and the key alone is offered.
 An ssh-agent that holds a certificate offers it too.
 
 ### Servers with a host certificate
@@ -355,11 +355,11 @@ Where servers have host keys signed by a certificate authority (an
 pinning each server:
 
 ```bash
-komando host ca add corp --key ~/corp-host-ca.pub --hosts '*.corp.example' --dry-run   # the servers it matches now
-komando host ca add corp --key ~/corp-host-ca.pub --hosts '*.corp.example'
-komando host ca add corp --from ~/.ssh/known_hosts   # its @cert-authority and @revoked lines
-komando host ca list
-komando host ca rm corp
+komando credential certificate add corp --key ~/corp-host-ca.pub --hosts '*.corp.example' --dry-run   # the servers it matches now
+komando credential certificate add corp --key ~/corp-host-ca.pub --hosts '*.corp.example'
+komando credential certificate add corp --from ~/.ssh/known_hosts   # its @cert-authority and @revoked lines
+komando credential certificate list
+komando credential certificate remove corp
 komando host ca revoke --key old-host-ca.pub   # never trust this key again (an @revoked line)
 ```
 
@@ -410,7 +410,7 @@ through ssh-agent, as `ssh` does:
 
 ```bash
 ssh-add ~/.ssh/id_ed25519_sk                     # touch the key when it blinks
-komando key add yubikey ~/.ssh/id_ed25519_sk     # reads the public key from id_ed25519_sk.pub
+komando credential key add yubikey ~/.ssh/id_ed25519_sk     # reads the public key from id_ed25519_sk.pub
 komando host edit web1 --key yubikey
 ```
 
@@ -422,14 +422,14 @@ the agent by it.
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
-`key revoke` takes a key from komando's key list, a `.pub` file, or the key
+`credential key uninstall` takes a key from komando's key list, a `.pub` file, or the key
 line itself:
 
 ```bash
-komando key revoke ~/keys/alice.pub @web --dry-run   # how many lines per server
-komando key revoke ~/keys/alice.pub @web
-komando key revoke old-deploy @web --user deploy     # another user's file (uses sudo)
-komando key revoke ~/keys/alice.pub @web --all-users --dry-run   # every user's file: who has it
+komando credential key uninstall ~/keys/alice.pub @web --dry-run   # how many lines per server
+komando credential key uninstall ~/keys/alice.pub @web
+komando credential key uninstall old-deploy @web --user deploy     # another user's file (uses sudo)
+komando credential key uninstall ~/keys/alice.pub @web --all-users --dry-run   # every user's file: who has it
 ```
 
 `--all-users` (with sudo) looks in the `authorized_keys` of every user on
@@ -459,12 +459,12 @@ it). It never replaces a secret that another server or conn uses. The same
 in two steps, with a name you choose:
 
 ```bash
-komando secret set web1-pass
+komando credential password add web1-pass
 komando host edit web1 --password-ref secret:web1-pass
 ```
 
 A `--password-ref secret:NAME` whose secret is not in the vault yet gets a
-warning right away, with the `secret set` command that stores it.
+warning right away, with the `credential password add` command that stores it.
 
 The password goes to the server's address on every login. So when an AI
 agent gives a server or conn a password reference, or moves one that has
@@ -582,7 +582,7 @@ nobody.
 Switching a server to `--login ask` or `--login agent` unlinks its stored
 password. komando never deletes the secret itself: when no other server or
 conn uses it, the result names it in `secrets_unused` with the
-`komando secret rm` that removes it. Setting a stored password later
+`komando credential password remove` that removes it. Setting a stored password later
 (`--password-ref`, `--ask-password`) ends `--login ask`. Changing the
 login of a protected server needs the same yes as any change to it.
 
@@ -619,7 +619,7 @@ Only a person at a terminal can run `komando login`; an AI agent's
 If `sudo` asks for a password on the server, store that too:
 
 ```bash
-komando secret set web1-sudo
+komando credential password add web1-sudo
 komando host edit web1 --sudo-ref secret:web1-sudo
 ```
 
@@ -634,7 +634,7 @@ team already uses:
 
 | Reference | Reads it from | Login it uses |
 |-----------|---------------|---------------|
-| `secret:NAME` | komando's vault (`komando secret set NAME`) | none needed |
+| `secret:NAME` | komando's vault (`komando credential password add NAME`) | none needed |
 | `env:VAR` | an environment variable | none needed |
 | `file:PATH` | a file | none needed |
 | `vault:secret/shop#db_password` | HashiCorp Vault or OpenBao, KV v1 or v2 | `VAULT_ADDR` and `VAULT_TOKEN` (or `~/.vault-token`; OpenBao's `BAO_ADDR`, `BAO_TOKEN`, `~/.bao-token` work too), `VAULT_NAMESPACE`, `VAULT_CACERT` |
@@ -816,7 +816,7 @@ Servers behind `--via` get one `ProxyCommand` per hop, so each hop uses its
 own key. A SOCKS VPN becomes `nc -X 5`. VPNs that run inside komando cannot
 be used by OpenSSH; use `komando shell SERVER` for those.
 
-A key made with `komando key gen` is sealed in komando's store and is never
+A key made with `komando credential key create` is sealed in komando's store and is never
 written to a file. For OpenSSH, `host ssh-command` gives it to the ssh-agent
 your shell already runs (`SSH_AUTH_SOCK`), which keeps it for one hour, and
 the printed line picks it with its public key. With no ssh-agent it stops
@@ -835,7 +835,7 @@ told to use `komando exec` or `komando shell`.
   [Targets](targets.md#limits)). A server cannot be named `aws`, `gcp` or
   `azure`: `komando login aws` is the AWS login.
 - `--address` in `host edit` works on one server only.
-- A key file added with `key add` is never moved or deleted by komando.
+- A key file added with `credential key add` is never moved or deleted by komando.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
   pinned host key (`host trust --reset`) need a person at a terminal.
 - A `--login ask` server's password is typed by a person: a script, cron
@@ -866,15 +866,15 @@ told to use `komando exec` or `komando shell`.
 | Error code | What it means | What to do |
 |------------|---------------|------------|
 | `AUTH_FAILED` | the server refused the login, or asked a question (a two-factor code) with no person at a terminal | check the user and password; for a code, run `komando login SERVER` once |
-| `KEY_PASSPHRASE_REQUIRED` | the key is encrypted and no ssh-agent holds it | `ssh-add PATH`, or store its passphrase and use `--passphrase-ref` |
+| `KEY_PASSPHRASE_REQUIRED` | the key is encrypted and no ssh-agent holds it | `ssh-add PATH`, or store its passphrase and use `--passphrase-credential` |
 | `HOSTKEY_MISMATCH` | the server shows another host key than the pinned one: rebuilt, or someone is in between | check the fingerprint another way; after a real rebuild, `komando host trust SERVER --reset` in your own terminal |
 | `HOSTKEY_UNKNOWN` | `host_key_policy` is `strict` and this key is not pinned yet | compare the fingerprint, then `komando host trust SERVER` |
 | `HOST_IN_USE` | another server reaches this one through `--via` | change their `--via` first, or remove them in the same command |
 | `VIA_CYCLE` | the `--via` path leads back to itself, or names a step twice | name each server or VPN once, and not the server itself |
 | `NAME_TAKEN` | a rename would give two entries one name | pick other names, or rename or remove what is in the way |
 | `VPN_IN_USE` | a rename needs a connected VPN to go down | `komando vpn KIND stop NAME` first |
-| `KEY_IN_USE` | `key rm` on a key a server still uses | give the server another key: `komando host edit SERVER --key OTHER` |
-| `KEY_EXISTS` | `key gen`, `key add` or `key rename` to a name that is taken | choose another name, or `komando key rm NAME` first |
+| `KEY_IN_USE` | `credential key remove` on a key a server still uses | give the server another key: `komando host edit SERVER --key OTHER` |
+| `KEY_EXISTS` | `credential key create`, `credential key add` or `credential key rename` to a name that is taken | choose another name, or `komando credential key remove NAME` first |
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |
 | `SECRET_UNRESOLVED` | komando could not read a reference (no login for the password manager, or no such secret) | follow the hint: it names the logins that work |
 | `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando shell SERVER` |

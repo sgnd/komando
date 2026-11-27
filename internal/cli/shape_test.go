@@ -41,13 +41,13 @@ var shapeCases = [][]string{
 	{"conn", "list"},
 	{"conn", "show", "pg"},
 	{"group", "list"},
-	{"secret", "list"},
-	{"secret", "get", "pg-pass"},
+	{"credential", "list"},
+	{"credential", "password", "show", "pg-pass"},
 	// secret set --new: a taken name is SECRET_EXISTS, a free one a dry run
-	{"secret", "set", "pg-pass", "--new", "--from-env", "PG_PASS"},
-	{"secret", "set", "pg-new", "--new", "--from-env", "PG_PASS", "--dry-run"},
-	{"schema", "secret", "set"},
-	{"key", "list"},
+	{"credential", "password", "add", "pg-pass", "--new", "--from-env", "PG_PASS"},
+	{"credential", "password", "add", "pg-new", "--new", "--from-env", "PG_PASS", "--dry-run"},
+	{"schema", "credential", "password", "add"},
+	{"credential", "key", "list"},
 	{"tunnel", "list"},
 	{"vpn", "wireguard", "list"},
 	{"job", "list"},
@@ -118,7 +118,7 @@ func TestOutputShapes(t *testing.T) {
 	defer func() { setGate(tcl, false, gateDryRun) }()
 	for _, setup := range [][]string{
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
-		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
+		{"credential", "password", "add", "pg-pass", "--from-env", "PG_PASS"},
 		{"conn", "add", "pg", "postgres://app@db.lan:5432/app", "--password-ref", "secret:pg-pass"},
 		{"recipe", "add", "hello", "echo {{who=world}}"},
 	} {

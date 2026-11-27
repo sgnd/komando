@@ -329,14 +329,25 @@ func TestTodayIDsStayUntilCarried(t *testing.T) {
 			t.Errorf("ID %s is in the tree %d times", id, n)
 		}
 	}
-	for _, id := range strings.Fields(string(b)) {
+	today := strings.Fields(string(b))
+	left := func(id string) bool {
+		if ids[id] > 0 || slices.Contains(removedIDs, id) { // step D took it out of the tree on purpose (root_removed.go)
+			return false
+		}
 		waiting, named := carried[id]
-		if ids[id] == 0 && slices.Contains(removedIDs, id) {
-			continue // step D took it out of the tree on purpose (root_removed.go)
+		return !named || waiting
+	}
+	for _, id := range today {
+		if !left(id) {
+			continue
 		}
-		if ids[id] == 0 && (!named || waiting) {
-			t.Errorf("%s left the tree, but no leaf does it yet", id)
+		// a group's fate is its children's: it may leave once none of them waits
+		under := func(c string) bool { return strings.HasPrefix(c, id+".") }
+		if slices.Contains(capability.Groups(), id) && slices.ContainsFunc(today, under) &&
+			!slices.ContainsFunc(today, func(c string) bool { return under(c) && left(c) }) {
+			continue
 		}
+		t.Errorf("%s left the tree, but no leaf does it yet", id)
 	}
 }
 
@@ -612,6 +623,8 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			}
 		}
 	}
+	inTree := map[string]bool{}
+	walk(newRoot(tcl), func(c *cobra.Command) { inTree[cmdID(c)] = true })
 	gone := map[string]bool{}
 	byKey := map[string]map[string]string{} // a key's entries, by the leaf that has them
 	for _, l := range capability.All() {
@@ -641,6 +654,16 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			if !stays[old] {
 				gone[old] = true
 			}
+		}
+		for _, old := range l.Carries { // a carried command left once the tree no longer has it
+			if !stays[old] && !inTree[old] {
+				gone[old] = true
+			}
+		}
+	}
+	for _, g := range capability.Groups() { // a group whose commands all left
+		if !inTree[g] && slices.ContainsFunc(slices.Collect(maps.Keys(gone)), func(id string) bool { return strings.HasPrefix(id, g+".") }) {
+			gone[g] = true
 		}
 	}
 	for key, leaves := range byKey {

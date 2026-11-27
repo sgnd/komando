@@ -135,7 +135,7 @@ func TestConnLoginAskFlag(t *testing.T) {
 		}
 	}
 	// edit: a stored password ends login ask; ask lets go of the stored one
-	mustRun(t, "secret", "set", "db2-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "db2-pass", "--from-env", "PW")
 	mustRun(t, "conn", "edit", "db2", "--password-ref", "secret:db2-pass")
 	d = mustRun(t, "conn", "edit", "db2", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["db2-pass"]` {

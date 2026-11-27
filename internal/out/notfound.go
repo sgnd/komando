@@ -40,12 +40,18 @@ func KindWord(kind string) string {
 	return kind
 }
 
+// listCommands are the list commands of the kinds not listed by `<kind> list`.
+var listCommands = map[string]string{"key": "credential key list", "secret": "credential list"}
+
 // NotFound is the error for a name komando does not know, worded the one
 // way S-8.4 asks: no <kind> named "<name>".
 func NotFound(kind, name string) *Error {
-	list := kind + " list"
-	if kind == "vpn" {
-		list = "list" // a VPN is listed under its kind, so `komando list` is the one command for all of them
+	list, ok := listCommands[kind]
+	if !ok {
+		list = kind + " list"
+		if kind == "vpn" {
+			list = "list" // a VPN is listed under its kind, so `komando list` is the one command for all of them
+		}
 	}
 	e := Errf(ExitNotFound, NotFoundCode(kind),
 		fmt.Sprintf("see them with `komando %s`", list),

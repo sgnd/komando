@@ -329,9 +329,9 @@ func TestFormDryRunBeforeDashes(t *testing.T) {
 	if strings.Join(got, "|") != "exec|web1|--dry-run|--|systemctl restart nginx" {
 		t.Errorf("exec dry run: %q", got)
 	}
-	got = formDry([][]string{{"secret", "set", "x-authkey"}, {"vpn", "tailscale", "add", "x"}})
+	got = formDry([][]string{{"credential", "password", "add", "x-authkey"}, {"vpn", "tailscale", "add", "x"}})
 	if got[0] != "vpn" {
-		t.Errorf("Try it first tries the secret set: %q", got)
+		t.Errorf("Try it first tries the credential password add: %q", got)
 	}
 }
 
@@ -513,17 +513,17 @@ func TestFormRequiredFlagsAreAsked(t *testing.T) {
 // formHides are the flags a hint keeps out of the menu, each with why. Any
 // other hide fails: the menu leaves nothing out without a reason.
 var formHides = map[string]string{
-	"host edit group":            "-g is --add-group, which is asked",
-	"host edit tag":              "-t is --add-tag, which is asked",
-	"conn edit group":            "-g is --add-group, which is asked",
-	"conn edit tag":              "-t is --add-tag, which is asked",
-	"job start cmd":              "the same as the command words, which are asked",
-	"exec cmd":                   "the same as the command words, which are asked",
-	"guide install no-guard":     "it turns off the guard that keeps AI agents away from secret files",
-	"rename starts-with":         "always added: the menu renames by the start of the names",
-	"key deploy public-key-file": "a phone's key takes the server alone, not a key and servers: a person types that line",
-	"key deploy user":            "goes with --public-key-file, which the menu does not ask",
-	"key deploy from-address":    "goes with --public-key-file, which the menu does not ask",
+	"host edit group":                        "-g is --add-group, which is asked",
+	"host edit tag":                          "-t is --add-tag, which is asked",
+	"conn edit group":                        "-g is --add-group, which is asked",
+	"conn edit tag":                          "-t is --add-tag, which is asked",
+	"job start cmd":                          "the same as the command words, which are asked",
+	"exec cmd":                               "the same as the command words, which are asked",
+	"guide install no-guard":                 "it turns off the guard that keeps AI agents away from secret files",
+	"rename starts-with":                     "always added: the menu renames by the start of the names",
+	"credential key install public-key-file": "a phone's key takes the server alone, not a key and servers: a person types that line",
+	"credential key install user":            "goes with --public-key-file, which the menu does not ask",
+	"credential key install from-address":    "goes with --public-key-file, which the menu does not ask",
 }
 
 func TestFormHidesHaveAReason(t *testing.T) {

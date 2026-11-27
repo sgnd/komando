@@ -141,7 +141,7 @@ type agentStop struct {
 var agentStops = []agentStop{
 	{args: []string{"host", "ssh-command", "web1"}, code: "NEEDS_PERSON",
 		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
-	{args: []string{"secret", "keychain"}, code: "NEEDS_PERSON"},
+	{args: []string{"config", "vault", "keychain"}, code: "NEEDS_PERSON"},
 	{args: []string{"host", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
 	{args: []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
 		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
@@ -170,7 +170,7 @@ var agentStops = []agentStop{
 func TestRiskPersonGains(t *testing.T) {
 	for _, line := range []string{
 		"sync ./site web1:/var/www --delete",
-		"db kill db1 123", "secret rm db-pass", "pkg rm web1 nginx",
+		"db kill db1 123", "credential password remove db-pass", "pkg rm web1 nginx",
 	} {
 		if riskOfLine(strings.Fields(line)).typedWhat() == "" {
 			t.Errorf("%s: no typed name", line)
@@ -255,9 +255,9 @@ func TestSchemaConfirm(t *testing.T) {
 		}
 	}
 	walk(newRoot(tcl))
-	d := mustRun(t, "schema", "secret", "rm")
+	d := mustRun(t, "schema", "credential", "password", "remove")
 	cmd := d["commands"].([]any)[0].(map[string]any)
 	if c, _ := cmd["confirm"].([]any); len(c) != 1 || c[0].(map[string]any)["flag"] != "--allow-dangerous" {
-		t.Errorf("schema secret rm: %v", cmd["confirm"])
+		t.Errorf("schema credential password remove: %v", cmd["confirm"])
 	}
 }

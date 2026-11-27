@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -24,6 +25,25 @@ var replacedByExec = func() map[string]bool {
 	return m
 }()
 
+// goneKinds are the kinds of today's keys whose every command moved to
+// leaves under other keys: commandKinds drops a key with its last command
+// (TestEveryCommandHasKind), and the floor of what those leaves carry is
+// read here. Each is the row commandKinds had before the move.
+var goneKinds = map[safetyKey]cmdKind{
+	{"credential", "", "show"}: reads, // secret show, split into credential password and token show
+}
+
+// TestGoneKindsReviewed: a goneKinds row lowers a floor, so the table holds
+// only the reviewed rows, each the kind main's
+// testdata/safety_tables_pinned.txt gave its command before the move
+// (secret.show kind=read at d6e40622).
+func TestGoneKindsReviewed(t *testing.T) {
+	reviewed := map[safetyKey]cmdKind{{"credential", "", "show"}: reads}
+	if !maps.Equal(goneKinds, reviewed) {
+		t.Errorf("goneKinds is %v, reviewed %v: a new row needs the kind main's safety_tables_pinned.txt had for its command, and a security review", goneKinds, reviewed)
+	}
+}
+
 // todayHighest is the highest tier c can have today: change unless its
 // kind is read, or the highest row for its key, whatever the condition.
 func todayHighest(c *cobra.Command) tier {
@@ -41,6 +61,11 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 	for _, c := range allCommands(newRoot(tcl)) {
 		byID[cmdID(c)] = c
 	}
+	for k := range goneKinds {
+		if _, ok := commandKinds[k]; ok {
+			t.Errorf("goneKinds has %v, which commandKinds still has: remove it from goneKinds", k)
+		}
+	}
 	for _, l := range capability.All() {
 		for _, id := range slices.Concat(l.Today, l.Carries) {
 			c, ok := byID[id]
@@ -55,7 +80,11 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 					t.Errorf("%s: moved from %s, whose key was %v", l.Key, id, k)
 				}
 				base := tierChange
-				if kind, ok := commandKinds[key]; ok && kind.Kind == kindRead {
+				kind, ok := commandKinds[key]
+				if !ok {
+					kind = goneKinds[key]
+				}
+				if kind.Kind == kindRead {
 					base = tierRead
 				}
 				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want {
@@ -66,6 +95,17 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 			if !ok && replacedByExec[id] {
 				// removed in step D: exec carries it, and TestReplacedIDsNameTheirRules
 				// pins the rules and stops that keep its protection
+				continue
+			}
+			if !ok && slices.Contains(movedTypes, l.Type) {
+				// a command the moved leaf carries under another key (secret set,
+				// split into password and token) is gone too: its rows, read by
+				// today's key, must not be stricter than the leaf
+				k := capability.TodayKeys()[id]
+				want, got := todayTier(safetyKey{k.Type, k.Area, k.Verb}), capability.Highest(l.Key)
+				if _, ok := notWeakerExceptions[l.Key.String()+" | "+id]; int(got) < int(want) && !ok {
+					t.Errorf("%s: carries %s, which was %s, but the leaf is at most %s", l.Key, id, want, tier(got))
+				}
 				continue
 			}
 			if !ok {

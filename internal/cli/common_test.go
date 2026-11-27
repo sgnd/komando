@@ -33,7 +33,7 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web", "--address", "10.0.0.5", "--protected")
 	t.Setenv("PW", "s3cret")
-	mustRun(t, "secret", "set", "db-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
 	master, err := store.MasterKey()
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"list"}, {"secret", "list"}} {
+	for _, args := range [][]string{{"list"}, {"credential", "list"}} {
 		if e := wantCode(t, "POLICY_MAC_FAILED", args...); !strings.Contains(e.Message, "server web") {
 			t.Errorf("%v: %s", args, e.Message)
 		}

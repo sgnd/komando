@@ -207,7 +207,7 @@ not possible, it says so. The details are in
   `komando test HOST` once and the agent's commands use that login for a
   few hours.
 - **A value only the person knows is typed by the person.** An agent that
-  runs `secret set NAME` without a value gets `NEEDS_PERSON`.
+  runs `credential password add NAME` without a value gets `NEEDS_PERSON`.
 - `--allow-dangerous` and `--yes` apply to one command only and are
   recorded in the audit.
 - **No way around it.** Removing, replacing or turning off protection on a
@@ -226,7 +226,7 @@ not possible, it says so. The details are in
 ## 8. Secrets
 
 - Secrets never appear in command arguments, URLs, the audit or output,
-  except `secret get --reveal` asked for by a person.
+  except `credential password show --reveal` asked for by a person.
 - A secret is entered at a hidden prompt, with `--from-env VAR`, or on
   stdin. **A value as an argument is refused**: it lands in shell history
   and in `ps`.
@@ -457,7 +457,7 @@ Use this list for every feature and every review.
 **Credentials**
 - Ref missing, env empty, file unreadable, vault locked without a terminal
 - Expired token (AWS session, kube exec plugin): a clear error that says how to renew
-- Password in the URL at `conn add` or `import`: refused, hint `secret set`
+- Password in the URL at `conn add` or `import`: refused, hint `credential password add`
 
 **Safety**
 - Dangerous commands in disguise: comments, mixed case, odd spacing, several statements, Redis `rename-command`

@@ -42,9 +42,9 @@ func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 		Config: "[Interface]\nAddress = 10.66.0.2/32\n"}, map[string]string{"office-key": "key-1", "office-psk": "psk-1", "other": "agent-value"})
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
-	wantCode(t, "PROTECTED_TARGET", "secret", "set", "office-key", "--from-env", "V")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "add", "office-key", "--from-env", "V")
 	wantCode(t, "PROTECTED_TARGET", "secret", "cp", "other", "office-psk", "--overwrite")
-	wantCode(t, "PROTECTED_TARGET", "secret", "rename", "other", "office-key", "--overwrite")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "rename", "other", "office-key", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -68,9 +68,9 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "evil": ovpnEvil})
 	texts := windowText(t, true)
 	t.Setenv("V", ovpnEvil)
-	wantCode(t, "SECRET_DESTINATION", "secret", "set", "corp-config", "--from-env", "V")
+	wantCode(t, "SECRET_DESTINATION", "credential", "password", "add", "corp-config", "--from-env", "V")
 	wantCode(t, "SECRET_DESTINATION", "secret", "cp", "evil", "corp-config", "--overwrite")
-	wantCode(t, "SECRET_DESTINATION", "secret", "rename", "evil", "corp-config", "--overwrite")
+	wantCode(t, "SECRET_DESTINATION", "credential", "password", "rename", "evil", "corp-config", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -79,15 +79,15 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 
 	// the same value again changes nothing: not asked
 	t.Setenv("V", ovpnOld)
-	mustRun(t, "secret", "set", "corp-config", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "corp-config", "--from-env", "V")
 	// another secret is not asked about
-	mustRun(t, "secret", "set", "evil", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "evil", "--from-env", "V")
 	if len(*texts) != 0 {
 		t.Errorf("nothing changes where a login goes: %q", *texts)
 	}
 
 	t.Setenv("V", ovpnEvil)
-	mustRun(t, "secret", "set", "corp-config", "--from-env", "V", "--yes")
+	mustRun(t, "credential", "password", "add", "corp-config", "--from-env", "V", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:corp-pass to evil.example:443") || !strings.Contains((*texts)[0], "vpn corp") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -96,7 +96,7 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	// a person or a script is not asked
 	noAgent(t)
 	t.Setenv("V", ovpnOld)
-	mustRun(t, "secret", "set", "corp-config", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "corp-config", "--from-env", "V")
 }
 
 // The CA certificate a WinRM server or a conn is checked against lives in
@@ -115,12 +115,12 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app?sslmode=verify-full&ca=secret:db-ca")
 	texts := windowText(t, true)
 	t.Setenv("V", "PEM-AGENT")
-	wantCode(t, "SAFETY_SETTING", "secret", "set", "win-ca", "--from-env", "V")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "add", "win-ca", "--from-env", "V")
 	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "win-ca", "--overwrite")
-	wantCode(t, "SAFETY_SETTING", "secret", "rename", "mine", "db-ca", "--overwrite")
-	wantCode(t, "SAFETY_SETTING", "secret", "set", "later-ca", "--from-env", "V")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "db-ca", "--overwrite")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "add", "later-ca", "--from-env", "V")
 	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "later-ca")
-	wantCode(t, "SAFETY_SETTING", "secret", "rename", "mine", "later-ca")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "later-ca")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -130,11 +130,11 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 		t.Error("later-ca was made")
 	}
 	// a password is not a CA: replaced as before
-	mustRun(t, "secret", "set", "win-pass", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "win-pass", "--from-env", "V")
 	if len(*texts) != 0 {
 		t.Errorf("a password asks nothing: %q", *texts)
 	}
-	mustRun(t, "secret", "set", "win-ca", "--from-env", "V", "--yes")
+	mustRun(t, "credential", "password", "add", "win-ca", "--from-env", "V", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "server win1") || !strings.Contains((*texts)[0], "CA certificate") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -262,7 +262,7 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 		}
 	}
 	t.Setenv("V", ovpnEvil)
-	wantCode(t, "NEEDS_PERSON", "secret", "set", "typed-config", "--from-env", "V", "--yes")
+	wantCode(t, "NEEDS_PERSON", "credential", "password", "add", "typed-config", "--from-env", "V", "--yes")
 	secretIs(t, "typed-config", ovpnOld)
 }
 

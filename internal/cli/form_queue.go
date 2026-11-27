@@ -301,7 +301,7 @@ func natsForm(_ *call) formSpec {
 		queuePasswordQ(pw),
 		cacheSecretQ(false),
 		formWhen(formQ{key: "creds", label: "Creds file", ask: "Which saved secret holds the .creds file?", free: true,
-			help:    "Save it first with komando secret set NAME < user.creds, then pick it here.",
+			help:    "Save it first with komando credential token add NAME < user.creds, then pick it here.",
 			choices: cacheSecretRows, check: natsCredsProblem}, login("creds")),
 		formProtectQ("NATS server"),
 		formMore(formQ{key: "domain", label: "JetStream domain", ask: "Which JetStream domain?", optional: true, example: "hub",
@@ -429,7 +429,7 @@ func pubsubForm(_ *call) formSpec {
 func natsCredsProblem(_ *store.State, _ formAnswers, v string) string {
 	n := strings.TrimPrefix(v, "secret:")
 	if strings.ContainsAny(v, " \t") || inventory.ValidName("secret", n) != nil {
-		return "pick a name from komando secret list, or type secret:NAME; save the file first with komando secret set NAME < user.creds"
+		return "pick a name from komando credential list, or type secret:NAME; save the file first with komando credential token add NAME < user.creds"
 	}
 	return ""
 }

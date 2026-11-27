@@ -18,7 +18,7 @@ import (
 // hidden and keeps it as secret:NAME-pass, and with --ask-psk it asks a
 // shared secret (pre-shared key, Cisco group password) hidden and keeps it
 // as secret:NAME-psk. A Tailscale auth key is stored first with `komando
-// secret set NAME-authkey`, which asks it hidden too. After the add comes
+// credential password add NAME-authkey`, which asks it hidden too. After the add comes
 // `komando vpn KIND start NAME` when a person has to log in, else `komando test
 // NAME`.
 func vpnForms() []formKind {
@@ -332,7 +332,7 @@ func tailscaleForm(_ *call) formSpec {
 			def:  func(*store.State, formAnswers) string { return "browser" },
 			choices: func(*store.State, formAnswers) []pickRow {
 				return []pickRow{{label: "Sign in with my browser", detail: "komando vpn tailscale start shows a link; you sign in as in the Tailscale app", value: "browser"},
-					{label: "An auth key", detail: "komando secret set asks for it next, hidden; then komando connects by itself", value: "authkey"}}
+					{label: "An auth key", detail: "komando credential password add asks for it next, hidden; then komando connects by itself", value: "authkey"}}
 			}},
 		vpnCheckQ(false, "100.64.0.5:22"),
 		formMore(formQ{key: "server", label: "Headscale", ask: "Do you use your own Headscale server? Its address:", optional: true,
@@ -353,7 +353,7 @@ func tailscaleForm(_ *call) formSpec {
 			return vpnBuild(a, nil, args, true)
 		}
 		sec := a["name"] + "-authkey"
-		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--credential", sec), false)
+		return vpnBuild(a, [][]string{{"credential", "password", "add", sec}}, append(args, "--credential", sec), false)
 	}}
 }
 

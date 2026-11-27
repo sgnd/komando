@@ -58,10 +58,10 @@ Inventory:
   rename       Rename one entry, or all names starting with OLD (--starts-with)
 
 Access:
-  key          SSH keys: make, add, put on servers, take off
+  credential   Saved passwords, tokens, SSH keys and server CAs
   login        Log in once to a server or a cloud account (person only)
   logout       End server logins kept by `komando login` (--all for every one)
-  secret       Saved passwords and tokens: store, check, use as secret:NAME
+  secret       Check or copy a saved password or token
   tunnel       Background port forwarding: start, see, stop
   vpn          VPNs komando connects when a path needs one: add, connect, check
 
@@ -2213,6 +2213,7 @@ Available Commands:
   get           Print one setting
   set           Change a setting
   show          Show settings, their defaults and file locations
+  vault         The vault: keep its key in the OS keychain, or change its passphrase
 
 Flags:
   -h, --help[=true|false]   help for config
@@ -2245,8 +2246,7 @@ Usage:
   komando config approval-code [flags]
 
 Examples:
-  komando config approval-code          # shows a secret to add to your authenticator app
-  komando config approval-code --dry-run
+  komando config approval-code   # shows a secret to add to your authenticator app
   komando config approval-code --off --dry-run
   komando config approval-code --off --yes   # after a person's yes
 
@@ -2326,10 +2326,9 @@ Usage:
   komando config set SETTING VALUE [flags]
 
 Examples:
-  komando config set parallel 20
   komando config set parallel 20 --dry-run
+  komando config set parallel 20
   komando config set default_timeout 10m
-  komando config set host_key_policy strict
   komando config set audit_sql hash
 
 Flags:
@@ -2353,9 +2352,128 @@ Usage:
 
 Examples:
   komando config show
+  komando config show -o json
 
 Flags:
   -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando config vault --help
+exit 0
+--- stdout
+The vault: keep its key in the OS keychain, or change its passphrase
+
+Usage:
+  komando config vault [flags]
+  komando config vault [command]
+
+Examples:
+  komando config vault keychain --dry-run
+  komando config vault keychain
+  komando config vault passphrase   # asks for the new passphrase twice, hidden
+
+Available Commands:
+  keychain    Keep the vault key in the OS keychain instead of store.key
+  passphrase  Change the vault passphrase and encrypt the secrets again (person only)
+
+Flags:
+  -h, --help[=true|false]   help for vault
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando config vault [command] --help" for more information about a command.
+--- stderr
+### komando config vault keychain --help
+exit 0
+--- stdout
+Moves the vault's key out of the store.key file into the operating system's
+keychain, so a copy of ~/.komando (a backup, a synced folder) no longer
+opens the vault or its secrets. The vault gets a new key as it moves, so a
+copy of store.key made before opens nothing either, and the vault keeps
+every secret. --off moves the key back into store.key, which needs --yes.
+
+Safety: a change; try it with --dry-run first; when it turns the keychain
+off: it weakens a safety check: a person's yes (--yes); without --off: only
+a person at a terminal can run it.
+
+Only a person at a terminal moves the key in: the keychain may ask them to
+unlock it, and an AI agent or a script cannot answer that.
+
+Usage:
+  komando config vault keychain [flags]
+
+Examples:
+  komando config vault keychain --dry-run
+  komando config vault keychain
+  komando config vault keychain --off --dry-run
+  komando config vault keychain --off --yes   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for keychain
+      --off[=true|false]    move the key back into store.key (needs --yes)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando config vault passphrase --help
+exit 0
+--- stdout
+Re-encrypts every secret in the vault under a new passphrase, so you can
+change KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is
+in store.key or in the OS keychain gets a passphrase this way, and the old
+key is removed once the new vault is saved and read back.
+
+Safety: only a person at a terminal can run it.
+
+The vault is opened the usual way: with KOMANDO_VAULT_PASS, store.key or the
+keychain. When KOMANDO_VAULT_PASS does not open a passphrase vault (you
+changed it already, say), komando asks for the current passphrase. Then it
+asks for the new one twice, hidden; it needs 15 or more characters. Every
+secret is decrypted before anything is written: if one cannot be, nothing
+changes.
+
+Afterwards, put the new passphrase in KOMANDO_VAULT_PASS wherever you set it
+(your shell profile, a password manager, a launch agent), and restart any
+background tunnel or VPN session komando runs: they still hold the old key.
+
+--off goes back to a new random key in store.key (needs --yes): a copy of
+~/.komando then opens the vault again. `komando config vault keychain` can
+move that key into the OS keychain.
+
+Only a person at a terminal can run it: an AI agent that chose the
+passphrase, or put the key back in store.key, could open the vault on its
+own. Anyone can preview it with --dry-run.
+
+Usage:
+  komando config vault passphrase [flags]
+
+Examples:
+  komando config vault passphrase --dry-run
+  komando config vault passphrase   # asks for the new passphrase twice, hidden
+  komando config vault passphrase --off --dry-run
+  komando config vault passphrase --off --yes   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for passphrase
+      --off[=true|false]    back to a random key in store.key (needs --yes)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -2371,8 +2489,8 @@ exit 0
 A conn is a database, cache, message queue, file storage, cluster or
 registry komando talks to directly. The kind comes from the URL scheme
 (`komando conn kinds` lists them). Passwords never go in the URL: store them
-with `komando secret set` and pass --password-ref. Use --via HOST when the
-conn is only reachable from a server.
+with `komando credential password add` and pass --password-ref. Use --via
+HOST when the conn is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.
 
@@ -2441,7 +2559,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -2480,7 +2598,7 @@ Flags:
       --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          set an option of this kind, KEY=VALUE (an empty value removes it) (default [])
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
       --rm-group strings            take it out of these groups
       --rm-tag strings              remove these tags
@@ -2725,6 +2843,876 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
+### komando credential --help
+exit 0
+--- stdout
+Saved passwords, tokens, SSH keys and server CAs
+
+Usage:
+  komando credential [flags]
+  komando credential [command]
+
+Examples:
+  komando credential password add web1-pass   # typed hidden
+  komando credential list
+  komando credential key create deploy
+  komando credential run --env TOKEN=secret:gh-token -- ./deploy.sh
+
+Available Commands:
+  certificate Server CAs: trust the CA that signs servers' host keys
+  key         SSH keys: make, add, install on servers, uninstall
+  list        List the saved passwords and tokens and what uses them
+  password    Saved passwords: add, show, rename, remove
+  run         Run a command here with saved credentials in its environment
+  token       Saved tokens: add, show, rename, remove
+
+Flags:
+  -h, --help[=true|false]   help for credential
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando credential [command] --help" for more information about a command.
+--- stderr
+### komando credential certificate --help
+exit 0
+--- stdout
+Server CAs: trust the CA that signs servers' host keys
+
+Usage:
+  komando credential certificate [flags]
+  komando credential certificate [command]
+
+Examples:
+  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
+  komando credential certificate list
+  komando credential certificate remove corp --dry-run
+
+Available Commands:
+  add         Trust a CA for the servers its patterns match (person only)
+  list        List the trusted server CAs
+  remove      Stop trusting a server CA
+
+Flags:
+  -h, --help[=true|false]   help for certificate
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando credential certificate [command] --help" for more information about a command.
+--- stderr
+### komando credential certificate add --help
+exit 0
+--- stdout
+Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads
+the @cert-authority lines of a known_hosts file (--from); its @revoked lines
+go on the never-trust list. A pattern names at least the domain
+(*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.
+--dry-run shows the patterns as they are kept and the servers they match
+now. Only a person at a terminal can add a CA: it trusts every server it
+ever signs.
+
+Safety: only a person at a terminal can run it.
+
+Usage:
+  komando credential certificate add NAME [flags]
+
+Examples:
+  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
+  komando credential certificate add corp --from ~/.ssh/known_hosts --dry-run
+
+Flags:
+      --from string         a known_hosts file: read its @cert-authority and @revoked lines
+  -h, --help[=true|false]   help for add
+      --hosts strings       server name patterns the CA may vouch for (*.corp.example,10.1.2.*)
+      --key string          the CA's public key file (.pub)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential certificate list --help
+exit 0
+--- stdout
+List the trusted server CAs
+
+Usage:
+  komando credential certificate list [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando credential certificate list
+  komando credential certificate list -o json
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           the first N CAs (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential certificate remove --help
+exit 0
+--- stdout
+Stops trusting the CA: its servers are checked against their pins again.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando credential certificate remove NAME [flags]
+
+Examples:
+  komando credential certificate remove corp --dry-run
+  komando credential certificate remove corp
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key --help
+exit 0
+--- stdout
+SSH keys: make, add, install on servers, uninstall
+
+Usage:
+  komando credential key [flags]
+  komando credential key [command]
+
+Examples:
+  komando credential key create deploy
+  komando credential key install deploy @web --dry-run
+  komando credential key install deploy @web
+  komando credential key list
+
+Available Commands:
+  add         Add a private key file you already have (komando keeps its path)
+  create      Make a new SSH key pair (ed25519 by default)
+  edit        Change a key's passphrase credential or certificate
+  install     Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)
+  list        List the SSH keys and the servers that use them
+  remove      Remove a key (from komando only)
+  rename      Rename a key, and every server that uses it
+  show        Show a key's public part, or a person its private key
+  uninstall   Take a public key off servers' authorized_keys
+
+Flags:
+  -h, --help[=true|false]   help for key
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando credential key [command] --help" for more information about a command.
+--- stderr
+### komando credential key add --help
+exit 0
+--- stdout
+Adds a private key file you already have to komando's key list; the file
+stays where it is. For a key with a passphrase, save the passphrase as a
+password credential and pass --passphrase-credential NAME.
+
+Safety: a change; try it with --dry-run first.
+
+An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
+login, as ssh does; --cert names one kept somewhere else.
+
+Usage:
+  komando credential key add NAME FILE [flags]
+
+Examples:
+  komando credential key add personal ~/.ssh/id_ed25519 --dry-run
+  komando credential key add personal ~/.ssh/id_ed25519
+  komando credential key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
+  komando credential key add work ~/.ssh/id_work --passphrase-credential id-pass
+
+Flags:
+      --cert string                    an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)
+  -h, --help[=true|false]              help for add
+      --passphrase-credential string   the password credential that opens an encrypted key file
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key create --help
+exit 0
+--- stdout
+Makes a key pair like ssh-keygen and adds it to komando's key list. The
+private key is kept in komando's sealed store, never in a file: komando
+hands it to ssh-agent when another program needs it (host ssh-command). Put
+the public part on servers with `komando credential key install`. RSA keys
+need at least 3072 bits.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando credential key create NAME [flags]
+
+Examples:
+  komando credential key create deploy --dry-run
+  komando credential key create deploy
+  komando credential key create legacy --type rsa -b 4096 -C ops@example.com
+
+Flags:
+  -b, --bits int            key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521
+  -C, --comment string      public key comment (default komando-NAME)
+  -h, --help[=true|false]   help for create
+      --type string         ed25519 | rsa | ecdsa (default "ed25519")
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key edit --help
+exit 0
+--- stdout
+Sets where komando finds the passphrase of an encrypted key. Store the
+passphrase with `komando credential password add NAME` first and pass
+--passphrase-credential NAME; --unset passphrase-credential clears it.
+
+Safety: a change; try it with --dry-run first.
+
+--cert FILE gives the key an OpenSSH user certificate (for a key komando
+made, or one kept away from the key file); --unset cert goes back to
+FILE-cert.pub next to the key.
+
+Usage:
+  komando credential key edit NAME [flags]
+
+Examples:
+  komando credential key edit work --passphrase-credential work-key-pass --dry-run
+  komando credential key edit work --passphrase-credential work-key-pass
+  komando credential key edit work --unset passphrase-credential
+  komando credential key edit deploy --cert ~/Downloads/deploy-cert.pub
+
+Flags:
+      --cert string                    an OpenSSH user certificate for the key
+  -h, --help[=true|false]              help for edit
+      --passphrase-credential string   the password credential that opens an encrypted key file
+      --unset strings                  clear this setting: passphrase-credential, cert
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key install --help
+exit 0
+--- stdout
+Installs a public key on servers, like ssh-copy-id. NAME is a key in
+komando's key list or a .pub file. komando logs in the way each server is
+set up now (a password, for example) and appends the key to
+~/.ssh/authorized_keys unless it is already there. With --set-default the
+servers then log in with this key.
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
+
+Usage:
+  komando credential key install NAME TARGET [flags]
+
+Examples:
+  komando credential key install deploy @web --dry-run
+  komando credential key install deploy @web --set-default
+  komando credential key install ~/.ssh/id_ed25519.pub web1
+
+Flags:
+  -h, --help[=true|false]          help for install
+      --set-default[=true|false]   servers that got the key log in with it from now on
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key list --help
+exit 0
+--- stdout
+List the SSH keys and the servers that use them
+
+Usage:
+  komando credential key list [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando credential key list
+  komando credential key list -o json
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key remove --help
+exit 0
+--- stdout
+Removes the key from komando's key list. --delete-file also deletes the
+private key komando keeps for a key it made (credential key create), for
+good; a key file you added stays on disk.
+
+Safety: a change; try it with --dry-run first; with --delete-file:
+dangerous, it cannot be undone: a person types the name to go on, and an AI
+agent or a script needs --allow-dangerous.
+
+Usage:
+  komando credential key remove NAME [flags]
+
+Examples:
+  komando credential key remove old-ci --dry-run
+  komando credential key remove old-ci
+  komando credential key remove deploy --delete-file --dry-run
+
+Flags:
+      --delete-file[=true|false]   also delete the private key komando keeps (only keys komando made)
+  -h, --help[=true|false]          help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key rename --help
+exit 0
+--- stdout
+Gives a key in komando's key list a new name; the servers that use it
+follow. A key komando made (credential key create) lives in the sealed
+store, so no file moves; a key added from elsewhere (credential key add)
+stays where it is. Public keys already installed on servers keep their
+comment: they still work, since the key itself does not change.
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando credential key rename NAME NEW [flags]
+
+Examples:
+  komando credential key rename old-ci ci --dry-run
+  komando credential key rename deploy deploy-2026
+
+Flags:
+  -h, --help[=true|false]   help for rename
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key show --help
+exit 0
+--- stdout
+Shows a key's type, fingerprint and public part. A person at a terminal can
+add --reveal to print the private key of a key komando made (it is kept in
+komando's sealed store, with no file), for example to keep a copy in a
+password manager; from a program without a terminal (the Komando Mac app),
+komando first asks the person in its own window. A key added with
+`credential key add` is a file you have already: --reveal names its path. AI
+agents never get a private key.
+
+Usage:
+  komando credential key show NAME [flags]
+
+Examples:
+  komando credential key show deploy
+  komando credential key show deploy --dry-run
+  komando credential key show deploy --reveal --dry-run   # after a person's yes
+  komando credential key show deploy --reveal > deploy.key   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential key uninstall --help
+exit 0
+--- stdout
+NAME is a key in komando's key list, a .pub file, or a public key line.
+Every line with that key is removed from ~/.ssh/authorized_keys of the login
+user, or of --user NAME (with sudo), or of every user on the server with
+--all-users (with sudo: someone who left may have put the key in another
+account too; the dry run names each user whose file holds it). The file
+keeps its owner and mode, and is read and written as its user. Revoking the
+key komando itself logs in with needs --allow-dangerous: you would lock
+yourself out. --dry-run counts the lines it would remove.
+
+Safety: a change; try it with --dry-run first; when it is the key komando
+logs in with: dangerous, it cannot be undone: a person types the name to go
+on, and an AI agent or a script needs --allow-dangerous; on a protected
+server or conn, a person's yes (--yes) as well.
+
+Usage:
+  komando credential key uninstall NAME TARGET [flags]
+
+Examples:
+  komando credential key uninstall ~/keys/alice.pub @web --dry-run
+  komando credential key uninstall old-deploy @web --user deploy --dry-run
+  komando credential key uninstall ~/keys/alice.pub @web --all-users --dry-run
+
+Flags:
+      --all-users[=true|false]   edit every user's authorized_keys on the server (uses sudo)
+  -h, --help[=true|false]        help for uninstall
+      --user string              edit this user's authorized_keys instead of the login user's (uses sudo)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential list --help
+exit 0
+--- stdout
+List the saved passwords and tokens and what uses them
+
+Usage:
+  komando credential list [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+  komando credential list
+  komando credential list -o json
+
+Flags:
+  -h, --help[=true|false]   help for list
+  -n, --limit int           show at most this many (0 = all)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential password --help
+exit 0
+--- stdout
+Saved passwords: add, show, rename, remove
+
+Usage:
+  komando credential password [flags]
+  komando credential password [command]
+
+Examples:
+  komando credential password add web1-pass   # typed hidden
+  komando credential password show web1-pass
+  komando credential password rename web1-pass web1-pass-old --dry-run
+  komando credential password remove web1-pass-old --dry-run
+
+Available Commands:
+  add         Save a password, typed hidden or from a variable or a pipe
+  remove      Delete saved passwords for good
+  rename      Rename a password and every reference to it (value never shown)
+  show        Show that a password is saved and what uses it, its value hidden
+
+Flags:
+  -h, --help[=true|false]   help for password
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando credential password [command] --help" for more information about a command.
+--- stderr
+### komando credential password add --help
+exit 0
+--- stdout
+Saves or replaces a password or a token. Replacing one that a production
+server or database uses asks first: it changes how komando logs in there.
+With --new it only saves a new one: when NAME is in the vault already it
+stops with SECRET_EXISTS and leaves the stored value alone.
+
+Safety: a change; try it with --dry-run first.
+
+A value from a pipe loses the line breaks at its end (echo and pbpaste add
+one). Spaces are kept, since a password can hold them; komando warns when
+the value starts or ends with one, so a stray space copied with a password
+is noticed. At the terminal, paste or type the value after the prompt
+appears.
+
+Usage:
+  komando credential password add NAME [flags]
+
+Examples:
+  komando credential password add web1-pass --dry-run
+  komando credential password add web1-pass   # type or paste it after the prompt, nothing is shown
+  komando credential password add db-pass --new --from-env VALUE
+
+Flags:
+      --from-env string     read the value from this environment variable
+  -h, --help[=true|false]   help for add
+      --new[=true|false]    only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential password remove --help
+exit 0
+--- stdout
+Delete saved passwords for good.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando credential password remove NAME... [flags]
+
+Examples:
+  komando credential password remove db-pass --dry-run
+  komando credential password remove db-pass
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential password rename --help
+exit 0
+--- stdout
+Rename a password and every reference to it (value never shown).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando credential password rename NAME NEW [flags]
+
+Examples:
+  komando credential password rename db-pass db-pass-old --dry-run
+  komando credential password rename db-pass db-pass-old
+
+Flags:
+  -h, --help[=true|false]        help for rename
+      --overwrite[=true|false]   replace NEW when it exists (what uses NEW then gets the value of NAME)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential password show --help
+exit 0
+--- stdout
+Says whether the secret exists and what uses it, without its value. A person
+at a terminal can add --reveal to print it; from a program without a
+terminal (the Komando Mac app), komando first asks the person in its own
+window. AI agents never get the value (they reference it as secret:NAME
+instead). A warning says when the value starts or ends with a space, tab or
+line break, a common cause of a failing login; 'komando secret check NAME'
+lets a person compare it.
+
+Usage:
+  komando credential password show NAME [flags]
+
+Examples:
+  komando credential password show db-pass
+  komando credential password show db-pass --dry-run
+  komando credential password show db-pass --reveal --dry-run   # after a person's yes
+  komando credential password show db-pass --reveal | pbcopy   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential run --help
+exit 0
+--- stdout
+Starts COMMAND on this computer with the --env values in its environment. A
+value secret:NAME is read from the vault right before the program starts, so
+it is never in the command line or the shell history. The program starts
+directly, without a shell, with your environment minus komando's own
+KOMANDO_* variables and the values that unlock the vault. For an AI agent
+with secrets, --env may add variables but never replace one komando sets
+(HOME, PATH, USER, LANG, ...), and may not set what decides which code or
+settings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,
+BASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,
+SSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,
+*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,
+GOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program
+gets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),
+LANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and
+its --env values.
+
+Safety: a change; try it with --dry-run first; when an AI agent hands a
+saved secret to a program: it weakens a safety check: a person's yes
+(--yes).
+
+The program's output goes through komando's masking: a vault value it
+prints shows as [secret:NAME]. komando exits with the program's exit code.
+
+For an AI agent every secret:NAME needs a person's yes (--yes, then
+komando's window names the secrets and the program), since the program
+could print a value in a form masking does not know. A secret a protected
+server, conn or VPN uses asks a person at a terminal too.
+
+Usage:
+  komando credential run -- COMMAND... [flags]
+
+Examples:
+  komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh
+  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+  komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+
+Flags:
+  -e, --env stringArray     put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)
+  -h, --help[=true|false]   help for run
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential token --help
+exit 0
+--- stdout
+Saved tokens: add, show, rename, remove
+
+Usage:
+  komando credential token [flags]
+  komando credential token [command]
+
+Examples:
+  komando credential token add gh-token   # typed hidden
+  komando credential token add gh-token --from-env GH_TOKEN --dry-run
+  komando credential token show gh-token
+  komando credential token remove gh-token --dry-run
+
+Available Commands:
+  add         Save a token, typed hidden or from a variable or a pipe
+  remove      Delete saved tokens for good
+  rename      Rename a token and every reference to it (value never shown)
+  show        Show that a token is saved and what uses it, its value hidden
+
+Flags:
+  -h, --help[=true|false]   help for token
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+
+Use "komando credential token [command] --help" for more information about a command.
+--- stderr
+### komando credential token add --help
+exit 0
+--- stdout
+Saves or replaces a password or a token. Replacing one that a production
+server or database uses asks first: it changes how komando logs in there.
+With --new it only saves a new one: when NAME is in the vault already it
+stops with SECRET_EXISTS and leaves the stored value alone.
+
+Safety: a change; try it with --dry-run first.
+
+A value from a pipe loses the line breaks at its end (echo and pbpaste add
+one). Spaces are kept, since a password can hold them; komando warns when
+the value starts or ends with one, so a stray space copied with a password
+is noticed. At the terminal, paste or type the value after the prompt
+appears.
+
+Usage:
+  komando credential token add NAME [flags]
+
+Examples:
+  komando credential token add gh-token --dry-run
+  komando credential token add gh-token   # type or paste it after the prompt, nothing is shown
+  komando credential token add api-token --new --from-env VALUE
+
+Flags:
+      --from-env string     read the value from this environment variable
+  -h, --help[=true|false]   help for add
+      --new[=true|false]    only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential token remove --help
+exit 0
+--- stdout
+Delete saved tokens for good.
+
+Safety: dangerous, it cannot be undone: a person types the name to go on,
+and an AI agent or a script needs --allow-dangerous.
+
+Usage:
+  komando credential token remove NAME... [flags]
+
+Examples:
+  komando credential token remove api-token --dry-run
+  komando credential token remove api-token
+
+Flags:
+  -h, --help[=true|false]   help for remove
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential token rename --help
+exit 0
+--- stdout
+Rename a token and every reference to it (value never shown).
+
+Safety: a change; try it with --dry-run first.
+
+Usage:
+  komando credential token rename NAME NEW [flags]
+
+Examples:
+  komando credential token rename api-token api-token-old --dry-run
+  komando credential token rename api-token api-token-old
+
+Flags:
+  -h, --help[=true|false]        help for rename
+      --overwrite[=true|false]   replace NEW when it exists (what uses NEW then gets the value of NAME)
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
+### komando credential token show --help
+exit 0
+--- stdout
+Says whether the secret exists and what uses it, without its value. A person
+at a terminal can add --reveal to print it; from a program without a
+terminal (the Komando Mac app), komando first asks the person in its own
+window. AI agents never get the value (they reference it as secret:NAME
+instead). A warning says when the value starts or ends with a space, tab or
+line break, a common cause of a failing login; 'komando secret check NAME'
+lets a person compare it.
+
+Usage:
+  komando credential token show NAME [flags]
+
+Examples:
+  komando credential token show api-token
+  komando credential token show api-token --dry-run
+  komando credential token show api-token --reveal --dry-run   # after a person's yes
+  komando credential token show api-token --reveal | pbcopy   # after a person's yes
+
+Flags:
+  -h, --help[=true|false]   help for show
+
+Global Flags (all of them: komando --help):
+      --dry-run[=true|false]   show what would run, changing nothing
+  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
+                               text in a terminal, JSON when piped); db query also
+                               takes csv and tsv
+      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
+  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
+--- stderr
 ### komando db --help
 exit 0
 --- stdout
@@ -2836,7 +3824,7 @@ Flags:
       --notes string                free-form notes (komando conn show shows them to people and agents)
       --option stringArray          an option of this kind, KEY=VALUE (repeatable) (default [])
       --overwrite[=true|false]      replace a conn that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
   -t, --tag strings                 tags, like prod (comma-separated)
       --via string                  reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened
@@ -4871,7 +5859,7 @@ Examples:
 
 Available Commands:
   add         Add a server to your list
-  ca          Trust servers through the CA that signs their host keys
+  ca          Never trust a host key or a CA key again
   edit        Change one or more servers (only the flags you pass change)
   list        List servers
   rename      Rename a server and every reference to it
@@ -4924,13 +5912,13 @@ Flags:
   -g, --group strings               put it in these groups (comma-separated)
   -h, --help[=true|false]           help for add
       --identity string             path to a private key file
-      --key string                  name of a key in komando's key list (see komando key list)
+      --key string                  name of a key in komando's key list (see komando credential key list)
       --label stringArray           label KEY=VALUE (repeatable) (default [])
       --login string                how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
       --notes string                free-form notes (komando host show shows them to people and agents)
       --os string                   the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)
       --overwrite[=true|false]      replace a server that has the same name
-      --password-ref string         where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string         where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...
       --port int                    SSH port (default 22)
       --protected[=true|false]      production: komando asks you before every change, and an AI agent needs your yes in a window
       --proxy-command string        a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)
@@ -4951,28 +5939,21 @@ Global Flags (all of them: komando --help):
 ### komando host ca --help
 exit 0
 --- stdout
-A host CA vouches for the host keys of the servers its patterns match, as an
-@cert-authority line in known_hosts does. A server that shows a host
-certificate from a trusted CA, for the name komando dials, is trusted
-without a pin. Adding a CA trusts every server it ever signs, so only a
-person at a terminal can add one. Removing one, and putting a key on the
-never-trust list, anyone may do.
+Puts a host key or a CA key on the never-trust list, as a @revoked line in
+known_hosts does. The CAs komando trusts are under `komando credential
+certificate`.
 
 Usage:
   komando host ca [flags]
   komando host ca [command]
 
 Examples:
-  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
-  komando host ca list
-  komando host ca rm corp
+  komando host ca revoke --key old-ca.pub --dry-run
   komando host ca revoke --key old-ca.pub
+  komando credential certificate list
 
 Available Commands:
-  add         Trust a CA for the servers its patterns match (person only)
-  list        List the trusted server CAs
   revoke      Never trust a host key or a CA key again
-  rm          Stop trusting a server CA
 
 Flags:
   -h, --help[=true|false]   help for ca
@@ -4986,67 +5967,6 @@ Global Flags (all of them: komando --help):
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 
 Use "komando host ca [command] --help" for more information about a command.
---- stderr
-### komando host ca add --help
-exit 0
---- stdout
-Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads
-the @cert-authority lines of a known_hosts file (--from); its @revoked lines
-go on the never-trust list. A pattern names at least the domain
-(*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.
---dry-run shows the patterns as they are kept and the servers they match
-now. Only a person at a terminal can add a CA: it trusts every server it
-ever signs.
-
-Safety: only a person at a terminal can run it.
-
-Usage:
-  komando host ca add NAME [flags]
-
-Examples:
-  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
-  komando host ca add corp --from ~/.ssh/known_hosts
-
-Flags:
-      --from string         a known_hosts file: read its @cert-authority and @revoked lines
-  -h, --help[=true|false]   help for add
-      --hosts strings       server name patterns the CA may vouch for (*.corp.example,10.1.2.*)
-      --key string          the CA's public key file (.pub)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando host ca list --help
-exit 0
---- stdout
-List the trusted server CAs
-
-Usage:
-  komando host ca list [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando host ca list
-  komando host ca list -o json   # what the apps read
-
-Flags:
-  -h, --help[=true|false]   help for list
-  -n, --limit int           the first N CAs (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando host ca revoke --help
 exit 0
@@ -5067,34 +5987,6 @@ Examples:
 Flags:
   -h, --help[=true|false]   help for revoke
       --key string          the public key file (.pub) never to trust
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando host ca rm --help
-exit 0
---- stdout
-Stops trusting the CA: its servers are checked against their pins again.
-
-Safety: a change; try it with --dry-run first.
-
-Usage:
-  komando host ca rm NAME [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando host ca rm corp
-  komando host ca rm corp --dry-run
-
-Flags:
-  -h, --help[=true|false]   help for rm
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -5147,12 +6039,12 @@ Flags:
       --forward-agent[=true|false]   lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first)
   -h, --help[=true|false]            help for edit
       --identity string              path to a private key file
-      --key string                   name of a key in komando's key list (see komando key list)
+      --key string                   name of a key in komando's key list (see komando credential key list)
       --label stringArray            set label KEY=VALUE (an empty value removes it) (default [])
       --login string                 how komando logs in, as show names it: ask (a person types the password at every connect; never stored), password (a stored one: with --ask-password or --password-ref); a server also takes key (with --key or --identity) and agent (ssh-agent and ~/.ssh only), a conn none (no password of komando's own)
       --notes string                 free-form notes (komando host show shows them to people and agents)
       --os string                    the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)
-      --password-ref string          where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...
+      --password-ref string          where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...
       --port int                     SSH port (default 22)
       --protected[=true|false]       production: komando asks you before every change, and an AI agent needs your yes in a window
       --proxy-command string         a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)
@@ -5292,9 +6184,10 @@ Prints the ssh command that reaches the server with the same address, user,
 key, known_hosts file and --via path komando uses. A server behind --via
 servers gets a ProxyCommand per hop (ssh -W), so every hop uses its own key.
 A SOCKS VPN becomes nc -X 5; VPNs that run inside komando cannot be used by
-OpenSSH: use `komando shell SERVER` for those. A key made with komando key
-gen is never written to a file: it goes to your running ssh-agent
-(SSH_AUTH_SOCK) for one hour, and the line picks it by its public key.
+OpenSSH: use `komando shell SERVER` for those. A key made with komando
+credential key create is never written to a file: it goes to your running
+ssh-agent (SSH_AUTH_SOCK) for one hour, and the line picks it by its public
+key.
 
 Safety: only a person at a terminal can run it.
 
@@ -5730,352 +6623,6 @@ Global Flags (all of them: komando --help):
   -o, --output string          json or text (default $KOMANDO_OUTPUT, or
                                text in a terminal, JSON when piped); db query also
                                takes csv and tsv
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key --help
-exit 0
---- stdout
-SSH keys: make, add, put on servers, take off
-
-Usage:
-  komando key [flags]
-  komando key [command]
-
-Aliases:
-  key, keys
-
-Examples:
-  komando key gen deploy
-  komando key deploy deploy @web --dry-run
-  komando key deploy deploy @web
-  komando key list
-
-Available Commands:
-  add         Add a private key file you already have (komando keeps its path)
-  deploy      Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)
-  edit        Change a key's passphrase reference or certificate
-  gen         Make a new SSH key pair (ed25519 by default)
-  list        List keys and the servers that use them
-  rename      Rename a key, and every server that uses it
-  revoke      Take a public key off servers' authorized_keys
-  rm          Remove a key (from komando only)
-  show        Show a key's public part, or a person its private key
-
-Flags:
-  -h, --help[=true|false]   help for key
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando key [command] --help" for more information about a command.
---- stderr
-### komando key add --help
-exit 0
---- stdout
-Adds a private key file you already have to komando's key list; the file
-stays where it is. For a key with a passphrase, store the passphrase in the
-vault and pass --passphrase-ref secret:NAME.
-
-Safety: a change; try it with --dry-run first.
-
-An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
-login, as ssh does; --cert names one kept somewhere else.
-
-Usage:
-  komando key add NAME FILE [flags]
-
-Examples:
-  komando key add personal ~/.ssh/id_ed25519
-  komando key add personal ~/.ssh/id_ed25519 --dry-run
-  komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
-  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass
-
-Flags:
-      --cert string             an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)
-  -h, --help[=true|false]       help for add
-      --passphrase-ref string   passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key deploy --help
-exit 0
---- stdout
-Installs a public key on servers, like ssh-copy-id. KEY is a key in
-komando's key list or a .pub file. komando logs in the way each server is
-set up now (a password, for example) and appends the key to
-~/.ssh/authorized_keys unless it is already there. With --set-default the
-servers then log in with this key.
-
-Safety: a change; try it with --dry-run first; with --public-key-file: only
-a person at a terminal can run it; on a protected server or conn, a person's
-yes (--yes) as well.
-
-With --public-key-file and --user (no NAME), a person installs a phone's key
-for that user on one server, always behind the server's own komando gate
-(restrict, ssh-gate --here; from= with --from-address).
-
-Usage:
-  komando key deploy NAME TARGET [flags]
-
-Examples:
-  komando key gen deploy && komando key deploy deploy @web --set-default
-  komando key deploy ~/.ssh/id_ed25519.pub web1
-  komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run
-  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8
-
-Flags:
-      --from-address string        with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)
-  -h, --help[=true|false]          help for deploy
-      --public-key-file string     a device's public key file (a phone's): install it for --user behind komando's gate on the server; a person at a terminal only
-      --set-default[=true|false]   servers that got the key log in with it from now on
-      --user string                with --public-key-file: the user the device logs in as (never root)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key edit --help
-exit 0
---- stdout
-Sets where komando finds the passphrase of an encrypted key. Store the
-passphrase with `komando secret set NAME` first and pass secret:NAME;
---unset passphrase-ref clears it.
-
-Safety: a change; try it with --dry-run first.
-
---cert FILE gives the key an OpenSSH user certificate (for a key komando
-made, or one kept away from the key file); --unset cert goes back to
-FILE-cert.pub next to the key.
-
-Usage:
-  komando key edit NAME [flags]
-
-Examples:
-  komando secret set work-key-pass
-  komando key edit work --passphrase-ref secret:work-key-pass
-  komando key edit work --passphrase-ref secret:work-key-pass --dry-run
-  komando key edit work --unset passphrase-ref
-  komando key edit deploy --cert ~/Downloads/deploy-cert.pub
-
-Flags:
-      --cert string             an OpenSSH user certificate for the key
-  -h, --help[=true|false]       help for edit
-      --passphrase-ref string   where the passphrase is: secret:NAME | env:VAR | ...
-      --unset strings           clear this setting: passphrase-ref, cert
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key gen --help
-exit 0
---- stdout
-Makes a key pair like ssh-keygen and adds it to komando's key list. The
-private key is kept in komando's sealed store, never in a file: komando
-hands it to ssh-agent when another program needs it (host ssh-command). Put
-the public part on servers with `komando key deploy`. RSA keys need at least
-3072 bits.
-
-Safety: a change; try it with --dry-run first.
-
-Usage:
-  komando key gen NAME [flags]
-
-Examples:
-  komando key gen deploy && komando key deploy deploy @web
-  komando key gen legacy --type rsa -b 4096 -C ops@example.com
-  komando key gen legacy --type rsa -b 4096 -C ops@example.com --dry-run
-
-Flags:
-  -b, --bits int            key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521
-  -C, --comment string      public key comment (default komando-NAME)
-  -h, --help[=true|false]   help for gen
-      --type string         ed25519 | rsa | ecdsa (default "ed25519")
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key list --help
-exit 0
---- stdout
-List keys and the servers that use them
-
-Usage:
-  komando key list [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando key list
-
-Flags:
-  -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many keys (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key rename --help
-exit 0
---- stdout
-Gives a key in komando's key list a new name; the servers that use it
-follow. A key komando made (key gen) lives in the sealed store, so no file
-moves; a key added from elsewhere (key add) stays where it is. Public keys
-already installed on servers keep their comment: they still work, since the
-key itself does not change.
-
-Safety: a change; try it with --dry-run first.
-
-Usage:
-  komando key rename OLD NEW [flags]
-
-Aliases:
-  rename, mv
-
-Examples:
-  komando key rename deploy deploy-2026
-  komando key rename old-ci ci --dry-run
-
-Flags:
-  -h, --help[=true|false]   help for rename
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key revoke --help
-exit 0
---- stdout
-KEY is a key in komando's key list, a .pub file, or a public key line. Every
-line with that key is removed from ~/.ssh/authorized_keys of the login user,
-or of --user NAME (with sudo), or of every user on the server with
---all-users (with sudo: someone who left may have put the key in another
-account too; the dry run names each user whose file holds it). The file
-keeps its owner and mode, and is read and written as its user. Revoking the
-key komando itself logs in with needs --allow-dangerous: you would lock
-yourself out. --dry-run counts the lines it would remove.
-
-Safety: a change; try it with --dry-run first; when it is the key komando
-logs in with: dangerous, it cannot be undone: a person types the name to go
-on, and an AI agent or a script needs --allow-dangerous; on a protected
-server or conn, a person's yes (--yes) as well.
-
-Usage:
-  komando key revoke NAME TARGET [flags]
-
-Examples:
-  komando key revoke ~/keys/alice.pub @prod --dry-run
-  komando key revoke "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
-  komando key revoke old-deploy @web --user deploy
-  komando key revoke ~/keys/alice.pub @prod --all-users --dry-run
-
-Flags:
-      --all-users[=true|false]   edit every user's authorized_keys on the server (uses sudo)
-  -h, --help[=true|false]        help for revoke
-      --user string              edit this user's authorized_keys instead of the login user's (uses sudo)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key rm --help
-exit 0
---- stdout
-Removes the key from komando's key list. --delete-file also deletes the
-private key komando keeps for a key it made (key gen), for good; a key file
-you added stays on disk.
-
-Safety: a change; try it with --dry-run first; with --delete-file:
-dangerous, it cannot be undone: a person types the name to go on, and an AI
-agent or a script needs --allow-dangerous.
-
-Usage:
-  komando key rm NAME [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando key rm old-deploy
-  komando key rm old-deploy --dry-run
-
-Flags:
-      --delete-file[=true|false]   also delete the private key komando keeps (only keys komando made)
-  -h, --help[=true|false]          help for rm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando key show --help
-exit 0
---- stdout
-Shows a key's type, fingerprint and public part. A person at a terminal can
-add --reveal to print the private key of a key komando made (it is kept in
-komando's sealed store, with no file), for example to keep a copy in a
-password manager; from a program without a terminal (the Komando Mac app),
-komando first asks the person in its own window. A key added with `key add`
-is a file you have already: --reveal names its path. AI agents never get a
-private key.
-
-Usage:
-  komando key show NAME [flags]
-
-Examples:
-  komando key show deploy
-  komando key show deploy --reveal > deploy.key   # a person, at a terminal
-
-Flags:
-  -h, --help[=true|false]   help for show
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
 ### komando list --help
@@ -10348,13 +10895,14 @@ whose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,
 the name OLD without it is renamed too (--starts-with shop- acme-shop- turns
 group shop into acme-shop).
 
-Every reference follows, as with `host rename` and `secret rename`: --via
-paths, password, sudo, key, preshared key and passphrase references,
-secret:NAME options in conn URLs, the key a server uses, group membership,
-jobs and tunnels. A key komando made (key gen) lives in the sealed store, so
-no file moves; a key file you added stays where it is. The protected mark,
-labels, notes and creation time stay. Names inside URLs (a bucket, a
-database user) are the resource's own and do not change.
+Every reference follows, as with `host rename` and `credential password
+rename`: --via paths, password, sudo, key, preshared key and passphrase
+references, secret:NAME options in conn URLs, the key a server uses, group
+membership, jobs and tunnels. A key komando made (credential key create)
+lives in the sealed store, so no file moves; a key file you added stays
+where it is. The protected mark, labels, notes and creation time stay. Names
+inside URLs (a bucket, a database user) are the resource's own and do not
+change.
 
 --in-notes also replaces old names in notes, and --in-labels in label
 values: server, conn, VPN and secret names as whole words, a group written
@@ -10369,11 +10917,12 @@ Everything changes in one step, or nothing does: a new name that is taken
 is written. When NEW starts with OLD, names that start with NEW already
 are left alone, so a second run changes nothing.
 
-Renaming protected servers and conns needs --yes once, for all of them (an
-AI agent's --yes opens one window for a person). See what would change with
---dry-run first. --kind renames only some kinds; references still follow. To
-rename one entry, use host rename, conn rename, vpn rename, secret rename,
-key rename or group rename.
+Renaming protected servers and conns needs --yes once, for all of them
+(an AI agent's --yes opens one window for a person). See what would change
+with --dry-run first. --kind renames only some kinds; references still
+follow.
+To rename one entry, use host rename, conn rename, vpn rename,
+credential password rename, credential key rename or group rename.
 
 Usage:
   komando rename OLD NEW [flags]
@@ -10445,18 +10994,19 @@ Global Flags (all of them: komando --help):
 exit 0
 --- stdout
 Save a password once, then point to it as secret:NAME instead of typing it:
-  komando secret set web1-pass
+  komando credential password add web1-pass
   komando host edit web1 --password-ref secret:web1-pass
 
-komando shows a saved value only to a person: at a terminal with
-`secret show --reveal`, or after "Allow once" in komando's window; never
-to an AI agent. `secret check` compares a value with the saved one
-without showing either. `secret rename` and `secret cp` rename and copy.
+komando shows a saved value only to a person: at a terminal with `credential
+password show --reveal`, or after "Allow once" in komando's window; never to
+an AI agent. `secret check` compares a value with the saved one without
+showing either. `credential password rename` and `secret cp` rename and
+copy.
 
 How it is stored: each secret sealed with AES-256-GCM in
 ~/.komando/store.db. The random key is in the OS keychain (or in store.key
 where there is none, or with KOMANDO_KEYCHAIN=off), or comes from
-$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`
+$KOMANDO_VAULT_PASS when that is set at first use (`config vault passphrase`
 changes it).
 
 A --password-ref (and the other -ref flags) can also read a password your
@@ -10472,22 +11022,13 @@ Aliases:
   secret, secrets, vault
 
 Examples:
-  komando secret set prod-db-pass                   # typed hidden
-  komando secret list
-  komando conn edit prod-db --password-ref secret:prod-db-pass
-  komando secret rm old-pass --dry-run
+  komando secret check db-pass   # type the value to compare, hidden
+  komando secret cp db-pass db-pass-old --dry-run
+  komando secret cp db-pass db-pass-old
 
 Available Commands:
   check       Compare a typed value to a secret without showing either (person only)
   cp          Copy a secret to a new name in the vault (value never shown)
-  keychain    Keep the vault key in the OS keychain instead of store.key
-  list        List secret names, when they changed and what uses them
-  passphrase  Change the vault passphrase and encrypt the secrets again (person only)
-  rename      Rename a secret and every reference to it (value never shown)
-  rm          Delete secrets for good
-  run         Run a local command with vault secrets in its environment
-  set         Store a secret, typed hidden or from a variable or a pipe
-  show        Show that a secret exists, its value hidden
 
 Flags:
   -h, --help[=true|false]   help for secret
@@ -10569,312 +11110,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando secret keychain --help
-exit 0
---- stdout
-Moves the vault's key out of the store.key file into the operating system's
-keychain, so a copy of ~/.komando (a backup, a synced folder) no longer
-opens the vault or its secrets. The vault gets a new key as it moves, so a
-copy of store.key made before opens nothing either, and the vault keeps
-every secret. --off moves the key back into store.key, which needs --yes.
-
-Safety: a change; try it with --dry-run first; when it turns the keychain
-off: it weakens a safety check: a person's yes (--yes); without --off: only
-a person at a terminal can run it.
-
-Only a person at a terminal moves the key in: the keychain may ask them to
-unlock it, and an AI agent or a script cannot answer that.
-
-Usage:
-  komando secret keychain [flags]
-
-Examples:
-  komando secret keychain
-  komando secret keychain --dry-run
-  komando secret keychain --off --dry-run
-  komando secret keychain --off --yes   # after a person's yes
-
-Flags:
-  -h, --help[=true|false]   help for keychain
-      --off[=true|false]    move the key back into store.key (needs --yes)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret list --help
-exit 0
---- stdout
-List secret names, when they changed and what uses them
-
-Usage:
-  komando secret list [flags]
-
-Aliases:
-  list, ls
-
-Examples:
-  komando secret list
-
-Flags:
-  -h, --help[=true|false]   help for list
-  -n, --limit int           show at most this many secrets (0 = all)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret passphrase --help
-exit 0
---- stdout
-Re-encrypts every secret in the vault under a new passphrase, so you can
-change KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is
-in store.key or in the OS keychain gets a passphrase this way, and the old
-key is removed once the new vault is saved and read back.
-
-Safety: only a person at a terminal can run it.
-
-The vault is opened the usual way: with KOMANDO_VAULT_PASS, store.key or the
-keychain. When KOMANDO_VAULT_PASS does not open a passphrase vault (you
-changed it already, say), komando asks for the current passphrase. Then it
-asks for the new one twice, hidden; it needs 15 or more characters. Every
-secret is decrypted before anything is written: if one cannot be, nothing
-changes.
-
-Afterwards, put the new passphrase in KOMANDO_VAULT_PASS wherever you set it
-(your shell profile, a password manager, a launch agent), and restart any
-background tunnel or VPN session komando runs: they still hold the old key.
-
---off goes back to a new random key in store.key (needs --yes): a copy of
-~/.komando then opens the vault again. `komando secret keychain` can move
-that key into the OS keychain.
-
-Only a person at a terminal can run it: an AI agent that chose the
-passphrase, or put the key back in store.key, could open the vault on its
-own. Anyone can preview it with --dry-run.
-
-Usage:
-  komando secret passphrase [flags]
-
-Aliases:
-  passphrase, passwd
-
-Examples:
-  komando secret passphrase               # asks for the new passphrase twice, hidden
-  komando secret passphrase --dry-run
-  komando secret passphrase --off --dry-run
-  komando secret passphrase --off --yes   # after a person's yes
-
-Flags:
-  -h, --help[=true|false]   help for passphrase
-      --off[=true|false]    back to a random key in store.key (needs --yes)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret rename --help
-exit 0
---- stdout
-Renames OLD to NEW inside the vault, and points every server, conn, key and
-VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
-working and nobody types the value again. The value is never printed, so an
-AI agent can do this too. Scripts or notes of your own that name secret:OLD
-are not changed.
-
-Safety: a change; try it with --dry-run first.
-
-When NEW exists already, --overwrite replaces its value; when a protected
-server or conn uses NEW, that also needs --yes.
-
-Usage:
-  komando secret rename OLD NEW [flags]
-
-Aliases:
-  rename, mv
-
-Examples:
-  komando secret rename vpn-password office-vpn-pass --dry-run
-  komando secret rename vpn-password office-vpn-pass
-
-Flags:
-  -h, --help[=true|false]        help for rename
-      --overwrite[=true|false]   replace NEW when it exists (what uses NEW then gets the value of OLD)
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret rm --help
-exit 0
---- stdout
-Delete secrets for good.
-
-Safety: dangerous, it cannot be undone: a person types the name to go on,
-and an AI agent or a script needs --allow-dangerous.
-
-Usage:
-  komando secret rm NAME... [flags]
-
-Aliases:
-  rm, remove, delete, del
-
-Examples:
-  komando secret rm old-pass
-  komando secret rm a-pass b-pass --dry-run
-
-Flags:
-  -h, --help[=true|false]   help for rm
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret run --help
-exit 0
---- stdout
-Starts COMMAND on this computer with the --env values in its environment. A
-value secret:NAME is read from the vault right before the program starts, so
-it is never in the command line or the shell history. The program starts
-directly, without a shell, with your environment minus komando's own
-KOMANDO_* variables and the values that unlock the vault. For an AI agent
-with secrets, --env may add variables but never replace one komando sets
-(HOME, PATH, USER, LANG, ...), and may not set what decides which code or
-settings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,
-BASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,
-SSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,
-*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,
-GOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program
-gets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),
-LANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and
-its --env values.
-
-Safety: a change; try it with --dry-run first; when an AI agent hands a
-saved secret to a program: it weakens a safety check: a person's yes
-(--yes).
-
-The program's output goes through komando's masking: a vault value it
-prints shows as [secret:NAME]. komando exits with the program's exit code.
-
-For an AI agent every secret:NAME needs a person's yes (--yes, then
-komando's window names the secrets and the program), since the program
-could print a value in a form masking does not know. A secret a protected
-server, conn or VPN uses asks a person at a terminal too.
-
-Usage:
-  komando secret run -- COMMAND [ARGS...] [flags]
-
-Examples:
-  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
-  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh
-
-Flags:
-  -e, --env stringArray     put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)
-  -h, --help[=true|false]   help for run
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret set --help
-exit 0
---- stdout
-Saves or replaces a password. Replacing one that a production server or
-database uses asks first: it changes how komando logs in there. With --new
-it only saves a new one: when NAME is in the vault already it stops with
-SECRET_EXISTS and leaves the stored value alone.
-
-Safety: a change; try it with --dry-run first.
-
-A value from a pipe loses the line breaks at its end (echo and pbpaste add
-one). Spaces are kept, since a password can hold them; komando warns when
-the value starts or ends with one, so a stray space copied with a password
-is noticed. At the terminal, paste or type the value after the prompt
-appears.
-
-Usage:
-  komando secret set NAME [flags]
-
-Aliases:
-  set, add
-
-Examples:
-  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown
-  komando secret set web1-pass --dry-run
-  komando secret set db-pass --from-env DB_PASS
-  pbpaste | komando secret set vpn-pass
-  komando secret set api-token --new --from-env TOKEN   # never replaces one
-
-Flags:
-      --from-env string     read the value from this environment variable
-  -h, --help[=true|false]   help for set
-      --new[=true|false]    only store a secret that is not in the vault yet; a taken NAME stops with SECRET_EXISTS
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando secret show --help
-exit 0
---- stdout
-Says whether the secret exists and what uses it, without its value. A person
-at a terminal can add --reveal to print it; from a program without a
-terminal (the Komando Mac app), komando first asks the person in its own
-window. AI agents never get the value (they reference it as secret:NAME
-instead). A warning says when the value starts or ends with a space, tab or
-line break, a common cause of a failing login; 'komando secret check NAME'
-lets a person compare it.
-
-Usage:
-  komando secret show NAME [flags]
-
-Aliases:
-  show, get
-
-Examples:
-  komando secret show db-pass
-  komando secret show db-pass --reveal | pbcopy   # a person, at a terminal
-
-Flags:
-  -h, --help[=true|false]   help for show
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); db query also
-                               takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
 ### komando shell --help
 exit 0
 --- stdout
@@ -10920,21 +11155,21 @@ they are quoted. One KOMANDO_AGENT=NAME may come before komando.
 komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
-db shell, secret passphrase ...) are refused (a --shell-access key may open
-`komando shell SERVER`: see ssh-gate line; that shell is full control of the
-server, outside these rules). The key runs commands on servers, never one
-that writes on this computer or reads a file here (a script, SQL or upload
-source by path; '-' for the key's own input works): no download or cp to a
-file here (download --to - and cp SRC - stream to the key's own output), no
-change to servers, VPNs, settings, rules, secrets, keys or recipes in
-komando, no update, no change on a sqlite file or a target at localhost or
-127.x. With --read-only only commands that read run (db query and cache
-redis raw without --write), and only those that stay on the servers and
-conns in your list: no net, no cert check of a website, no exec, job start,
-docker exec, cluster kubernetes exec or recipe run, unless the line also has
---network. `komando ssh-gate status` tells a key which it is. Every command
-a key runs or is refused is in `komando audit`, with --name, even when the
-audit setting is off.
+db shell, config vault passphrase ...) are refused (a --shell-access key may
+open `komando shell SERVER`: see ssh-gate line; that shell is full control
+of the server, outside these rules). The key runs commands on servers, never
+one that writes on this computer or reads a file here (a script, SQL or
+upload source by path; '-' for the key's own input works): no download or cp
+to a file here (download --to - and cp SRC - stream to the key's own
+output), no change to servers, VPNs, settings, rules, secrets, keys or
+recipes in komando, no update, no change on a sqlite file or a target at
+localhost or 127.x. With --read-only only commands that read run (db query
+and cache redis raw without --write), and only those that stay on the
+servers and conns in your list: no net, no cert check of a website, no exec,
+job start, docker exec, cluster kubernetes exec or recipe run, unless the
+line also has --network. `komando ssh-gate status` tells a key which it is.
+Every command a key runs or is refused is in `komando audit`, with --name,
+even when the audit setting is off.
 
 Usage:
   komando ssh-gate [flags]
@@ -14721,19 +14956,30 @@ Examples:
   komando vpn anyconnect add office --portal vpn.client.com --user alice --dry-run
 
 Flags:
-      --ask-password[=true|false]   type the password now (hidden, a person at a terminal); it is stored as a password credential
-      --check string                host:port reachable only through this VPN (start and test connect to it)
-      --credential string           the credential holding the login password
-      --group strings               put it in these groups
-  -h, --help[=true|false]           help for add
-      --label stringArray           label KEY=VALUE (default [])
-      --mfa[=true|false]            a person answers the second factor at each connect
-      --notes string                free-form notes, shown to people and agents
-      --overwrite[=true|false]      replace an entry that has the same name
-      --portal string               the VPN server or portal
-      --protected[=true|false]      changes need a person's yes
-      --tag strings                 tags, like prod
-      --user string                 user name for the VPN login
+      --allow-pap[=true|false]       L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (needs a person's yes)
+      --ask-password[=true|false]    type the password now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-pass and used as --password-ref
+      --ask-psk[=true|false]         L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref
+      --ca string                    IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one
+      --check string                 host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)
+      --config string                WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault)
+  -g, --group strings                put it in these groups (comma-separated)
+  -h, --help[=true|false]            help for add
+      --id string                    IPsec: the group name; IKEv2: your identity (default: --user, or your address)
+      --label stringArray            label KEY=VALUE (repeatable) (default [])
+      --legacy-crypto[=true|false]   L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)
+      --mfa[=true|false]             the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it
+      --notes string                 free-form notes
+      --overwrite[=true|false]       replace a VPN with the same name
+      --password-ref string          where the password is (Tailscale: the auth key): secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...
+      --portal string                GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal
+      --protected[=true|false]       komando asks a person before it changes or removes this VPN; an AI agent needs their yes in a window
+      --proxy-address string         SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port
+      --psk-ref string               L2TP, IPsec, IKEv2: the pre-shared key (IPsec: the group password), as a reference like --password-ref
+      --remote-id string             IKEv2: the server's identity, if not its --server name
+      --server string                L2TP, IPsec, IKEv2: the VPN server (host or host:port); Tailscale: a Headscale login server URL
+      --service string               System VPN: its name in your computer's settings, so 'vpn up' can connect it
+  -t, --tag strings                  tags, like prod (comma-separated)
+      --user string                  user name for the VPN login
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -14865,7 +15111,11 @@ Global Flags (all of them: komando --help):
 ### komando vpn anyconnect show --help
 exit 0
 --- stdout
-Show a saved Cisco AnyConnect VPN (saved keys are never shown)
+Remove VPNs from komando (their keys stay in the vault until `komando
+credential password remove`).
+
+Safety: a change; try it with --dry-run first; on a protected server or
+conn, a person's yes (--yes) as well.
 
 Usage:
   komando vpn anyconnect show NAME [flags]

@@ -24,7 +24,7 @@ check "db shell \\write allows changes after a yes" True "$(ptyrun '\write\ny\nc
 check "db shell \\d lists tables" True "$(ptyrun '\d\n\q\n' env PATH=/usr/bin:/bin "$K" db shell pg | grep -q 'table\|relation' && echo True)"
 check "conn test via bastion" 4 "$($K conn test all | jget 'd["data"]["summary"]["ok"]')"
 check "conn test logs in" login "$($K conn test pg | jget 'd["data"]["results"][0]["detail"]["check"]')"
-echo -n wrongpass | $K secret set pg-wrong >/dev/null
+echo -n wrongpass | $K credential password add pg-wrong >/dev/null
 q $K conn add pg-wrong 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-wrong
 check "conn test catches a wrong password" False "$($K conn test pg-wrong | jget 'd["data"]["results"][0]["ok"]' || true)"
 q $K conn rm pg-wrong
@@ -108,7 +108,7 @@ $K cache redis raw cache --write -- GETDEL greeting >/dev/null; check "cache GET
 set -e
 
 # memcached (with a login), through the bastion
-printf mcpass | $K secret set mc-pass >/dev/null
+printf mcpass | $K credential password add mc-pass >/dev/null
 q $K conn add mc 'memcached://e2e@memcached:11211' --password-ref secret:mc-pass --via bastion
 q $K cache set mc greeting halo --ttl 1h
 check "memcached get via bastion, with its time to live" "halo True" "$($K cache get mc greeting | jget 'd["data"]["value"] + " " + str(d["data"]["ttl_seconds"] > 3500)')"
@@ -128,7 +128,7 @@ check "memcached stats reset needs --write" WRITE_REQUIRES_FLAG "$($K cache memc
 check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm mc greeting --allow-dangerous
 check "memcached key gone" CACHE_KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
-printf wrong | $K secret set mc-pass >/dev/null
+printf wrong | $K credential password add mc-pass >/dev/null
 check "memcached wrong password is named" CACHE_AUTH "$($K cache info mc | jget 'd["error"]["code"]' || true)"
 q $K conn rm mc
 
@@ -159,7 +159,7 @@ check "rm --older-than leaves new objects" 0 "$($K storage s3 object delete buck
 check "rm --prefix removes them" True "$($K storage s3 object delete bucket --prefix tree/ --allow-dangerous | jget 'd["data"]["count"] >= 2')"
 
 # file servers through the bastion: SFTP (shell-less account) and FTPS (TLS required)
-echo -n deploypass | $K secret set files-pass >/dev/null
+echo -n deploypass | $K credential password add files-pass >/dev/null
 q $K conn add files-sftp 'sftp://deploy@sftp/uploads' --via bastion --password-ref secret:files-pass
 q $K conn add files-ftps 'ftps://deploy@ftps/www?tls=skip-verify' --via bastion --password-ref secret:files-pass
 for c in files-sftp files-ftps; do

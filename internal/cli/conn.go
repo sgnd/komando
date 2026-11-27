@@ -67,7 +67,7 @@ type connFlags struct {
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(connLoginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
@@ -117,7 +117,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 		}
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
-		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
+		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando credential password add NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
 			"--password-ref takes a reference, not the password itself")
 	}
 	return inventory.CheckLabels(c.Groups, c.Tags, c.Labels)
@@ -131,7 +131,7 @@ func connCmd() *cobra.Command {
 		Long: `A conn is a database, cache, message queue, file storage, cluster or registry
 komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
 lists them). Passwords never go in the URL: store them with
-` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
+` + "`komando credential password add`" + ` and pass --password-ref. Use --via HOST when the
 conn is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
@@ -676,7 +676,7 @@ func addKindFits(family, raw, passwordRef string) error {
 			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if slices.Contains(connKindNeeds(family, t.Kind), "password-ref") && passwordRef == "" {
-		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando secret set NAME` and pass --credential NAME",
+		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando credential password add NAME` and pass --credential NAME",
 			"a Kubernetes conn logs in with a whole kubeconfig, which %s alone does not give", raw)
 	}
 	return nil

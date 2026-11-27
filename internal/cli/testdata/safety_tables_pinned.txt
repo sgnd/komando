@@ -70,6 +70,9 @@ config.approval-code	kind=change|	target=""	person||||||
 config.get	kind=read|	target=""	
 config.set	kind=change|	target=""	safety|||the setting turns a check off|||
 config.show	kind=read|	target=""	
+config.vault	kind=read|	target=""	
+config.vault.keychain	kind=change|	target=""	safety|||it turns the keychain off||| ; person|without --off|moves the key into the keychain||||
+config.vault.passphrase	kind=change|	target=""	person||||||
 conn	kind=read|	target="conns"	
 conn.add	kind=change|	target="conns"	
 conn.edit	kind=change|	target="conns"	safety|with --protected=false|turns protection off||||
@@ -80,6 +83,33 @@ conn.rm	kind=change|	target="conns"
 conn.show	kind=read|	target="conns"	
 conn.test	kind=read|	target="conns"	
 cp	kind=depends|changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC	target="servers or file storage"	
+credential	kind=read|	target=""	
+credential.certificate	kind=read|	target="servers"	
+credential.certificate.add	kind=change|	target="servers"	person||trusts every server the CA signs||||
+credential.certificate.list	kind=read|	target="servers"	
+credential.certificate.remove	kind=change|	target="servers"	
+credential.key	kind=read|	target="servers"	
+credential.key.add	kind=change|	target="servers"	
+credential.key.create	kind=change|	target="servers"	
+credential.key.edit	kind=change|	target="servers"	
+credential.key.install	kind=change|	target="servers"	
+credential.key.list	kind=read|	target="servers"	
+credential.key.remove	kind=change|	target="servers"	dangerous|with --delete-file|deletes the private key komando keeps||||
+credential.key.rename	kind=change|	target="servers"	
+credential.key.show	kind=read|	target="servers"	
+credential.key.uninstall	kind=change|	target="servers"	dangerous|||it is the key komando logs in with|||
+credential.list	kind=read|	target=""	
+credential.password	kind=read|	target="servers"	
+credential.password.add	kind=change|	target="servers"	
+credential.password.remove	kind=change|	target="servers"	dangerous||deletes the saved password||||
+credential.password.rename	kind=change|	target="servers"	
+credential.password.show	kind=read|	target="servers"	
+credential.run	kind=depends|decided by the program it starts on this computer	target=""	safety|||an AI agent hands a saved secret to a program|||
+credential.token	kind=read|	target="servers"	
+credential.token.add	kind=change|	target="servers"	
+credential.token.remove	kind=change|	target="servers"	dangerous||deletes the saved token||||
+credential.token.rename	kind=change|	target="servers"	
+credential.token.show	kind=read|	target="servers"	
 db	kind=read|	target=""	
 db.activity	kind=read|	target=""	
 db.add	kind=change|	target=""	
@@ -146,10 +176,7 @@ help	kind=none	target=""
 host	kind=read|	target="servers"	
 host.add	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)|||
 host.ca	kind=read|	target="servers"	
-host.ca.add	kind=change|	target="servers"	person||trusts every server the CA signs||||
-host.ca.list	kind=read|	target="servers"	
 host.ca.revoke	kind=change|	target="servers"	
-host.ca.rm	kind=change|	target="servers"	
 host.edit	kind=change|	target="servers"	dangerous|||--proxy-command matches a destructive rule||| ; safety|with --proxy-command||an AI agent runs it (the proxy command runs on this computer)||| ; safety|with --protected=false|turns protection off||||
 host.list	kind=read|	target="servers"	
 host.rename	kind=change|	target="servers"	
@@ -167,16 +194,6 @@ job.rm	kind=change|	target="servers"
 job.start	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
 job.status	kind=read|	target="servers"	
 job.wait	kind=read|	target="servers"	
-key	kind=read|	target="servers"	
-key.add	kind=change|	target="servers"	
-key.deploy	kind=change|	target="servers"	person|with --public-key-file|lets a device's key log in to the server through komando's gate||||
-key.edit	kind=change|	target="servers"	
-key.gen	kind=change|	target="servers"	
-key.list	kind=read|	target="servers"	
-key.rename	kind=change|	target="servers"	
-key.revoke	kind=change|	target="servers"	dangerous|||it is the key komando logs in with|||
-key.rm	kind=change|	target="servers"	dangerous|with --delete-file|deletes the private key komando keeps||||
-key.show	kind=read|	target="servers"	
 komando	kind=none	target=""	
 list	kind=read|	target=""	
 login	kind=change|	target=""	person||||||
@@ -206,7 +223,9 @@ policy.show	kind=read|	target=""
 probe cache redis edit prod-redis --protected=false	safety|turns protection off||
 probe cluster kubernetes edit prod-k8s --protected=false	safety|turns protection off||
 probe cluster scale c1 web 0	dangerous|stops every copy of the app||
+probe config vault keychain	person|moves the key into the keychain||
 probe conn edit app-db --protected=false	safety|turns protection off||
+probe credential key remove k1 --delete-file	dangerous|deletes the private key komando keeps||
 probe export --for-phone	person|||
 probe export --sealed	person|||
 probe group rm big	change|||deleting a group of more than 3 members
@@ -216,15 +235,12 @@ probe host edit web1 --proxy-command nc	safety||an AI agent runs it (the proxy c
 probe host trust web1 --reset	person|replaces a pinned host key||
 probe import komando backup.json	person||the file is sealed (export --sealed): a person types its passphrase|
 probe import kubeconfig	safety||an AI agent imports a context whose login runs a program or sends a file of this computer|
-probe key deploy web1 --user anna --public-key-file k.pub	person|lets a device's key log in to the server through komando's gate||
-probe key rm k1 --delete-file	dangerous|deletes the private key komando keeps||
 probe pkg rm web1 openssh-server	dangerous|removes a package the server needs to run or to let you in||
 probe pkg upgrade web1 --security	dangerous||an update would remove a package the server needs|
 probe policy edit rm-root --off	safety|switches a rule off||
 probe queue kafka edit prod-kafka --protected=false	safety|turns protection off||
 probe recipe add r1 --overwrite --read-only	safety||it makes an existing snippet read-only|
 probe registry oci edit ghcr --protected=false	safety|turns protection off||
-probe secret keychain	person|moves the key into the keychain||
 probe storage s3 edit prod-s3 --protected=false	safety|turns protection off||
 probe sync ./site web1:/srv --delete	dangerous|deletes the files in DST that SRC does not have||
 probe vpn socks edit kantor --mfa=false	safety|turns --mfa off (komando may then connect it without a person)||
@@ -354,14 +370,6 @@ schema	kind=read|	target=""
 secret	kind=read|	target=""	
 secret.check	kind=read|	target=""	person||||||
 secret.cp	kind=change|	target=""	
-secret.keychain	kind=change|	target=""	safety|||it turns the keychain off||| ; person|without --off|moves the key into the keychain||||
-secret.list	kind=read|	target=""	
-secret.passphrase	kind=change|	target=""	person||||||
-secret.rename	kind=change|	target=""	
-secret.rm	kind=change|	target=""	dangerous||deletes the saved passwords||||
-secret.run	kind=depends|decided by the program it starts on this computer	target=""	safety|||an AI agent hands a saved secret to a program|||
-secret.set	kind=change|	target=""	
-secret.show	kind=read|	target=""	
 shell	kind=depends|an shellNote shell for a person: whatever they type	target="servers"	person||||||
 ssh-gate	kind=depends|runs the komando command an SSH key sent, when ssh-gate allows it	target=""	person||||||
 ssh-gate.line	kind=read|	target=""	

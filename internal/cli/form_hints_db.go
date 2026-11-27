@@ -31,7 +31,7 @@ var (
 		help: "A server that has pg_dump or mysqldump and can reach the database. Leave empty to use the server the database is reached through."}
 	dbPasswordRef = formFlag{name: "password-ref", ask: "Where is the password kept?", required: true,
 		example: "secret:app-ro-pass",
-		help:    "A secret reference, never the password itself. Save it first with `komando secret set app-ro-pass`, then type secret:app-ro-pass."}
+		help:    "A secret reference, never the password itself. Save it first with `komando credential password add app-ro-pass`, then type secret:app-ro-pass."}
 )
 
 // dbLookHints are the commands that only read.

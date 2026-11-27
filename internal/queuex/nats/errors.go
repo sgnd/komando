@@ -31,7 +31,7 @@ func connectErr(t driver.Target, err error) error {
 	case errors.Is(err, context.DeadlineExceeded) || errors.Is(err, natsgo.ErrTimeout) || queuex.IsTimeout(err):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address and the port (4222 is the client port; 8222 is monitoring, 6222 the cluster's own), or raise --connect-timeout", "connecting to %s timed out", t.Address)
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: use tls:// with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server",
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: use tls:// with ?ca=secret:NAME (`komando credential token add NAME < ca.pem`), or reach the server --via an SSH server",
 			"cannot connect to %s: %s", t.Address, msg)
 	case strings.Contains(low, "expected 'info'") || strings.Contains(low, "protocol") || strings.Contains(msg, "EOF") || strings.Contains(msg, "connection reset"):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check that this port speaks the NATS client protocol (4222 by default; not the monitoring port 8222 or a websocket port)",

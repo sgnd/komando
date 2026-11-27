@@ -128,7 +128,7 @@ func loginConflict(fl *pflag.FlagSet, name, login string, askPw, add bool) error
 		}
 	case store.LoginModeKey:
 		if add && !named {
-			return loginUsage("add --key NAME (see `komando key list`) or --identity PATH", "--login key needs the key")
+			return loginUsage("add --key NAME (see `komando credential key list`) or --identity PATH", "--login key needs the key")
 		}
 	case store.LoginModeAgent:
 		if stored || named {
@@ -161,7 +161,7 @@ func applyLogin(h *store.Host, mode string) error {
 	case got == mode:
 		return nil
 	case mode == store.LoginModeKey:
-		return loginUsage("add --key NAME (see `komando key list`) or --identity PATH", "%s has no key", h.Name)
+		return loginUsage("add --key NAME (see `komando credential key list`) or --identity PATH", "%s has no key", h.Name)
 	case mode == store.LoginModePassword:
 		return loginUsage("add --ask-password (type it now, hidden) or --password-ref REF", "%s has no stored password", h.Name)
 	default:
@@ -243,7 +243,7 @@ func checkConnLogin(c *store.Conn, k driver.Kind) error {
 func unlinkedWarnings(names []string) []string {
 	var w []string
 	for _, n := range names {
-		w = append(w, fmt.Sprintf("secret %s is no longer used by any server or conn; remove it with `komando secret rm %s` when you no longer need it", n, n))
+		w = append(w, fmt.Sprintf("secret %s is no longer used by any server or conn; remove it with `komando credential password remove %s` when you no longer need it", n, n))
 	}
 	return w
 }

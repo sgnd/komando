@@ -97,7 +97,7 @@ func TestHooksReadRunningCallsSafely(t *testing.T) {
 		results = append(results, res{who, strings.Join(args, " "), o.String(), e.String(), code})
 		mu.Unlock()
 	}
-	commands := [][]string{{"version"}, {"list"}, {"secret", "list"}}
+	commands := [][]string{{"version"}, {"list"}, {"credential", "list"}}
 
 	// rounds go on until the hooks ran beside both kinds of call, at least
 	// minRounds of them

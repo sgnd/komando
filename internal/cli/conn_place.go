@@ -129,7 +129,7 @@ func guardConnFile(cl *call, c *store.Conn) error {
 func guardDBFile(cl *call, p, what string) error {
 	if localSecret(cl, p) == komandoData {
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			"use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)",
+			"use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando credential list`)",
 			"%s is %s, not %s", p, komandoData, what).NoFlag()
 	}
 	if !cl.isAgent() {

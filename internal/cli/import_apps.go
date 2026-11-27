@@ -117,7 +117,7 @@ func importRclone(cl *call, path string) (*importPlan, error) {
 				h.Port = port
 			}
 			if kv["pass"] != "" {
-				p.Notes = append(p.Notes, name+": rclone keeps the password obscured; set it with `komando secret set "+n+"-pass` and `--password-ref`")
+				p.Notes = append(p.Notes, name+": rclone keeps the password obscured; set it with `komando credential password add "+n+"-pass` and `--password-ref`")
 			}
 			p.Hosts = append(p.Hosts, h)
 		case "":

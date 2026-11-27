@@ -1793,74 +1793,74 @@ Hint: for example: komando cluster swarm raw swarm1 -- service ls (more in `koma
 ### komando -o json config get (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"missing arguments; usage: komando config get SETTING","hint":"for example: komando config get parallel"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"config get takes SETTING","hint":"for example: komando config get parallel (more in `komando config get --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config get (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config get SETTING
-Hint: for example: komando config get parallel
+Error: config get takes SETTING
+Hint: for example: komando config get parallel (more in `komando config get --help`)
 (code USAGE, exit 2)
 ### komando -o json config get (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"missing arguments; usage: komando config get SETTING","hint":"for example: komando config get parallel"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.get","error":{"code":"USAGE","message":"config get takes SETTING","hint":"for example: komando config get parallel (more in `komando config get --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config get (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config get SETTING
-Hint: for example: komando config get parallel
+Error: config get takes SETTING
+Hint: for example: komando config get parallel (more in `komando config get --help`)
 (code USAGE, exit 2)
 ### komando -o json config set (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"config set takes SETTING VALUE","hint":"for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set SETTING VALUE
-Hint: for example: komando config set parallel 20
+Error: config set takes SETTING VALUE
+Hint: for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)
 (code USAGE, exit 2)
 ### komando -o json config set (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"config set takes SETTING VALUE","hint":"for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set SETTING VALUE
-Hint: for example: komando config set parallel 20
+Error: config set takes SETTING VALUE
+Hint: for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)
 (code USAGE, exit 2)
 ### komando -o json config set x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"config set takes SETTING VALUE","hint":"for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set SETTING VALUE
-Hint: for example: komando config set parallel 20
+Error: config set takes SETTING VALUE
+Hint: for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)
 (code USAGE, exit 2)
 ### komando -o json config set x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"missing arguments; usage: komando config set SETTING VALUE","hint":"for example: komando config set parallel 20"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"config.set","error":{"code":"USAGE","message":"config set takes SETTING VALUE","hint":"for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text config set x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando config set SETTING VALUE
-Hint: for example: komando config set parallel 20
+Error: config set takes SETTING VALUE
+Hint: for example: komando config set parallel 20 --dry-run (more in `komando config set --help`)
 (code USAGE, exit 2)
 ### komando -o json conn add (agent json)
 exit 2
@@ -2077,6 +2077,606 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando cp SRC DST
 Hint: for example: komando cp ./app.tar.gz @web:/tmp/app.tar.gz
+(code USAGE, exit 2)
+### komando -o json credential certificate add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.certificate.add","error":{"code":"USAGE","message":"credential certificate add takes NAME","hint":"for example: komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run (more in `komando credential certificate add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential certificate add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential certificate add takes NAME
+Hint: for example: komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run (more in `komando credential certificate add --help`)
+(code USAGE, exit 2)
+### komando -o json credential certificate add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.certificate.add","error":{"code":"USAGE","message":"credential certificate add takes NAME","hint":"for example: komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run (more in `komando credential certificate add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential certificate add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential certificate add takes NAME
+Hint: for example: komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run (more in `komando credential certificate add --help`)
+(code USAGE, exit 2)
+### komando -o json credential certificate remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.certificate.remove","error":{"code":"USAGE","message":"credential certificate remove takes NAME","hint":"for example: komando credential certificate remove corp --dry-run (more in `komando credential certificate remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential certificate remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential certificate remove takes NAME
+Hint: for example: komando credential certificate remove corp --dry-run (more in `komando credential certificate remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential certificate remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.certificate.remove","error":{"code":"USAGE","message":"credential certificate remove takes NAME","hint":"for example: komando credential certificate remove corp --dry-run (more in `komando credential certificate remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential certificate remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential certificate remove takes NAME
+Hint: for example: komando credential certificate remove corp --dry-run (more in `komando credential certificate remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential key add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.add","error":{"code":"USAGE","message":"credential key add takes NAME FILE","hint":"for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key add takes NAME FILE
+Hint: for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)
+(code USAGE, exit 2)
+### komando -o json credential key add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.add","error":{"code":"USAGE","message":"credential key add takes NAME FILE","hint":"for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key add takes NAME FILE
+Hint: for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)
+(code USAGE, exit 2)
+### komando -o json credential key add x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.add","error":{"code":"USAGE","message":"credential key add takes NAME FILE","hint":"for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key add x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key add takes NAME FILE
+Hint: for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)
+(code USAGE, exit 2)
+### komando -o json credential key add x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.add","error":{"code":"USAGE","message":"credential key add takes NAME FILE","hint":"for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key add x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key add takes NAME FILE
+Hint: for example: komando credential key add personal ~/.ssh/id_ed25519 --dry-run (more in `komando credential key add --help`)
+(code USAGE, exit 2)
+### komando -o json credential key create (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.create","error":{"code":"USAGE","message":"credential key create takes NAME","hint":"for example: komando credential key create deploy --dry-run (more in `komando credential key create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key create (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key create takes NAME
+Hint: for example: komando credential key create deploy --dry-run (more in `komando credential key create --help`)
+(code USAGE, exit 2)
+### komando -o json credential key create (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.create","error":{"code":"USAGE","message":"credential key create takes NAME","hint":"for example: komando credential key create deploy --dry-run (more in `komando credential key create --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key create (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key create takes NAME
+Hint: for example: komando credential key create deploy --dry-run (more in `komando credential key create --help`)
+(code USAGE, exit 2)
+### komando -o json credential key edit (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.edit","error":{"code":"USAGE","message":"credential key edit takes NAME","hint":"for example: komando credential key edit work --passphrase-credential work-key-pass --dry-run (more in `komando credential key edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key edit (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key edit takes NAME
+Hint: for example: komando credential key edit work --passphrase-credential work-key-pass --dry-run (more in `komando credential key edit --help`)
+(code USAGE, exit 2)
+### komando -o json credential key edit (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.edit","error":{"code":"USAGE","message":"credential key edit takes NAME","hint":"for example: komando credential key edit work --passphrase-credential work-key-pass --dry-run (more in `komando credential key edit --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key edit (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key edit takes NAME
+Hint: for example: komando credential key edit work --passphrase-credential work-key-pass --dry-run (more in `komando credential key edit --help`)
+(code USAGE, exit 2)
+### komando -o json credential key install (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key install (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key install takes NAME TARGET
+Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
+(code USAGE, exit 2)
+### komando -o json credential key install (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key install (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key install takes NAME TARGET
+Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
+(code USAGE, exit 2)
+### komando -o json credential key install x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key install x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key install takes NAME TARGET
+Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
+(code USAGE, exit 2)
+### komando -o json credential key install x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.install","error":{"code":"USAGE","message":"credential key install takes NAME TARGET","hint":"for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key install x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key install takes NAME TARGET
+Hint: for example: komando credential key install deploy @web --dry-run (more in `komando credential key install --help`)
+(code USAGE, exit 2)
+### komando -o json credential key remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.remove","error":{"code":"USAGE","message":"credential key remove takes NAME","hint":"for example: komando credential key remove old-ci --dry-run (more in `komando credential key remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key remove takes NAME
+Hint: for example: komando credential key remove old-ci --dry-run (more in `komando credential key remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential key remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.remove","error":{"code":"USAGE","message":"credential key remove takes NAME","hint":"for example: komando credential key remove old-ci --dry-run (more in `komando credential key remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key remove takes NAME
+Hint: for example: komando credential key remove old-ci --dry-run (more in `komando credential key remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential key rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.rename","error":{"code":"USAGE","message":"credential key rename takes NAME NEW","hint":"for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key rename takes NAME NEW
+Hint: for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential key rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.rename","error":{"code":"USAGE","message":"credential key rename takes NAME NEW","hint":"for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key rename takes NAME NEW
+Hint: for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential key rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.rename","error":{"code":"USAGE","message":"credential key rename takes NAME NEW","hint":"for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key rename takes NAME NEW
+Hint: for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential key rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.rename","error":{"code":"USAGE","message":"credential key rename takes NAME NEW","hint":"for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key rename takes NAME NEW
+Hint: for example: komando credential key rename old-ci ci --dry-run (more in `komando credential key rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential key show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.show","error":{"code":"USAGE","message":"credential key show takes NAME","hint":"for example: komando credential key show deploy (more in `komando credential key show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key show takes NAME
+Hint: for example: komando credential key show deploy (more in `komando credential key show --help`)
+(code USAGE, exit 2)
+### komando -o json credential key show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.show","error":{"code":"USAGE","message":"credential key show takes NAME","hint":"for example: komando credential key show deploy (more in `komando credential key show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key show takes NAME
+Hint: for example: komando credential key show deploy (more in `komando credential key show --help`)
+(code USAGE, exit 2)
+### komando -o json credential key uninstall (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.uninstall","error":{"code":"USAGE","message":"credential key uninstall takes NAME TARGET","hint":"for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key uninstall (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key uninstall takes NAME TARGET
+Hint: for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)
+(code USAGE, exit 2)
+### komando -o json credential key uninstall (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.uninstall","error":{"code":"USAGE","message":"credential key uninstall takes NAME TARGET","hint":"for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key uninstall (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key uninstall takes NAME TARGET
+Hint: for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)
+(code USAGE, exit 2)
+### komando -o json credential key uninstall x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.uninstall","error":{"code":"USAGE","message":"credential key uninstall takes NAME TARGET","hint":"for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key uninstall x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key uninstall takes NAME TARGET
+Hint: for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)
+(code USAGE, exit 2)
+### komando -o json credential key uninstall x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.key.uninstall","error":{"code":"USAGE","message":"credential key uninstall takes NAME TARGET","hint":"for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential key uninstall x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential key uninstall takes NAME TARGET
+Hint: for example: komando credential key uninstall ~/keys/alice.pub @web --dry-run (more in `komando credential key uninstall --help`)
+(code USAGE, exit 2)
+### komando -o json credential password add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.add","error":{"code":"USAGE","message":"credential password add takes NAME","hint":"for example: komando credential password add web1-pass --dry-run (more in `komando credential password add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password add takes NAME
+Hint: for example: komando credential password add web1-pass --dry-run (more in `komando credential password add --help`)
+(code USAGE, exit 2)
+### komando -o json credential password add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.add","error":{"code":"USAGE","message":"credential password add takes NAME","hint":"for example: komando credential password add web1-pass --dry-run (more in `komando credential password add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password add takes NAME
+Hint: for example: komando credential password add web1-pass --dry-run (more in `komando credential password add --help`)
+(code USAGE, exit 2)
+### komando -o json credential password remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.remove","error":{"code":"USAGE","message":"credential password remove takes NAME...","hint":"for example: komando credential password remove db-pass --dry-run (more in `komando credential password remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password remove takes NAME...
+Hint: for example: komando credential password remove db-pass --dry-run (more in `komando credential password remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential password remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.remove","error":{"code":"USAGE","message":"credential password remove takes NAME...","hint":"for example: komando credential password remove db-pass --dry-run (more in `komando credential password remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password remove takes NAME...
+Hint: for example: komando credential password remove db-pass --dry-run (more in `komando credential password remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential password rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.rename","error":{"code":"USAGE","message":"credential password rename takes NAME NEW","hint":"for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password rename takes NAME NEW
+Hint: for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential password rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.rename","error":{"code":"USAGE","message":"credential password rename takes NAME NEW","hint":"for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password rename takes NAME NEW
+Hint: for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential password rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.rename","error":{"code":"USAGE","message":"credential password rename takes NAME NEW","hint":"for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password rename takes NAME NEW
+Hint: for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential password rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.rename","error":{"code":"USAGE","message":"credential password rename takes NAME NEW","hint":"for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password rename takes NAME NEW
+Hint: for example: komando credential password rename db-pass db-pass-old --dry-run (more in `komando credential password rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential password show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.show","error":{"code":"USAGE","message":"credential password show takes NAME","hint":"for example: komando credential password show db-pass (more in `komando credential password show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password show takes NAME
+Hint: for example: komando credential password show db-pass (more in `komando credential password show --help`)
+(code USAGE, exit 2)
+### komando -o json credential password show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.password.show","error":{"code":"USAGE","message":"credential password show takes NAME","hint":"for example: komando credential password show db-pass (more in `komando credential password show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential password show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential password show takes NAME
+Hint: for example: komando credential password show db-pass (more in `komando credential password show --help`)
+(code USAGE, exit 2)
+### komando -o json credential run (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.run","error":{"code":"USAGE","message":"credential run takes -- COMMAND...","hint":"for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential run (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential run takes -- COMMAND...
+Hint: for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)
+(code USAGE, exit 2)
+### komando -o json credential run (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.run","error":{"code":"USAGE","message":"credential run takes -- COMMAND...","hint":"for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential run (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential run takes -- COMMAND...
+Hint: for example: komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh (more in `komando credential run --help`)
+(code USAGE, exit 2)
+### komando -o json credential token add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.add","error":{"code":"USAGE","message":"credential token add takes NAME","hint":"for example: komando credential token add gh-token --dry-run (more in `komando credential token add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token add takes NAME
+Hint: for example: komando credential token add gh-token --dry-run (more in `komando credential token add --help`)
+(code USAGE, exit 2)
+### komando -o json credential token add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.add","error":{"code":"USAGE","message":"credential token add takes NAME","hint":"for example: komando credential token add gh-token --dry-run (more in `komando credential token add --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token add takes NAME
+Hint: for example: komando credential token add gh-token --dry-run (more in `komando credential token add --help`)
+(code USAGE, exit 2)
+### komando -o json credential token remove (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.remove","error":{"code":"USAGE","message":"credential token remove takes NAME...","hint":"for example: komando credential token remove api-token --dry-run (more in `komando credential token remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token remove (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token remove takes NAME...
+Hint: for example: komando credential token remove api-token --dry-run (more in `komando credential token remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential token remove (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.remove","error":{"code":"USAGE","message":"credential token remove takes NAME...","hint":"for example: komando credential token remove api-token --dry-run (more in `komando credential token remove --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token remove (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token remove takes NAME...
+Hint: for example: komando credential token remove api-token --dry-run (more in `komando credential token remove --help`)
+(code USAGE, exit 2)
+### komando -o json credential token rename (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token rename (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token rename takes NAME NEW
+Hint: for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential token rename (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token rename (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token rename takes NAME NEW
+Hint: for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential token rename x1 (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token rename x1 (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token rename takes NAME NEW
+Hint: for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential token rename x1 (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token rename x1 (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token rename takes NAME NEW
+Hint: for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)
+(code USAGE, exit 2)
+### komando -o json credential token show (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.show","error":{"code":"USAGE","message":"credential token show takes NAME","hint":"for example: komando credential token show api-token (more in `komando credential token show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token show (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token show takes NAME
+Hint: for example: komando credential token show api-token (more in `komando credential token show --help`)
+(code USAGE, exit 2)
+### komando -o json credential token show (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"credential.token.show","error":{"code":"USAGE","message":"credential token show takes NAME","hint":"for example: komando credential token show api-token (more in `komando credential token show --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text credential token show (script text)
+exit 2
+--- stdout
+--- stderr
+Error: credential token show takes NAME
+Hint: for example: komando credential token show api-token (more in `komando credential token show --help`)
 (code USAGE, exit 2)
 ### komando -o json db activity (agent json)
 exit 2
@@ -3974,54 +4574,6 @@ exit 2
 Error: komando host add needs a name and what to add
 Hint: for example: komando host add web1 deploy@10.0.0.5. A person can type `komando host add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
-### komando -o json host ca add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"host.ca.add","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca add NAME","hint":"for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host ca add (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host ca add NAME
-Hint: for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
-(code USAGE, exit 2)
-### komando -o json host ca add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"host.ca.add","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca add NAME","hint":"for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host ca add (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host ca add NAME
-Hint: for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
-(code USAGE, exit 2)
-### komando -o json host ca rm (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"host.ca.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca rm NAME","hint":"for example: komando host ca rm corp"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host ca rm (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host ca rm NAME
-Hint: for example: komando host ca rm corp
-(code USAGE, exit 2)
-### komando -o json host ca rm (script json)
-exit 2
---- stdout
-{"ok":false,"command":"host.ca.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca rm NAME","hint":"for example: komando host ca rm corp"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text host ca rm (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando host ca rm NAME
-Hint: for example: komando host ca rm corp
-(code USAGE, exit 2)
 ### komando -o json host edit (agent json)
 exit 2
 --- stdout
@@ -4381,294 +4933,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando job wait JOB...
 Hint: for example: komando job wait j1103-101500-ab12cd34 --timeout 30m
-(code USAGE, exit 2)
-### komando -o json key add (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key add (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key add NAME FILE
-Hint: for example: komando key add personal ~/.ssh/id_ed25519
-(code USAGE, exit 2)
-### komando -o json key add (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key add (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key add NAME FILE
-Hint: for example: komando key add personal ~/.ssh/id_ed25519
-(code USAGE, exit 2)
-### komando -o json key add x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key add x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key add NAME FILE
-Hint: for example: komando key add personal ~/.ssh/id_ed25519
-(code USAGE, exit 2)
-### komando -o json key add x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.add","error":{"code":"USAGE","message":"missing arguments; usage: komando key add NAME FILE","hint":"for example: komando key add personal ~/.ssh/id_ed25519"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key add x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key add NAME FILE
-Hint: for example: komando key add personal ~/.ssh/id_ed25519
-(code USAGE, exit 2)
-### komando -o json key deploy (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key deploy (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key deploy NAME TARGET
-Hint: for example: komando key gen deploy && komando key deploy deploy @web --set-default
-(code USAGE, exit 2)
-### komando -o json key deploy (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key deploy (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key deploy NAME TARGET
-Hint: for example: komando key gen deploy && komando key deploy deploy @web --set-default
-(code USAGE, exit 2)
-### komando -o json key deploy x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key deploy x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key deploy NAME TARGET
-Hint: for example: komando key gen deploy && komando key deploy deploy @web --set-default
-(code USAGE, exit 2)
-### komando -o json key deploy x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.deploy","error":{"code":"USAGE","message":"missing arguments; usage: komando key deploy NAME TARGET","hint":"for example: komando key gen deploy && komando key deploy deploy @web --set-default"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key deploy x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key deploy NAME TARGET
-Hint: for example: komando key gen deploy && komando key deploy deploy @web --set-default
-(code USAGE, exit 2)
-### komando -o json key edit (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando key edit NAME","hint":"for example: komando secret set work-key-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key edit (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key edit NAME
-Hint: for example: komando secret set work-key-pass
-(code USAGE, exit 2)
-### komando -o json key edit (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.edit","error":{"code":"USAGE","message":"missing arguments; usage: komando key edit NAME","hint":"for example: komando secret set work-key-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key edit (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key edit NAME
-Hint: for example: komando secret set work-key-pass
-(code USAGE, exit 2)
-### komando -o json key gen (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.gen","error":{"code":"USAGE","message":"missing arguments; usage: komando key gen NAME","hint":"for example: komando key gen deploy && komando key deploy deploy @web"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key gen (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key gen NAME
-Hint: for example: komando key gen deploy && komando key deploy deploy @web
-(code USAGE, exit 2)
-### komando -o json key gen (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.gen","error":{"code":"USAGE","message":"missing arguments; usage: komando key gen NAME","hint":"for example: komando key gen deploy && komando key deploy deploy @web"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key gen (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key gen NAME
-Hint: for example: komando key gen deploy && komando key deploy deploy @web
-(code USAGE, exit 2)
-### komando -o json key rename (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key rename (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key rename OLD NEW
-Hint: for example: komando key rename deploy deploy-2026
-(code USAGE, exit 2)
-### komando -o json key rename (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key rename (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key rename OLD NEW
-Hint: for example: komando key rename deploy deploy-2026
-(code USAGE, exit 2)
-### komando -o json key rename x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key rename x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key rename OLD NEW
-Hint: for example: komando key rename deploy deploy-2026
-(code USAGE, exit 2)
-### komando -o json key rename x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key rename x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key rename OLD NEW
-Hint: for example: komando key rename deploy deploy-2026
-(code USAGE, exit 2)
-### komando -o json key revoke (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/alice.pub @prod --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key revoke (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key revoke NAME TARGET
-Hint: for example: komando key revoke ~/keys/alice.pub @prod --dry-run
-(code USAGE, exit 2)
-### komando -o json key revoke (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/alice.pub @prod --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key revoke (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key revoke NAME TARGET
-Hint: for example: komando key revoke ~/keys/alice.pub @prod --dry-run
-(code USAGE, exit 2)
-### komando -o json key revoke x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/alice.pub @prod --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key revoke x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key revoke NAME TARGET
-Hint: for example: komando key revoke ~/keys/alice.pub @prod --dry-run
-(code USAGE, exit 2)
-### komando -o json key revoke x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.revoke","error":{"code":"USAGE","message":"missing arguments; usage: komando key revoke NAME TARGET","hint":"for example: komando key revoke ~/keys/alice.pub @prod --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key revoke x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key revoke NAME TARGET
-Hint: for example: komando key revoke ~/keys/alice.pub @prod --dry-run
-(code USAGE, exit 2)
-### komando -o json key rm (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando key rm NAME","hint":"for example: komando key rm old-deploy"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key rm (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key rm NAME
-Hint: for example: komando key rm old-deploy
-(code USAGE, exit 2)
-### komando -o json key rm (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando key rm NAME","hint":"for example: komando key rm old-deploy"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key rm (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key rm NAME
-Hint: for example: komando key rm old-deploy
-(code USAGE, exit 2)
-### komando -o json key show (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"key.show","error":{"code":"USAGE","message":"missing arguments; usage: komando key show NAME","hint":"for example: komando key show deploy"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key show (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key show NAME
-Hint: for example: komando key show deploy
-(code USAGE, exit 2)
-### komando -o json key show (script json)
-exit 2
---- stdout
-{"ok":false,"command":"key.show","error":{"code":"USAGE","message":"missing arguments; usage: komando key show NAME","hint":"for example: komando key show deploy"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text key show (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando key show NAME
-Hint: for example: komando key show deploy
 (code USAGE, exit 2)
 ### komando -o json logs (agent json)
 exit 2
@@ -8341,150 +8605,6 @@ exit 2
 --- stderr
 Error: missing arguments; usage: komando secret cp OLD NEW
 Hint: for example: komando secret cp db-pass db-pass-old
-(code USAGE, exit 2)
-### komando -o json secret rename (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret rename (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret rename OLD NEW
-Hint: for example: komando secret rename vpn-password office-vpn-pass --dry-run
-(code USAGE, exit 2)
-### komando -o json secret rename (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret rename (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret rename OLD NEW
-Hint: for example: komando secret rename vpn-password office-vpn-pass --dry-run
-(code USAGE, exit 2)
-### komando -o json secret rename x1 (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret rename x1 (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret rename OLD NEW
-Hint: for example: komando secret rename vpn-password office-vpn-pass --dry-run
-(code USAGE, exit 2)
-### komando -o json secret rename x1 (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret rename x1 (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret rename OLD NEW
-Hint: for example: komando secret rename vpn-password office-vpn-pass --dry-run
-(code USAGE, exit 2)
-### komando -o json secret rm (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rm NAME...","hint":"for example: komando secret rm old-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret rm (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret rm NAME...
-Hint: for example: komando secret rm old-pass
-(code USAGE, exit 2)
-### komando -o json secret rm (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rm NAME...","hint":"for example: komando secret rm old-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret rm (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret rm NAME...
-Hint: for example: komando secret rm old-pass
-(code USAGE, exit 2)
-### komando -o json secret run (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret run (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret run -- COMMAND [ARGS...]
-Hint: for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-(code USAGE, exit 2)
-### komando -o json secret run (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret run (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret run -- COMMAND [ARGS...]
-Hint: for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-(code USAGE, exit 2)
-### komando -o json secret set (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.set","error":{"code":"USAGE","message":"missing arguments; usage: komando secret set NAME","hint":"for example: komando secret set web1-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret set (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret set NAME
-Hint: for example: komando secret set web1-pass
-(code USAGE, exit 2)
-### komando -o json secret set (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.set","error":{"code":"USAGE","message":"missing arguments; usage: komando secret set NAME","hint":"for example: komando secret set web1-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret set (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret set NAME
-Hint: for example: komando secret set web1-pass
-(code USAGE, exit 2)
-### komando -o json secret show (agent json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.show","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret show (agent text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret show NAME
-Hint: for example: komando secret show db-pass
-(code USAGE, exit 2)
-### komando -o json secret show (script json)
-exit 2
---- stdout
-{"ok":false,"command":"secret.show","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text secret show (script text)
-exit 2
---- stdout
---- stderr
-Error: missing arguments; usage: komando secret show NAME
-Hint: for example: komando secret show db-pass
 (code USAGE, exit 2)
 ### komando -o json shell (agent json)
 exit 2
@@ -16166,48 +16286,48 @@ exit 2
 Error: "gcp" cannot be a VPN name: `komando login gcp` is the cloud login
 Hint: pick another name, for example gcp-1
 (code USAGE, exit 2)
-### komando -o json secret rm gsec (agent json, release note)
+### komando -o json credential password remove gsec (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.password.remove","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text secret rm gsec (agent text, release note)
+### komando -o text credential password remove gsec (agent text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json secret rm gsec (script json, release note)
+### komando -o json credential password remove gsec (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"secret.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json secret rm gsec --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.password.remove","error":{"code":"POLICY_BLOCKED","message":"deletes the saved secret gsec for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json credential password remove gsec --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text secret rm gsec (script text, release note)
+### komando -o text credential password remove gsec (script text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json key rm gkey --delete-file (agent json, release note)
+### komando -o json credential key remove gkey --delete-file (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the private key of gkey for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.key.remove","error":{"code":"POLICY_BLOCKED","message":"deletes the private key of gkey for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text key rm gkey --delete-file (agent text, release note)
+### komando -o text credential key remove gkey --delete-file (agent text, release note)
 exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)
 (code POLICY_BLOCKED, exit 6)
-### komando -o json key rm gkey --delete-file (script json, release note)
+### komando -o json credential key remove gkey --delete-file (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the private key of gkey for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json key rm gkey --delete-file --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.key.remove","error":{"code":"POLICY_BLOCKED","message":"deletes the private key of gkey for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json credential key remove gkey --delete-file --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
-### komando -o text key rm gkey --delete-file (script text, release note)
+### komando -o text credential key remove gkey --delete-file (script text, release note)
 exit 6
 --- stdout
 --- stderr

@@ -91,6 +91,11 @@ func mountTable(root *cobra.Command) {
 	if err := mountLeaves(root, leaves, handlers, groupShorts); err != nil {
 		panic("komando: " + err.Error())
 	}
+	for _, c := range root.Commands() {
+		if g := helpGroups[c.Name()]; g != "" && c.GroupID == "" {
+			c.GroupID = g
+		}
+	}
 }
 
 // hideCarried takes out of today's tree each command whose ID every built
@@ -413,14 +418,18 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 // reference to a secret. Row E1 renames it to credential:NAME; this is the
 // one place that changes.
 func credentialRef(name string) string {
+	if name == "" {
+		return "" // an empty value clears the setting
+	}
 	if strings.Contains(name, ":") { // a name never has a colon: this is a whole reference (env:VAR, op://...)
 		return name
 	}
 	return "secret:" + name
 }
 
-// unsetWords are the words of --unset that today's bodies spell otherwise.
-var unsetWords = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref"}
+// credentialFlags are the table's credential options that today's bodies
+// take as a reference under another name.
+var credentialFlags = map[string]string{"credential": "password-ref", "psk-credential": "psk-ref", "passphrase-credential": "passphrase-ref"}
 
 // bodyArgv is the flags the leaf was given, then its arguments, with `--`
 // where it was typed.
@@ -437,11 +446,8 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 		switch p := in.vals[name].(type) {
 		case *string:
 			v := *p
-			switch name {
-			case "credential":
-				flag, v = "password-ref", credentialRef(v)
-			case "psk-credential":
-				flag, v = "psk-ref", credentialRef(v)
+			if to, ok := credentialFlags[name]; ok {
+				flag, v = to, credentialRef(v)
 			}
 			argv = append(argv, "--"+flag+"="+v)
 		case *bool:
@@ -454,7 +460,7 @@ func bodyArgv(in leafInput, renames map[string]string) []string {
 			argv = append(argv, "--"+flag+"="+p.String())
 		case *[]string:
 			for _, v := range *p {
-				if to, ok := unsetWords[v]; ok && name == "unset" {
+				if to, ok := credentialFlags[v]; ok && name == "unset" {
 					v = to
 				}
 				argv = append(argv, "--"+flag+"="+v)

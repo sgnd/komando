@@ -161,7 +161,7 @@ func fakeKind(t *testing.T, id string, kind cmdKind) {
 // that has one (TestSafetyTablesPinned pins what they give).
 var whenProbes = []string{
 	"cluster scale c1 web 0",
-	"key rm k1 --delete-file",
+	"credential key remove k1 --delete-file",
 	"pkg rm web1 openssh-server",
 	"sync ./site web1:/srv --delete",
 	"pkg upgrade web1 --security",
@@ -178,11 +178,11 @@ var whenProbes = []string{
 	"host edit web1 --proxy-command nc",
 	"import kubeconfig",
 	"recipe add r1 --overwrite --read-only",
-	"secret keychain",
+	"config vault keychain",
 	"host trust web1 --reset",
 	"export --sealed",
 	"export --for-phone",
-	"key deploy web1 --user anna --public-key-file k.pub",
+	"credential key install web1 --user anna --public-key-file k.pub",
 	"import komando backup.json",
 	"group rm big",
 	"policy edit rm-root --off",

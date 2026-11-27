@@ -37,7 +37,7 @@ func checkHost(cl *call, s *store.State, h *store.Host) error {
 	}
 	if h.Identity != "" {
 		if _, err := os.Stat(inventory.ExpandHome(h.Identity)); err != nil {
-			return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, or register it with `komando key add NAME FILE` and use --key",
+			return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, or register it with `komando credential key add NAME FILE` and use --key",
 				"identity file %s: %v", h.Identity, errText(err))
 		}
 	}
@@ -127,8 +127,8 @@ func viaNames(s *store.State) []string {
 func checkPassphraseRef(ref string) error {
 	if ref != "" && !vault.ValidRef(ref) {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the passphrase with `komando secret set NAME` and pass --passphrase-ref secret:NAME ("+vault.RefHelp()+")",
-			"--passphrase-ref takes a reference, not the passphrase itself")
+			"store the passphrase with `komando credential password add NAME` and pass --passphrase-credential NAME",
+			"--passphrase-credential takes the name of a saved password, not the passphrase itself")
 	}
 	return nil
 }
@@ -247,7 +247,7 @@ type hostResult struct {
 	Warnings []string `json:"warnings,omitempty"`
 	Next     string   `json:"next,omitempty"` // add: the command to run next
 	// SecretsUnused: edit --login ask or agent let go of these stored passwords;
-	// they stay in the vault (`komando secret rm NAME`)
+	// they stay in the vault (`komando credential password remove NAME`)
 	SecretsUnused []string `json:"secrets_unused,omitempty"`
 }
 
@@ -271,7 +271,7 @@ type connResult struct {
 	Warnings []string `json:"warnings,omitempty"`
 	Next     string   `json:"next,omitempty"` // add: the command to run next
 	// SecretsUnused: edit --login ask or none let go of this stored
-	// password; it stays in the vault (`komando secret rm NAME`)
+	// password; it stays in the vault (`komando credential password remove NAME`)
 	SecretsUnused []string `json:"secrets_unused,omitempty"`
 }
 

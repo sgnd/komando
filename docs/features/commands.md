@@ -382,8 +382,8 @@ Next time: komando logs web1
   next, on one line on stderr with at most three commands (`Next: komando
   db info prod-db`). Every add, edit, rename and rm has one. Nothing "next"
   is printed on stdout; scripts and agents read `data.next`. `komando host
-  show web1` (`conn show`, `vpn KIND show`, `group list GROUP`, `key show`,
-  `job status`, `secret show`, `config get`) ends with the commands for
+  show web1` (`conn show`, `vpn KIND show`, `group list GROUP`, `credential key show`,
+  `job status`, `credential password show`, `config get`) ends with the commands for
   that item.
 
 `komando` alone shows the commands by group, START first. A command typed

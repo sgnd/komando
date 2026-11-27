@@ -109,7 +109,7 @@ func TestGateServerRules(t *testing.T) {
 		"komando exec localhost -- id":                 "shell",
 		"komando exec localhost --read-only -- id":     "shell",
 		"komando job start localhost -- id":            "shell",
-		"komando key list":                             "only",
+		"komando credential key list":                  "only",
 		"komando fs write localhost ~/work/x --from -": "only",
 		"komando db query pg 'select 1'":               "only",
 		"komando pkg installed web1":                   "not this server",

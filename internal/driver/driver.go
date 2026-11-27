@@ -262,7 +262,7 @@ func Parse(raw string) (Target, error) {
 	}
 	if _, has := u.User.Password(); has || hasPasswordParam(u.Query()) {
 		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
-			"remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
+			"remove the password from the URL, store it with `komando credential password add NAME`, then pass --password-ref secret:NAME",
 			"a conn URL holds no password")
 	}
 	t := Target{Kind: k}
@@ -366,7 +366,7 @@ func parseRegistryOptions(q url.Values, t *Target) error {
 	name, ok := strings.CutPrefix(t.CA, "secret:")
 	if !ok || name == "" {
 		return out.Errf(out.ExitUsage, "USAGE",
-			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
+			"store the CA certificate with `komando credential token add NAME < ca.crt`, then use ?ca=secret:NAME",
 			"the registry ca option takes secret:NAME, not %q", t.CA)
 	}
 	if t.TLS != "" {

@@ -6,8 +6,8 @@
 # e2e_sales database and drops it at the end.
 set +e
 MSC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
-printf 'Sales-pass-1' | $K secret set mssql-sa >/dev/null
-printf 'Ro-pass-1x' | $K secret set mssql-ro >/dev/null
+printf 'Sales-pass-1' | $K credential password add mssql-sa >/dev/null
+printf 'Ro-pass-1x' | $K credential password add mssql-ro >/dev/null
 q $K conn add sa-mssql 'sqlserver://sa@mssql:1433/master' --via bastion --password-ref secret:mssql-sa
 # SQL Server takes a while to start, longer when emulated
 for _ in $(seq 1 120); do [ "$($K conn test sa-mssql | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
@@ -19,7 +19,7 @@ fi
 if [ "$(MSC ps -q --status running mssql 2>/dev/null)" = "" ]; then
   skipped "mssql is not running here (an arm64 machine under QEMU? see E2E_MSSQL_IMAGE in compose.yml)"
   q $K conn rm sa-mssql
-  $K secret rm mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
+  $K credential password remove mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -58,5 +58,5 @@ check "no sqlserver password in the audit log" 0 "$(audit_text | grep -c -E 'Sal
 q $K conn rm ro-mssql shop-mssql
 q $K db query sa-mssql --write --allow-dangerous 'drop database e2e_sales'
 q $K conn rm sa-mssql
-$K secret rm mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
+$K credential password remove mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

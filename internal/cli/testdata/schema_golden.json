@@ -1957,7 +1957,7 @@
         "usage": "komando config approval-code [flags]",
         "short": "Ask for an authenticator app code in the approval window (person only)",
         "long": "Sets up a one-time code (TOTP, like a bank or GitHub login) for komando's\n\"Allow once\" window: once on, allowing an AI agent's --yes,\n--allow-dangerous or --reveal needs the 6-digit code from the authenticator\napp on your phone, not just a click. On macOS the window asks for Touch ID,\nan Apple Watch or your login password instead and does not use the code; it\nstays set for Linux, BSD and Windows on the same vault. Only a person at a\nterminal can turn it on (the secret is shown once, here); turning it off\nneeds --yes, so that code too.\n\nSafety: only a person at a terminal can run it.",
-        "example": "  komando config approval-code          # shows a secret to add to your authenticator app\n  komando config approval-code --dry-run\n  komando config approval-code --off --dry-run\n  komando config approval-code --off --yes   # after a person's yes",
+        "example": "  komando config approval-code   # shows a secret to add to your authenticator app\n  komando config approval-code --off --dry-run\n  komando config approval-code --off --yes   # after a person's yes",
         "flags": [
           {
             "name": "off",
@@ -1991,8 +1991,8 @@
         "path": "komando config set",
         "usage": "komando config set SETTING VALUE [flags]",
         "short": "Change a setting",
-        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn KIND start` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off: it weakens a safety check: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
-        "example": "  komando config set parallel 20\n  komando config set parallel 20 --dry-run\n  komando config set default_timeout 10m\n  komando config set host_key_policy strict\n  komando config set audit_sql hash",
+        "long": "Settings:\n  host_key_policy  accept-new | strict | off\n      how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)\n  default_user     a login name\n      user for servers that have none (empty: your own user name)\n  default_timeout  duration > 0\n      how long a remote command may run (--timeout overrides it)\n  connect_timeout  duration > 0\n      how long connecting may take (--connect-timeout overrides it)\n  parallel         1 or more\n      how many servers a command works on at once (-P overrides it)\n  max_output_bytes 1024 or more\n      output kept per stream and server, in bytes (--max-output overrides it)\n  audit            on | off\n      keep the audit log (turning it off needs --yes)\n  audit_sql        full | hash | off\n      how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)\n  audit_syslog     udp://HOST:514 | tcp://HOST:514 | tls://HOST:6514 | off\n      also send each audit record to a log server (syslog, RFC 5424); changing it needs --yes\n  mask_personal    protected | all | off\n      where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)\n  login_for        duration\n      how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)\n  approval_languageauto | en | id\n      the language of the approval window: auto follows the system language (Indonesian when it is id, else English)\n  vpn_idle         duration, 0 = never\n      a VPN kept up with `vpn up` is closed after this long unused\n\nSafety: a change; try it with --dry-run first; when the setting turns a\ncheck off: it weakens a safety check: a person's yes (--yes).\n\nTo go back to a default, set the value from the DEFAULT column of `komando\nconfig show`.",
+        "example": "  komando config set parallel 20 --dry-run\n  komando config set parallel 20\n  komando config set default_timeout 10m\n  komando config set audit_sql hash",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -2010,7 +2010,7 @@
         "path": "komando config show",
         "usage": "komando config show [flags]",
         "short": "Show settings, their defaults and file locations",
-        "example": "  komando config show",
+        "example": "  komando config show\n  komando config show -o json",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -2020,10 +2020,76 @@
         ]
       },
       {
+        "path": "komando config vault",
+        "usage": "komando config vault [flags]",
+        "short": "The vault: keep its key in the OS keychain, or change its passphrase",
+        "example": "  komando config vault keychain --dry-run\n  komando config vault keychain\n  komando config vault passphrase   # asks for the new passphrase twice, hidden",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando config vault keychain",
+        "usage": "komando config vault keychain [flags]",
+        "short": "Keep the vault key in the OS keychain instead of store.key",
+        "long": "Moves the vault's key out of the store.key file into the operating system's\nkeychain, so a copy of ~/.komando (a backup, a synced folder) no longer\nopens the vault or its secrets. The vault gets a new key as it moves, so a\ncopy of store.key made before opens nothing either, and the vault keeps\nevery secret. --off moves the key back into store.key, which needs --yes.\n\nSafety: a change; try it with --dry-run first; when it turns the keychain\noff: it weakens a safety check: a person's yes (--yes); without --off: only\na person at a terminal can run it.\n\nOnly a person at a terminal moves the key in: the keychain may ask them to\nunlock it, and an AI agent or a script cannot answer that.",
+        "example": "  komando config vault keychain --dry-run\n  komando config vault keychain\n  komando config vault keychain --off --dry-run\n  komando config vault keychain --off --yes   # after a person's yes",
+        "flags": [
+          {
+            "name": "off",
+            "type": "bool",
+            "default": "false",
+            "usage": "move the key back into store.key (needs --yes)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when it turns the keychain off"
+          },
+          {
+            "tier": "person",
+            "when": "without --off"
+          }
+        ]
+      },
+      {
+        "path": "komando config vault passphrase",
+        "usage": "komando config vault passphrase [flags]",
+        "short": "Change the vault passphrase and encrypt the secrets again (person only)",
+        "long": "Re-encrypts every secret in the vault under a new passphrase, so you can\nchange KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is\nin store.key or in the OS keychain gets a passphrase this way, and the old\nkey is removed once the new vault is saved and read back.\n\nSafety: only a person at a terminal can run it.\n\nThe vault is opened the usual way: with KOMANDO_VAULT_PASS, store.key or the\nkeychain. When KOMANDO_VAULT_PASS does not open a passphrase vault (you\nchanged it already, say), komando asks for the current passphrase. Then it\nasks for the new one twice, hidden; it needs 15 or more characters. Every\nsecret is decrypted before anything is written: if one cannot be, nothing\nchanges.\n\nAfterwards, put the new passphrase in KOMANDO_VAULT_PASS wherever you set it\n(your shell profile, a password manager, a launch agent), and restart any\nbackground tunnel or VPN session komando runs: they still hold the old key.\n\n--off goes back to a new random key in store.key (needs --yes): a copy of\n~/.komando then opens the vault again. `komando config vault keychain` can\nmove that key into the OS keychain.\n\nOnly a person at a terminal can run it: an AI agent that chose the\npassphrase, or put the key back in store.key, could open the vault on its\nown. Anyone can preview it with --dry-run.",
+        "example": "  komando config vault passphrase --dry-run\n  komando config vault passphrase   # asks for the new passphrase twice, hidden\n  komando config vault passphrase --off --dry-run\n  komando config vault passphrase --off --yes   # after a person's yes",
+        "flags": [
+          {
+            "name": "off",
+            "type": "bool",
+            "default": "false",
+            "usage": "back to a random key in store.key (needs --yes)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
         "path": "komando conn",
         "usage": "komando conn [flags]",
         "short": "Conns (databases, caches, queues, ...): add, change, remove",
-        "long": "A conn is a database, cache, message queue, file storage, cluster or\nregistry komando talks to directly. The kind comes from the URL scheme\n(`komando conn kinds` lists them). Passwords never go in the URL: store them\nwith `komando secret set` and pass --password-ref. Use --via HOST when the\nconn is only reachable from a server.\n\nConns share names and selectors (@group, tag:x, glob, all) with servers.",
+        "long": "A conn is a database, cache, message queue, file storage, cluster or\nregistry komando talks to directly. The kind comes from the URL scheme\n(`komando conn kinds` lists them). Passwords never go in the URL: store them\nwith `komando credential password add` and pass --password-ref. Use --via\nHOST when the conn is only reachable from a server.\n\nConns share names and selectors (@group, tag:x, glob, all) with servers.",
         "aliases": [
           "conns"
         ],
@@ -2087,7 +2153,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://..."
           },
           {
             "name": "protected",
@@ -2879,7 +2945,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://..."
           },
           {
             "name": "protected",
@@ -3119,6 +3185,579 @@
         ]
       },
       {
+        "path": "komando credential",
+        "usage": "komando credential [flags]",
+        "short": "Saved passwords, tokens, SSH keys and server CAs",
+        "example": "  komando credential password add web1-pass   # typed hidden\n  komando credential list\n  komando credential key create deploy\n  komando credential run --env TOKEN=secret:gh-token -- ./deploy.sh",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential certificate",
+        "usage": "komando credential certificate [flags]",
+        "short": "Server CAs: trust the CA that signs servers' host keys",
+        "example": "  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run\n  komando credential certificate list\n  komando credential certificate remove corp --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential certificate add",
+        "usage": "komando credential certificate add NAME [flags]",
+        "short": "Trust a CA for the servers its patterns match (person only)",
+        "long": "Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads\nthe @cert-authority lines of a known_hosts file (--from); its @revoked lines\ngo on the never-trust list. A pattern names at least the domain\n(*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.\n--dry-run shows the patterns as they are kept and the servers they match\nnow. Only a person at a terminal can add a CA: it trusts every server it\never signs.\n\nSafety: only a person at a terminal can run it.",
+        "example": "  komando credential certificate add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run\n  komando credential certificate add corp --from ~/.ssh/known_hosts --dry-run",
+        "flags": [
+          {
+            "name": "from",
+            "type": "string",
+            "usage": "a known_hosts file: read its @cert-authority and @revoked lines"
+          },
+          {
+            "name": "hosts",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "server name patterns the CA may vouch for (*.corp.example,10.1.2.*)"
+          },
+          {
+            "name": "key",
+            "type": "string",
+            "usage": "the CA's public key file (.pub)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "person"
+          }
+        ]
+      },
+      {
+        "path": "komando credential certificate list",
+        "usage": "komando credential certificate list [flags]",
+        "short": "List the trusted server CAs",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando credential certificate list\n  komando credential certificate list -o json",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "the first N CAs (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential certificate remove",
+        "usage": "komando credential certificate remove NAME [flags]",
+        "short": "Stop trusting a server CA",
+        "long": "Stops trusting the CA: its servers are checked against their pins again.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando credential certificate remove corp --dry-run\n  komando credential certificate remove corp",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key",
+        "usage": "komando credential key [flags]",
+        "short": "SSH keys: make, add, install on servers, uninstall",
+        "example": "  komando credential key create deploy\n  komando credential key install deploy @web --dry-run\n  komando credential key install deploy @web\n  komando credential key list",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key add",
+        "usage": "komando credential key add NAME FILE [flags]",
+        "short": "Add a private key file you already have (komando keeps its path)",
+        "long": "Adds a private key file you already have to komando's key list; the file\nstays where it is. For a key with a passphrase, save the passphrase as a\npassword credential and pass --passphrase-credential NAME.\n\nSafety: a change; try it with --dry-run first.\n\nAn OpenSSH user certificate next to the key (FILE-cert.pub) is used at\nlogin, as ssh does; --cert names one kept somewhere else.",
+        "example": "  komando credential key add personal ~/.ssh/id_ed25519 --dry-run\n  komando credential key add personal ~/.ssh/id_ed25519\n  komando credential key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub\n  komando credential key add work ~/.ssh/id_work --passphrase-credential id-pass",
+        "flags": [
+          {
+            "name": "cert",
+            "type": "string",
+            "usage": "an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)"
+          },
+          {
+            "name": "passphrase-credential",
+            "type": "string",
+            "usage": "the password credential that opens an encrypted key file"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key create",
+        "usage": "komando credential key create NAME [flags]",
+        "short": "Make a new SSH key pair (ed25519 by default)",
+        "long": "Makes a key pair like ssh-keygen and adds it to komando's key list. The\nprivate key is kept in komando's sealed store, never in a file: komando\nhands it to ssh-agent when another program needs it (host ssh-command). Put\nthe public part on servers with `komando credential key install`. RSA keys\nneed at least 3072 bits.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando credential key create deploy --dry-run\n  komando credential key create deploy\n  komando credential key create legacy --type rsa -b 4096 -C ops@example.com",
+        "flags": [
+          {
+            "name": "bits",
+            "shorthand": "b",
+            "type": "int",
+            "default": "0",
+            "usage": "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521"
+          },
+          {
+            "name": "comment",
+            "shorthand": "C",
+            "type": "string",
+            "usage": "public key comment (default komando-NAME)"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "default": "ed25519",
+            "usage": "ed25519 | rsa | ecdsa"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key edit",
+        "usage": "komando credential key edit NAME [flags]",
+        "short": "Change a key's passphrase credential or certificate",
+        "long": "Sets where komando finds the passphrase of an encrypted key. Store the\npassphrase with `komando credential password add NAME` first and pass\n--passphrase-credential NAME; --unset passphrase-credential clears it.\n\nSafety: a change; try it with --dry-run first.\n\n--cert FILE gives the key an OpenSSH user certificate (for a key komando\nmade, or one kept away from the key file); --unset cert goes back to\nFILE-cert.pub next to the key.",
+        "example": "  komando credential key edit work --passphrase-credential work-key-pass --dry-run\n  komando credential key edit work --passphrase-credential work-key-pass\n  komando credential key edit work --unset passphrase-credential\n  komando credential key edit deploy --cert ~/Downloads/deploy-cert.pub",
+        "flags": [
+          {
+            "name": "cert",
+            "type": "string",
+            "usage": "an OpenSSH user certificate for the key"
+          },
+          {
+            "name": "passphrase-credential",
+            "type": "string",
+            "usage": "the password credential that opens an encrypted key file"
+          },
+          {
+            "name": "unset",
+            "type": "stringSlice",
+            "default": "[]",
+            "usage": "clear this setting: passphrase-credential, cert"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key install",
+        "usage": "komando credential key install NAME TARGET [flags]",
+        "short": "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
+        "long": "Installs a public key on servers, like ssh-copy-id. NAME is a key in\nkomando's key list or a .pub file. komando logs in the way each server is\nset up now (a password, for example) and appends the key to\n~/.ssh/authorized_keys unless it is already there. With --set-default the\nservers then log in with this key.\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "example": "  komando credential key install deploy @web --dry-run\n  komando credential key install deploy @web --set-default\n  komando credential key install ~/.ssh/id_ed25519.pub web1",
+        "flags": [
+          {
+            "name": "set-default",
+            "type": "bool",
+            "default": "false",
+            "usage": "servers that got the key log in with it from now on"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key list",
+        "usage": "komando credential key list [flags]",
+        "short": "List the SSH keys and the servers that use them",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando credential key list\n  komando credential key list -o json",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key remove",
+        "usage": "komando credential key remove NAME [flags]",
+        "short": "Remove a key (from komando only)",
+        "long": "Removes the key from komando's key list. --delete-file also deletes the\nprivate key komando keeps for a key it made (credential key create), for\ngood; a key file you added stays on disk.\n\nSafety: a change; try it with --dry-run first; with --delete-file:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous.",
+        "example": "  komando credential key remove old-ci --dry-run\n  komando credential key remove old-ci\n  komando credential key remove deploy --delete-file --dry-run",
+        "flags": [
+          {
+            "name": "delete-file",
+            "type": "bool",
+            "default": "false",
+            "usage": "also delete the private key komando keeps (only keys komando made)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "with --delete-file"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key rename",
+        "usage": "komando credential key rename NAME NEW [flags]",
+        "short": "Rename a key, and every server that uses it",
+        "long": "Gives a key in komando's key list a new name; the servers that use it\nfollow. A key komando made (credential key create) lives in the sealed\nstore, so no file moves; a key added from elsewhere (credential key add)\nstays where it is. Public keys already installed on servers keep their\ncomment: they still work, since the key itself does not change.\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando credential key rename old-ci ci --dry-run\n  komando credential key rename deploy deploy-2026",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key show",
+        "usage": "komando credential key show NAME [flags]",
+        "short": "Show a key's public part, or a person its private key",
+        "long": "Shows a key's type, fingerprint and public part. A person at a terminal can\nadd --reveal to print the private key of a key komando made (it is kept in\nkomando's sealed store, with no file), for example to keep a copy in a\npassword manager; from a program without a terminal (the Komando Mac app),\nkomando first asks the person in its own window. A key added with\n`credential key add` is a file you have already: --reveal names its path. AI\nagents never get a private key.",
+        "example": "  komando credential key show deploy\n  komando credential key show deploy --dry-run\n  komando credential key show deploy --reveal --dry-run   # after a person's yes\n  komando credential key show deploy --reveal > deploy.key   # after a person's yes",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential key uninstall",
+        "usage": "komando credential key uninstall NAME TARGET [flags]",
+        "short": "Take a public key off servers' authorized_keys",
+        "long": "NAME is a key in komando's key list, a .pub file, or a public key line.\nEvery line with that key is removed from ~/.ssh/authorized_keys of the login\nuser, or of --user NAME (with sudo), or of every user on the server with\n--all-users (with sudo: someone who left may have put the key in another\naccount too; the dry run names each user whose file holds it). The file\nkeeps its owner and mode, and is read and written as its user. Revoking the\nkey komando itself logs in with needs --allow-dangerous: you would lock\nyourself out. --dry-run counts the lines it would remove.\n\nSafety: a change; try it with --dry-run first; when it is the key komando\nlogs in with: dangerous, it cannot be undone: a person types the name to go\non, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
+        "example": "  komando credential key uninstall ~/keys/alice.pub @web --dry-run\n  komando credential key uninstall old-deploy @web --user deploy --dry-run\n  komando credential key uninstall ~/keys/alice.pub @web --all-users --dry-run",
+        "flags": [
+          {
+            "name": "all-users",
+            "type": "bool",
+            "default": "false",
+            "usage": "edit every user's authorized_keys on the server (uses sudo)"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "usage": "edit this user's authorized_keys instead of the login user's (uses sudo)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous",
+            "when": "when it is the key komando logs in with"
+          }
+        ]
+      },
+      {
+        "path": "komando credential list",
+        "usage": "komando credential list [flags]",
+        "short": "List the saved passwords and tokens and what uses them",
+        "aliases": [
+          "ls"
+        ],
+        "example": "  komando credential list\n  komando credential list -o json",
+        "flags": [
+          {
+            "name": "limit",
+            "shorthand": "n",
+            "type": "int",
+            "default": "0",
+            "usage": "show at most this many (0 = all)"
+          }
+        ],
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential password",
+        "usage": "komando credential password [flags]",
+        "short": "Saved passwords: add, show, rename, remove",
+        "example": "  komando credential password add web1-pass   # typed hidden\n  komando credential password show web1-pass\n  komando credential password rename web1-pass web1-pass-old --dry-run\n  komando credential password remove web1-pass-old --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential password add",
+        "usage": "komando credential password add NAME [flags]",
+        "short": "Save a password, typed hidden or from a variable or a pipe",
+        "long": "Saves or replaces a password or a token. Replacing one that a production\nserver or database uses asks first: it changes how komando logs in there.\nWith --new it only saves a new one: when NAME is in the vault already it\nstops with SECRET_EXISTS and leaves the stored value alone.\n\nSafety: a change; try it with --dry-run first.\n\nA value from a pipe loses the line breaks at its end (echo and pbpaste add\none). Spaces are kept, since a password can hold them; komando warns when\nthe value starts or ends with one, so a stray space copied with a password\nis noticed. At the terminal, paste or type the value after the prompt\nappears.",
+        "example": "  komando credential password add web1-pass --dry-run\n  komando credential password add web1-pass   # type or paste it after the prompt, nothing is shown\n  komando credential password add db-pass --new --from-env VALUE",
+        "flags": [
+          {
+            "name": "from-env",
+            "type": "string",
+            "usage": "read the value from this environment variable"
+          },
+          {
+            "name": "new",
+            "type": "bool",
+            "default": "false",
+            "usage": "only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential password remove",
+        "usage": "komando credential password remove NAME... [flags]",
+        "short": "Delete saved passwords for good",
+        "long": "Delete saved passwords for good.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando credential password remove db-pass --dry-run\n  komando credential password remove db-pass",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando credential password rename",
+        "usage": "komando credential password rename NAME NEW [flags]",
+        "short": "Rename a password and every reference to it (value never shown)",
+        "long": "Rename a password and every reference to it (value never shown).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando credential password rename db-pass db-pass-old --dry-run\n  komando credential password rename db-pass db-pass-old",
+        "flags": [
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace NEW when it exists (what uses NEW then gets the value of NAME)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential password show",
+        "usage": "komando credential password show NAME [flags]",
+        "short": "Show that a password is saved and what uses it, its value hidden",
+        "long": "Says whether the secret exists and what uses it, without its value. A person\nat a terminal can add --reveal to print it; from a program without a\nterminal (the Komando Mac app), komando first asks the person in its own\nwindow. AI agents never get the value (they reference it as secret:NAME\ninstead). A warning says when the value starts or ends with a space, tab or\nline break, a common cause of a failing login; 'komando secret check NAME'\nlets a person compare it.",
+        "example": "  komando credential password show db-pass\n  komando credential password show db-pass --dry-run\n  komando credential password show db-pass --reveal --dry-run   # after a person's yes\n  komando credential password show db-pass --reveal | pbcopy   # after a person's yes",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential run",
+        "usage": "komando credential run -- COMMAND... [flags]",
+        "short": "Run a command here with saved credentials in its environment",
+        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
+        "example": "  komando credential run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh\n  komando credential run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n  komando credential run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan",
+        "flags": [
+          {
+            "name": "env",
+            "shorthand": "e",
+            "type": "stringArray",
+            "default": "[]",
+            "usage": "put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)"
+          }
+        ],
+        "runnable": true,
+        "kind": "depends",
+        "kind_note": "decided by the program it starts on this computer",
+        "confirm": [
+          {
+            "tier": "change"
+          },
+          {
+            "tier": "safety",
+            "flag": "--yes",
+            "when": "when an AI agent hands a saved secret to a program"
+          }
+        ]
+      },
+      {
+        "path": "komando credential token",
+        "usage": "komando credential token [flags]",
+        "short": "Saved tokens: add, show, rename, remove",
+        "example": "  komando credential token add gh-token   # typed hidden\n  komando credential token add gh-token --from-env GH_TOKEN --dry-run\n  komando credential token show gh-token\n  komando credential token remove gh-token --dry-run",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
+        "path": "komando credential token add",
+        "usage": "komando credential token add NAME [flags]",
+        "short": "Save a token, typed hidden or from a variable or a pipe",
+        "long": "Saves or replaces a password or a token. Replacing one that a production\nserver or database uses asks first: it changes how komando logs in there.\nWith --new it only saves a new one: when NAME is in the vault already it\nstops with SECRET_EXISTS and leaves the stored value alone.\n\nSafety: a change; try it with --dry-run first.\n\nA value from a pipe loses the line breaks at its end (echo and pbpaste add\none). Spaces are kept, since a password can hold them; komando warns when\nthe value starts or ends with one, so a stray space copied with a password\nis noticed. At the terminal, paste or type the value after the prompt\nappears.",
+        "example": "  komando credential token add gh-token --dry-run\n  komando credential token add gh-token   # type or paste it after the prompt, nothing is shown\n  komando credential token add api-token --new --from-env VALUE",
+        "flags": [
+          {
+            "name": "from-env",
+            "type": "string",
+            "usage": "read the value from this environment variable"
+          },
+          {
+            "name": "new",
+            "type": "bool",
+            "default": "false",
+            "usage": "only save one that is not saved yet; a taken NAME stops with SECRET_EXISTS"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential token remove",
+        "usage": "komando credential token remove NAME... [flags]",
+        "short": "Delete saved tokens for good",
+        "long": "Delete saved tokens for good.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
+        "example": "  komando credential token remove api-token --dry-run\n  komando credential token remove api-token",
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "dangerous",
+            "flag": "--allow-dangerous"
+          }
+        ]
+      },
+      {
+        "path": "komando credential token rename",
+        "usage": "komando credential token rename NAME NEW [flags]",
+        "short": "Rename a token and every reference to it (value never shown)",
+        "long": "Rename a token and every reference to it (value never shown).\n\nSafety: a change; try it with --dry-run first.",
+        "example": "  komando credential token rename api-token api-token-old --dry-run\n  komando credential token rename api-token api-token-old",
+        "flags": [
+          {
+            "name": "overwrite",
+            "type": "bool",
+            "default": "false",
+            "usage": "replace NEW when it exists (what uses NEW then gets the value of NAME)"
+          }
+        ],
+        "runnable": true,
+        "kind": "change",
+        "confirm": [
+          {
+            "tier": "change"
+          }
+        ]
+      },
+      {
+        "path": "komando credential token show",
+        "usage": "komando credential token show NAME [flags]",
+        "short": "Show that a token is saved and what uses it, its value hidden",
+        "long": "Says whether the secret exists and what uses it, without its value. A person\nat a terminal can add --reveal to print it; from a program without a\nterminal (the Komando Mac app), komando first asks the person in its own\nwindow. AI agents never get the value (they reference it as secret:NAME\ninstead). A warning says when the value starts or ends with a space, tab or\nline break, a common cause of a failing login; 'komando secret check NAME'\nlets a person compare it.",
+        "example": "  komando credential token show api-token\n  komando credential token show api-token --dry-run\n  komando credential token show api-token --reveal --dry-run   # after a person's yes\n  komando credential token show api-token --reveal | pbcopy   # after a person's yes",
+        "runnable": true,
+        "kind": "read",
+        "confirm": [
+          {
+            "tier": "read"
+          }
+        ]
+      },
+      {
         "path": "komando db",
         "usage": "komando db [flags]",
         "short": "Databases: query safely, look at the schema, back up, restore",
@@ -3219,7 +3858,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://..."
           },
           {
             "name": "protected",
@@ -5392,7 +6031,7 @@
           {
             "name": "key",
             "type": "string",
-            "usage": "name of a key in komando's key list (see komando key list)"
+            "usage": "name of a key in komando's key list (see komando credential key list)"
           },
           {
             "name": "label",
@@ -5424,7 +6063,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://..."
           },
           {
             "name": "port",
@@ -5493,66 +6132,9 @@
       {
         "path": "komando host ca",
         "usage": "komando host ca [flags]",
-        "short": "Trust servers through the CA that signs their host keys",
-        "long": "A host CA vouches for the host keys of the servers its patterns match, as an\n@cert-authority line in known_hosts does. A server that shows a host\ncertificate from a trusted CA, for the name komando dials, is trusted\nwithout a pin. Adding a CA trusts every server it ever signs, so only a\nperson at a terminal can add one. Removing one, and putting a key on the\nnever-trust list, anyone may do.",
-        "example": "  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run\n  komando host ca list\n  komando host ca rm corp\n  komando host ca revoke --key old-ca.pub",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando host ca add",
-        "usage": "komando host ca add NAME [flags]",
-        "short": "Trust a CA for the servers its patterns match (person only)",
-        "long": "Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads\nthe @cert-authority lines of a known_hosts file (--from); its @revoked lines\ngo on the never-trust list. A pattern names at least the domain\n(*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.\n--dry-run shows the patterns as they are kept and the servers they match\nnow. Only a person at a terminal can add a CA: it trusts every server it\never signs.\n\nSafety: only a person at a terminal can run it.",
-        "example": "  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run\n  komando host ca add corp --from ~/.ssh/known_hosts",
-        "flags": [
-          {
-            "name": "from",
-            "type": "string",
-            "usage": "a known_hosts file: read its @cert-authority and @revoked lines"
-          },
-          {
-            "name": "hosts",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "server name patterns the CA may vouch for (*.corp.example,10.1.2.*)"
-          },
-          {
-            "name": "key",
-            "type": "string",
-            "usage": "the CA's public key file (.pub)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "person"
-          }
-        ]
-      },
-      {
-        "path": "komando host ca list",
-        "usage": "komando host ca list [flags]",
-        "short": "List the trusted server CAs",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando host ca list\n  komando host ca list -o json   # what the apps read",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "the first N CAs (0 = all)"
-          }
-        ],
+        "short": "Never trust a host key or a CA key again",
+        "long": "Puts a host key or a CA key on the never-trust list, as a @revoked line in\nknown_hosts does. The CAs komando trusts are under `komando credential\ncertificate`.",
+        "example": "  komando host ca revoke --key old-ca.pub --dry-run\n  komando host ca revoke --key old-ca.pub\n  komando credential certificate list",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -5574,25 +6156,6 @@
             "usage": "the public key file (.pub) never to trust"
           }
         ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando host ca rm",
-        "usage": "komando host ca rm NAME [flags]",
-        "short": "Stop trusting a server CA",
-        "long": "Stops trusting the CA: its servers are checked against their pins again.\n\nSafety: a change; try it with --dry-run first.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando host ca rm corp\n  komando host ca rm corp --dry-run",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -5652,7 +6215,7 @@
           {
             "name": "key",
             "type": "string",
-            "usage": "name of a key in komando's key list (see komando key list)"
+            "usage": "name of a key in komando's key list (see komando credential key list)"
           },
           {
             "name": "label",
@@ -5678,7 +6241,7 @@
           {
             "name": "password-ref",
             "type": "string",
-            "usage": "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://..."
+            "usage": "where the password is: secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://..."
           },
           {
             "name": "port",
@@ -5839,7 +6402,7 @@
         "path": "komando host ssh-command",
         "usage": "komando host ssh-command NAME [flags]",
         "short": "Print the OpenSSH command komando would use for a server (person only)",
-        "long": "Prints the ssh command that reaches the server with the same address, user,\nkey, known_hosts file and --via path komando uses. A server behind --via\nservers gets a ProxyCommand per hop (ssh -W), so every hop uses its own key.\nA SOCKS VPN becomes nc -X 5; VPNs that run inside komando cannot be used by\nOpenSSH: use `komando shell SERVER` for those. A key made with komando key\ngen is never written to a file: it goes to your running ssh-agent\n(SSH_AUTH_SOCK) for one hour, and the line picks it by its public key.\n\nSafety: only a person at a terminal can run it.",
+        "long": "Prints the ssh command that reaches the server with the same address, user,\nkey, known_hosts file and --via path komando uses. A server behind --via\nservers gets a ProxyCommand per hop (ssh -W), so every hop uses its own key.\nA SOCKS VPN becomes nc -X 5; VPNs that run inside komando cannot be used by\nOpenSSH: use `komando shell SERVER` for those. A key made with komando\ncredential key create is never written to a file: it goes to your running\nssh-agent (SSH_AUTH_SOCK) for one hour, and the line picks it by its public\nkey.\n\nSafety: only a person at a terminal can run it.",
         "example": "  komando host ssh-command web1\n  $(komando host ssh-command web1 -o text)      # open a shell with OpenSSH",
         "runnable": true,
         "kind": "read",
@@ -6253,276 +6816,6 @@
             "usage": "how long to wait (the job keeps running after)"
           }
         ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando key",
-        "usage": "komando key [flags]",
-        "short": "SSH keys: make, add, put on servers, take off",
-        "aliases": [
-          "keys"
-        ],
-        "example": "  komando key gen deploy\n  komando key deploy deploy @web --dry-run\n  komando key deploy deploy @web\n  komando key list",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando key add",
-        "usage": "komando key add NAME FILE [flags]",
-        "short": "Add a private key file you already have (komando keeps its path)",
-        "long": "Adds a private key file you already have to komando's key list; the file\nstays where it is. For a key with a passphrase, store the passphrase in the\nvault and pass --passphrase-ref secret:NAME.\n\nSafety: a change; try it with --dry-run first.\n\nAn OpenSSH user certificate next to the key (FILE-cert.pub) is used at\nlogin, as ssh does; --cert names one kept somewhere else.",
-        "example": "  komando key add personal ~/.ssh/id_ed25519\n  komando key add personal ~/.ssh/id_ed25519 --dry-run\n  komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub\n  komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass",
-        "flags": [
-          {
-            "name": "cert",
-            "type": "string",
-            "usage": "an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)"
-          },
-          {
-            "name": "passphrase-ref",
-            "type": "string",
-            "usage": "passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando key deploy",
-        "usage": "komando key deploy NAME TARGET [flags]",
-        "short": "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
-        "long": "Installs a public key on servers, like ssh-copy-id. KEY is a key in\nkomando's key list or a .pub file. komando logs in the way each server is\nset up now (a password, for example) and appends the key to\n~/.ssh/authorized_keys unless it is already there. With --set-default the\nservers then log in with this key.\n\nSafety: a change; try it with --dry-run first; with --public-key-file: only\na person at a terminal can run it; on a protected server or conn, a person's\nyes (--yes) as well.\n\nWith --public-key-file and --user (no NAME), a person installs a phone's key\nfor that user on one server, always behind the server's own komando gate\n(restrict, ssh-gate --here; from= with --from-address).",
-        "example": "  komando key gen deploy && komando key deploy deploy @web --set-default\n  komando key deploy ~/.ssh/id_ed25519.pub web1\n  komando key deploy ~/.ssh/id_ed25519.pub web1 --dry-run\n  komando key deploy web1 --user anna --public-key-file anna-phone.pub --from-address 10.0.0.0/8",
-        "flags": [
-          {
-            "name": "from-address",
-            "type": "string",
-            "usage": "with --public-key-file: the addresses the device logs in from, as the server sees them (from= in authorized_keys)"
-          },
-          {
-            "name": "public-key-file",
-            "type": "string",
-            "usage": "a device's public key file (a phone's): install it for --user behind komando's gate on the server; a person at a terminal only"
-          },
-          {
-            "name": "set-default",
-            "type": "bool",
-            "default": "false",
-            "usage": "servers that got the key log in with it from now on"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "with --public-key-file: the user the device logs in as (never root)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "person",
-            "when": "with --public-key-file"
-          }
-        ]
-      },
-      {
-        "path": "komando key edit",
-        "usage": "komando key edit NAME [flags]",
-        "short": "Change a key's passphrase reference or certificate",
-        "long": "Sets where komando finds the passphrase of an encrypted key. Store the\npassphrase with `komando secret set NAME` first and pass secret:NAME;\n--unset passphrase-ref clears it.\n\nSafety: a change; try it with --dry-run first.\n\n--cert FILE gives the key an OpenSSH user certificate (for a key komando\nmade, or one kept away from the key file); --unset cert goes back to\nFILE-cert.pub next to the key.",
-        "example": "  komando secret set work-key-pass\n  komando key edit work --passphrase-ref secret:work-key-pass\n  komando key edit work --passphrase-ref secret:work-key-pass --dry-run\n  komando key edit work --unset passphrase-ref\n  komando key edit deploy --cert ~/Downloads/deploy-cert.pub",
-        "flags": [
-          {
-            "name": "cert",
-            "type": "string",
-            "usage": "an OpenSSH user certificate for the key"
-          },
-          {
-            "name": "passphrase-ref",
-            "type": "string",
-            "usage": "where the passphrase is: secret:NAME | env:VAR | ..."
-          },
-          {
-            "name": "unset",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "clear this setting: passphrase-ref, cert"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando key gen",
-        "usage": "komando key gen NAME [flags]",
-        "short": "Make a new SSH key pair (ed25519 by default)",
-        "long": "Makes a key pair like ssh-keygen and adds it to komando's key list. The\nprivate key is kept in komando's sealed store, never in a file: komando\nhands it to ssh-agent when another program needs it (host ssh-command). Put\nthe public part on servers with `komando key deploy`. RSA keys need at least\n3072 bits.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando key gen deploy && komando key deploy deploy @web\n  komando key gen legacy --type rsa -b 4096 -C ops@example.com\n  komando key gen legacy --type rsa -b 4096 -C ops@example.com --dry-run",
-        "flags": [
-          {
-            "name": "bits",
-            "shorthand": "b",
-            "type": "int",
-            "default": "0",
-            "usage": "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521"
-          },
-          {
-            "name": "comment",
-            "shorthand": "C",
-            "type": "string",
-            "usage": "public key comment (default komando-NAME)"
-          },
-          {
-            "name": "type",
-            "type": "string",
-            "default": "ed25519",
-            "usage": "ed25519 | rsa | ecdsa"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando key list",
-        "usage": "komando key list [flags]",
-        "short": "List keys and the servers that use them",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando key list",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many keys (0 = all)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando key rename",
-        "usage": "komando key rename OLD NEW [flags]",
-        "short": "Rename a key, and every server that uses it",
-        "long": "Gives a key in komando's key list a new name; the servers that use it\nfollow. A key komando made (key gen) lives in the sealed store, so no file\nmoves; a key added from elsewhere (key add) stays where it is. Public keys\nalready installed on servers keep their comment: they still work, since the\nkey itself does not change.\n\nSafety: a change; try it with --dry-run first.",
-        "aliases": [
-          "mv"
-        ],
-        "example": "  komando key rename deploy deploy-2026\n  komando key rename old-ci ci --dry-run",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando key revoke",
-        "usage": "komando key revoke NAME TARGET [flags]",
-        "short": "Take a public key off servers' authorized_keys",
-        "long": "KEY is a key in komando's key list, a .pub file, or a public key line. Every\nline with that key is removed from ~/.ssh/authorized_keys of the login user,\nor of --user NAME (with sudo), or of every user on the server with\n--all-users (with sudo: someone who left may have put the key in another\naccount too; the dry run names each user whose file holds it). The file\nkeeps its owner and mode, and is read and written as its user. Revoking the\nkey komando itself logs in with needs --allow-dangerous: you would lock\nyourself out. --dry-run counts the lines it would remove.\n\nSafety: a change; try it with --dry-run first; when it is the key komando\nlogs in with: dangerous, it cannot be undone: a person types the name to go\non, and an AI agent or a script needs --allow-dangerous; on a protected\nserver or conn, a person's yes (--yes) as well.",
-        "example": "  komando key revoke ~/keys/alice.pub @prod --dry-run\n  komando key revoke \"ssh-ed25519 AAAAC3Nz...xyz alice@laptop\" @prod\n  komando key revoke old-deploy @web --user deploy\n  komando key revoke ~/keys/alice.pub @prod --all-users --dry-run",
-        "flags": [
-          {
-            "name": "all-users",
-            "type": "bool",
-            "default": "false",
-            "usage": "edit every user's authorized_keys on the server (uses sudo)"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "usage": "edit this user's authorized_keys instead of the login user's (uses sudo)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "when it is the key komando logs in with"
-          }
-        ]
-      },
-      {
-        "path": "komando key rm",
-        "usage": "komando key rm NAME [flags]",
-        "short": "Remove a key (from komando only)",
-        "long": "Removes the key from komando's key list. --delete-file also deletes the\nprivate key komando keeps for a key it made (key gen), for good; a key file\nyou added stays on disk.\n\nSafety: a change; try it with --dry-run first; with --delete-file:\ndangerous, it cannot be undone: a person types the name to go on, and an AI\nagent or a script needs --allow-dangerous.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando key rm old-deploy\n  komando key rm old-deploy --dry-run",
-        "flags": [
-          {
-            "name": "delete-file",
-            "type": "bool",
-            "default": "false",
-            "usage": "also delete the private key komando keeps (only keys komando made)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous",
-            "when": "with --delete-file"
-          }
-        ]
-      },
-      {
-        "path": "komando key show",
-        "usage": "komando key show NAME [flags]",
-        "short": "Show a key's public part, or a person its private key",
-        "long": "Shows a key's type, fingerprint and public part. A person at a terminal can\nadd --reveal to print the private key of a key komando made (it is kept in\nkomando's sealed store, with no file), for example to keep a copy in a\npassword manager; from a program without a terminal (the Komando Mac app),\nkomando first asks the person in its own window. A key added with `key add`\nis a file you have already: --reveal names its path. AI agents never get a\nprivate key.",
-        "example": "  komando key show deploy\n  komando key show deploy --reveal > deploy.key   # a person, at a terminal",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -10526,7 +10819,7 @@
         "path": "komando rename",
         "usage": "komando rename OLD NEW [flags]",
         "short": "Rename one entry, or all names starting with OLD (--starts-with)",
-        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `secret rename`: --via\npaths, password, sudo, key, preshared key and passphrase references,\nsecret:NAME options in conn URLs, the key a server uses, group membership,\njobs and tunnels. A key komando made (key gen) lives in the sealed store, so\nno file moves; a key file you added stays where it is. The protected mark,\nlabels, notes and creation time stay. Names inside URLs (a bucket, a\ndatabase user) are the resource's own and do not change.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them (an\nAI agent's --yes opens one window for a person). See what would change with\n--dry-run first. --kind renames only some kinds; references still follow. To\nrename one entry, use host rename, conn rename, vpn rename, secret rename,\nkey rename or group rename.",
+        "long": "Without --starts-with: renames the one server, conn, VPN, secret, key or\ngroup named OLD, as `komando host rename` and the others do. When OLD names\ntwo kinds of entry (a server and a secret), it says which commands to use.\n\nSafety: a change; try it with --dry-run first.\n\nWith --starts-with: renames every server, conn, VPN, secret, key and group\nwhose name starts with OLD: OLD is replaced with NEW. When OLD ends in -,\nthe name OLD without it is renamed too (--starts-with shop- acme-shop- turns\ngroup shop into acme-shop).\n\nEvery reference follows, as with `host rename` and `credential password\nrename`: --via paths, password, sudo, key, preshared key and passphrase\nreferences, secret:NAME options in conn URLs, the key a server uses, group\nmembership, jobs and tunnels. A key komando made (credential key create)\nlives in the sealed store, so no file moves; a key file you added stays\nwhere it is. The protected mark, labels, notes and creation time stay. Names\ninside URLs (a bucket, a database user) are the resource's own and do not\nchange.\n\n--in-notes also replaces old names in notes, and --in-labels in label\nvalues: server, conn, VPN and secret names as whole words, a group written\n@NAME, and a pattern such as shop-db-* when it matches the same entries\nafter the rename. OLD without its -, group names without @, key names, and a\nname that is also the user, host, bucket or database in a conn URL stay:\nthey often mean something else. The result lists each one it keeps (\"kept\"),\nand each label value that names an old entry, with or without --in-labels.\n\nEverything changes in one step, or nothing does: a new name that is taken\n(or two old names that would get one new name) stops it before anything\nis written. When NEW starts with OLD, names that start with NEW already\nare left alone, so a second run changes nothing.\n\nRenaming protected servers and conns needs --yes once, for all of them\n(an AI agent's --yes opens one window for a person). See what would change\nwith --dry-run first. --kind renames only some kinds; references still\nfollow.\nTo rename one entry, use host rename, conn rename, vpn rename,\ncredential password rename, credential key rename or group rename.",
         "example": "  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is\n  komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference\n  komando rename --starts-with shop- acme-shop- --yes   # after a person's yes\n  komando rename --starts-with old-registry registry --kind conn,secret\n  komando rename --starts-with lab- test- --in-notes --in-labels --dry-run",
         "flags": [
           {
@@ -10594,13 +10887,13 @@
       {
         "path": "komando secret",
         "usage": "komando secret [flags]",
-        "short": "Saved passwords and tokens: store, check, use as secret:NAME",
-        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando secret set web1-pass\n  komando host edit web1 --password-ref secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with\n`secret show --reveal`, or after \"Allow once\" in komando's window; never\nto an AI agent. `secret check` compares a value with the saved one\nwithout showing either. `secret rename` and `secret cp` rename and copy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`secret passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
+        "short": "Check or copy a saved password or token",
+        "long": "Save a password once, then point to it as secret:NAME instead of typing it:\n  komando credential password add web1-pass\n  komando host edit web1 --password-ref secret:web1-pass\n\nkomando shows a saved value only to a person: at a terminal with `credential\npassword show --reveal`, or after \"Allow once\" in komando's window; never to\nan AI agent. `secret check` compares a value with the saved one without\nshowing either. `credential password rename` and `secret cp` rename and\ncopy.\n\nHow it is stored: each secret sealed with AES-256-GCM in\n~/.komando/store.db. The random key is in the OS keychain (or in store.key\nwhere there is none, or with KOMANDO_KEYCHAIN=off), or comes from\n$KOMANDO_VAULT_PASS when that is set at first use (`config vault passphrase`\nchanges it).\n\nA --password-ref (and the other -ref flags) can also read a password your\nteam keeps elsewhere; komando reads it when needed and never stores it:\n  env:VAR  file:PATH  vault:PATH#FIELD  aws-sm:NAME[#KEY]  gcp-sm:NAME[@PROJECT]\n  azure-kv:VAULT/NAME[#KEY]  op://VAULT/ITEM/FIELD  bw://ITEM/FIELD  kdbx:FILE#GROUP/ENTRY",
         "aliases": [
           "secrets",
           "vault"
         ],
-        "example": "  komando secret set prod-db-pass                   # typed hidden\n  komando secret list\n  komando conn edit prod-db --password-ref secret:prod-db-pass\n  komando secret rm old-pass --dry-run",
+        "example": "  komando secret check db-pass   # type the value to compare, hidden\n  komando secret cp db-pass db-pass-old --dry-run\n  komando secret cp db-pass db-pass-old",
         "runnable": true,
         "kind": "read",
         "confirm": [
@@ -10656,208 +10949,6 @@
         ]
       },
       {
-        "path": "komando secret keychain",
-        "usage": "komando secret keychain [flags]",
-        "short": "Keep the vault key in the OS keychain instead of store.key",
-        "long": "Moves the vault's key out of the store.key file into the operating system's\nkeychain, so a copy of ~/.komando (a backup, a synced folder) no longer\nopens the vault or its secrets. The vault gets a new key as it moves, so a\ncopy of store.key made before opens nothing either, and the vault keeps\nevery secret. --off moves the key back into store.key, which needs --yes.\n\nSafety: a change; try it with --dry-run first; when it turns the keychain\noff: it weakens a safety check: a person's yes (--yes); without --off: only\na person at a terminal can run it.\n\nOnly a person at a terminal moves the key in: the keychain may ask them to\nunlock it, and an AI agent or a script cannot answer that.",
-        "example": "  komando secret keychain\n  komando secret keychain --dry-run\n  komando secret keychain --off --dry-run\n  komando secret keychain --off --yes   # after a person's yes",
-        "flags": [
-          {
-            "name": "off",
-            "type": "bool",
-            "default": "false",
-            "usage": "move the key back into store.key (needs --yes)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "when it turns the keychain off"
-          },
-          {
-            "tier": "person",
-            "when": "without --off"
-          }
-        ]
-      },
-      {
-        "path": "komando secret list",
-        "usage": "komando secret list [flags]",
-        "short": "List secret names, when they changed and what uses them",
-        "aliases": [
-          "ls"
-        ],
-        "example": "  komando secret list",
-        "flags": [
-          {
-            "name": "limit",
-            "shorthand": "n",
-            "type": "int",
-            "default": "0",
-            "usage": "show at most this many secrets (0 = all)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando secret passphrase",
-        "usage": "komando secret passphrase [flags]",
-        "short": "Change the vault passphrase and encrypt the secrets again (person only)",
-        "long": "Re-encrypts every secret in the vault under a new passphrase, so you can\nchange KOMANDO_VAULT_PASS without losing your secrets. A vault whose key is\nin store.key or in the OS keychain gets a passphrase this way, and the old\nkey is removed once the new vault is saved and read back.\n\nSafety: only a person at a terminal can run it.\n\nThe vault is opened the usual way: with KOMANDO_VAULT_PASS, store.key or the\nkeychain. When KOMANDO_VAULT_PASS does not open a passphrase vault (you\nchanged it already, say), komando asks for the current passphrase. Then it\nasks for the new one twice, hidden; it needs 15 or more characters. Every\nsecret is decrypted before anything is written: if one cannot be, nothing\nchanges.\n\nAfterwards, put the new passphrase in KOMANDO_VAULT_PASS wherever you set it\n(your shell profile, a password manager, a launch agent), and restart any\nbackground tunnel or VPN session komando runs: they still hold the old key.\n\n--off goes back to a new random key in store.key (needs --yes): a copy of\n~/.komando then opens the vault again. `komando secret keychain` can move\nthat key into the OS keychain.\n\nOnly a person at a terminal can run it: an AI agent that chose the\npassphrase, or put the key back in store.key, could open the vault on its\nown. Anyone can preview it with --dry-run.",
-        "aliases": [
-          "passwd"
-        ],
-        "example": "  komando secret passphrase               # asks for the new passphrase twice, hidden\n  komando secret passphrase --dry-run\n  komando secret passphrase --off --dry-run\n  komando secret passphrase --off --yes   # after a person's yes",
-        "flags": [
-          {
-            "name": "off",
-            "type": "bool",
-            "default": "false",
-            "usage": "back to a random key in store.key (needs --yes)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "person"
-          }
-        ]
-      },
-      {
-        "path": "komando secret rename",
-        "usage": "komando secret rename OLD NEW [flags]",
-        "short": "Rename a secret and every reference to it (value never shown)",
-        "long": "Renames OLD to NEW inside the vault, and points every server, conn, key and\nVPN that used secret:OLD at secret:NEW in the same step, so nothing stops\nworking and nobody types the value again. The value is never printed, so an\nAI agent can do this too. Scripts or notes of your own that name secret:OLD\nare not changed.\n\nSafety: a change; try it with --dry-run first.\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
-        "aliases": [
-          "mv"
-        ],
-        "example": "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass",
-        "flags": [
-          {
-            "name": "overwrite",
-            "type": "bool",
-            "default": "false",
-            "usage": "replace NEW when it exists (what uses NEW then gets the value of OLD)"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando secret rm",
-        "usage": "komando secret rm NAME... [flags]",
-        "short": "Delete secrets for good",
-        "long": "Delete secrets for good.\n\nSafety: dangerous, it cannot be undone: a person types the name to go on,\nand an AI agent or a script needs --allow-dangerous.",
-        "aliases": [
-          "remove",
-          "delete",
-          "del"
-        ],
-        "example": "  komando secret rm old-pass\n  komando secret rm a-pass b-pass --dry-run",
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "dangerous",
-            "flag": "--allow-dangerous"
-          }
-        ]
-      },
-      {
-        "path": "komando secret run",
-        "usage": "komando secret run -- COMMAND [ARGS...] [flags]",
-        "short": "Run a local command with vault secrets in its environment",
-        "long": "Starts COMMAND on this computer with the --env values in its environment. A\nvalue secret:NAME is read from the vault right before the program starts, so\nit is never in the command line or the shell history. The program starts\ndirectly, without a shell, with your environment minus komando's own\nKOMANDO_* variables and the values that unlock the vault. For an AI agent\nwith secrets, --env may add variables but never replace one komando sets\n(HOME, PATH, USER, LANG, ...), and may not set what decides which code or\nsettings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,\nBASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy, GIT_*,\nSSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,\n*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,\nGOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program\ngets HOME, USER and LOGNAME from your OS account (USERPROFILE on Windows),\nLANG, LC_*, TERM, TMPDIR, TZ, the Windows system folders, a system PATH and\nits --env values.\n\nSafety: a change; try it with --dry-run first; when an AI agent hands a\nsaved secret to a program: it weakens a safety check: a person's yes\n(--yes).\n\nThe program's output goes through komando's masking: a vault value it\nprints shows as [secret:NAME]. komando exits with the program's exit code.\n\nFor an AI agent every secret:NAME needs a person's yes (--yes, then\nkomando's window names the secrets and the program), since the program\ncould print a value in a form masking does not know. A secret a protected\nserver, conn or VPN uses asks a person at a terminal too.",
-        "example": "  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app\n  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan\n  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh",
-        "flags": [
-          {
-            "name": "env",
-            "shorthand": "e",
-            "type": "stringArray",
-            "default": "[]",
-            "usage": "put KEY=VALUE or KEY=secret:NAME in the program's environment (repeatable)"
-          }
-        ],
-        "runnable": true,
-        "kind": "depends",
-        "kind_note": "decided by the program it starts on this computer",
-        "confirm": [
-          {
-            "tier": "change"
-          },
-          {
-            "tier": "safety",
-            "flag": "--yes",
-            "when": "when an AI agent hands a saved secret to a program"
-          }
-        ]
-      },
-      {
-        "path": "komando secret set",
-        "usage": "komando secret set NAME [flags]",
-        "short": "Store a secret, typed hidden or from a variable or a pipe",
-        "long": "Saves or replaces a password. Replacing one that a production server or\ndatabase uses asks first: it changes how komando logs in there. With --new\nit only saves a new one: when NAME is in the vault already it stops with\nSECRET_EXISTS and leaves the stored value alone.\n\nSafety: a change; try it with --dry-run first.\n\nA value from a pipe loses the line breaks at its end (echo and pbpaste add\none). Spaces are kept, since a password can hold them; komando warns when\nthe value starts or ends with one, so a stray space copied with a password\nis noticed. At the terminal, paste or type the value after the prompt\nappears.",
-        "aliases": [
-          "add"
-        ],
-        "example": "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set web1-pass --dry-run\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass\n  komando secret set api-token --new --from-env TOKEN   # never replaces one",
-        "flags": [
-          {
-            "name": "from-env",
-            "type": "string",
-            "usage": "read the value from this environment variable"
-          },
-          {
-            "name": "new",
-            "type": "bool",
-            "default": "false",
-            "usage": "only store a secret that is not in the vault yet; a taken NAME stops with SECRET_EXISTS"
-          }
-        ],
-        "runnable": true,
-        "kind": "change",
-        "confirm": [
-          {
-            "tier": "change"
-          }
-        ]
-      },
-      {
-        "path": "komando secret show",
-        "usage": "komando secret show NAME [flags]",
-        "short": "Show that a secret exists, its value hidden",
-        "long": "Says whether the secret exists and what uses it, without its value. A person\nat a terminal can add --reveal to print it; from a program without a\nterminal (the Komando Mac app), komando first asks the person in its own\nwindow. AI agents never get the value (they reference it as secret:NAME\ninstead). A warning says when the value starts or ends with a space, tab or\nline break, a common cause of a failing login; 'komando secret check NAME'\nlets a person compare it.",
-        "aliases": [
-          "get"
-        ],
-        "example": "  komando secret show db-pass\n  komando secret show db-pass --reveal | pbcopy   # a person, at a terminal",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
         "path": "komando shell",
         "usage": "komando shell SERVER [flags]",
         "short": "Open a login shell on one server (person only)",
@@ -10880,7 +10971,7 @@
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster kubernetes exec or recipe run, unless the line also has\n--network. `komando ssh-gate status` tells a key which it is. Every command\na key runs or is refused is in `komando audit`, with --name, even when the\naudit setting is off.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, config vault passphrase ...) are refused (a --shell-access key may\nopen `komando shell SERVER`: see ssh-gate line; that shell is full control\nof the server, outside these rules). The key runs commands on servers, never\none that writes on this computer or reads a file here (a script, SQL or\nupload source by path; '-' for the key's own input works): no download or cp\nto a file here (download --to - and cp SRC - stream to the key's own\noutput), no change to servers, VPNs, settings, rules, secrets, keys or\nrecipes in komando, no update, no change on a sqlite file or a target at\nlocalhost or 127.x. With --read-only only commands that read run (db query\nand cache redis raw without --write), and only those that stay on the\nservers and conns in your list: no net, no cert check of a website, no exec,\njob start, docker exec, cluster kubernetes exec or recipe run, unless the\nline also has --network. `komando ssh-gate status` tells a key which it is.\nEvery command a key runs or is refused is in `komando audit`, with --name,\neven when the audit setting is off.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -14701,7 +14792,12 @@
             "name": "overwrite",
             "type": "bool",
             "default": "false",
-            "usage": "replace an entry that has the same name"
+            "usage": "replace a VPN with the same name"
+          },
+          {
+            "name": "password-ref",
+            "type": "string",
+            "usage": "where the password is (Tailscale: the auth key): secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://..."
           },
           {
             "name": "portal",
@@ -14873,11 +14969,16 @@
         ]
       },
       {
-        "path": "komando vpn anyconnect rename",
-        "usage": "komando vpn anyconnect rename NAME NEW [flags]",
-        "short": "Rename a saved Cisco AnyConnect VPN and every reference to it",
-        "long": "Rename a saved Cisco AnyConnect VPN and every reference to it.\n\nSafety: a change; try it with --dry-run first.",
-        "example": "  komando vpn anyconnect rename office office-2 --dry-run\n  komando vpn anyconnect rename office office-2",
+        "path": "komando vpn rm",
+        "usage": "komando vpn rm TARGET... [flags]",
+        "short": "Remove VPNs (from komando only)",
+        "long": "Remove VPNs from komando (their keys stay in the vault until `komando\ncredential password remove`).\n\nSafety: a change; try it with --dry-run first; on a protected server or\nconn, a person's yes (--yes) as well.",
+        "aliases": [
+          "remove",
+          "delete",
+          "del"
+        ],
+        "example": "  komando vpn rm old-office\n  komando vpn rm @lab --dry-run       # what a selector would remove",
         "runnable": true,
         "kind": "change",
         "confirm": [
@@ -19297,7 +19398,7 @@
       "KOMANDO_HOME": "state directory (default ~/.komando)",
       "KOMANDO_KEYCHAIN": "off: komando uses no keychain, and a new vault keeps its key in store.key (CI, containers)",
       "KOMANDO_OUTPUT": "default output format json|text",
-      "KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or store.key where there is none; komando secret passphrase sets or changes it)"
+      "KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or store.key where there is none; komando config vault passphrase sets or changes it)"
     },
     "envelope": {
       "command": "dotted command name",
@@ -19382,7 +19483,7 @@
         "code": "BAD_CA",
         "exit": 2,
         "example": "registry CA …: …",
-        "hint": "store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt`"
+        "hint": "store the registry's CA certificate (PEM) with `komando credential token add NAME < ca.crt`"
       },
       {
         "code": "BAD_FILE",
@@ -19400,7 +19501,7 @@
         "code": "BAD_SECRET",
         "exit": 2,
         "example": "the password for … contains a line break",
-        "hint": "store the password again without line breaks (`komando secret set NAME`)"
+        "hint": "store the password again without line breaks (`komando credential password add NAME`)"
       },
       {
         "code": "BINARY_FILE",
@@ -19430,7 +19531,7 @@
         "code": "CACHE_CONNECT",
         "exit": 4,
         "example": "cannot connect to …: …",
-        "hint": "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`)"
+        "hint": "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando credential token add NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`)"
       },
       {
         "code": "CACHE_ERROR",
@@ -19460,19 +19561,19 @@
         "code": "CA_EXISTS",
         "exit": 8,
         "example": "server CA … already exists",
-        "hint": "choose another name, or `komando host ca rm …` first"
+        "hint": "choose another name, or `komando credential certificate remove …` first"
       },
       {
         "code": "CA_HOSTS_INVALID",
         "exit": 2,
         "example": "a server CA needs the server names it may vouch for",
-        "hint": "run `komando host ca add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for"
+        "hint": "run `komando credential certificate add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for"
       },
       {
         "code": "CA_NOT_FOUND",
         "exit": 3,
         "example": "no server CA named …",
-        "hint": "see the CAs with `komando host ca list`"
+        "hint": "see the CAs with `komando credential certificate list`"
       },
       {
         "code": "CERT_PROBLEMS",
@@ -19633,8 +19734,8 @@
       {
         "code": "DEPLOY_FAILED",
         "exit": 5,
-        "example": "…: …; komando writes through no link, so nothing was written",
-        "hint": "make ~/.ssh and its key files plain files and folders on the server, then run `komando key deploy` again"
+        "example": "credential key install could not add the key to the server's authorized_keys (the server's words follow)",
+        "hint": "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`"
       },
       {
         "code": "DNS_ERROR",
@@ -19699,7 +19800,7 @@
         "code": "ENCODED_SECRET_INVALID",
         "exit": 2,
         "example": "the script or command holds a private key; komando does not send one this way",
-        "hint": "put the key in the vault and pass it with secret run: `komando secret set NAME < key`, then `komando secret run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line"
+        "hint": "put the key in the vault and pass it with secret run: `komando credential token add NAME < key`, then `komando credential run --env KEY=secret:NAME -- …`; to search for keys, quote only 'PRIVATE KEY-----', not the whole BEGIN line"
       },
       {
         "code": "ERROR",
@@ -19729,7 +19830,7 @@
         "code": "FILE_NOT_FOUND",
         "exit": 3,
         "example": "identity file …: …",
-        "hint": "give the path of a private key file, or register it with `komando key add NAME FILE` and use --key"
+        "hint": "give the path of a private key file, or register it with `komando credential key add NAME FILE` and use --key"
       },
       {
         "code": "FILE_TOO_LARGE",
@@ -19974,13 +20075,13 @@
         "code": "KEY_EXISTS",
         "exit": 8,
         "example": "key … already exists",
-        "hint": "choose another name, or `komando key rm …` first"
+        "hint": "choose another name, or `komando credential key remove …` first"
       },
       {
         "code": "KEY_FAILED",
         "exit": 1,
         "example": "could not read key …: …; nothing was written",
-        "hint": "check the key with `komando key show …`, or leave out --with-keys"
+        "hint": "check the key with `komando credential key show …`, or leave out --with-keys"
       },
       {
         "code": "KEY_INVALID",
@@ -20004,13 +20105,13 @@
         "code": "KEY_PASSPHRASE_REQUIRED",
         "exit": 2,
         "example": "key … is encrypted and …",
-        "hint": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)"
+        "hint": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando credential password add NAME` (the hint gives the whole commands)"
       },
       {
         "code": "KEY_UNREADABLE",
         "exit": 4,
         "example": "cannot read key …: …",
-        "hint": "check the key path (`komando key list` shows the keys komando knows)"
+        "hint": "check the key path (`komando credential key list` shows the keys komando knows)"
       },
       {
         "code": "KEY_USER_INVALID",
@@ -20076,7 +20177,7 @@
         "code": "NOTHING_TO_RENAME",
         "exit": 3,
         "example": "no … starts with …",
-        "hint": "check OLD with `komando list` and `komando secret list`; names are matched from the start, as written"
+        "hint": "check OLD with `komando list` and `komando credential list`; names are matched from the start, as written"
       },
       {
         "code": "NOT_A_FOLDER",
@@ -20160,7 +20261,7 @@
         "code": "NO_PUBLIC_KEY",
         "exit": 2,
         "example": "komando does not have the public key of …",
-        "hint": "place ….pub next to the key, then `komando key rm …` and add it again"
+        "hint": "place ….pub next to the key, then `komando credential key remove …` and add it again"
       },
       {
         "code": "NO_SYSTEMD",
@@ -20442,7 +20543,7 @@
         "code": "RENAME_FAILED",
         "exit": 1,
         "example": "the vault cannot rename the VPN's secrets: …; nothing was renamed",
-        "hint": "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)"
+        "hint": "check that the vault opens (`komando credential list`, KOMANDO_VAULT_PASS)"
       },
       {
         "code": "REPOSITORY_NOT_FOUND",
@@ -20496,7 +20597,7 @@
         "code": "REVEAL_NEEDS_TERMINAL",
         "exit": 6,
         "example": "--reveal only works for a person at a terminal",
-        "hint": "ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead"
+        "hint": "ask a person to run `komando … … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead"
       },
       {
         "code": "REVISION_NOT_FOUND",
@@ -20556,37 +20657,37 @@
         "code": "SECRET_EXISTS",
         "exit": 8,
         "example": "secret … is used by … already; --ask-password and --ask-psk do not replace it",
-        "hint": "use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME"
+        "hint": "use it with --… …, or store this one under another name: `komando credential password add NAME`, then --… secret:NAME"
       },
       {
         "code": "SECRET_IN_ARGS",
         "exit": 2,
         "example": "refusing a secret value on the command line: it would be saved in shell history",
-        "hint": "run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it in (stdin)"
+        "hint": "run `komando credential password add …` and type it (hidden), use --from-env VAR, or pipe it in (stdin)"
       },
       {
         "code": "SECRET_IN_USE",
         "exit": 8,
         "example": "secret … is used by …",
-        "hint": "point them at another secret first, for example `…`, or rename it with `komando secret rename`"
+        "hint": "point them at another secret first, for example `…`, or rename it with `komando credential password rename`"
       },
       {
         "code": "SECRET_MISMATCH",
         "exit": 1,
         "example": "the value is not the one stored in …",
-        "hint": "if the stored one is wrong, store the right one with `komando secret set …`"
+        "hint": "if the stored one is wrong, store the right one with `komando credential password add …`"
       },
       {
         "code": "SECRET_NOT_FOUND",
         "exit": 3,
         "example": "no secret named …",
-        "hint": "see them with `komando secret list`"
+        "hint": "see them with `komando credential list`"
       },
       {
         "code": "SECRET_UNRESOLVED",
         "exit": 3,
         "example": "registry CA …: …",
-        "hint": "store the CA certificate with `komando secret set NAME < ca.crt`"
+        "hint": "store the CA certificate with `komando credential token add NAME < ca.crt`"
       },
       {
         "code": "SECURITY_UNSUPPORTED",
@@ -20604,7 +20705,7 @@
         "code": "SENSITIVE_FILE",
         "exit": 6,
         "example": "… is …, not …",
-        "hint": "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"
+        "hint": "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando credential list`)"
       },
       {
         "code": "SESSION_BUSY",
@@ -20807,7 +20908,7 @@
         "code": "SSH_KEY_NOT_FOUND",
         "exit": 3,
         "example": "no SSH key named …",
-        "hint": "see them with `komando key list`"
+        "hint": "see them with `komando credential key list`"
       },
       {
         "code": "SSM_FAILED",
@@ -20825,7 +20926,7 @@
         "code": "STORAGE_AUTH",
         "exit": 4,
         "example": "an azblob conn needs the storage account's key or a SAS token",
-        "hint": "store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME"
+        "hint": "store the account key or a SAS token with `komando credential token add NAME` and pass --password-ref secret:NAME"
       },
       {
         "code": "STORAGE_CONNECT",
@@ -21095,7 +21196,7 @@
         "code": "URL_HAS_PASSWORD",
         "exit": 2,
         "example": "a conn URL holds no password",
-        "hint": "remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME"
+        "hint": "remove the password from the URL, store it with `komando credential password add NAME`, then pass --password-ref secret:NAME"
       },
       {
         "code": "USAGE",
@@ -21125,7 +21226,7 @@
         "code": "VAULT_KEY",
         "exit": 1,
         "example": "password for … (…): …",
-        "hint": "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"
+        "hint": "restore ~/.komando/store.key from a backup, or move the key back with `komando config vault keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"
       },
       {
         "code": "VAULT_LOCKED",
@@ -21245,7 +21346,7 @@
         "code": "WINRM_TLS",
         "exit": 4,
         "example": "…: the WinRM server's certificate cannot be trusted: …",
-        "hint": "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`)"
+        "hint": "if the server's certificate comes from your own CA, store it with `komando credential token add NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit … --address winrm://...`)"
       },
       {
         "code": "WRITE_FAILED",

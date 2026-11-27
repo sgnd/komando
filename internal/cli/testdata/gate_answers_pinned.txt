@@ -658,6 +658,30 @@
 "config show"	netread	config.show	runs
 "config show"	read	config.show	runs
 "config show"	shell	config.show	runs
+"config vault --help"	full	config.vault	runs
+"config vault --help"	netread	config.vault	runs
+"config vault --help"	read	config.vault	runs
+"config vault --help"	shell	config.vault	runs
+"config vault keychain --help"	full	config.vault.keychain	runs
+"config vault keychain --help"	netread	config.vault.keychain	runs
+"config vault keychain --help"	read	config.vault.keychain	runs
+"config vault keychain --help"	shell	config.vault.keychain	runs
+"config vault keychain"	full	config.vault.keychain	SSH_GATE_REFUSED|komando config vault keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config vault keychain"	netread	config.vault.keychain	SSH_GATE_REFUSED|komando config vault keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config vault keychain"	read	config.vault.keychain	SSH_GATE_REFUSED|komando config vault keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config vault keychain"	shell	config.vault.keychain	SSH_GATE_REFUSED|komando config vault keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"config vault passphrase --help"	full	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase --help"	netread	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase --help"	read	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase --help"	shell	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase"	full	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase"	netread	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase"	read	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault passphrase"	shell	config.vault.passphrase	SSH_GATE_REFUSED|komando config vault passphrase needs a person at a terminal on this computer; a key cannot run it
+"config vault"	full	config.vault	runs
+"config vault"	netread	config.vault	runs
+"config vault"	read	config.vault	runs
+"config vault"	shell	config.vault	runs
 "config"	full	config	runs
 "config"	netread	config	runs
 "config"	read	config	runs
@@ -746,6 +770,230 @@
 "cp"	netread	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
 "cp"	read	cp	SSH_GATE_READ_ONLY|komando cp is refused for a read-only key: it may change something (changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC)
 "cp"	shell	cp	runs
+"credential --help"	full	credential	runs
+"credential --help"	netread	credential	runs
+"credential --help"	read	credential	runs
+"credential --help"	shell	credential	runs
+"credential certificate --help"	full	credential.certificate	runs
+"credential certificate --help"	netread	credential.certificate	runs
+"credential certificate --help"	read	credential.certificate	runs
+"credential certificate --help"	shell	credential.certificate	runs
+"credential certificate add --help"	full	credential.certificate.add	runs
+"credential certificate add --help"	netread	credential.certificate.add	runs
+"credential certificate add --help"	read	credential.certificate.add	runs
+"credential certificate add --help"	shell	credential.certificate.add	runs
+"credential certificate add"	full	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate add"	netread	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate add"	read	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate add"	shell	credential.certificate.add	SSH_GATE_REFUSED|komando credential certificate add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate list --help"	full	credential.certificate.list	runs
+"credential certificate list --help"	netread	credential.certificate.list	runs
+"credential certificate list --help"	read	credential.certificate.list	runs
+"credential certificate list --help"	shell	credential.certificate.list	runs
+"credential certificate list"	full	credential.certificate.list	runs
+"credential certificate list"	netread	credential.certificate.list	runs
+"credential certificate list"	read	credential.certificate.list	runs
+"credential certificate list"	shell	credential.certificate.list	runs
+"credential certificate remove --help"	full	credential.certificate.remove	runs
+"credential certificate remove --help"	netread	credential.certificate.remove	runs
+"credential certificate remove --help"	read	credential.certificate.remove	runs
+"credential certificate remove --help"	shell	credential.certificate.remove	runs
+"credential certificate remove"	full	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate remove"	netread	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate remove"	read	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate remove"	shell	credential.certificate.remove	SSH_GATE_REFUSED|komando credential certificate remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential certificate"	full	credential.certificate	runs
+"credential certificate"	netread	credential.certificate	runs
+"credential certificate"	read	credential.certificate	runs
+"credential certificate"	shell	credential.certificate	runs
+"credential key --help"	full	credential.key	runs
+"credential key --help"	netread	credential.key	runs
+"credential key --help"	read	credential.key	runs
+"credential key --help"	shell	credential.key	runs
+"credential key add --help"	full	credential.key.add	runs
+"credential key add --help"	netread	credential.key.add	runs
+"credential key add --help"	read	credential.key.add	runs
+"credential key add --help"	shell	credential.key.add	runs
+"credential key add"	full	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key add"	netread	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key add"	read	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key add"	shell	credential.key.add	SSH_GATE_REFUSED|komando credential key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create --help"	full	credential.key.create	runs
+"credential key create --help"	netread	credential.key.create	runs
+"credential key create --help"	read	credential.key.create	runs
+"credential key create --help"	shell	credential.key.create	runs
+"credential key create"	full	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create"	netread	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create"	read	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key create"	shell	credential.key.create	SSH_GATE_REFUSED|komando credential key create is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit --help"	full	credential.key.edit	runs
+"credential key edit --help"	netread	credential.key.edit	runs
+"credential key edit --help"	read	credential.key.edit	runs
+"credential key edit --help"	shell	credential.key.edit	runs
+"credential key edit"	full	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit"	netread	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit"	read	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key edit"	shell	credential.key.edit	SSH_GATE_REFUSED|komando credential key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key install --help"	full	credential.key.install	runs
+"credential key install --help"	netread	credential.key.install	runs
+"credential key install --help"	read	credential.key.install	runs
+"credential key install --help"	shell	credential.key.install	runs
+"credential key install web"	full	credential.key.install	runs
+"credential key install web"	netread	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install web"	read	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install web"	shell	credential.key.install	runs
+"credential key install"	full	credential.key.install	runs
+"credential key install"	netread	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install"	read	credential.key.install	SSH_GATE_READ_ONLY|komando credential key install is refused for a read-only key: it changes something
+"credential key install"	shell	credential.key.install	runs
+"credential key list --help"	full	credential.key.list	runs
+"credential key list --help"	netread	credential.key.list	runs
+"credential key list --help"	read	credential.key.list	runs
+"credential key list --help"	shell	credential.key.list	runs
+"credential key list"	full	credential.key.list	runs
+"credential key list"	netread	credential.key.list	runs
+"credential key list"	read	credential.key.list	runs
+"credential key list"	shell	credential.key.list	runs
+"credential key remove --help"	full	credential.key.remove	runs
+"credential key remove --help"	netread	credential.key.remove	runs
+"credential key remove --help"	read	credential.key.remove	runs
+"credential key remove --help"	shell	credential.key.remove	runs
+"credential key remove"	full	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key remove"	netread	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key remove"	read	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key remove"	shell	credential.key.remove	SSH_GATE_REFUSED|komando credential key remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename --help"	full	credential.key.rename	runs
+"credential key rename --help"	netread	credential.key.rename	runs
+"credential key rename --help"	read	credential.key.rename	runs
+"credential key rename --help"	shell	credential.key.rename	runs
+"credential key rename"	full	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename"	netread	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename"	read	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key rename"	shell	credential.key.rename	SSH_GATE_REFUSED|komando credential key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential key show --help"	full	credential.key.show	runs
+"credential key show --help"	netread	credential.key.show	runs
+"credential key show --help"	read	credential.key.show	runs
+"credential key show --help"	shell	credential.key.show	runs
+"credential key show"	full	credential.key.show	runs
+"credential key show"	netread	credential.key.show	runs
+"credential key show"	read	credential.key.show	runs
+"credential key show"	shell	credential.key.show	runs
+"credential key uninstall --help"	full	credential.key.uninstall	runs
+"credential key uninstall --help"	netread	credential.key.uninstall	runs
+"credential key uninstall --help"	read	credential.key.uninstall	runs
+"credential key uninstall --help"	shell	credential.key.uninstall	runs
+"credential key uninstall web"	full	credential.key.uninstall	runs
+"credential key uninstall web"	netread	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall web"	read	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall web"	shell	credential.key.uninstall	runs
+"credential key uninstall"	full	credential.key.uninstall	runs
+"credential key uninstall"	netread	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall"	read	credential.key.uninstall	SSH_GATE_READ_ONLY|komando credential key uninstall is refused for a read-only key: it changes something
+"credential key uninstall"	shell	credential.key.uninstall	runs
+"credential key"	full	credential.key	runs
+"credential key"	netread	credential.key	runs
+"credential key"	read	credential.key	runs
+"credential key"	shell	credential.key	runs
+"credential list --help"	full	credential.list	runs
+"credential list --help"	netread	credential.list	runs
+"credential list --help"	read	credential.list	runs
+"credential list --help"	shell	credential.list	runs
+"credential list"	full	credential.list	runs
+"credential list"	netread	credential.list	runs
+"credential list"	read	credential.list	runs
+"credential list"	shell	credential.list	runs
+"credential password --help"	full	credential.password	runs
+"credential password --help"	netread	credential.password	runs
+"credential password --help"	read	credential.password	runs
+"credential password --help"	shell	credential.password	runs
+"credential password add --help"	full	credential.password.add	runs
+"credential password add --help"	netread	credential.password.add	runs
+"credential password add --help"	read	credential.password.add	runs
+"credential password add --help"	shell	credential.password.add	runs
+"credential password add"	full	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password add"	netread	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password add"	read	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password add"	shell	credential.password.add	SSH_GATE_REFUSED|komando credential password add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove --help"	full	credential.password.remove	runs
+"credential password remove --help"	netread	credential.password.remove	runs
+"credential password remove --help"	read	credential.password.remove	runs
+"credential password remove --help"	shell	credential.password.remove	runs
+"credential password remove"	full	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove"	netread	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove"	read	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password remove"	shell	credential.password.remove	SSH_GATE_REFUSED|komando credential password remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename --help"	full	credential.password.rename	runs
+"credential password rename --help"	netread	credential.password.rename	runs
+"credential password rename --help"	read	credential.password.rename	runs
+"credential password rename --help"	shell	credential.password.rename	runs
+"credential password rename"	full	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename"	netread	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename"	read	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password rename"	shell	credential.password.rename	SSH_GATE_REFUSED|komando credential password rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential password show --help"	full	credential.password.show	runs
+"credential password show --help"	netread	credential.password.show	runs
+"credential password show --help"	read	credential.password.show	runs
+"credential password show --help"	shell	credential.password.show	runs
+"credential password show"	full	credential.password.show	runs
+"credential password show"	netread	credential.password.show	runs
+"credential password show"	read	credential.password.show	runs
+"credential password show"	shell	credential.password.show	runs
+"credential password"	full	credential.password	runs
+"credential password"	netread	credential.password	runs
+"credential password"	read	credential.password	runs
+"credential password"	shell	credential.password	runs
+"credential run --help"	full	credential.run	runs
+"credential run --help"	netread	credential.run	runs
+"credential run --help"	read	credential.run	runs
+"credential run --help"	shell	credential.run	runs
+"credential run"	full	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential run"	netread	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential run"	read	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential run"	shell	credential.run	SSH_GATE_REFUSED|komando credential run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token --help"	full	credential.token	runs
+"credential token --help"	netread	credential.token	runs
+"credential token --help"	read	credential.token	runs
+"credential token --help"	shell	credential.token	runs
+"credential token add --help"	full	credential.token.add	runs
+"credential token add --help"	netread	credential.token.add	runs
+"credential token add --help"	read	credential.token.add	runs
+"credential token add --help"	shell	credential.token.add	runs
+"credential token add"	full	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token add"	netread	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token add"	read	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token add"	shell	credential.token.add	SSH_GATE_REFUSED|komando credential token add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove --help"	full	credential.token.remove	runs
+"credential token remove --help"	netread	credential.token.remove	runs
+"credential token remove --help"	read	credential.token.remove	runs
+"credential token remove --help"	shell	credential.token.remove	runs
+"credential token remove"	full	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove"	netread	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove"	read	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token remove"	shell	credential.token.remove	SSH_GATE_REFUSED|komando credential token remove is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename --help"	full	credential.token.rename	runs
+"credential token rename --help"	netread	credential.token.rename	runs
+"credential token rename --help"	read	credential.token.rename	runs
+"credential token rename --help"	shell	credential.token.rename	runs
+"credential token rename"	full	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename"	netread	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename"	read	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token rename"	shell	credential.token.rename	SSH_GATE_REFUSED|komando credential token rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
+"credential token show --help"	full	credential.token.show	runs
+"credential token show --help"	netread	credential.token.show	runs
+"credential token show --help"	read	credential.token.show	runs
+"credential token show --help"	shell	credential.token.show	runs
+"credential token show"	full	credential.token.show	runs
+"credential token show"	netread	credential.token.show	runs
+"credential token show"	read	credential.token.show	runs
+"credential token show"	shell	credential.token.show	runs
+"credential token"	full	credential.token	runs
+"credential token"	netread	credential.token	runs
+"credential token"	read	credential.token	runs
+"credential token"	shell	credential.token	runs
+"credential"	full	credential	runs
+"credential"	netread	credential	runs
+"credential"	read	credential	runs
+"credential"	shell	credential	runs
 "db --help"	full	db	runs
 "db --help"	netread	db	runs
 "db --help"	read	db	runs
@@ -1342,22 +1590,6 @@
 "host ca --help"	netread	host.ca	runs
 "host ca --help"	read	host.ca	runs
 "host ca --help"	shell	host.ca	runs
-"host ca add --help"	full	host.ca.add	runs
-"host ca add --help"	netread	host.ca.add	runs
-"host ca add --help"	read	host.ca.add	runs
-"host ca add --help"	shell	host.ca.add	runs
-"host ca add"	full	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca add"	netread	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca add"	read	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca add"	shell	host.ca.add	SSH_GATE_REFUSED|komando host ca add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca list --help"	full	host.ca.list	runs
-"host ca list --help"	netread	host.ca.list	runs
-"host ca list --help"	read	host.ca.list	runs
-"host ca list --help"	shell	host.ca.list	runs
-"host ca list"	full	host.ca.list	runs
-"host ca list"	netread	host.ca.list	runs
-"host ca list"	read	host.ca.list	runs
-"host ca list"	shell	host.ca.list	runs
 "host ca revoke --help"	full	host.ca.revoke	runs
 "host ca revoke --help"	netread	host.ca.revoke	runs
 "host ca revoke --help"	read	host.ca.revoke	runs
@@ -1366,14 +1598,6 @@
 "host ca revoke"	netread	host.ca.revoke	SSH_GATE_REFUSED|komando host ca revoke is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "host ca revoke"	read	host.ca.revoke	SSH_GATE_REFUSED|komando host ca revoke is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "host ca revoke"	shell	host.ca.revoke	SSH_GATE_REFUSED|komando host ca revoke is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca rm --help"	full	host.ca.rm	runs
-"host ca rm --help"	netread	host.ca.rm	runs
-"host ca rm --help"	read	host.ca.rm	runs
-"host ca rm --help"	shell	host.ca.rm	runs
-"host ca rm"	full	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca rm"	netread	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca rm"	read	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"host ca rm"	shell	host.ca.rm	SSH_GATE_REFUSED|komando host ca rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "host ca"	full	host.ca	runs
 "host ca"	netread	host.ca	runs
 "host ca"	read	host.ca	runs
@@ -1542,94 +1766,6 @@
 "job"	netread	job	runs
 "job"	read	job	runs
 "job"	shell	job	runs
-"key --help"	full	key	runs
-"key --help"	netread	key	runs
-"key --help"	read	key	runs
-"key --help"	shell	key	runs
-"key add --help"	full	key.add	runs
-"key add --help"	netread	key.add	runs
-"key add --help"	read	key.add	runs
-"key add --help"	shell	key.add	runs
-"key add"	full	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key add"	netread	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key add"	read	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key add"	shell	key.add	SSH_GATE_REFUSED|komando key add is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key deploy --help"	full	key.deploy	runs
-"key deploy --help"	netread	key.deploy	runs
-"key deploy --help"	read	key.deploy	runs
-"key deploy --help"	shell	key.deploy	runs
-"key deploy web"	full	key.deploy	runs
-"key deploy web"	netread	key.deploy	SSH_GATE_READ_ONLY|komando key deploy is refused for a read-only key: it changes something
-"key deploy web"	read	key.deploy	SSH_GATE_READ_ONLY|komando key deploy is refused for a read-only key: it changes something
-"key deploy web"	shell	key.deploy	runs
-"key deploy"	full	key.deploy	runs
-"key deploy"	netread	key.deploy	SSH_GATE_READ_ONLY|komando key deploy is refused for a read-only key: it changes something
-"key deploy"	read	key.deploy	SSH_GATE_READ_ONLY|komando key deploy is refused for a read-only key: it changes something
-"key deploy"	shell	key.deploy	runs
-"key edit --help"	full	key.edit	runs
-"key edit --help"	netread	key.edit	runs
-"key edit --help"	read	key.edit	runs
-"key edit --help"	shell	key.edit	runs
-"key edit"	full	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key edit"	netread	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key edit"	read	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key edit"	shell	key.edit	SSH_GATE_REFUSED|komando key edit is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key gen --help"	full	key.gen	runs
-"key gen --help"	netread	key.gen	runs
-"key gen --help"	read	key.gen	runs
-"key gen --help"	shell	key.gen	runs
-"key gen"	full	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key gen"	netread	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key gen"	read	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key gen"	shell	key.gen	SSH_GATE_REFUSED|komando key gen is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key list --help"	full	key.list	runs
-"key list --help"	netread	key.list	runs
-"key list --help"	read	key.list	runs
-"key list --help"	shell	key.list	runs
-"key list"	full	key.list	runs
-"key list"	netread	key.list	runs
-"key list"	read	key.list	runs
-"key list"	shell	key.list	runs
-"key rename --help"	full	key.rename	runs
-"key rename --help"	netread	key.rename	runs
-"key rename --help"	read	key.rename	runs
-"key rename --help"	shell	key.rename	runs
-"key rename"	full	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key rename"	netread	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key rename"	read	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key rename"	shell	key.rename	SSH_GATE_REFUSED|komando key rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key revoke --help"	full	key.revoke	runs
-"key revoke --help"	netread	key.revoke	runs
-"key revoke --help"	read	key.revoke	runs
-"key revoke --help"	shell	key.revoke	runs
-"key revoke web"	full	key.revoke	runs
-"key revoke web"	netread	key.revoke	SSH_GATE_READ_ONLY|komando key revoke is refused for a read-only key: it changes something
-"key revoke web"	read	key.revoke	SSH_GATE_READ_ONLY|komando key revoke is refused for a read-only key: it changes something
-"key revoke web"	shell	key.revoke	runs
-"key revoke"	full	key.revoke	runs
-"key revoke"	netread	key.revoke	SSH_GATE_READ_ONLY|komando key revoke is refused for a read-only key: it changes something
-"key revoke"	read	key.revoke	SSH_GATE_READ_ONLY|komando key revoke is refused for a read-only key: it changes something
-"key revoke"	shell	key.revoke	runs
-"key rm --help"	full	key.rm	runs
-"key rm --help"	netread	key.rm	runs
-"key rm --help"	read	key.rm	runs
-"key rm --help"	shell	key.rm	runs
-"key rm"	full	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key rm"	netread	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key rm"	read	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key rm"	shell	key.rm	SSH_GATE_REFUSED|komando key rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"key show --help"	full	key.show	runs
-"key show --help"	netread	key.show	runs
-"key show --help"	read	key.show	runs
-"key show --help"	shell	key.show	runs
-"key show"	full	key.show	runs
-"key show"	netread	key.show	runs
-"key show"	read	key.show	runs
-"key show"	shell	key.show	runs
-"key"	full	key	runs
-"key"	netread	key	runs
-"key"	read	key	runs
-"key"	shell	key	runs
 "list --help"	full	list	runs
 "list --help"	netread	list	runs
 "list --help"	read	list	runs
@@ -2882,70 +3018,6 @@
 "secret cp"	netread	secret.cp	SSH_GATE_REFUSED|komando secret cp is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "secret cp"	read	secret.cp	SSH_GATE_REFUSED|komando secret cp is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "secret cp"	shell	secret.cp	SSH_GATE_REFUSED|komando secret cp is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret keychain --help"	full	secret.keychain	runs
-"secret keychain --help"	netread	secret.keychain	runs
-"secret keychain --help"	read	secret.keychain	runs
-"secret keychain --help"	shell	secret.keychain	runs
-"secret keychain"	full	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret keychain"	netread	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret keychain"	read	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret keychain"	shell	secret.keychain	SSH_GATE_REFUSED|komando secret keychain is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret list --help"	full	secret.list	runs
-"secret list --help"	netread	secret.list	runs
-"secret list --help"	read	secret.list	runs
-"secret list --help"	shell	secret.list	runs
-"secret list"	full	secret.list	runs
-"secret list"	netread	secret.list	runs
-"secret list"	read	secret.list	runs
-"secret list"	shell	secret.list	runs
-"secret passphrase --help"	full	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase --help"	netread	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase --help"	read	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase --help"	shell	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase"	full	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase"	netread	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase"	read	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret passphrase"	shell	secret.passphrase	SSH_GATE_REFUSED|komando secret passphrase needs a person at a terminal on this computer; a key cannot run it
-"secret rename --help"	full	secret.rename	runs
-"secret rename --help"	netread	secret.rename	runs
-"secret rename --help"	read	secret.rename	runs
-"secret rename --help"	shell	secret.rename	runs
-"secret rename"	full	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rename"	netread	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rename"	read	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rename"	shell	secret.rename	SSH_GATE_REFUSED|komando secret rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rm --help"	full	secret.rm	runs
-"secret rm --help"	netread	secret.rm	runs
-"secret rm --help"	read	secret.rm	runs
-"secret rm --help"	shell	secret.rm	runs
-"secret rm"	full	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rm"	netread	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rm"	read	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret rm"	shell	secret.rm	SSH_GATE_REFUSED|komando secret rm is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret run --help"	full	secret.run	runs
-"secret run --help"	netread	secret.run	runs
-"secret run --help"	read	secret.run	runs
-"secret run --help"	shell	secret.run	runs
-"secret run"	full	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret run"	netread	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret run"	read	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret run"	shell	secret.run	SSH_GATE_REFUSED|komando secret run is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret set --help"	full	secret.set	runs
-"secret set --help"	netread	secret.set	runs
-"secret set --help"	read	secret.set	runs
-"secret set --help"	shell	secret.set	runs
-"secret set"	full	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret set"	netread	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret set"	read	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret set"	shell	secret.set	SSH_GATE_REFUSED|komando secret set is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"secret show --help"	full	secret.show	runs
-"secret show --help"	netread	secret.show	runs
-"secret show --help"	read	secret.show	runs
-"secret show --help"	shell	secret.show	runs
-"secret show"	full	secret.show	runs
-"secret show"	netread	secret.show	runs
-"secret show"	read	secret.show	runs
-"secret show"	shell	secret.show	runs
 "secret"	full	secret	runs
 "secret"	netread	secret	runs
 "secret"	read	secret	runs

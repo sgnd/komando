@@ -12,7 +12,7 @@ import (
 // window.
 func platformChecks(cl *call, add func(name string, ok, warn bool, detail string, fix ...string)) {
 	if _, err := vault.KeychainTool(); err != nil {
-		add("keychain", false, true, "no Windows Credential Manager here ("+err.Error()+"): the vault key stays in store.key unless you set a passphrase with `komando secret passphrase`")
+		add("keychain", false, true, "no Windows Credential Manager here ("+err.Error()+"): the vault key stays in store.key unless you set a passphrase with `komando config vault passphrase`")
 	}
 	if cl.getenv("KOMANDO_NO_DIALOG") == "" && !interactiveDesktop() {
 		add("approval_window", false, true, "komando cannot show its \"Allow once\" window here (no desktop session, a service or a remote shell): an AI agent's --yes, --allow-dangerous and --reveal stop, and a person runs those commands in their own terminal")

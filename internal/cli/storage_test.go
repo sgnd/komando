@@ -253,8 +253,8 @@ func TestStorageHintNamesTheConn(t *testing.T) {
 	if e.Hint != "list objects with `komando storage s3 object list bk [PREFIX]`" {
 		t.Errorf("hint: %q", e.Hint)
 	}
-	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test NAME`", "x")
-	if got := namedHint(in, "bk").(*out.Error).Hint; got != "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test bk`" {
+	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando credential password add NAME` and pass --password-ref secret:NAME; then `komando conn test NAME`", "x")
+	if got := namedHint(in, "bk").(*out.Error).Hint; got != "store a key with `komando credential password add NAME` and pass --password-ref secret:NAME; then `komando conn test bk`" {
 		t.Errorf("only conn commands change: %q", got)
 	}
 }

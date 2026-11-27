@@ -5,9 +5,9 @@
 # it at the end.
 set +e
 ORC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
-printf 'Oracle-pass-1' | $K secret set ora-system >/dev/null
-printf 'Shop-pass-1x' | $K secret set ora-shop >/dev/null
-printf 'Ro-pass-1x' | $K secret set ora-ro >/dev/null
+printf 'Oracle-pass-1' | $K credential password add ora-system >/dev/null
+printf 'Shop-pass-1x' | $K credential password add ora-shop >/dev/null
+printf 'Ro-pass-1x' | $K credential password add ora-ro >/dev/null
 q $K conn add sys-ora 'oracle://system@oracle:1521/FREEPDB1' --via bastion --password-ref secret:ora-system
 # the database takes a while to open, longer when emulated
 for _ in $(seq 1 180); do [ "$($K conn test sys-ora | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
@@ -17,7 +17,7 @@ if [ "$($K conn test sys-ora | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)
   ORC logs --tail 30 oracle 2>&1 | sed 's/^/    /'
   skipped "the Oracle checks: the database did not start here (it needs about 2 GB of memory)"
   q $K conn rm sys-ora
-  $K secret rm ora-system ora-shop ora-ro --allow-dangerous >/dev/null 2>&1 || true
+  $K credential password remove ora-system ora-shop ora-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -61,5 +61,5 @@ check "no oracle password in the audit log" 0 "$(audit_text | grep -c -E 'Shop-p
 q $K conn rm shop-ora
 q $K db query sys-ora --write --allow-dangerous 'drop user e2e_shop cascade'
 q $K conn rm sys-ora
-$K secret rm ora-system ora-shop ora-ro --allow-dangerous >/dev/null 2>&1 || true
+$K credential password remove ora-system ora-shop ora-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

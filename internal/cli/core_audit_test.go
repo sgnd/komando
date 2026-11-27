@@ -82,17 +82,17 @@ func TestHostRmInUseNamesEveryUser(t *testing.T) {
 // what happened in words, not as raw fields.
 func TestKeyRmInUseAndText(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "credential", "key", "create", "k1")
 	mustRun(t, "host", "add", "a", "u@10.0.0.1", "--key", "k1")
 	mustRun(t, "host", "add", "b", "u@10.0.0.2", "--key", "k1")
-	e := wantCode(t, "KEY_IN_USE", "key", "rm", "k1")
+	e := wantCode(t, "KEY_IN_USE", "credential", "key", "remove", "k1")
 	if !strings.Contains(e.Message, "a and b") || !strings.Contains(e.Hint, "host edit a b --key OTHER") {
 		t.Errorf("want both servers named: %s / %s", e.Message, e.Hint)
 	}
 	mustRun(t, "host", "edit", "a", "b", "--unset", "key")
-	wantCode(t, "POLICY_BLOCKED", "key", "rm", "k1", "--delete-file") // its files have no copy (OD-7)
+	wantCode(t, "POLICY_BLOCKED", "credential", "key", "remove", "k1", "--delete-file") // its files have no copy (OD-7)
 	personTypes(t, "k1")
-	txt := coreText(t, "key", "rm", "k1", "--delete-file")
+	txt := coreText(t, "credential", "key", "remove", "k1", "--delete-file")
 	if !strings.Contains(txt, "removed key k1") || strings.Contains(txt, "file_deleted") {
 		t.Errorf("text: %q", txt)
 	}
@@ -198,7 +198,7 @@ func TestHostAddressNeverAnOption(t *testing.T) {
 // sealed: path as a "key file".
 func TestExportSealedKey(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "k1")
+	mustRun(t, "credential", "key", "create", "k1")
 	mustRun(t, "host", "add", "a", "u@10.0.0.1", "--key", "k1")
 	d := mustRun(t, "export", "--to", filepath.Join(t.TempDir(), "e.json"))
 	if fmt.Sprint(d["keys_sealed"]) != "[k1]" || d["key_files"] != nil {

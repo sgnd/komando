@@ -75,7 +75,7 @@ func ec2Host(p *importPlan, prof string, in cloud.EC2Instance) *store.Host {
 		p.Notes = append(p.Notes, name+": a Windows server; komando reaches it over OpenSSH or WinRM (see the Windows guide)")
 	}
 	if in.KeyName != "" {
-		p.Notes = append(p.Notes, fmt.Sprintf("%s: launched with the EC2 key pair %q; add its key (`komando key add NAME FILE`) and `komando host edit %s --key NAME`, and set the login user (ec2-user, ubuntu, admin ...) with --user", name, in.KeyName, name))
+		p.Notes = append(p.Notes, fmt.Sprintf("%s: launched with the EC2 key pair %q; add its key (`komando credential key add NAME FILE`) and `komando host edit %s --key NAME`, and set the login user (ec2-user, ubuntu, admin ...) with --user", name, in.KeyName, name))
 	}
 	return h
 }

@@ -78,7 +78,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			case action == "rm" && ref != "":
 				return out.Usage("rm takes no --password-ref")
 			case action == "passwd" && ref == "", action == "add" && ref == "" && !noLogin:
-				return out.Usage("give the password as a reference: --password-ref secret:NAME (set it with `komando secret set NAME`)")
+				return out.Usage("give the password as a reference: --password-ref secret:NAME (set it with `komando credential password add NAME`)")
 			case ref != "" && !vault.ValidRef(ref):
 				return out.Usage("--password-ref: %s", vault.RefHelp())
 			}
@@ -99,7 +99,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 						}
 						pw, err := vault.Resolve(ref)
 						if err != nil {
-							return nil, out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "set it with `komando secret set NAME`", "--password-ref: %v", err)
+							return nil, out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "set it with `komando credential password add NAME`", "--password-ref: %v", err)
 						}
 						if pw == "" {
 							return nil, out.Usage("the password in %s is empty", ref)

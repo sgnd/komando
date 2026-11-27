@@ -98,10 +98,10 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		switch {
 		case r == "":
 		case !vault.ValidRef(r):
-			fail(name, flag+" holds plain text instead of a reference: store it with `komando secret set NAME` and use secret:NAME")
+			fail(name, flag+" holds plain text instead of a reference: store it with `komando credential password add NAME` and use secret:NAME")
 		case strings.HasPrefix(r, "secret:") && !secrets[strings.TrimPrefix(r, "secret:")]:
 			// no fix: secret set asks for the value
-			warn(name, flag+" "+r+" is not in the vault: `komando secret set "+argQ(strings.TrimPrefix(r, "secret:"))+"`")
+			warn(name, flag+" "+r+" is not in the vault: `komando credential password add "+argQ(strings.TrimPrefix(r, "secret:"))+"`")
 		}
 	}
 	for _, h := range st.SortedHosts() {
@@ -155,7 +155,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		}
 		ref(name, "passphrase_ref", k.PassphraseRef)
 		if b := rsaBits(k.PublicKey); b > 0 && b < minRSABits {
-			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando key gen` (ed25519)", b))
+			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando credential key create` (ed25519)", b))
 		}
 	}
 	return cs

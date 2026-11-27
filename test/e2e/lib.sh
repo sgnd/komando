@@ -117,7 +117,7 @@ lab_down() {
 # bastion, direct, and target (protected, only reachable through bastion)
 setup_hosts() {
   echo "==> inventory & vault"
-  echo -n agentpass | $K secret set agent-pass >/dev/null
+  echo -n agentpass | $K credential password add agent-pass >/dev/null
   if has_service bastion; then
     wait_port "$E2E_SSH_BASTION"
     $K host add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref secret:agent-pass -g lab >/dev/null
@@ -137,9 +137,9 @@ setup_hosts() {
 setup_data() {
   echo "==> conns through bastion (db, cache, storage)"
   for _ in $(seq 1 60); do DC ps --format '{{.Health}}' pg maria 2>/dev/null | grep -qv healthy || break; sleep 1; done
-  echo -n apppass | $K secret set pg-pass >/dev/null
-  echo -n shoppass | $K secret set maria-pass >/dev/null
-  echo -n redispass | $K secret set redis-pass >/dev/null
+  echo -n apppass | $K credential password add pg-pass >/dev/null
+  echo -n shoppass | $K credential password add maria-pass >/dev/null
+  echo -n redispass | $K credential password add redis-pass >/dev/null
   q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
   q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
   q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
@@ -153,14 +153,14 @@ setup_bucket() {
   G layout assign -z dc1 -c 1G "$NODE" >/dev/null && G layout apply --version 1 >/dev/null
   G bucket create backups >/dev/null && G key create komando > "$TMP/s3key" && G bucket allow --read --write --owner backups --key komando >/dev/null
   S3ID=$(awk '/Key ID/{print $3}' "$TMP/s3key")
-  awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K secret set s3-secret >/dev/null
+  awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K credential password add s3-secret >/dev/null
   q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
 }
 
 # +maria_conn: the protected conn maria, for checks that only edit the
 # inventory (no MariaDB runs)
 setup_maria_conn() {
-  echo -n shoppass | $K secret set maria-pass >/dev/null
+  echo -n shoppass | $K credential password add maria-pass >/dev/null
   q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
 }
 
@@ -180,7 +180,7 @@ setup_swarm() {
 }
 
 # +files_pass: the vault secret of the lab's file servers (user deploy)
-setup_files_pass() { echo -n deploypass | $K secret set files-pass >/dev/null; }
+setup_files_pass() { echo -n deploypass | $K credential password add files-pass >/dev/null; }
 
 # write_tools_yaml FILE: a busybox web server and its Service, for exec and
 # port-forward in Kubernetes

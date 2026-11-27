@@ -133,8 +133,8 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 	hint, _ := res[0].(map[string]any)["error"].(map[string]any)["hint"].(string)
 	for _, cmd := range []string{
 		"`ssh-add ~/.ssh/id_ed25519`",
-		"`komando secret set id_ed25519-pass`",
-		"`komando key add id_ed25519 ~/.ssh/id_ed25519 --passphrase-ref secret:id_ed25519-pass`",
+		"`komando credential password add id_ed25519-pass`",
+		"`komando credential key add id_ed25519 ~/.ssh/id_ed25519 --passphrase-credential id_ed25519-pass`",
 		"`komando host edit web1 --key id_ed25519 --unset identity`",
 	} {
 		if !strings.Contains(hint, cmd) {
@@ -144,8 +144,8 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 
 	// follow the hint (a value from --from-env instead of the hidden prompt)
 	t.Setenv("KOMANDO_TEST_KEY_PASS", pass)
-	mustRun(t, "secret", "set", "id_ed25519-pass", "--from-env", "KOMANDO_TEST_KEY_PASS")
-	mustRun(t, "key", "add", "id_ed25519", keyPath, "--passphrase-ref", "secret:id_ed25519-pass")
+	mustRun(t, "credential", "password", "add", "id_ed25519-pass", "--from-env", "KOMANDO_TEST_KEY_PASS")
+	mustRun(t, "credential", "key", "add", "id_ed25519", keyPath, "--passphrase-credential", "id_ed25519-pass")
 	mustRun(t, "host", "edit", "web1", "--key", "id_ed25519", "--unset", "identity")
 	t.Setenv("SSH_AUTH_SOCK", "")
 	mustRun(t, "test", "web1")

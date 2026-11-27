@@ -42,20 +42,20 @@ func TestDeviceKeyChecksFirst(t *testing.T) {
 	if err := os.WriteFile(priv, []byte("-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	dev := []string{"key", "deploy", "web1", "--user", "anna", "--public-key-file", good}
+	dev := []string{"credential", "key", "install", "web1", "--user", "anna", "--public-key-file", good}
 	for _, c := range []struct {
 		args []string
 		code string
 	}{
-		{[]string{"key", "deploy", "web1", "--user", "anna"}, "USAGE"},
-		{[]string{"key", "deploy", "web1", "--public-key-file", good}, "USAGE"},
-		{[]string{"key", "deploy", "web1", "--user", "root;id", "--public-key-file", good}, "USAGE"},
-		{[]string{"key", "deploy", "web1", "--user", "-x", "--public-key-file", good}, "USAGE"},
+		{[]string{"credential", "key", "install", "web1", "--user", "anna"}, "USAGE"},
+		{[]string{"credential", "key", "install", "web1", "--public-key-file", good}, "USAGE"},
+		{[]string{"credential", "key", "install", "web1", "--user", "root;id", "--public-key-file", good}, "USAGE"},
+		{[]string{"credential", "key", "install", "web1", "--user", "-x", "--public-key-file", good}, "USAGE"},
 		{append(dev[:len(dev):len(dev)], "--from-address", `10.0.0.1",command="/bin/sh`), "USAGE"},
 		{append(dev[:len(dev):len(dev)], "--from-address", "10.0.0.1 10.0.0.2"), "USAGE"},
 		{append(dev[:len(dev):len(dev)], "--set-default"), "USAGE"},
-		{[]string{"key", "deploy", "k", "web1", "--user", "anna", "--public-key-file", good}, "USAGE"},
-		{[]string{"key", "deploy", "web1", "--user", "anna", "--public-key-file", priv}, "KEY_INVALID"},
+		{[]string{"credential", "key", "install", "k", "web1", "--user", "anna", "--public-key-file", good}, "USAGE"},
+		{[]string{"credential", "key", "install", "web1", "--user", "anna", "--public-key-file", priv}, "KEY_INVALID"},
 		{dev, "NEEDS_PERSON"}, // a script
 	} {
 		if _, e := invRun(t, c.args...); e == nil || e.Code != c.code {
@@ -69,21 +69,21 @@ func TestDeviceKeyChecksFirst(t *testing.T) {
 }
 
 // TestDeviceKeyTier: the --public-key-file form is person tier in every
-// spelling; key deploy without it stays as it was. The ssh gate on the
+// spelling; key install without it stays as it was. The ssh gate on the
 // komando computer refuses the form for every key.
 func TestDeviceKeyTier(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
 	for line, want := range map[string]tier{
-		"key deploy web1 --user anna --public-key-file k.pub": tierPerson,
-		"key deploy web1 --user anna --public-key-file=k.pub": tierPerson,
-		"key deploy k.pub web1":                               tierChange,
+		"credential key install web1 --user anna --public-key-file k.pub": tierPerson,
+		"credential key install web1 --user anna --public-key-file=k.pub": tierPerson,
+		"credential key install k.pub web1":                               tierChange,
 	} {
 		if got := riskOfLine(strings.Fields(line)).tier; got != want {
 			t.Errorf("%s: %s, want %s", line, got, want)
 		}
 	}
-	if code := gateAnswer(t, "komando key deploy web --user anna --public-key-file /tmp/k.pub", false); code != "SSH_GATE_REFUSED" {
+	if code := gateAnswer(t, "komando credential key install web --user anna --public-key-file /tmp/k.pub", false); code != "SSH_GATE_REFUSED" {
 		t.Errorf("the gate lets a key install a device's key: %s", code)
 	}
 }

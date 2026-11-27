@@ -27,7 +27,7 @@ func TestAskSecretNeverReplacesOneMadeWhileTyping(t *testing.T) {
 			return "Typed-Pass-7", nil
 		}
 		e := wantCode(t, "SECRET_EXISTS", tc.args...)
-		if !strings.Contains(e.Message, "while you typed") || !strings.Contains(e.Hint, "komando secret set") {
+		if !strings.Contains(e.Message, "while you typed") || !strings.Contains(e.Hint, "komando credential password add") {
 			t.Errorf("%s: %+v", tc.sec, e)
 		}
 		if v, _ := vault.Get(tc.sec); v != "made-meanwhile" {

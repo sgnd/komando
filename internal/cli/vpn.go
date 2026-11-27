@@ -256,7 +256,7 @@ step.`,
 	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity, if not its --server name")
 	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): secret:NAME (saved with komando credential password add NAME), env:VAR, file:PATH or a password manager like op://...")
 	askPasswordFlag(c, &askPw)
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
@@ -334,7 +334,7 @@ func vpnAskPasswordRef(cmd *cobra.Command, name, kind string, askPw bool, ref *s
 		return out.Usage("use --ask-password or --credential, not both")
 	}
 	if !vpnTakes(kind, "ask-password") {
-		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --credential secret:%s-authkey)", kind, name, name)
+		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando credential password add %s-authkey`, then --credential secret:%s-authkey)", kind, name, name)
 	}
 	*ref = "secret:" + name + "-pass"
 	return nil
