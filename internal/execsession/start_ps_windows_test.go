@@ -169,7 +169,7 @@ func readLogPS(t *testing.T, d string) string {
 // The run gets its input byte for byte, and its errors land in out.log
 // with its output; its exit code is the command's.
 func TestRunPSInputAndExitOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env = nil
 	s.Stdin = []byte("abc\r\ndef\n")
@@ -189,7 +189,7 @@ func TestRunPSInputAndExitOnWindows(t *testing.T) {
 // A run past its timeout is ended by the watcher: killed says why, and
 // no exit code is written.
 func TestRunPSTimeoutOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin, s.Timeout = nil, nil, 2*time.Second
 	s.Command = "Start-Sleep -Seconds 60"
@@ -209,7 +209,7 @@ func TestRunPSTimeoutOnWindows(t *testing.T) {
 // Past the cap, lines are dropped and counted in truncated; the run
 // goes on to its end.
 func TestRunPSCapOnWindows(t *testing.T) {
-	base := t.TempDir()
+	base := loginBase(t)
 	s := psStart()
 	s.Env, s.Stdin, s.LogMax = nil, nil, 10
 	s.Command = "Write-Output 'abc'; Write-Output 'defg'; Write-Output 'x'"
@@ -291,7 +291,7 @@ func TestStartScriptPSNoLocalAppData(t *testing.T) {
 
 // A-448-1: a %LOCALAPPDATA% with a % in it makes no folder.
 func TestStartScriptPSRefusesPercentPath(t *testing.T) {
-	base := filepath.Join(t.TempDir(), "a%PATH%b")
+	base := filepath.Join(loginBase(t), "a%PATH%b")
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		t.Fatal(err)
 	}
