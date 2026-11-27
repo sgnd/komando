@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -502,19 +503,28 @@ func dateOutput(args []string, quoted bool) (string, bool) {
 	return b.String(), true
 }
 
-// treeWords are args as the program gets them: each value the guard knows
-// a word may have, split at blanks when it comes from a value, and brace
-// lists expanded, so `rm {-rf,~}` and `f=-rf; rm $f ~` give their options.
-func treeWords(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) ([]string, []bool) {
-	var words []string
-	var wglobs []bool
+// treeWord is one argument as the program gets it, and whether the shell
+// reads it as a glob.
+type treeWord struct {
+	w    string
+	glob bool
+}
+
+// treeLines are the argument lists the program may get, so `rm {-rf,~}` and
+// `f=-rf; rm $f ~` give their options: one list for each choice among the
+// values the guard knows a word may have, each value split at blanks and
+// brace lists expanded. Past 64 choices one list holds every value.
+func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd string) [][]treeWord {
+	lines, all := [][]treeWord{nil}, []treeWord(nil)
 	for i, a := range args {
 		vals, _ := vars.expand(cl, a, home, cwd)
+		var alts [][]treeWord
 		for _, v := range vals {
 			fields := []string{v}
 			if v != a {
 				fields = strings.Fields(v)
 			}
+			var seq []treeWord
 			for _, f := range fields {
 				glob := globs[i] || v != a && wordHasGlob(f)
 				pats := []string{f}
@@ -522,12 +532,27 @@ func treeWords(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 					pats = expandBraces(f, 0)
 				}
 				for _, p := range pats {
-					words, wglobs = append(words, p), append(wglobs, glob && wordHasGlob(p))
+					seq = append(seq, treeWord{p, glob && wordHasGlob(p)})
 				}
 			}
+			alts, all = append(alts, seq), append(all, seq...)
 		}
+		if lines == nil || len(lines)*len(alts) > 64 {
+			lines = nil // too many choices: all holds every value
+			continue
+		}
+		var next [][]treeWord
+		for _, l := range lines {
+			for _, s := range alts {
+				next = append(next, append(slices.Clone(l), s...))
+			}
+		}
+		lines = next
 	}
-	return words, wglobs
+	if lines == nil {
+		return [][]treeWord{all}
+	}
+	return lines
 }
 
 // treeTargets are the paths the word v names: a brace list's names, and a

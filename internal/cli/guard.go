@@ -505,14 +505,19 @@ func checkTreeChange(cl *call, base string, args []string, globs []bool, vars li
 	case anyProgram:
 		verb = "may remove or move"
 	}
-	words, wglobs := treeWords(cl, args, globs, vars, home, cwd)
-	for _, i := range treeOperands(base, words) {
-		if words[i] == "" {
-			continue // an empty value names no folder: the word goes, or rm "" fails
+	for _, line := range treeLines(cl, args, globs, vars, home, cwd) {
+		words := make([]string, len(line))
+		for i, w := range line {
+			words[i] = w.w
 		}
-		for _, p := range treeTargets(cl, words[i], wglobs[i], home, cwd) {
-			if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
-				return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)
+		for _, i := range treeOperands(base, words) {
+			if words[i] == "" {
+				continue // an empty value names no folder: the word goes, or rm "" fails
+			}
+			for _, p := range treeTargets(cl, words[i], line[i].glob, home, cwd) {
+				if filepath.IsAbs(p) && touchesProtected(cl, p, home) {
+					return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, verb, p)
+				}
 			}
 		}
 	}

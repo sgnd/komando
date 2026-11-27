@@ -112,6 +112,8 @@ func TestGuardTreeChangeOfAProtectedFolderIsRefused(t *testing.T) {
 	checkLines(t, home, repo, []string{
 		`true && S=/tmp/x && rm -rf $S`,
 		`rm -rf ""`,
+		`true && S=/tmp/x && mv a.txt $S/`,
+		`true && S=/tmp/x && mv a.txt "$S/"`,
 	}, false)
 }
 
