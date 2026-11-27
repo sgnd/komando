@@ -177,18 +177,36 @@ func bodyOutputs(body string) []string {
 // outside quotes, comments and arithmetic, not <<<, and its word; the body
 // runs from the next line to the line that holds the word alone (tabs in
 // front of it allowed), or to the end of the line. $( and ` start over
-// inside "...", as the shell runs them.
+// inside "...", as the shell runs them. ${...}, $[...] and $'...' hold no
+// here-document: inside the first two, quotes and command outputs are
+// read, and an open brace or bracket nests, as zsh reads them.
 func heredocs(line string) []heredoc {
 	type frame struct {
-		q     byte
-		paren int
-		tick  bool
+		q            byte
+		paren, depth int
+		tick         bool
+		close        byte // } or ] of ${ or $[; 0 for $( and `
 	}
 	var out, pending []heredoc
 	var words []string
 	var stack []frame
 	var q byte
-	paren, lineStart, word := 0, 0, false
+	paren, depth, lineStart, word := 0, 0, 0, false
+	push := func(f frame) {
+		f.q, f.paren, f.depth = q, paren, depth
+		stack = append(stack, f)
+		q, paren, depth = 0, 0, 0
+	}
+	pop := func() {
+		n := len(stack)
+		q, paren, depth, stack = stack[n-1].q, stack[n-1].paren, stack[n-1].depth, stack[:n-1]
+	}
+	in := func() byte { // the close of the ${ or $[ the parser is right inside
+		if n := len(stack); n > 0 {
+			return stack[n-1].close
+		}
+		return 0
+	}
 	for i := 0; i < len(line); i++ {
 		c := line[i]
 		switch {
@@ -202,23 +220,47 @@ func heredocs(line string) []heredoc {
 		case strings.HasPrefix(line[i:], "$(("), q == 0 && !word && strings.HasPrefix(line[i:], "(("):
 			i, word = arithEnd(line, i), true // arithmetic: << shifts
 		case c == '$' && i+1 < len(line) && line[i+1] == '(':
-			stack = append(stack, frame{q: q, paren: paren})
-			q, paren, word = 0, 0, false
+			push(frame{})
+			word = false
+			i++
+		case c == '$' && i+1 < len(line) && (line[i+1] == '{' || line[i+1] == '['):
+			f := frame{close: '}'}
+			if line[i+1] == '[' {
+				f.close = ']'
+			}
+			push(f)
+			depth, word = 1, true
 			i++
 		case c == '`':
 			if n := len(stack); n > 0 && stack[n-1].tick && q == 0 {
-				q, paren, stack = stack[n-1].q, stack[n-1].paren, stack[:n-1]
+				pop()
 				word = true
 			} else {
-				stack = append(stack, frame{q: q, paren: paren, tick: true})
-				q, paren, word = 0, 0, false
+				push(frame{tick: true})
+				word = false
 			}
 		case q == '"':
 			if c == '"' {
 				q = 0
 			}
+		case c == '$' && i+1 < len(line) && line[i+1] == '\'':
+			for i += 2; i < len(line) && line[i] != '\''; i++ {
+				if line[i] == '\\' {
+					i++ // $'...': \' is text
+				}
+			}
+			word = true
 		case c == '\'' || c == '"':
 			q, word = c, true
+		case in() == '}' && c == '{', in() == ']' && c == '[':
+			depth++
+		case in() != 0 && c == in():
+			if depth--; depth == 0 {
+				pop()
+			}
+			word = true
+		case in() != 0 && strings.HasPrefix(line[i:], "<<"):
+			i++ // text in ${...} or $[...]
 		case c == '#' && !word:
 			for i+1 < len(line) && line[i+1] != '\n' {
 				i++ // a comment
@@ -230,8 +272,8 @@ func heredocs(line string) []heredoc {
 			word = false
 			if paren > 0 {
 				paren--
-			} else if n := len(stack); n > 0 && !stack[n-1].tick {
-				q, paren, stack = stack[n-1].q, stack[n-1].paren, stack[:n-1]
+			} else if n := len(stack); n > 0 && !stack[n-1].tick && stack[n-1].close == 0 {
+				pop()
 				word = true
 			}
 		case strings.HasPrefix(line[i:], "<<<"):

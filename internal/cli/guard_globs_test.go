@@ -129,3 +129,28 @@ func TestGuardBraceListPastTheLimitIsRefused(t *testing.T) {
 		"touch {x}{a,b}.txt",
 	}, false)
 }
+
+// A << inside ${...}, $[...] or $'...' starts no here-document, in bash or
+// zsh: the lines after it run and are checked. A here-document inside a
+// command output inside ${...} is one, and its body stays text.
+func TestGuardHeredocMarkInAnExpansionIsNoHeredoc(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		"echo ${v/<<'Z'/x}\nrm -rf ~/.ssh",
+		"echo $[1<<'Z']\nrm -rf ~/.ssh",
+		"echo $'a\\'<<Z'\nrm -rf ~/.ssh",
+		"echo \"${v:-\"<<Z\"}\"\nrm -rf ~/.ssh",
+		"echo \"${v} <<'Z'\"\nrm -rf ~/.ssh",
+		"echo ${v/)/<<'Z'}\nrm -rf ~/.ssh",
+		"echo ${v/\\}/<<'Z'}\nrm -rf ~/.ssh",
+		"echo ${v:-{a}<<'Z'}\nrm -rf ~/.ssh", // zsh reads {a} inside
+	}, treeRefusal)
+	checkRefusedBy(t, home, home, []string{"echo ${v/<<Z/x}\nrm -rf ~/.ss[!x]"}, "has a [ ] list")
+	checkLines(t, home, repo, []string{
+		"echo ${v:-$(cat <<'EOF'\nrm -rf ~/.ssh\nEOF\n)}",
+		"echo \"${v}\"; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
+		"echo ${#v} ${v%%/*}\ncat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
+		"echo $[2*3]; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
+		"echo $'a\\'b'; cat >f <<'EOF'\nrm -rf ~/.ssh\nEOF",
+	}, false)
+}
