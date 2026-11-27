@@ -378,6 +378,7 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	if err != nil || sub.Name() != "rename" || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
 	}
+	sub.SetContext(cmd.Context()) // a table leaf runs its body in the context of its command
 	return sub.RunE(sub, []string{old, new})
 }
 
