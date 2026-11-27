@@ -188,21 +188,9 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			if strings.TrimSpace(command) == "" {
 				return out.Usage("no command given: komando exec TARGET -- COMMAND")
 			}
-			var stdin []byte
-			if o.stdinFile != "" {
-				var err error
-				if stdin, err = readFileOrStdin(cl, o.stdinFile); err != nil {
-					return localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
-				}
-				if err := hiddenInInput(cl, o.stdinFile, stdin); err != nil {
-					return err
-				}
-				noteApprovalBody(cl, scriptLabel("the input", o.stdinFile), stdin)
-				// the input may be a script (bash -s): the policy reads it
-				// like the command, as script does with its file
-				if err := guardBody(cl, string(stdin)); err != nil {
-					return err
-				}
+			stdin, err := execInput(cl, o)
+			if err != nil {
+				return err
 			}
 			mutating, err := execReadOnly(cl, args[0], command, stdin, o, readOnly)
 			if err != nil {

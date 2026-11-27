@@ -149,6 +149,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
 | `sync` | with --delete | dangerous | `--allow-dangerous` |
+| `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
 | `docker raw` | when the docker command deletes or stops something | dangerous | `--allow-dangerous` |
 | `docker compose` | when the compose command deletes or stops something | dangerous | `--allow-dangerous` |

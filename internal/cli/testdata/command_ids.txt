@@ -154,14 +154,6 @@ host.ssh-command
 host.test
 host.trust
 import
-job
-job.kill
-job.list
-job.logs
-job.rm
-job.start
-job.status
-job.wait
 key
 key.add
 key.deploy

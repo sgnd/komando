@@ -56,9 +56,9 @@ func statusCmd() *cobra.Command {
 sessions (from vpn up, or started by a command), server logins kept by
 ` + "`komando login SERVER`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
 ~/.aws/config and when they end, tunnels, and the exec sessions started on servers. Nothing is contacted, so it is quick and works offline.
-An exec session is listed until ` + "`komando exec SERVER --attach ID --remove`" + `
+An exec session is listed until ` + "`komando exec TARGET --attach ID --remove`" + `
 (or a read to its end by the one who started it) removes it; whether it still
-runs is known on its server: ` + "`komando exec SERVER --attach ID`" + ` reads it.
+runs is known on its server: ` + "`komando exec TARGET --attach ID`" + ` reads it.
 
 --short prints one line for your shell prompt: "vpn:1 tun:2" when one VPN
 is up and two tunnels run, nothing when nothing runs. It reads only the
@@ -181,7 +181,7 @@ func (d runningData) Text() string {
 	}
 	s := textTable([]string{"kind", "name", "detail", "since"}, rows)
 	if len(d.ExecSessions) > 0 {
-		s += "exec sessions run on their servers: `komando exec SERVER --attach ID` shows how one ended or reads on\n"
+		s += "exec sessions run on their servers: `komando exec TARGET --attach ID` shows how one ended or reads on\n"
 	}
 	return s
 }

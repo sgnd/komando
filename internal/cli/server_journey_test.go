@@ -130,7 +130,13 @@ func TestExecScriptOnTheWire(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = captureOutput(t, func() error { return runRoot(t, "exec", "dev", "--sudo", "--script", script, "--arg", "v1") })
-	e := srv.take()[0]
+	var e fakeExec
+	for _, x := range srv.take() {
+		if strings.Contains(x.cmd, "mkfifo") {
+			e = x // the start of the session: it carries the input
+			break
+		}
+	}
 	if strings.Contains(e.cmd, pw) || strings.Contains(e.cmd, "deploy-marker") {
 		t.Fatalf("the password or the script is on the command line: %s", e.cmd)
 	}

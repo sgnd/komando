@@ -154,14 +154,6 @@ host.ssh-command	kind=read|	target="servers"	person||||||
 host.test	kind=read|	target="servers"	
 host.trust	kind=change|	target="servers"	safety|||an AI agent pins a first host key while host keys are strict||| ; person|with --reset|replaces a pinned host key||||
 import	kind=change|	target=""	safety|SOURCE kubeconfig||an AI agent imports a context whose login runs a program or sends a file of this computer||| ; person|SOURCE komando||the file is sealed (export --sealed): a person types its passphrase||| ; dangerous|||an imported proxy command matches a destructive rule||| ; safety|||an AI agent imports a server with a proxy command|||
-job	kind=read|	target="servers"	
-job.kill	kind=change|	target="servers"	
-job.list	kind=read|	target="servers"	
-job.logs	kind=read|	target="servers"	
-job.rm	kind=change|	target="servers"	
-job.start	kind=depends|changes things unless --read-only says the command only reads (the policy checks it either way)	target="servers"	dangerous|||the command matches a destructive rule|||
-job.status	kind=read|	target="servers"	
-job.wait	kind=read|	target="servers"	
 key	kind=read|	target="servers"	
 key.add	kind=change|	target="servers"	
 key.deploy	kind=change|	target="servers"	

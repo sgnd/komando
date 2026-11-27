@@ -283,7 +283,7 @@ func TestStandardUseGrammar(t *testing.T) {
 		}
 	}
 	allowCheck(t, "S-4.2", got, nil)
-	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "JOB", "TUNNEL"} {
+	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "TUNNEL"} {
 		if p, _ := formArgPick(w); p == "" {
 			t.Errorf("S-4.2: %s has no picker", w)
 		}

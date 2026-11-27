@@ -70,7 +70,7 @@ func TestRunningStatus(t *testing.T) {
 		"vpn", "office", "used 3m ago, closes in 26m if unused", "42m",
 		"tunnel", "t-up", "→ app-db", "2h",
 		"exec", "s-1", "web1: pg_dump app", "…", "15m",
-		"`komando exec SERVER --attach ID`",
+		"`komando exec TARGET --attach ID`",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text misses %q:\n%s", want, text)

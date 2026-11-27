@@ -437,14 +437,14 @@ login   web1                   kept for 7h more (`komando logout web1` ends it) 
 aws     dev,ops                SSO login, kept for 3h more (`komando logout aws --profile dev` ends it)   1h
 tunnel  t1108-195255-ab12cd34  127.0.0.1:5433 → prod-db                            2h
 exec    mfrggzdfmztwq2lknnwg23tpobyxe43uovwgy3tjnrswy5dxnzsxs  web1: tar czf /backup/www.tgz /var/www             15m
-exec sessions run on their servers: `komando exec SERVER --attach ID` shows how one ended or reads on
+exec sessions run on their servers: `komando exec TARGET --attach ID` shows how one ended or reads on
 ```
 
 With nothing running it says
 `nothing running: no VPN sessions, server logins, tunnels or exec sessions`.
 
 - It contacts nothing, so it is quick and works offline.
-- An exec session stays on the list until `komando exec SERVER --attach ID
+- An exec session stays on the list until `komando exec TARGET --attach ID
   --remove` (or a read to its end by the one who started it) removes it.
   Whether it still runs is known only on its server, which `--attach ID` asks.
 - Agents get the same as JSON (`vpns`, `logins`, `tunnels`, `exec_sessions`).
@@ -501,7 +501,7 @@ crashed a moment ago can still show until the next komando command.
   terminal: nothing is asked of an AI agent, a script, a pipe, a CI job
   (`CI` set), a dumb terminal (`TERM=dumb`) or JSON output.
 - `komando status` lists exec sessions from komando's own records; only
-  `exec SERVER --attach ID` asks the server.
+  `exec TARGET --attach ID` asks the server.
 
 ## Troubleshooting
 
@@ -514,7 +514,7 @@ crashed a moment ago can still show until the next komando command.
 | `TIMEOUT` | the command ran longer than `--timeout`; komando stopped it (exit 7) | raise `--timeout`, or run it in a session (it goes on after `--wait`) |
 | `READ_ONLY_VIOLATION` | `--read-only`, but the command changes something or komando cannot follow it (exit 6) | drop `--read-only`; a protected server then asks first |
 | `HIDDEN_VALUE` | a script or `--stdin-file` holds a value komando hid (`[hidden]`) | put `secret:NAME` in `-e` instead |
-| `SESSION_WAIT_TIMEOUT` | the run in a session is still going after `--wait` (exit 7) | `komando exec SERVER --attach ID --offset N` reads on |
+| `SESSION_WAIT_TIMEOUT` | the run in a session is still going after `--wait` (exit 7) | `komando exec TARGET --attach ID --offset N` reads on |
 | `SESSION_BUSY` | `--remove` on a running session | `--attach ID --stop` first |
 | `SESSION_NOT_FOUND` | no session with that ID | the ID is the first JSON line of the exec; `komando audit` shows it |
 | `OPTION_LIKE_VAR` | a recipe `--var` value starts with `-` | write a path like that as `./-name` |

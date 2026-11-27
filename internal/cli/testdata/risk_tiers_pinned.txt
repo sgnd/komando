@@ -154,14 +154,6 @@ host.ssh-command	plain=person	highest=person
 host.test	plain=read	highest=read
 host.trust	plain=safety	highest=person
 import	plain=safety	highest=person
-job	plain=read	highest=read
-job.kill	plain=change	highest=read
-job.list	plain=read	highest=read
-job.logs	plain=read	highest=read
-job.rm	plain=change	highest=read
-job.start	plain=dangerous	highest=dangerous
-job.status	plain=read	highest=read
-job.wait	plain=read	highest=read
 key	plain=read	highest=read
 key.add	plain=change	highest=read
 key.deploy	plain=change	highest=read
