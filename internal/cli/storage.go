@@ -684,7 +684,7 @@ func init() {
 			"  komando storage " + p + " object create backups reports/2026 --dry-run\n" +
 			"  komando storage " + p + " object delete backups --prefix daily/ --older-than 30d --dry-run"
 	}
-	groupShorts["storage"] = "Buckets (S3, GCS, Azure) and file servers: save them, and look after their files"
+	groupShorts["storage"] = "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove"
 	examples["komando storage"] = "  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n" +
 		"  komando storage s3 test backups\n" +
 		"  komando storage s3 object list backups 2026/\n" +

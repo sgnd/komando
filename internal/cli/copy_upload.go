@@ -260,6 +260,13 @@ func continueFlags(o cpOpts) error {
 	return nil
 }
 
+// copySync says whether c, a copy, was given --sync. Only copy has the flag,
+// so a command without it counts as a plain copy, where - is a stream.
+func copySync(c *cobra.Command) bool {
+	on, _ := c.Flags().GetBool("sync")
+	return on
+}
+
 // copy is the one command for what cp, upload, download, sync, storage
 // upload and storage download did: --sync runs the folder sync body, the
 // rest runs cp's, which reads which side is TARGET:PATH.

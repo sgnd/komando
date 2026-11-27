@@ -80,7 +80,7 @@ Setup:
   version      Print the komando version and its home folder
 
 Additional Commands:
-  storage      Buckets (S3, GCS, Azure) and file servers: save them, and look after their files
+  storage      Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Flags:
       --connect-timeout duration   time to connect, like 30s (default: setting connect_timeout, 15s)
@@ -10997,7 +10997,7 @@ Global Flags (all of them: komando --help):
 ### komando storage --help
 exit 0
 --- stdout
-Buckets (S3, GCS, Azure) and file servers: save them, and look after their files
+Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 
 Usage:
   komando storage [flags]

@@ -80,7 +80,7 @@ var gateReadForm = map[safetyKey]func(c *cobra.Command) string{
 // destination.
 func gateCopyWrites(c *cobra.Command) string {
 	args := c.Flags().Args()
-	if sync, _ := c.Flags().GetBool("sync"); len(args) == 2 && args[1] == "-" && !sync {
+	if len(args) == 2 && args[1] == "-" && !copySync(c) {
 		return ""
 	}
 	return "it writes the files at its destination (copy SOURCE - streams one file to the key's own output)"
@@ -146,7 +146,7 @@ func gateLocalDst(c *cobra.Command) string {
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
 	}
-	if sync, _ := c.Flags().GetBool("sync"); args[1] == "-" && !sync {
+	if args[1] == "-" && !copySync(c) {
 		// the stream to the key's own output (with --sync, - is a folder
 		// here); only from a server or storage: a file here is never sent
 		if _, _, remote := splitArg(cl, args[0]); !remote {

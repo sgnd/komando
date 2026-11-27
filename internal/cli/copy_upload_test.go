@@ -39,6 +39,24 @@ func TestTransferOnePath(t *testing.T) {
 	}
 }
 
+// --sync takes --delete, --emptied and --exclude and refuses the flags of a
+// file copy, and those flags need --sync: all before any server is contacted.
+func TestCopyOptionRules(t *testing.T) {
+	invHome(t)
+	for _, args := range [][]string{
+		{"copy", "./a", "web1:/b", "--delete"},
+		{"copy", "./a", "web1:/b", "--exclude", ".git"},
+		{"copy", "./a", "web1:/b", "--emptied", "x"},
+		{"copy", "./a", "web1:/b", "--sync", "-r"},
+		{"copy", "./a", "web1:/b", "--sync", "--continue"},
+		{"copy", "./a", "web1:/b", "--sync", "--mode", "0644"},
+	} {
+		if e := wantCode(t, "USAGE", args...); e.Exit != 2 {
+			t.Errorf("%v: exit %d", args, e.Exit)
+		}
+	}
+}
+
 // stderrOf runs fn and returns what it wrote on stderr.
 func stderrOf(t *testing.T, fn func()) string {
 	t.Helper()

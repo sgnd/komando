@@ -57,7 +57,7 @@ func gateLocalSrc(c *cobra.Command) string {
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
 	}
-	if sync, _ := c.Flags().GetBool("sync"); args[0] == "-" && !sync {
+	if args[0] == "-" && !copySync(c) {
 		return "" // copy - DESTINATION: the key's own input; with --sync, - is a folder here
 	}
 	if _, _, remote := splitArg(callOf(c), args[0]); !remote {

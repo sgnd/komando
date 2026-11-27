@@ -76,8 +76,7 @@ func streamsToStdout(cl *call, cmd *cobra.Command) bool {
 		return false
 	}
 	a := cmd.Flags().Args()
-	sync, _ := cmd.Flags().GetBool("sync")
-	return len(a) == 2 && a[1] == "-" && !sync
+	return len(a) == 2 && a[1] == "-" && !copySync(cmd)
 }
 
 // streamTo writes what get writes to w. For an AI agent it keeps what a

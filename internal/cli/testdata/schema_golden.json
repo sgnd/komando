@@ -10923,7 +10923,7 @@
       {
         "path": "komando storage",
         "usage": "komando storage [flags]",
-        "short": "Buckets (S3, GCS, Azure) and file servers: save them, and look after their files",
+        "short": "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove",
         "example": "  komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password\n  komando storage s3 test backups\n  komando storage s3 object list backups 2026/\n  komando copy backups:2026/app.sql.gz ./\n  komando storage s3 object delete backups --prefix daily/ --older-than 30d --dry-run",
         "runnable": true,
         "kind": "read",

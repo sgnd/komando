@@ -1832,7 +1832,7 @@ title: Say which ssh-gate key runs this, and what it may do
 title: What komando left running: VPNs, logins, tunnels, jobs
 - flag:short | --short | One line for your shell prompt, like vpn:1 tun:2 (no JSON, never fails) |  |  | advanced,default,choices
 ### komando storage
-title: Buckets (S3, GCS, Azure) and file servers: save them, and look after their files
+title: Buckets (S3, GCS, Azure) and file servers: browse, copy, remove
 ### komando storage azblob
 title: Save azblob storage, and look after its objects
 ### komando storage azblob add
