@@ -286,6 +286,12 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"192.0.0.192:80":              "192.0.0.192 is this computer",
 		"imds.example:80":             "imds.example is this computer",
 		"ll6.example:22":              "ll6.example is this computer",
+
+		// a zone names a link here, on any address: the gate cannot tell where it leads
+		"203.0.113.9%en0:22":   "203.0.113.9%en0 names a network interface",
+		"[2001:db8::9%en0]:22": "2001:db8::9%en0 names a network interface",
+		"[2001:db8::9%4]:22":   "2001:db8::9%4 names a network interface",
+		"web.example%en0:22":   "web.example%en0 names a network interface",
 	}
 	for addr, msg := range refused {
 		d := &gateDialStub{}
