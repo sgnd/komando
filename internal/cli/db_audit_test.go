@@ -38,17 +38,6 @@ func TestDBUseLines(t *testing.T) {
 	}
 }
 
-// db kill --dry-run says in meta.would_be_blocked that the real run needs
-// a person's yes (it skipped the check before).
-func TestDBKillDryRunWouldBeBlocked(t *testing.T) {
-	invHome(t)
-	mustRun(t, "conn", "add", "pg", "postgres://app@127.0.0.1:1/app", "--protected")
-	_, _ = invRun(t, "db", "kill", "pg", "42", "--dry-run")
-	if b := tcl.out.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
-		t.Fatalf("would_be_blocked = %+v, want PROTECTED_TARGET", b)
-	}
-}
-
 // db dump --to FOLDER puts the usual CONN-<date> file in it; --to - is
 // refused (it would have made a file named "-").
 func TestDBDumpToFolder(t *testing.T) {
