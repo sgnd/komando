@@ -12,8 +12,8 @@ for _ in $(seq 1 60); do docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec
 docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T k3s-old cat /etc/rancher/k3s/k3s.yaml | sed 's#https://127.0.0.1:6443#https://k3s-old:6443#; s#: default$#: lab-old#' > "$TMP/kubeconfig-old"
 q $K import kubeconfig "$TMP/kubeconfig-old"
 q $K conn edit lab-old --via bastion
-q $K cluster apply lab-old --file "$TMP/tools.yaml"
-$K cluster status lab-old deployment/tools --wait --timeout 180s >/dev/null || true
+q $K cluster kubernetes raw lab-old --write -- apply -f "$TMP/tools.yaml"
+$K cluster kubernetes raw lab-old --timeout 180s -- rollout status deployment/tools >/dev/null || true
 check "1.29: exec over SPDY" hello-from-pod "$("${NOKUBE[@]}" $K cluster kubernetes exec lab-old deploy/tools --read-only -- cat /www/index.html | jget 'd["data"]["stdout"].strip()' || true)"
 check "1.29: exec keeps stdout, stderr and the exit code" "3 out err" "$("${NOKUBE[@]}" $K cluster kubernetes exec lab-old deploy/tools --read-only -- sh -c 'echo out; echo err >&2; exit 3' | jget 'str(d["data"]["exit_code"]) + " " + d["data"]["stdout"].strip() + " " + d["data"]["stderr"].strip()' || true)"
 "${NOKUBE[@]}" $K cluster kubernetes tunnel start lab-old deploy/tools 18097:8080 --timeout 20s >/dev/null 2>&1 &

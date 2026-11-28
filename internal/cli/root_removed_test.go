@@ -41,6 +41,8 @@ var removedGoneAllowed = map[string]bool{
 	"internal/capability/today_rows.go":          true,
 	"internal/capability/replaced.go":            true,
 	"internal/capability/fate.go":                true,
+	"internal/capability/cache.go":               true, // Carries: the IDs `cache redis raw` took over (TestMovedLeavesCarryTheirTables)
+	"internal/capability/cluster.go":             true, // rawCarries: the same for `cluster kubernetes raw`
 	"internal/capability/testdata/v0_17_ids.txt": true,
 	"internal/cli/root_removed.go":               true,
 	"internal/cli/root_removed_test.go":          true,

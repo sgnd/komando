@@ -242,24 +242,6 @@ func liteDB(t *testing.T, tmp string) {
 	mustRun(t, "conn", "add", "lite", "sqlite://"+path)
 }
 
-// memcachedConn starts the fake memcached of the cache tests and registers
-// it as the conn "m".
-func memcachedConn(t *testing.T, _ string) {
-	addr, _ := fakeMemcached(t)
-	mustRun(t, "conn", "add", "m", "memcached://"+addr)
-}
-
-// kubeConn starts the fake Kubernetes API of the cluster tests and imports
-// a kubeconfig for it as the conn "prod".
-func kubeConn(t *testing.T, _ string) {
-	// the kubeconfig's context is called prod, as the test home's host
-	if err := store.Update(store.Save(), func(st *store.State) error { delete(st.Hosts, "prod"); return nil }); err != nil {
-		t.Fatal(err)
-	}
-	d := newDetailCluster(t)
-	mustRun(t, "import", "kubeconfig", d.kubeconfig(t))
-}
-
 // liteVolatile cuts what a SQLite version or file layout can change.
 var liteVolatile = []*regexp.Regexp{
 	regexp.MustCompile(`"(version|size_bytes|started|uptime_seconds)":\s*("[^"]*"|\d+(\.\d+)?|null)`),
@@ -284,11 +266,6 @@ var snippetCases = []snippetCase{
 	{snippet: "db-sizes", family: "sqlite", args: []string{"db", "sizes", "lite"}, setup: liteDB, volatile: append([]*regexp.Regexp{regexp.MustCompile(`"bytes":\s*\d+`)}, liteVolatile...)},
 	{snippet: "db-schema", family: "sqlite-table", args: []string{"db", "schema", "lite", "orders"}, setup: liteDB, volatile: liteVolatile},
 	{snippet: "db-schema", family: "sqlite", args: []string{"db", "schema", "lite"}, setup: liteDB, volatile: liteVolatile},
-	{snippet: "cache-keys", family: "memcached", args: []string{"cache", "keys", "m"}, setup: memcachedConn},
-	{snippet: "cache-info", family: "memcached", args: []string{"cache", "info", "m"}, setup: memcachedConn},
-	{snippet: "cluster-describe", family: "pod", args: []string{"cluster", "describe", "prod", "pod/api-1"}, setup: kubeConn},
-	{snippet: "cluster-describe", family: "deployment", args: []string{"cluster", "describe", "prod", "deployment/api"}, setup: kubeConn},
-	{snippet: "cluster-logs", family: "pod", args: []string{"cluster", "logs", "prod", "pod/api-1"}, setup: kubeConn},
 	{snippet: "pkg-security-refresh", family: "apt", args: []string{"pkg", "security", "dev", "--refresh"}, steps: []string{"apt.in"}},
 	{snippet: "security-upgrade", family: "apt", args: []string{"pkg", "upgrade", "dev", "--security", "--allow-dangerous"}, steps: []string{"apt.in"}},
 	{snippet: "pkg-upgradable", family: "apk", args: []string{"pkg", "upgradable", "dev"}, steps: []string{"apk.in"}},

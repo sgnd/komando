@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 
 	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
@@ -353,16 +353,16 @@ func pluginLine(e *kube.ExecAuth) string {
 func kubeErr(err error) error {
 	var e *kube.APIError
 	if errors.As(err, &e) {
-		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
+		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster kubernetes raw NAME -- get events` shows what went wrong lately"
 		switch {
 		case e.Code == 401 || e.Code == 403:
 			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster kubernetes raw NAME -- auth whoami` and what it may do with `komando cluster kubernetes raw NAME -- auth can-i --list`"
 		case e.Code == 404:
-			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster kubernetes raw NAME -- get pods` (or deployments, services ...)"
 		case e.Code == 409:
-			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again"
+			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster kubernetes raw NAME -- get TYPE/NAME -o yaml`, then run it again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
-			code, exit, hint = "K8S_CONTAINER_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod/NAME`"
+			code, exit, hint = "K8S_CONTAINER_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster kubernetes raw NAME -- describe pod NAME`"
 		case e.Code == 400 || e.Code == 422:
 			code, exit, hint = "K8S_INVALID", out.ExitUsage, "the cluster refused it as written: check the label selector (-l) or the object's YAML"
 		}
@@ -417,15 +417,6 @@ func dialMessage(err error) string {
 	return "cannot reach " + op.Addr.String() + ": " + why.Error()
 }
 
-// ownTimeLimit marks a command that keeps its own time (logs -f, --wait)
-// when on, so kubeDeadline adds none.
-func ownTimeLimit(ctx context.Context, on bool) context.Context {
-	if !on {
-		return ctx
-	}
-	return context.WithValue(ctx, ownLimitKey{}, true)
-}
-
 type ownLimitKey struct{}
 
 // kubeDeadline gives one cluster's work the --timeout ("time limit per
@@ -435,78 +426,6 @@ func kubeDeadline(cl *call, ctx context.Context, st *store.State) (context.Conte
 		return context.WithCancel(ctx)
 	}
 	return context.WithTimeout(ctx, cmdTimeout(cl, st))
-}
-
-// withKube runs fn on a k8s conn after the safety check for risk.
-func withKube(cl *call, ctx context.Context, name string, t clusterTarget, risk driver.Risk, extra map[string]any,
-	fn func(ctx context.Context, k *kube.Client) (any, error)) error {
-	return withKubeWhy(cl, ctx, name, t, risk, name, extra, fn)
-}
-
-// withKubeWhy is withKube with the reason a person reads when the change
-// needs their yes (withKube gives the command's name).
-func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, risk driver.Risk, why string, extra map[string]any,
-	fn func(ctx context.Context, k *kube.Client) (any, error)) error {
-	st, err := loadState()
-	if err != nil {
-		return err
-	}
-	// under --dry-run every stop only lands in meta.would_be_blocked
-	if err := GuardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{why}}); err != nil {
-		return err
-	}
-	ctx, cancel := kubeDeadline(cl, ctx, st)
-	defer cancel()
-	k, done, err := kubeClient(cl, ctx, st, t.conn)
-	if errors.Is(err, errDryRunStopped) {
-		cl.out.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true}, nil)
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	defer done()
-	res, err := fn(ctx, k)
-	rec := map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String()}
-	for key, v := range extra {
-		rec[key] = v
-	}
-	if err != nil {
-		err = kubeErr(err)
-		rec["error"] = toErr(err).Code
-	}
-	if risk > driver.RiskRead {
-		audit(cl, st, name, nil, "", err == nil, rec)
-	}
-	if err != nil && !nilData(res) {
-		cl.out.Print(name, res, softErr(err)) // what happened before it failed (a rollout that timed out)
-		return exitFor(err)
-	}
-	if err != nil {
-		return err
-	}
-	cl.out.Print(name, res, nil)
-	return nil
-}
-
-// confirmObject: deleting a cluster object, or stopping every replica of
-// one, asks a person at a terminal to type that object's name ("Type the
-// name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
-// says what goes, as gh repo delete does. A right answer also counts for
-// the cluster check GuardConns (or swarmDo) makes next, which asks for the
-// same name (askTypes), so the person is asked once; a wrong one stops here and nothing
-// changes. Agents and scripts are unchanged: they use --allow-dangerous,
-// and a dry run never asks.
-func confirmObject(cl *call, names []string, obj, reason string) error {
-	if cl.allowDangerous() || cl.dryRun() || !cl.interactive() {
-		return nil
-	}
-	askTypes(cl, []string{obj}, "objects")
-	if !confirmDangerous(cl, names, reason) {
-		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
-			"the command matches destructive rules [cluster]: "+reason).Say(dangerSay([]string{reason}), dangerHint))
-	}
-	return nil
 }
 
 // age is a Kubernetes timestamp as a kubectl age (40s, 5m, 3h, 12d).
@@ -519,29 +438,19 @@ func age(ts string) string {
 }
 
 func clusterCmd() *cobra.Command {
-	c := &cobra.Command{
+	return &cobra.Command{
 		Use:   "cluster",
-		Short: "Kubernetes clusters: save, check, read logs, roll out, scale",
-		Long: `TARGET is a Kubernetes cluster saved with ` + "`komando cluster kubernetes add`" + ` or a Swarm
-manager server. Reads need nothing; restart, scale and apply change the cluster
-(protected targets need --yes; try --dry-run); rm needs --allow-dangerous.
-Anything else: ` + "`cluster kubernetes raw`" + ` passes the native kubectl command, read-only
-unless --write.
-
-A cluster's usual namespace is its kubeconfig context's; change it with
-` + "`komando cluster kubernetes edit NAME --option namespace=shop`" + `, or name one per command
-with --namespace.`,
+		Short: "Kubernetes and Docker Swarm: save clusters, run commands",
+		Long: `Save a Kubernetes cluster with ` + "`komando cluster kubernetes add`" + `, or use a Swarm
+manager server. ` + "`cluster kubernetes raw`" + ` passes the native kubectl command, read-only
+unless --write; protected targets need --yes, and a command that deletes or
+scales to zero also needs --allow-dangerous. The built-in snippets helm-list and
+helm-release read the Helm releases.`,
 		Example: `  komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
-  komando cluster status prod-k8s                     # version, nodes, what is not healthy
-  komando cluster list prod-k8s pods --namespace shop
-  komando cluster logs prod-k8s deploy/api --namespace shop -f
-  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
+  komando cluster kubernetes raw prod-k8s -- get pods -n shop
+  komando cluster kubernetes raw prod-k8s -- logs deploy/api -n shop
+  komando cluster swarm raw swarm1 -- service ls`,
 	}
-	status := clusterStatusCmd()
-	c.AddCommand(synonymWrapper(status, "info TARGET", "cluster.status", "cluster status TARGET", cobra.ExactArgs(1)))
-	c.AddCommand(status, clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterRestartCmd(),
-		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterHelmCmd())
-	return c
 }
 
 // The cluster type of the table: komando cluster kubernetes VERB. The
@@ -575,10 +484,6 @@ func init() {
 		return runBody(cl, ctx, clusterRunCmd(), in, nil)
 	}
 	moveType("cluster")
-	// `cluster list` (objects) stays until its removal and shares the key
-	// {cluster, list} with the entries' `cluster kubernetes list`; both read.
-	// Drop this line when the removal of `cluster list` lands (a gaps row tracks it).
-	providerIDs["cluster.list"] = true
 	groupShorts["cluster swarm"] = "Docker Swarm: run docker commands on a manager server"
 	groupShorts["cluster kubernetes"] = "Kubernetes clusters: save them, and run commands on them"
 	groupShorts["cluster kubernetes tunnel"] = "Reach a port of a pod or service from this computer: start"
@@ -604,4 +509,51 @@ func str(v any) string {
 		return s
 	}
 	return ""
+}
+
+// swarmHosts are the servers a selection picks, with the manager in place
+// of each swarm service, each once. A swarm service works on its manager
+// (Q8): every guard of that server applies, and personal data follows it.
+func swarmHosts(cl *call, st *store.State, sel selection) ([]*store.Host, error) {
+	hosts := slices.Clone(sel.Hosts)
+	var managers []*store.Host
+	for _, c := range sel.Conns {
+		if c.Kind != "swarm" {
+			continue
+		}
+		h := swarmManagerOf(st, c)
+		if h == nil {
+			return nil, out.Errf(out.ExitNotFound, "SWARM_MANAGER_NOT_FOUND", "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service",
+				"swarm service %s: its manager server %s is not in your list", c.Name, c.Manager)
+		}
+		if !slices.ContainsFunc(hosts, func(o *store.Host) bool { return o.Name == h.Name }) {
+			hosts, managers = append(hosts, h), append(managers, h)
+		}
+	}
+	notePersonal(cl, st, managers, nil)
+	return hosts, nil
+}
+
+// swarmManagerOf is the server a swarm service names as its manager, by
+// record ID (a rename keeps it), else by name; nil when it is gone.
+func swarmManagerOf(st *store.State, c *store.Conn) *store.Host {
+	for _, h := range st.Hosts {
+		if c.ManagerID != "" && h.Rec.ID == c.ManagerID {
+			return h
+		}
+	}
+	if c.ManagerID == "" {
+		return st.Hosts[c.Manager]
+	}
+	return nil
+}
+
+// swarmOf is the swarm service whose manager is h, or nil.
+func swarmOf(st *store.State, h *store.Host) *store.Conn {
+	for _, c := range st.Conns {
+		if c.Kind == "swarm" && swarmManagerOf(st, c) == h {
+			return c
+		}
+	}
+	return nil
 }

@@ -68,23 +68,11 @@ aok "db activity" db activity pg
 aok "db locks" db locks pg
 aok "db user ls" db user ls pg
 aok "db on a protected conn reads" db query maria 'select 1'
-aok "cache info" cache info cache
-aok "cache keys" cache keys cache '*'
 aok "storage s3 object list" storage s3 object list bucket
 fi
 
 if in_area registry; then
 aok "registry oci image list" registry oci image list reg
-fi
-
-if in_area k8s; then
-# clusters
-aok "cluster status" cluster status lab-k3s
-aok "cluster ls" cluster ls lab-k3s pods -A
-aok "cluster events" cluster events lab-k3s -A
-aok "cluster helm ls" cluster helm ls lab-k3s -A
-check "agent: cluster get hides Secret values" True \
-  "$(ag cluster get lab-k3s secret --namespace kube-system "$(A cluster ls lab-k3s secrets --namespace kube-system </dev/null | jget 'd["data"]["items"][0]["name"]')" | jget 'len(d["data"]["data"]) > 0 and all(v == "[hidden]" for v in d["data"]["data"].values())' || true)"
 fi
 
 if in_area data; then
@@ -100,7 +88,7 @@ acode "registry oci image delete needs --allow-dangerous" POLICY_BLOCKED registr
 fi
 
 if in_area k8s; then
-acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster scale lab-k3s deploy/web 0
+acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster kubernetes raw lab-k3s --write -- scale deploy/web --replicas=0
 fi
 
 if in_area data; then

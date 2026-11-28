@@ -12,7 +12,7 @@ import (
 
 // formRunAll runs the commands here, each shown first, until one fails:
 // its exit code and, when the one that failed is the check after an add
-// (test, login, vpn KIND start, cluster status), the last line it printed.
+// (test, login, vpn KIND start), the last line it printed.
 func formRunAll(cl *call, self string, cmds [][]string) (int, string, error) {
 	for i, c := range cmds {
 		fmt.Fprintf(cl.out.Err, "$ komando %s\n", pickCommandLine(c))
@@ -54,7 +54,7 @@ func formIsCheck(c []string) bool {
 	switch {
 	case len(c) >= 1 && (c[0] == "test" || c[0] == "login"):
 		return true
-	case len(c) >= 3 && c[0] == "vpn" && c[2] == "start", len(c) >= 2 && c[0] == "cluster" && c[1] == "status":
+	case len(c) >= 3 && c[0] == "vpn" && c[2] == "start":
 		return true
 	}
 	return false

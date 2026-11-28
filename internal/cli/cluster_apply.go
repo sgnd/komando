@@ -8,111 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 )
-
-func clusterApplyCmd() *cobra.Command {
-	var file, ns, stack string
-	var forceConflicts bool
-	c := &cobra.Command{
-		Use:   "apply TARGET --file FILE",
-		Short: "Apply Kubernetes YAML or deploy a Swarm stack",
-		Long: `Kubernetes: applies every object in FILE server-side and says per object
-whether it was created, configured or unchanged. --dry-run asks the server
-what would change and shows it as a diff (Secret values stay hidden; a
-changed value shows as "[hidden, changed]"). Objects without a namespace go
-to --namespace; one that names another namespace is refused.
-
-A field another field manager owns (an autoscaler's replicas, a kubectl
-edit) stops the apply with K8S_CONFLICT naming that manager, and nothing
-is applied. --force-conflicts takes those fields over, as
-` + "`kubectl apply --server-side --force-conflicts`" + ` does.
-
-Swarm: deploys FILE (a compose file) as the stack --stack; --dry-run checks
-the file with ` + "`docker stack config`" + ` on the manager.`,
-		Example: `  komando cluster apply prod-k8s --file app.yaml --dry-run
-  komando cluster apply prod-k8s --file app.yaml
-  komando cluster apply swarm1 --file compose.yml --stack shop`,
-		Args: cobra.ExactArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if file == "" {
-				return out.Usage("give the YAML with --file")
-			}
-			b, err := readFileOrStdin(cl, file)
-			if err != nil {
-				return localFileErr("FILE_NOT_FOUND", err, "")
-			}
-			noteApprovalData(cl, scriptLabel("the YAML", file), b)
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			t, err := resolveCluster(cl, st, args[0])
-			if err != nil {
-				return err
-			}
-			if t.host != nil {
-				if err := noNamespace(t, ns); err != nil {
-					return err
-				}
-				if stack == "" {
-					return out.Usage("Swarm needs --stack NAME")
-				}
-				if !containerNameRe.MatchString(stack) { // a name, never words docker reads as flags
-					return out.Usage("--stack %q is not a stack name: letters, digits, _ . and -, starting with a letter or digit", stack)
-				}
-				if forceConflicts {
-					return out.Usage("--force-conflicts is for Kubernetes; Swarm has no field managers")
-				}
-				return swarmApply(cl, cmd.Context(), t, stack, b)
-			}
-			if stack != "" {
-				return out.Usage("--stack is for Swarm; Kubernetes objects take their namespace from the file or --namespace")
-			}
-
-			docs, err := splitYAML(b)
-			if err != nil {
-				return out.Usage("%s: %v", file, err)
-			}
-			if err := refuseHidden(docs); err != nil {
-				return err
-			}
-			for _, d := range docs {
-				if d.Namespace != "" && ns != "" && d.Namespace != ns {
-					return out.Usage("%s/%s is in namespace %s in the file, not %s from --namespace: leave out --namespace or change the file", strings.ToLower(d.Kind), d.Name, d.Namespace, ns)
-				}
-			}
-			extra := map[string]any{"file": file, "objects": len(docs)}
-			if forceConflicts {
-				extra["force_conflicts"] = true
-			}
-			// a file that gives out rights or opens a node is rated like
-			// the kubectl command that does the same
-			risk, why := driver.RiskWrite, "cluster.apply"
-			if esc := manifestEscalates(docs); esc != "" {
-				risk, why = driver.RiskDestructive, "cluster.apply: "+esc
-			}
-			return withKubeWhy(cl, cmd.Context(), "cluster.apply", t, risk, why, extra, func(ctx context.Context, k *kube.Client) (any, error) {
-				return kubeApply(cl, ctx, k, t.conn.Name, docs, ns, forceConflicts)
-			})
-		}),
-	}
-	c.Flags().StringVarP(&file, "file", "f", "", "YAML file ('-' for stdin)")
-	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
-	c.Flags().BoolVar(&forceConflicts, "force-conflicts", false, "Kubernetes: take over fields another field manager owns")
-	nsFlags(c, &ns, nil, nil)
-	return c
-}
 
 // kubeApply applies docs server-side (a dry run asks the server only) and
 // reports per object what happened, or would. A real apply first sends the
@@ -175,7 +77,7 @@ func applyPass(cl *call, ctx context.Context, k *kube.Client, conn string, docs 
 		if errors.As(err, &ae) && ae.Code == 409 && strings.HasPrefix(ae.Message, "Apply failed with") {
 			// the server's words name the other manager and its fields
 			return res, out.Errf(out.ExitConflict, "K8S_CONFLICT",
-				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster apply TARGET --file FILE --force-conflicts`",
+				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster kubernetes raw NAME --write -- apply -f FILE --force-conflicts`",
 				"%s: %s", name, ae.Message)
 		}
 		if err != nil {
@@ -195,7 +97,7 @@ func applyPass(cl *call, ctx context.Context, k *kube.Client, conn string, docs 
 	return res, nil
 }
 
-// applyData is `cluster apply`: what happened to each object (created,
+// applyData is `apply`: what happened to each object (created,
 // configured, unchanged), or with --dry-run what would (create, change,
 // none) and the diff.
 type applyData struct {
@@ -241,7 +143,7 @@ func (a applyData) Text() string {
 	return b.String()
 }
 
-// objectChange is one object in `cluster apply`: what the server did or
+// objectChange is one object in `apply`: what the server did or
 // would do with it, and with --dry-run the difference as a unified diff.
 type objectChange struct {
 	Object    string `json:"object"`
@@ -327,68 +229,6 @@ func yamlText(o map[string]any) string {
 	_ = enc.Encode(o)
 	_ = enc.Close()
 	return b.String()
-}
-
-// swarmApply deploys a compose file as a stack; --dry-run checks the file
-// with `docker stack config` and names the services it would make.
-func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, file []byte) error {
-	line := "docker stack deploy --detach=true -c - " + sshx.Q(stack) + " 2>&1"
-	risk, why := driver.RiskWrite, line
-	if esc := composeEscapes(file); esc != "" {
-		risk, why = driver.RiskDestructive, "the stack file: "+esc
-	}
-	if cl.dryRun() {
-		st, err := loadState()
-		if err != nil {
-			return err
-		}
-		if risk >= driver.RiskDestructive {
-			// a dry run is not stopped: the stop lands in meta.would_be_blocked
-			if err := GuardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster.apply"}, Reasons: []string{why}}); err != nil {
-				return err
-			}
-		}
-		if err := GuardScript(cl, st, []*store.Host{t.host}, line, true); err != nil {
-			return err
-		}
-		res := map[string]any{"host": t.host.Name, "stack": stack, "dry_run": true, "would_run": line}
-		cfg, err := swarmExec(cl, ctx, st, t, "docker stack config -c - 2>&1", file)
-		if err != nil {
-			msg := toErr(err).Message
-			if strings.Contains(msg, "unknown command") || strings.Contains(msg, "is not a docker command") {
-				res["checked"] = false // docker before 23 has no stack config
-				cl.out.Print("cluster.apply", res, nil)
-				return nil
-			}
-			return out.Usage("the compose file is not valid: %s", msg)
-		}
-		var c struct {
-			Services map[string]any `yaml:"services"`
-		}
-		_ = yaml.Unmarshal([]byte(cfg), &c)
-		var svcs []string
-		for n := range c.Services {
-			svcs = append(svcs, "service/"+stack+"_"+n)
-		}
-		sort.Strings(svcs)
-		res["checked"], res["would_apply"] = true, svcs
-		cl.out.Print("cluster.apply", res, nil)
-		return nil
-	}
-	s, _, err := swarmDo(cl, ctx, "cluster.apply", t, line, file, risk, why)
-	if err != nil {
-		return err
-	}
-	objs := []map[string]string{}
-	for _, l := range strings.Split(s, "\n") {
-		f := strings.Fields(l)
-		if len(f) >= 3 && (f[0] == "Creating" || f[0] == "Updating") {
-			act := map[string]string{"Creating": "created", "Updating": "configured"}[f[0]]
-			objs = append(objs, map[string]string{"object": f[1] + "/" + f[2], "action": act})
-		}
-	}
-	cl.out.Print("cluster.apply", map[string]any{"host": t.host.Name, "stack": stack, "objects": objs, "output": s}, nil)
-	return nil
 }
 
 type kubeDoc struct {

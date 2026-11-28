@@ -171,10 +171,6 @@ var goldenExtra = [][]string{
 	// C-F02: two KEY=VALUE pairs in one value (USAGE, exit 2)
 	{"conn", "add", "x1", "postgres://u@10.0.0.9/app", "--option", "a=on,b=x"},
 	{"host", "add", "x1", "u@10.0.0.1", "--env", "A=1,B=2"},
-	// C-S01: -n is --namespace in cluster; a count there is refused (USAGE, exit 2)
-	{"cluster", "ls", "x1", "pods", "-n", "50"},
-	{"cluster", "events", "x1", "-n", "50"},
-	{"cluster", "logs", "x1", "x2", "-n", "50"},
 	// C-F03: storage s3 object delete has no -n (its cap is --max-remove): USAGE
 	{"storage", "s3", "object", "delete", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
 }
@@ -191,13 +187,11 @@ var goldenGateKeys = []string{
 var goldenSchema = [][]string{
 	{"storage", "s3", "object", "link"}, {"cluster", "kubernetes", "tunnel", "start"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
-	{"cache", "set"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
-	{"cluster", "logs"},              // C-F05, C-S01
-	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
-	{"fs", "cat"}, {"exec"}, // C-F09: bytes
+	{"registry", "oci", "image", "prune"}, // C-F04: duration
+	{"fs", "list"},                        // C-F08: --limit int
+	{"fs", "cat"}, {"exec"},               // C-F09: bytes
 	{"queue", "kafka", "topic", "create"}, {"queue", "rabbitmq", "topic", "create"}, {"queue", "nats", "topic", "create"}, // C-F22: no -1 default
 	{"queue", "sqs", "topic", "create"}, {"queue", "pubsub", "topic", "create"},
-	{"cluster", "events"}, {"cluster", "list"}, {"cluster", "get"}, // C-S01: -n
 }
 
 // schemaValues is one line per command of a schema answer, then one per

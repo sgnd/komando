@@ -87,7 +87,7 @@ func fileDigest(p string) (int64, string, error) {
 // noteKubectlFiles tells an AI agent's approval window what a kubectl
 // command line sends from this computer (C111): the manifests of -f FILE
 // (a folder's .yaml, .yml and .json files, as the run reads them) and the
-// files of --from-file. The window shows them as cluster apply --file does.
+// files of --from-file. The window shows them as `cluster kubernetes raw -- apply -f` does.
 func noteKubectlFiles(cl *call, args []string) error {
 	if !cl.caller().IsAgent() || cl.dryRun() {
 		return nil // a dry run opens no window; the run names any stop

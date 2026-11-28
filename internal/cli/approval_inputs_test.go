@@ -36,16 +36,14 @@ func TestRecipeRunWindowShowsTheCommand(t *testing.T) {
 
 // What a command sends from a file or from stdin is in the approval
 // window, as a script is: the SQL of db query --file, the content of fs
-// write --from, the YAML of cluster apply, a queue message.
+// write --from, a queue message.
 func TestApprovalWindowShowsFileInputs(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"), "--protected")
 	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
-	mustRun(t, "conn", "add", "kube", "kubernetes://127.0.0.1:2", "--protected")
 	mustRun(t, "conn", "add", "bus", "amqps://guest@127.0.0.1:2/", "--protected")
 	sql := writeTemp(t, "fix.sql", "create table marker_tbl (id int);\n")
 	conf := writeTemp(t, "app.conf", "listen 8080\nmarker_conf on\n")
-	yaml := writeTemp(t, "app.yaml", "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: marker-cm}\n")
 	msg := writeTemp(t, "msg.json", `{"marker_msg": 1}`+"\n")
 	texts := windowText(t, false)
 	for _, c := range []struct {
@@ -54,7 +52,6 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 	}{
 		{[]string{"db", "query", "lite", "--file", sql, "--write", "--yes"}, "create table marker_tbl (id int);"},
 		{[]string{"fs", "write", "web", "/etc/app.conf", "--from", conf, "--yes"}, "marker_conf on"},
-		{[]string{"cluster", "apply", "kube", "--file", yaml, "--yes"}, "metadata: {name: marker-cm}"},
 		{[]string{"queue", "rabbitmq", "message", "create", "bus", "orders", "--from", msg, "--yes"}, `{"marker_msg": 1}`},
 	} {
 		*texts = nil

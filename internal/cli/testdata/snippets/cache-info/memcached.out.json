@@ -1,1 +1,0 @@
-{"ok":true,"command":"cache.info","data":{"conn":"m","summary":{"version":" (memcached)","role":"memcached","uptime_seconds":0,"used_memory_bytes":0,"maxmemory_bytes":0,"eviction_policy":"lru","connected_clients":0,"keys":{"items":0},"expires":{},"hits":0,"misses":0,"hit_rate":null}}}

@@ -273,7 +273,7 @@ func TestAgentOtherHome(t *testing.T) {
 	}
 	wantCode(t, "NEEDS_PERSON", "host", "add", "prod", "root@10.0.0.2")
 	// a synonym is typed like the command it names: the same stop
-	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
+	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}} {
 		wantCode(t, "NEEDS_PERSON", syn...)
 	}
 	// a background command too: an agent's own home would hold its own

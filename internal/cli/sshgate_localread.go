@@ -20,13 +20,12 @@ import (
 // TestGateLocalReadsClassified makes every flag and argument a key can
 // reach that reads here be in one of them.
 var gateLocalFlags = map[string][]string{
-	"exec":          {"script", "stdin-file"},
-	"job.start":     {"script", "stdin-file"},
-	"db.query":      {"file"},
-	"db.restore":    {"from"},
-	"cluster.apply": {"file"},
-	"fs.write":      {"from"},
-	"queue.send":    {"from"},
+	"exec":       {"script", "stdin-file"},
+	"job.start":  {"script", "stdin-file"},
+	"db.query":   {"file"},
+	"db.restore": {"from"},
+	"fs.write":   {"from"},
+	"queue.send": {"from"},
 }
 
 var gateLocalArgs = map[string]func(c *cobra.Command) string{

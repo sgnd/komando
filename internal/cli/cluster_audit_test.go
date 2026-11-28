@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -41,14 +40,13 @@ func closedAddr(t *testing.T) string {
 	return a
 }
 
-// --timeout ends a cluster that does not answer, for every command, not
-// only cluster kubernetes raw.
+// --timeout ends a cluster that does not answer.
 func TestClusterTimeout(t *testing.T) {
 	invHome(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))
 	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
-	for _, args := range [][]string{{"status", "prod"}, {"ls", "prod", "pods"}, {"events", "prod"}, {"get", "prod", "pod", "x"}} {
+	for _, args := range [][]string{{"kubernetes", "raw", "prod", "--", "get", "pods"}, {"kubernetes", "raw", "prod", "--", "get", "events"}, {"kubernetes", "raw", "prod", "--", "get", "pod", "x"}, {"kubernetes", "raw", "prod", "--", "version"}} {
 		start := time.Now()
 		_, e := invRun(t, append([]string{"--timeout", "300ms", "cluster"}, args...)...)
 		if e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
@@ -73,7 +71,7 @@ func TestKubeErrWords(t *testing.T) {
 	}
 }
 
-// An unreachable cluster is CONN_UNREACHABLE in cluster kubernetes raw and apply too,
+// An unreachable cluster is CONN_UNREACHABLE in cluster kubernetes raw,
 // not "no resource type" (exit 5) or a usage error (exit 2).
 func TestClusterUnreachableIsUnreachable(t *testing.T) {
 	invHome(t)
@@ -82,11 +80,6 @@ func TestClusterUnreachableIsUnreachable(t *testing.T) {
 		if _, e := invRun(t, append([]string{"cluster", "kubernetes"}, args...)...); e == nil || e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 			t.Errorf("%v: %+v", args, e)
 		}
-	}
-	f := filepath.Join(t.TempDir(), "cm.yaml")
-	os.WriteFile(f, []byte("apiVersion: v1\nkind: ConfigMap\nmetadata: {name: x}\n"), 0o600)
-	if _, e := invRun(t, "cluster", "apply", "prod", "--file", f); e == nil || e.Code != "CONN_UNREACHABLE" {
-		t.Errorf("apply: %+v", e)
 	}
 }
 
@@ -116,6 +109,32 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	}
 }
 
+// A change that gets no answer in time may have happened: it is TIMEOUT
+// and still lands in the audit log, as a broken connection does.
+func TestClusterRunTimedOutWriteIsAudited(t *testing.T) {
+	invHome(t)
+	release := make(chan struct{}) // the server never answers the write until the test ends
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1":
+			w.Write([]byte(`{"resources":[{"name":"configmaps","kind":"ConfigMap","namespaced":true}]}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/apis":
+			w.Write([]byte(`{"groups":[]}`))
+		default:
+			<-release
+		}
+	}))
+	t.Cleanup(func() { close(release); srv.CloseClientConnections(); srv.Close() })
+	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
+	if _, e := invRun(t, "--timeout", "500ms", "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
+		t.Fatalf("run: %+v", e)
+	}
+	d := mustRun(t, "audit", "--failed")
+	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
+		t.Errorf("the timed out write is not in the audit log: %s", b)
+	}
+}
+
 // What komando's kubectl never runs is a usage error first, not "needs --write".
 func TestClusterRunUsageFirst(t *testing.T) {
 	invHome(t)
@@ -142,54 +161,6 @@ func TestClusterRunUsageFirst(t *testing.T) {
 func TestKubectlFailureNotFoundOnlyFromAPI(t *testing.T) {
 	if f := kubectlFailure(127, "sh: foo: not found\ncommand terminated with exit code 127\n"); f.Code != "TOOL_FAILED" || f.Exit != out.ExitRemote {
 		t.Errorf("exec: %+v", f)
-	}
-}
-
-// statusLab serves a cluster with a short StatefulSet and DaemonSet, and
-// refuses to list nodes, like a namespace-only account.
-func statusLab(t *testing.T) string {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		item := func(kind string, spec, status map[string]any) {
-			json.NewEncoder(w).Encode(map[string]any{"items": []any{map[string]any{"kind": kind,
-				"metadata": map[string]any{"name": "db", "namespace": "shop"}, "spec": spec, "status": status}}})
-		}
-		switch p := r.URL.Path; {
-		case p == "/version":
-			io.WriteString(w, `{"gitVersion":"v1.31.0"}`)
-		case p == "/api/v1/nodes":
-			w.WriteHeader(403)
-			io.WriteString(w, `{"reason":"Forbidden","message":"nodes is forbidden"}`)
-		case strings.HasSuffix(p, "/statefulsets"):
-			item("StatefulSet", map[string]any{"replicas": 3}, map[string]any{"readyReplicas": 0})
-		case strings.HasSuffix(p, "/daemonsets"):
-			item("DaemonSet", nil, map[string]any{"desiredNumberScheduled": 4, "numberReady": 3})
-		case strings.HasSuffix(p, "/pods"):
-			if r.URL.Query().Get("continue") == "" {
-				io.WriteString(w, `{"metadata":{"continue":"next"},"items":[]}`)
-				return
-			}
-			io.WriteString(w, `{"items":[{"metadata":{"name":"p","namespace":"shop"},"status":{"phase":"Pending"}}]}`)
-		default:
-			io.WriteString(w, `{"items":[]}`)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv.URL
-}
-
-// cluster status counts StatefulSets and DaemonSets, reads every page,
-// and still answers for an account that may not list nodes.
-func TestClusterStatusWorkloads(t *testing.T) {
-	invHome(t)
-	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, statusLab(t)))
-	d := mustRun(t, "cluster", "status", "prod", "--namespace", "shop")
-	b, _ := json.Marshal(d)
-	for _, want := range []string{`statefulset/shop/db","problem":"0 of 3 replicas ready"`, `daemonset/shop/db","problem":"3 of 4 pods ready"`,
-		`pod/shop/p","problem":"pending"`, `this account may not list them`, `"healthy":false`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("want %s in %s", want, b)
-		}
 	}
 }
 
@@ -273,36 +244,6 @@ func TestClusterAddKind(t *testing.T) {
 	mustRun(t, "cluster", "kubernetes", "add", "k2", "k8s://127.0.0.1:6451", "--credential", "k2-kubeconfig")
 }
 
-// all and @group read a server as a Swarm manager only when it is tagged
-// swarm or named; other servers are skipped, not failed.
-func TestClusterSelectorSkipsPlainServers(t *testing.T) {
-	invHome(t)
-	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, statusLab(t)))
-	mustRun(t, "host", "add", "web1", "deploy@192.0.2.20")
-	mustRun(t, "host", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
-	st, err := loadState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts, err := resolveClusters(tcl, st, "all")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	for _, x := range ts {
-		names = append(names, x.name())
-	}
-	if strings.Join(names, ",") != "prod,sw1" {
-		t.Errorf("all: %v", names)
-	}
-	if ts, err := resolveClusters(tcl, st, "prod,web1"); err != nil || len(ts) != 2 {
-		t.Errorf("a named server counts: %v %v", ts, err)
-	}
-	if ts, err := resolveClusters(tcl, st, "web1"); err != nil || len(ts) != 1 {
-		t.Errorf("one server alone counts: %v %v", ts, err)
-	}
-}
-
 // `cluster swarm raw` takes a manager server: a Kubernetes entry is WRONG_KIND
 // with its own path, and a destructive docker verb is stopped before komando
 // connects (swarm is rated by the docker rules, not the kubectl ones).
@@ -335,14 +276,4 @@ func TestClusterKubernetesSelectorsCheckProvider(t *testing.T) {
 			t.Errorf("%v: %q", args, e.Message)
 		}
 	}
-}
-
-// Flags that cannot be right are refused before komando connects.
-func TestClusterFlagChecks(t *testing.T) {
-	invHome(t)
-	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
-	if _, e := invRun(t, "cluster", "ls", "prod", "pods", "--namespace", "shop", "-A"); e == nil || e.Exit != out.ExitUsage {
-		t.Errorf("--namespace with -A: %+v", e)
-	}
-	wantCode(t, "USAGE", "cluster", "helm", "values", "prod", "x", "--revision", "-2")
 }

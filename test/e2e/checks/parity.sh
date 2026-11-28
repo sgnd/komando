@@ -41,11 +41,6 @@ check "db query dates = psql" "$(native pg psql -U app -d app -At -c "select dat
 check "db query = mariadb" "$(native maria mariadb -ushop -pshoppass shop -N -e 'select 6*7' 2>/dev/null)" \
   "$($K db query maria 'select 6*7' | jget 'str(d["data"]["results"][0]["rows"][0][0])')"
 
-# Redis (redis-cli SET / GET / TTL)
-q $K cache set cache "$V:k" "hello world" --ttl 1h
-check "cache get = redis-cli GET" "$(native redis redis-cli -a redispass --no-auth-warning GET "$V:k")" "$($K cache get cache "$V:k" | jget 'd["data"]["value"]')"
-check "cache TTL = redis-cli TTL" True "$(t=$(native redis redis-cli -a redispass --no-auth-warning TTL "$V:k"); $K cache get cache "$V:k" | jget "abs(d['data']['ttl_seconds'] - $t) <= 2")"
-
 # SFTP storage: what komando uploads is what the server holds
 echo "parity $V" >"$TMP/$V.txt"
 q $K storage upload files-sftp "$TMP/$V.txt" "$V.txt"
@@ -53,20 +48,10 @@ check "storage upload = file on the sftp server" "parity $V" "$(native sftp cat 
 check "storage sftp object list = ls" True "$($K storage sftp object list files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
 fi
 
-if in_area k8s; then
-# Kubernetes (kubectl get)
-check "cluster ls namespaces = kubectl" "$(native k3s kubectl get ns -o name | sed 's|namespace/||' | sort | words)" \
-  "$($K cluster ls lab-k3s namespaces | jget '" ".join(sorted(i["name"] for i in d["data"]["items"]))')"
-check "cluster ls kube-system deployments = kubectl" "$(native k3s kubectl get deploy -n kube-system -o name | sed 's|.*/||' | sort | words)" \
-  "$($K cluster ls lab-k3s deployments --namespace kube-system | jget '" ".join(sorted(i["name"] for i in d["data"]["items"]))')"
-fi
-
 if in_area swarm; then
 # Docker on swarm1 (docker ps / images / node ls)
 check "docker images = docker image ls" "$(native swarm docker image ls --format '{{.Repository}}' | grep -v '<none>' | sort -u | words)" \
   "$($K docker images swarm1 | jget '" ".join(sorted(set(i["Repository"] for r in d["data"]["results"] for i in (r.get("data") or []) if i.get("Repository") and i["Repository"] != "<none>")))')"
-check "Swarm nodes = docker node ls" "$(native swarm docker node ls --format '{{.Hostname}}' | sort | words)" \
-  "$($K cluster ls swarm1 nodes | jget '" ".join(sorted(i["name"] for i in d["data"]["items"]))')"
 fi
 
 if in_area data; then
@@ -90,10 +75,8 @@ q $K job wait "$J" --timeout 1m
 check "job logs = the job's output" "$(printf 'line1\nline2')" "$($K job logs "$J" | jget 'd["data"]["content"].rstrip("\n")')"
 
 # redis-cli SCAN, psql's table list, the registry catalog
-q $K cache set cache "$V:a" 1
-q $K cache set cache "$V:b" 2
-check "cache keys = redis-cli --scan" "$(native redis redis-cli -a redispass --no-auth-warning --scan --pattern "$V:*" | sort | words)" \
-  "$($K cache keys cache "$V:*" | jget '" ".join(sorted(d["data"]["keys"]))')"
+q $K cache redis raw cache --write -- SET "$V:a" 1
+q $K cache redis raw cache --write -- SET "$V:b" 2
 check "db schema = psql's tables" "$(native pg psql -U app -d app -At -c "select tablename from pg_tables where schemaname = 'public' order by 1" | words)" \
   "$($K db schema pg | jget '" ".join(sorted(t["name"] for t in d["data"]["tables"] if t["schema"] == "public" and t["type"] == "table"))')"
 fi
@@ -101,12 +84,6 @@ fi
 if in_area registry; then
 check "registry oci image list = the registry's catalog" "$(native bastion curl -s http://registry:5000/v2/_catalog | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin)["repositories"])))')" \
   "$($K registry oci image list reg | jget '" ".join(sorted(d["data"]["repositories"]))')"
-fi
-
-if in_area k8s; then
-# kubectl logs, docker ps
-check "cluster logs = kubectl logs" "$(native k3s kubectl logs -n kube-system deploy/coredns --tail 3)" \
-  "$($K cluster logs lab-k3s deploy/coredns --namespace kube-system --limit 3 | jget 'd["data"]["logs"].rstrip("\n")')"
 fi
 
 if in_area swarm; then
@@ -122,7 +99,7 @@ check "tunnel -L = the service itself" "$(banner "127.0.0.1:$E2E_SSH_DIRECT")" "
 q $K tunnel stop "${T#* }"
 
 q $K exec direct --allow-dangerous -- "rm -rf /tmp/$V.sync"
-q $K cache rm cache "$V:a" "$V:b" --allow-dangerous
+q $K cache redis raw cache --write --allow-dangerous -- DEL "$V:a" "$V:b"
 q $K exec direct --allow-dangerous -- "rm -f /tmp/$V.bin /tmp/$V.conf"
-q $K cache rm cache "$V:k" --allow-dangerous
+q $K cache redis raw cache --write --allow-dangerous -- DEL "$V:k"
 fi

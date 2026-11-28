@@ -12,7 +12,6 @@ var flagSynonyms = []struct {
 	path     []string
 	now, old string
 }{
-	{[]string{"cluster", "rollback"}, "revision", "to-revision"},
 	{[]string{"fs", "write"}, "content", "value"},
 	{[]string{"host", "edit"}, "add-group", "group"},
 	{[]string{"host", "edit"}, "add-tag", "tag"},

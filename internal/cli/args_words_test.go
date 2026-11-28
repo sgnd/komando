@@ -14,7 +14,7 @@ func TestTargetKinds(t *testing.T) {
 	mustRun(t, "conn", "add", "prod-k8s", "kubernetes://10.0.0.20:6443")
 	root := newRoot(tcl)
 	for line, want := range map[string]string{
-		"exec": "Target (servers)", "pkg install": "Target (servers)", "cluster status": "Target (clusters)",
+		"exec": "Target (servers)", "pkg install": "Target (servers)",
 		"upload": "Target (servers or file storage)", "conn rm": "Target (conns)", "test": "Target",
 	} {
 		c, _, err := root.Find(shellWords(line))
@@ -30,11 +30,6 @@ func TestTargetKinds(t *testing.T) {
 	got, _ := c.ValidArgsFunction(c, nil, "")
 	if !slices.Contains(got, "web1") || slices.Contains(got, "app-db") || !slices.Contains(got, "all") {
 		t.Errorf("exec <TAB>: %v", got)
-	}
-	c, _, _ = root.Find([]string{"cluster", "status"})
-	got, _ = c.ValidArgsFunction(c, nil, "")
-	if slices.Contains(got, "web1") || slices.Contains(got, "app-db") {
-		t.Errorf("cluster status <TAB>: %v", got)
 	}
 	c, _, _ = root.Find([]string{"fs", "cat"})
 	got, _ = c.ValidArgsFunction(c, nil, "")

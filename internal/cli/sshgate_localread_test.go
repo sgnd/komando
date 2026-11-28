@@ -21,7 +21,7 @@ func TestGateLocalReads(t *testing.T) {
 		"exec web --read-only --script /home/u/.ssh/id_ed25519", "exec web --script=.ssh/id_ed25519",
 		"exec web --read-only --stdin-file .ssh/id_ed25519 -- cat", "job start web --read-only --script ./x.sh",
 		"job start web --stdin-file x -- cat", "db query pg --file /home/u/.ssh/id_ed25519",
-		"db restore pg --from ./dump.sql", "cluster apply k8s --file ./x.yaml", "fs write web /tmp/k --from .ssh/id_ed25519",
+		"db restore pg --from ./dump.sql", "fs write web /tmp/k --from .ssh/id_ed25519",
 		"upload web .ssh/id_ed25519 /tmp/k", "storage upload s3 .ssh/id_ed25519",
 		"cp .ssh/id_ed25519 web:/tmp/k", "sync .ssh web:/tmp/k", "cluster kubernetes raw k8s -- apply -f /home/u/.ssh/id_ed25519",
 		"cluster kubernetes raw k8s -- diff --filename=./x.yaml", "cluster kubernetes raw k8s -- create secret generic x --from-file=.ssh/id_ed25519",

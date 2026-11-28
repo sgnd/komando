@@ -20,12 +20,11 @@ var (
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}
-	// S-5.1 exceptions: --wait is a bool on cluster commands; --config a file on vpn add, KEY=VALUE on queue create;
+	// S-5.1 exceptions: --config a file on vpn add, KEY=VALUE on queue create;
 	// --new a bool on secret set (create only), the replacement text on fs replace
 	allowFlagTypes = []string{
 		"--config",
 		"--new",
-		"--wait",
 	}
 	// S-5.11: flags whose usage text still differs per command
 	allowSharedUsage = []string{
@@ -52,9 +51,6 @@ var (
 	allowExamples = []string{
 		"audit",
 		"audit verify",
-		"cluster helm history",
-		"cluster helm status",
-		"cluster history",
 		"config show",
 		"conn kinds",
 		"conn show",

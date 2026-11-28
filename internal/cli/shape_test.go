@@ -78,22 +78,6 @@ var shapeCases = [][]string{
 	{"ssh-gate", "status"},
 }
 
-// serverShapeCases read the fake memcached conn "mc".
-var serverShapeCases = [][]string{
-	{"cache", "keys", "mc"},
-}
-
-// clusterShapeCases run against a loopback Kubernetes API
-// (newDetailCluster), imported as conn prod after the cases above, so
-// those see the same inventory as before.
-var clusterShapeCases = [][]string{
-	{"cluster", "describe", "prod", "pod/api-1"},
-	{"cluster", "describe", "prod", "deployment/api"},
-	{"cluster", "describe", "prod", "secret/app-db"},
-	{"cluster", "logs", "prod", "api-1"},
-	{"cluster", "logs", "prod", "-l", "app=api"},
-}
-
 // storageShapeCases run last, against an S3 conn "bk" whose bucket is in
 // memory (memBucket).
 var storageShapeCases = [][]string{
@@ -126,24 +110,9 @@ func TestOutputShapes(t *testing.T) {
 			t.Fatalf("setup %v: %v\n%s", setup, err, s)
 		}
 	}
-	// serverShapeCases then clusterShapeCases run last, against a fake
-	// memcached and a loopback Kubernetes API, so the conns they need are
-	// not in the inventory answers above
-	cases := append(append(append(append([][]string{}, shapeCases...), serverShapeCases...), clusterShapeCases...), storageShapeCases...)
+	cases := append(append([][]string{}, shapeCases...), storageShapeCases...)
 	got := map[string]any{}
-	kube := newDetailCluster(t)
 	for i, args := range cases {
-		if i == len(shapeCases) {
-			addr, _ := fakeMemcached(t)
-			if s, err := runCache(t, "-o", "json", "conn", "add", "mc", "memcached://"+addr); err != nil {
-				t.Fatalf("conn add mc: %v\n%s", err, s)
-			}
-		}
-		if i == len(shapeCases)+len(serverShapeCases) {
-			if s, err := runCache(t, "-o", "json", "import", "kubeconfig", kube.kubeconfig(t)); err != nil {
-				t.Fatalf("import kubeconfig: %v\n%s", err, s)
-			}
-		}
 		if i == len(cases)-len(storageShapeCases) {
 			if s, err := runCache(t, "-o", "json", "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1"); err != nil {
 				t.Fatalf("conn add bk: %v\n%s", err, s)

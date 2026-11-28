@@ -30,7 +30,7 @@ func kctlUsage(args []string) error {
 	case oneOf(verb, "port-forward", "proxy", "attach"):
 		return out.Usage("%s is a session: use `komando cluster kubernetes tunnel start` (ports) or `komando cluster kubernetes shell` (a terminal)", verb)
 	case verb == "edit":
-		return out.Usage("edit opens an editor: use `komando cluster get TARGET TYPE NAME -o yaml`, change the file, then `cluster kubernetes raw --write -- apply -f FILE`")
+		return out.Usage("edit opens an editor: save the object with `komando cluster kubernetes raw NAME -- get TYPE NAME -o yaml`, change the file, then `cluster kubernetes raw NAME --write -- apply -f FILE`")
 	case verb == "config" && !oneOf(sub, "current-context", "get-contexts"):
 		return out.Usage("config supports current-context and get-contexts (komando keeps the kubeconfig in its vault; `komando conn show NAME` shows the conn)")
 	case !oneOf(verb, kctlVerbs...):
@@ -66,10 +66,10 @@ func kubectlRisk(cl *call, args []string) (driver.Risk, error) {
 	return classifyKubectl(cl, args), nil
 }
 
-// auditBrokenWrite records a change whose connection broke: it may have
+// auditBrokenWrite records a change whose connection broke or that got no answer in time: it may have
 // reached the cluster before the connection went.
 func auditBrokenWrite(cl *call, st *store.State, conn string, args []string, risk driver.Risk, stop *out.Error) {
-	if stop.Code == "CONN_UNREACHABLE" && risk > driver.RiskRead {
+	if (stop.Code == "CONN_UNREACHABLE" || stop.Code == "TIMEOUT") && risk > driver.RiskRead {
 		audit(cl, st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args), " "), false, map[string]any{"conns": []string{conn}, "risk": risk.String(), "error": stop.Code})
 	}
 }

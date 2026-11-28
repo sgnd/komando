@@ -1,9 +1,6 @@
 audit	plain=read	highest=read
 audit.verify	plain=read	highest=read
 cache	plain=read	highest=read
-cache.get	plain=read	highest=read
-cache.info	plain=read	highest=read
-cache.keys	plain=read	highest=read
 cache.memcached	plain=read	highest=read
 cache.memcached.add	plain=change	highest=read
 cache.memcached.edit	plain=change	highest=safety
@@ -22,20 +19,7 @@ cache.redis.remove	plain=change	highest=read
 cache.redis.rename	plain=change	highest=read
 cache.redis.show	plain=read	highest=read
 cache.redis.test	plain=read	highest=read
-cache.rm	plain=dangerous	highest=dangerous
-cache.set	plain=change	highest=read
 cluster	plain=read	highest=read
-cluster.apply	plain=change	highest=read
-cluster.deploy	plain=change	highest=read
-cluster.describe	plain=read	highest=read
-cluster.events	plain=read	highest=read
-cluster.get	plain=read	highest=read
-cluster.helm	plain=read	highest=read
-cluster.helm.history	plain=read	highest=read
-cluster.helm.list	plain=read	highest=read
-cluster.helm.status	plain=read	highest=read
-cluster.helm.values	plain=read	highest=read
-cluster.history	plain=read	highest=read
 cluster.kubernetes	plain=read	highest=read
 cluster.kubernetes.add	plain=change	highest=read
 cluster.kubernetes.edit	plain=change	highest=safety
@@ -49,13 +33,6 @@ cluster.kubernetes.show	plain=read	highest=read
 cluster.kubernetes.test	plain=read	highest=read
 cluster.kubernetes.tunnel	plain=read	highest=read
 cluster.kubernetes.tunnel.start	plain=change	highest=read
-cluster.list	plain=read	highest=read
-cluster.logs	plain=read	highest=read
-cluster.restart	plain=change	highest=read
-cluster.rm	plain=dangerous	highest=dangerous
-cluster.rollback	plain=change	highest=read
-cluster.scale	plain=change	highest=dangerous
-cluster.status	plain=read	highest=read
 cluster.swarm	plain=read	highest=read
 cluster.swarm.raw	plain=dangerous	highest=dangerous
 completion	plain=change	highest=read
@@ -199,7 +176,7 @@ policy.rm	plain=safety	highest=safety
 policy.show	plain=read	highest=read
 probe cache redis edit prod-redis --protected=false	safety
 probe cluster kubernetes edit prod-k8s --protected=false	safety
-probe cluster scale c1 web 0	dangerous
+probe cluster kubernetes raw c1 -- scale deploy/web --replicas=0	dangerous
 probe conn edit app-db --protected=false	safety
 probe export --for-phone	person
 probe export --sealed	person

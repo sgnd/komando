@@ -18,24 +18,6 @@ import (
 // TYPE NAME (deployment api) or TYPE/NAME (deployment/api). TYPE may be
 // group-qualified (deployment.apps) and Swarm takes service/svc, task, ...
 
-// objectRef reads the object from the words after TARGET: one word
-// TYPE/NAME, or two words TYPE NAME.
-func objectRef(words []string) (typ, name string, err error) {
-	switch len(words) {
-	case 1:
-		return splitRef(words[0])
-	case 2:
-		if strings.Contains(words[0], "/") {
-			return "", "", out.Usage("write TYPE/NAME or TYPE NAME, not both (%s %s)", words[0], words[1])
-		}
-		if words[0] == "" || words[1] == "" {
-			return "", "", out.Usage("give TYPE/NAME or TYPE NAME, for example deployment/api")
-		}
-		return words[0], words[1], nil
-	}
-	return "", "", out.Usage("give TYPE/NAME or TYPE NAME, for example deployment/api")
-}
-
 // splitRef parses TYPE/NAME, as in deployment/api.
 func splitRef(ref string) (string, string, error) {
 	typ, name, ok := strings.Cut(ref, "/")
@@ -43,33 +25,6 @@ func splitRef(ref string) (string, string, error) {
 		return "", "", out.Usage("give TYPE/NAME (or TYPE NAME), for example deployment/api")
 	}
 	return typ, name, nil
-}
-
-// refArgs says how many words a TYPE/NAME or TYPE NAME object takes when
-// extra more positional words follow it (scale's REPLICAS).
-func refArgs(before, extra int) cobra.PositionalArgs {
-	return func(cmd *cobra.Command, args []string) error {
-		if n := len(args); n < before+1+extra || n > before+2+extra {
-			return cobra.RangeArgs(before+1+extra, before+2+extra)(cmd, args)
-		}
-		return nil
-	}
-}
-
-// swarmKind maps what people type for Swarm objects to one kind: service,
-// task, node or stack ("" when it is none of them).
-func swarmKind(typ string) string {
-	switch strings.ToLower(typ) {
-	case "service", "services", "svc", "svcs":
-		return "service"
-	case "task", "tasks", "pod", "pods", "po", "container", "containers":
-		return "task"
-	case "node", "nodes", "no":
-		return "node"
-	case "stack", "stacks":
-		return "stack"
-	}
-	return ""
 }
 
 // resource finds a Kubernetes kind. An unknown kind is a usage error that
@@ -156,18 +111,7 @@ func nsShorthand(fl *pflag.FlagSet, long *pflag.Flag) {
 	short.Shorthand, long.Shorthand = "", "n"
 }
 
-// nsOrAll refuses --namespace with -A, which kubectl lets -A win silently.
-func nsOrAll(ns string, all bool) error {
-	if ns != "" && all {
-		return out.Usage("--namespace and -A (every namespace) do not go together; pick one")
-	}
-	return nil
-}
-
-// noNamespace refuses --namespace on Swarm, which has none.
-func noNamespace(t clusterTarget, ns string) error {
-	if t.host != nil && ns != "" {
-		return out.Usage("Swarm has no namespaces: leave out --namespace (a stack's services are named STACK_SERVICE)")
-	}
-	return nil
+// kindRef is "deployment/api".
+func kindRef(r kube.ResourceType, name string) string {
+	return strings.ToLower(r.KindName()) + "/" + name
 }

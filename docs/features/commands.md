@@ -409,7 +409,7 @@ get `NEEDS_TERMINAL` and use `exec` or `job` instead.
 When you type a command yourself, komando prints one line saying where you
 are working, before it connects. It does this for the commands you stay
 inside: `shell`, `db shell`, `cluster kubernetes shell`, `cluster kubernetes tunnel start`,
-`logs --follow` and `cluster logs -f`.
+`logs --follow` and `cluster kubernetes raw -- logs -f`.
 
 ```text
 komando: shell on web1 (deploy@10.0.1.5) via vpn office → bastion

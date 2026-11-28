@@ -113,13 +113,6 @@ func TestSwarmServiceFound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts, err := resolveClusters(tcl, st, "swarm1-swarm,swarm1")
-	if err != nil || len(ts) != 1 || ts[0].host == nil || ts[0].host.Name != "swarm1" {
-		t.Fatalf("resolveClusters: %+v %v", ts, err)
-	}
-	if !swarmManager(st, "all", st.Hosts["swarm1"]) || swarmManager(st, "all", st.Hosts["web1"]) {
-		t.Fatal("swarmManager does not follow the swarm service")
-	}
 	for name, want := range map[string][]string{"swarm1": {"server", "swarm"}, "web1": {"server"}, "swarm1-swarm": {"swarm"}} {
 		if got := itemKinds(st, "", name); !slices.Equal(got, want) {
 			t.Errorf("itemKinds(%s) = %v, want %v", name, got, want)

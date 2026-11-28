@@ -203,10 +203,8 @@ func runKctlLive(cl *call, ctx context.Context, k *kube.Client, conn string, arg
 			stop = ke.stop
 		case errors.As(err, &ae):
 			r.stderr.WriteString(fmt.Sprintf("Error from server (%s): %s\n", strings.ReplaceAll(ae.Reason, " ", ""), ae.Message))
-		case errors.Is(err, context.DeadlineExceeded):
-			r.stderr.WriteString("error: timed out waiting for the condition\n")
-		case r.stdout.Len() == 0 && errors.As(err, new(*url.Error)):
-			// the cluster could not be reached: komando's own stop, not kubectl's words
+		case errors.As(err, new(*kube.PluginError)), errors.Is(err, context.DeadlineExceeded), r.stdout.Len() == 0 && errors.As(err, new(*url.Error)):
+			// no login, no answer in time, or no cluster: komando's own stop with the codes of every other cluster path
 			stop = toErr(kubeErr(err))
 			r.stderr.WriteString("error: " + stop.Message + "\n")
 		default:

@@ -105,7 +105,6 @@ func TestConnCompletionByFamily(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"cache", "info", ""}, "@prod all app-cache kind:"},
 		{[]string{"db", "query", ""}, "@prod all app-db kind:"},
 		{[]string{"db", "schema", ""}, "@prod all app-db kind:"},
 		{[]string{"test", ""}, "@prod all app-cache app-db kind:"},

@@ -105,12 +105,11 @@ var gateOnServers = map[safetyKey]func(c *cobra.Command) string{
 	{"credential", "key", "install"}: gateSetDefault, {"credential", "key", "uninstall"}: nil,
 	{"database", "", "explain"}: nil, {"database", "", "grant"}: nil, {"database", "", "kill"}: nil, {"database", "", "query"}: nil, {"database", "", "restore"}: nil, {"database", "", "revoke"}: nil,
 	{"database", "user", "add"}: nil, {"database", "user", "passwd"}: nil, {"database", "user", "rm"}: nil,
-	{"cache", "", "rm"}: nil, {"cache", "", "raw"}: nil, {"cache", "", "set"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
+	{"cache", "", "raw"}: nil, {"storage", "object", "create"}: nil, {"storage", "object", "move"}: nil, {"storage", "object", "delete"}: nil, {"storage", "object", "upload"}: nil,
 	{"registry", "image", "copy"}: nil, {"registry", "image", "prune"}: nil, {"registry", "image", "delete"}: nil,
 	{"host", "docker", "compose"}: nil, {"host", "docker", "exec"}: nil, {"host", "docker", "prune"}: nil, {"host", "docker", "pull"}: nil, {"host", "docker", "raw"}: nil,
 	{"host", "docker", "restart"}: nil, {"host", "docker", "rm"}: nil, {"host", "docker", "start"}: nil, {"host", "docker", "stop"}: nil,
-	{"cluster", "", "apply"}: nil, {"cluster", "", "deploy"}: nil, {"cluster", "", "exec"}: nil, {"cluster", "", "restart"}: nil,
-	{"cluster", "", "rm"}: nil, {"cluster", "", "rollback"}: nil, {"cluster", "", "raw"}: gateKubectlCp, {"cluster", "", "scale"}: nil,
+	{"cluster", "", "exec"}: nil, {"cluster", "", "raw"}: gateKubectlCp,
 	{"cluster", "tunnel", "start"}: nil, {"storage", "object", "link"}: nil, // hand out access; as before OD-13 made them changes
 	{"vpn", "", "start"}: nil, {"vpn", "", "stop"}: nil,
 }
