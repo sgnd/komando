@@ -173,6 +173,29 @@ func TestKubeconfigFormProtectsWithTheTypePath(t *testing.T) {
 	}
 }
 
+// The commands the kubeconfig form builds, run as the form runs them: a
+// cluster answered protected=yes ends protected (the cut audit, item 2).
+func TestKubeconfigFormEndsProtected(t *testing.T) {
+	invHome(t)
+	file := writeKubeconfig(t, "prod")
+	cmds := kubeconfigBuild(&store.State{Hosts: map[string]*store.Host{}}, formAnswers{"file": file, "protected": "yes"})
+	for _, c := range cmds {
+		if c[0] == "test" { // only reaches the port
+			continue
+		}
+		if _, e := cliRun(t, c...); e != nil {
+			t.Fatalf("`komando %s`: %s: %s", pickCommandLine(c), e.Code, e.Message)
+		}
+	}
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := st.Conns["prod"]; c == nil || !c.Protected {
+		t.Errorf("the cluster is not protected: %+v", c)
+	}
+}
+
 // A failed add names the entry's own remove, as the form's add made it.
 func TestFormRemoveCmdFollowsTheAdd(t *testing.T) {
 	for _, c := range []struct{ add, want string }{
