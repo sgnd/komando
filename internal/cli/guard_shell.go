@@ -466,10 +466,10 @@ func checkSimple(cl *call, rline, seg string, vars lineVars, home, cwd string, d
 	base := filepath.Base(prog)
 	// env -C DIR and sudo -D DIR run the program in DIR; the shell stays
 	run, chdir := wrapperCwd(cl, shellWords(dropRedirects(seg)), vars, home, cwd)
-	if d := checkGuardFiles(cl, rline, rseg, prog, args, home, run); d.Deny {
+	if d := checkGuardFiles(cl, rline, rseg, prog, args, home, cwd, run); d.Deny {
 		return cwd, d
 	}
-	if d := checkWrites(cl, seg, vars, home, run); d.Deny {
+	if d := checkWrites(cl, seg, vars, home, cwd, run); d.Deny {
 		return cwd, d
 	}
 	if base != "komando" { // the files the shell opens for the redirects

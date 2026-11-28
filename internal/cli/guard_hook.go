@@ -337,8 +337,10 @@ func writesFiles(base string, args []string) bool {
 // redirects open, whatever the program is, and each argument of a program
 // that writes the files its arguments name (writesFiles) or whose name the
 // guard cannot read. The program's words are seg's without its redirects.
-func checkWrites(cl *call, seg string, vars lineVars, home, cwd string) guardDecision {
-	d := checkWritesIn(cl, literalDollars(seg), vars, home, cwd)
+// The shell opens the redirects in its folder cwd; the program runs in run
+// (env -C, sudo -D), where its arguments name files.
+func checkWrites(cl *call, seg string, vars lineVars, home, cwd, run string) guardDecision {
+	d := checkWritesIn(cl, literalDollars(seg), vars, home, cwd, run)
 	d.Reason = strings.ReplaceAll(d.Reason, literalDollar, "$")
 	return d
 }
@@ -383,13 +385,14 @@ func unmarked(words []string) []string {
 }
 
 // checkWritesIn is checkWrites for seg with its literal dollars marked.
-func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd string) guardDecision {
+func checkWritesIn(cl *call, seg string, vars lineVars, home, cwd, run string) guardDecision {
 	files, fglobs := redirectWrites(seg)
 	for i, f := range files {
 		if d := checkWritten(cl, f, fglobs[i], true, vars, home, cwd); d.Deny {
 			return d
 		}
 	}
+	cwd = run
 	words, globs, bare := shellWordsFlags(dropRedirects(seg))
 	prog, args := program(words)
 	if prog == "" {
@@ -609,10 +612,11 @@ var writesKomandoByName = regexp.MustCompile("(^|[;&|(\\s])(rm|unlink|mv|cp|ln|c
 // checkSelfWrite refuses a shell segment that writes, moves, deletes or
 // changes the mode of a guard file (guardSelfWhy): through a redirect, or
 // as an argument of a program that is not only a reader.
-func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd string) guardDecision {
+func checkSelfWrite(cl *call, line, seg, base string, args []string, home, cwd, run string) guardDecision {
 	if d := checkSelfRedirects(cl, seg, home, cwd); d.Deny || readsOnly(base, args) {
 		return d
 	}
+	cwd = run
 	words, globs := shellWordsGlob(seg)
 	off := len(words) - len(args) // args are the last words of seg
 	for i, a := range args {
@@ -717,20 +721,21 @@ var inlineCode = map[string]bool{"python": true, "python2": true, "python3": tru
 // checked against the line too, without the files the readers on it
 // read (lineWithoutReadFiles): a path in its script or a flag still counts.
 // komando's own commands check the files they write themselves; their
-// redirects, which the shell writes, are checked here too.
-func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd string) guardDecision {
+// redirects, which the shell writes, are checked here too. The shell opens
+// the redirects in cwd; the program runs in run (env -C, sudo -D).
+func checkGuardFiles(cl *call, line, seg, prog string, args []string, home, cwd, run string) guardDecision {
 	base := filepath.Base(prog)
 	if base == "komando" {
 		return checkSelfRedirects(cl, seg, home, cwd) // the shell writes them
 	}
-	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd); d.Deny || prog == "" || readOnlyPrograms[base] {
+	if d := checkSelfWrite(cl, line, seg, base, args, home, cwd, run); d.Deny || prog == "" || readOnlyPrograms[base] {
 		return d
 	}
 	line = lineForOthers(line, seg)
 	if _, ok := readerArgs(base, args); ok {
-		return checkGuardFileNamed(cl, lineWithoutReadFiles(line), base, args, home, cwd)
+		return checkGuardFileNamed(cl, lineWithoutReadFiles(line), base, args, home, run)
 	}
-	return checkGuardFileNamed(cl, line, base, args, home, cwd)
+	return checkGuardFileNamed(cl, line, base, args, home, run)
 }
 
 // checkGuardFileNamed refuses a command that is not only a reader when its

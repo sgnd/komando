@@ -273,6 +273,67 @@ func TestGuardWrapperOptionsWithAValue(t *testing.T) {
 	}, false)
 }
 
+// The shell opens a line's redirects in its own folder before env -C or
+// sudo -D moves the program: their files are named from the shell's folder,
+// the program's operands from the folder it runs in. The komando program
+// the hook runs is known by where it is, whatever its name (here the test
+// binary, and a komando-0.17.4 that PATH links to).
+func TestGuardWrapperFolderLeavesRedirectsInTheShellsFolder(t *testing.T) {
+	home, repo := guardLineHome(t)
+	const guardProgram = "the komando program the guard hook runs"
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := filepath.Base(self)
+	checkRefusedBy(t, home, filepath.Dir(self), []string{
+		`env -C /tmp true > ` + name,
+		`sudo -D /tmp true > ` + name,
+		`env --chdir=/tmp true > ` + name,
+		`sudo --chdir=/tmp true > ` + name,
+		`env -C /tmp true >> ` + name,
+		`env -C /tmp true &> ` + name,
+		`env -C /tmp true 2> ` + name,
+		`env -C /tmp komando version > ` + name,
+	}, guardProgram)
+	opt := filepath.Join(home, "opt")
+	bin := filepath.Join(home, "bin2")
+	for _, d := range []string{opt, bin} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(opt, "komando-0.17.4"), []byte("x\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(opt, "komando-0.17.4"), filepath.Join(bin, "komando")); err == nil {
+		t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+		checkRefusedBy(t, home, opt, []string{
+			`env -C /tmp true > komando-0.17.4`,
+			`env -C ~ true > komando-0.17.4`,
+		}, guardProgram)
+		checkRefusedBy(t, home, repo, []string{`env -C /tmp true > ../../opt/komando-0.17.4`}, guardProgram)
+		checkRefusedBy(t, home, home, []string{`env -C opt cp /tmp/x komando-0.17.4`}, guardProgram)
+		checkLines(t, home, home, []string{
+			`env -C opt true > komando-0.17.4`,
+			`env -C opt komando version > komando-0.17.4`,
+		}, false)
+		checkLines(t, home, opt, []string{`env -C ~ cp /tmp/x komando-0.17.4`}, false)
+	}
+	// names that are protected wherever they are
+	const secret = "keeps it away from AI agents"
+	checkRefusedBy(t, home, home, []string{
+		`env -C /tmp true > .komando/state.json`,
+		`sudo -D /tmp true > .komando/state.json`,
+		`env -C /tmp cat < .ssh/id_ed25519`,
+	}, secret)
+	checkRefusedBy(t, home, repo, []string{`env -C /tmp true > ../../.komando/state.json`}, secret)
+	checkLines(t, home, repo, []string{
+		`env -C /tmp go test ./... > out.txt`,
+		`sudo -D /tmp ls > out.txt`,
+	}, false)
+}
+
 // The folder rule splits a value where the shell may: at the line's own
 // IFS, never at \v, \f, \r or a non-breaking space; and a quoted value
 // stays one word.
