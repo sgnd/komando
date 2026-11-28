@@ -1,8 +1,9 @@
 package cli
 
+import "strings"
+
 // The questions for `komando cache redis ...` and `cache memcached ...`:
-// the inventory verbs of the table (the same questions conn's verbs ask,
-// for caches) and raw, which is today's `cache run`.
+// the inventory verbs of the table and raw, which is today's `cache run`.
 
 func init() {
 	hints := map[string]formHint{}
@@ -25,22 +26,22 @@ func inventoryHints(typ, provider, noun, group, kindLabel string) map[string]for
 	fam := familyOfType(typ)
 	pick := formArg{ask: "Which " + noun + "?", pick: fam, help: "A " + noun + " from your list. Add one first: komando " + typ + " " + provider + " add."}
 	cmd := typ + " " + provider + " "
-	edit := invConnHints["conn edit"]
-	edit.hide = nil // the table has no -g and -t on edit: only --add-group and --add-tag
+	edit := invEntryEdit
 	edit.args = []formArg{pick}
 	return map[string]formHint{
 		typ + " " + provider: {},
 		cmd + "add": {form: func(cl *call) []formGroup { return formKindOnly(cl, group, kindLabel) },
 			next: []string{cmd + "test {}", cmd + "show {}"}},
 		cmd + "edit": edit,
-		cmd + "list": {args: []formArg{{ask: "Which " + noun + "s? (leave empty for all)", pick: fam, free: true,
+		cmd + "list": {args: []formArg{{ask: "Which " + formPlural(noun) + "? (leave empty for all)", pick: fam, free: true,
 			help: "Pick one, or type @group or several names separated by commas."}}},
-		cmd + "remove": {args: []formArg{{ask: "Which " + noun + "s should come off your list?", pick: fam, free: true,
+		cmd + "remove": {args: []formArg{{ask: "Which " + formPlural(noun) + " should come off your list?", pick: fam, free: true,
 			help: "Only komando's list changes; the " + noun + " itself is not touched."}}},
 		cmd + "rename": {args: []formArg{{ask: "Which " + noun + " do you want to rename?", pick: fam,
 			help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 		cmd + "show": {args: []formArg{pick}},
-		cmd + "test": {args: []formArg{invConns}, flags: []formFlag{invWait}},
+		cmd + "test": {args: []formArg{{ask: "Which " + formPlural(noun) + "?", pick: fam, free: true,
+			help: "Pick one, or type @group, tag:prod or several names separated by commas."}}, flags: []formFlag{invWait}},
 	}
 }
 
@@ -52,6 +53,14 @@ func cacheRawHint(what string, pick formArg) formHint {
 			help: "Separate them with spaces, like: leaderboard 0 9 WITHSCORES."}},
 		flags: []formFlag{{name: "write", ask: "May it change data?",
 			help: "No sends only commands known to just read, so nothing can change. Say yes only for SET, DEL, EXPIRE and the like."}}}
+}
+
+// formPlural is the plural of an entry noun: registry gives registries.
+func formPlural(noun string) string {
+	if stem, ok := strings.CutSuffix(noun, "y"); ok {
+		return stem + "ies"
+	}
+	return noun + "s"
 }
 
 // formKindOnly is the Add group of a family with only the kind of one

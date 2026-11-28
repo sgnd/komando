@@ -50,7 +50,7 @@ func TestKindValuesAreSortedAndComplete(t *testing.T) {
 	if !slices.IsSorted(got) {
 		t.Errorf("kindValues is not sorted: %q", got)
 	}
-	for _, want := range []string{"kind:host", "kind:conn", "kind:vpn", "kind:postgres"} {
+	for _, want := range []string{"kind:host", "kind:database", "kind:vpn", "kind:postgres"} {
 		if !slices.Contains(got, want) {
 			t.Errorf("kindValues has no %q", want)
 		}

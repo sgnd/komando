@@ -1,16 +1,13 @@
 package cli
 
 import (
-	"encoding/json"
 	"net"
 	"net/netip"
 	"net/url"
-	"os"
 	"regexp"
 	"slices"
 	"strings"
 
-	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -18,12 +15,12 @@ import (
 // Azure) and file servers (SFTP, FTP, WebDAV). Each form asks what the
 // person sees in their console or hosting panel and builds the conn URL
 // from it; a secret is never typed here: --ask-password makes the command
-// ask for it hidden, and a Google key stays in its file (--password-ref).
+// ask for it hidden, and a Google key is saved first and named (--credential).
 
 func storageForms() []formKind {
 	return []formKind{
 		{"S3 bucket", "cloud bucket: Amazon S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, Backblaze B2", s3Form},
-		{"Google Cloud Storage bucket", "cloud bucket: logs in like gcloud, or with a key file", gcsForm},
+		{"Google Cloud Storage bucket", "cloud bucket: logs in like gcloud, or with a saved key", gcsForm},
 		{"Azure Blob Storage container", "cloud bucket: with the account key or a SAS token", azureForm},
 		{"SFTP file server", "file server: files over SSH, common on web hosting", sftpForm},
 		{"FTP or FTPS file server", "file server: classic FTP hosting", ftpForm},
@@ -283,7 +280,7 @@ func s3R2AccountProblem(_ *store.State, _ formAnswers, v string) string {
 }
 
 // s3KeyIDProblem catches the secret half typed in the wrong place: it
-// would end up in the command line and the conn list.
+// would end up in the command line and your list.
 func s3KeyIDProblem(_ *store.State, _ formAnswers, v string) string {
 	switch {
 	case strings.ContainsAny(v, "/+") || len(v) >= 40:
@@ -363,13 +360,10 @@ func gcsForm(_ *call) formSpec {
 			choices: func(*store.State, formAnswers) []pickRow {
 				return []pickRow{
 					{label: "Like gcloud on this computer", detail: "after gcloud auth application-default login", value: "gcloud"},
-					{label: "With a service account key file", detail: "the JSON file from the console; needed for share links", value: "keyfile"},
+					{label: "With a service account key", detail: "the JSON file from the console, saved in komando; needed for share links", value: "keyfile"},
 				}
 			}},
-		formWhen(formQ{key: "keyfile", label: "Key file", ask: "Where is the key file?", example: "~/keys/media-sa.json",
-			help:  "The JSON file from IAM, Service accounts, Keys. komando reads it each time, so leave it where it is.",
-			check: func(_ *store.State, _ formAnswers, v string) string { return gcsKeyProblem(v) }},
-			func(a formAnswers) bool { return a["login"] == "keyfile" }),
+		gcpKeyQ(),
 		formProtectQ("bucket"),
 		storeFolderQ("bucket", true, "Empty for the whole bucket. komando cannot reach files outside this folder.", "db/backups"),
 		{key: "endpoint", label: "Address", ask: "Use an emulator or another address?", advanced: true, optional: true,
@@ -380,34 +374,8 @@ func gcsForm(_ *call) formSpec {
 	}, build: func(_ *store.State, a formAnswers) [][]string {
 		u := url.URL{Scheme: "gs", Host: a["bucket"], Path: storeFolder(a["folder"]),
 			RawQuery: storeQuery("endpoint", storeEndpoint(a["endpoint"]))}
-		cmds := formConnBuild(a, u.String(), false)
-		if a["login"] == "keyfile" {
-			cmds[0] = append(cmds[0], "--password-ref", "file:"+formAbs(a["keyfile"]))
-		}
-		return cmds
+		return gcpKeyBuild(a, formConnBuild(a, u.String(), false))
 	}}
-}
-
-// gcsKeyProblem checks that a file is a service account key, without
-// showing anything from it.
-func gcsKeyProblem(v string) string {
-	if p := formFileProblem(v); p != "" {
-		return p
-	}
-	if fi, err := os.Stat(inventory.ExpandHome(v)); err == nil && fi.Size() > 1<<20 {
-		return "this file is too big for a key; give the .json key file"
-	}
-	b, err := os.ReadFile(inventory.ExpandHome(v))
-	var key struct {
-		Type string `json:"type"`
-	}
-	if err != nil || json.Unmarshal(b, &key) != nil {
-		return "this is not a JSON key file; download one from IAM, Service accounts, Keys"
-	}
-	if key.Type != "service_account" {
-		return "this JSON file is not a service account key; download one from IAM, Service accounts, Keys"
-	}
-	return ""
 }
 
 // Azure Blob Storage.

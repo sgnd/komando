@@ -2,13 +2,12 @@ package cli
 
 import "slices"
 
-// The questions for your list (servers, conns, groups, import, export,
-// test), recipes, safety and audit, and setup. host add, conn add
-// and vpn add have hand-made forms (form_kinds.go).
+// The questions for your list (servers, groups, import, export, test),
+// recipes, safety and audit, and setup. The add of a server, a conn type
+// and a VPN has a hand-made form (form_kinds.go).
 
 func init() {
 	addFormHints(withWinRM(invHostHints))
-	addFormHints(invConnHints)
 	addFormHints(invListHints)
 	addFormHints(invRecipeHints)
 	addFormHints(invSafetyHints)
@@ -98,27 +97,16 @@ var invHostHints = map[string]formHint{
 	},
 }
 
-var invConnHints = map[string]formHint{
-	"conn": {},
-	"conn edit": {
-		args: []formArg{invConn},
-		flags: []formFlag{
-			{name: "url", ask: "New address (URL)?", example: "postgres://app@10.0.0.5:5432/shop",
-				help: "Like the one you added it with, without the password. Leave empty to keep it."},
-			invAskPassword, invProtected,
-			invVia, invAddGroup, invNotes,
-		},
-		hide: []string{"group", "tag"},
+// invEntryEdit is the questions of every edit of an entry kept as a conn
+// (inventoryHints gives it the entry to pick).
+var invEntryEdit = formHint{
+	args: []formArg{invConn},
+	flags: []formFlag{
+		{name: "url", ask: "New address (URL)?", example: "postgres://app@10.0.0.5:5432/shop",
+			help: "Like the one you added it with, without the password. Leave empty to keep it."},
+		invAskPassword, invProtected,
+		invVia, invAddGroup, invNotes,
 	},
-	"conn kinds": {},
-	"conn list": {args: []formArg{{ask: "Which conns? (leave empty for all)", pick: "conn", free: true,
-		help: "Pick one, or type @group, kind:postgres or several names separated by commas."}}},
-	"conn rename": {args: []formArg{{ask: "Which conn do you want to rename?", pick: "conn",
-		help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
-	"conn rm": {args: []formArg{{ask: "Which conns should come off your list?", pick: "conn", free: true,
-		help: "Only komando's list changes; the database, bucket or cluster itself is not touched."}}},
-	"conn show": {args: []formArg{invConn}},
-	"conn test": {args: []formArg{invConns}, flags: []formFlag{invWait}},
 }
 
 var invListHints = map[string]formHint{

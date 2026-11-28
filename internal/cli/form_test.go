@@ -192,7 +192,7 @@ func TestFormAddKindsBuild(t *testing.T) {
 				}
 				for _, line := range sp.build(st, a) {
 					cmd := formParse(t, g.label+"/"+k.label, line)
-					if cmd != nil && commandKey(cmd) == "conn add" {
+					if cmd != nil && len(line) > 4 && slices.Contains(connTypes, line[0]) && line[2] == "add" {
 						if _, err := driver.Parse(cmd.Flags().Arg(1)); err != nil {
 							t.Errorf("%s/%s: URL %q: %v", g.label, k.label, cmd.Flags().Arg(1), err)
 						}
@@ -305,7 +305,7 @@ func TestFormAddCtrlC(t *testing.T) {
 	}
 	invHome(t)
 	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "database", "postgres", "add")
-	p.answer("NAME: ", "\x03") // one kind: the PostgreSQL questions start with the name
+	p.answer("Name, like app-db: ", "\x03") // the PostgreSQL questions start with the name
 	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Stopped.") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}

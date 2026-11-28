@@ -281,7 +281,7 @@ type connResult struct {
 }
 
 // MarshalJSON adds login (ask, password or none) to the conn's settings,
-// as conn show prints it.
+// as the show of a conn prints it.
 func (r connResult) MarshalJSON() ([]byte, error) {
 	type plain connResult
 	if r.Conn == nil {

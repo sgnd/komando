@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/capability"
 )
 
 // Every command komando suggests to a person (komando alone, the COMMANDS
@@ -26,7 +28,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 	for kind, cmds := range itemCommands {
 		for _, c := range cmds {
 			// a show of a VPN fills in its kind (itemHelp does the same)
-			check("show "+kind, strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(c, "{}", "web1"), "{P}", "s3"), "vpn KIND ", "vpn wireguard "))
+			check("show "+kind, strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(c, "{}", "web1"), "{P}", "s3"), "{TP}", "storage s3"), "vpn KIND ", "vpn wireguard "))
 		}
 	}
 	for key, h := range formHints {
@@ -71,7 +73,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 		shown[k] = true
 	}
 	for kind := range itemCommands {
-		if base, _, _ := strings.Cut(kind, ":"); !shown[kind] && !slices.Contains([]string{"server", "swarm", "conn", "db", "cache", "queue", "storage", "cluster", "registry", "vpn"}, base) {
+		if base, _, _ := strings.Cut(kind, ":"); !shown[kind] && !slices.Contains([]string{"server", "swarm", "entry", "db", "cache", "queue", "storage", "cluster", "registry", "vpn"}, base) {
 			t.Errorf("itemCommands[%q] is never shown", kind)
 		}
 	}
@@ -128,7 +130,7 @@ func TestPromptNext(t *testing.T) {
 		}
 	}
 	drawn.Reset()
-	tcl.fillSeen = fillInfo{person: true, key: "conn show", first: "app-db"}
+	tcl.fillSeen = fillInfo{person: true, key: "database postgres show", first: "app-db"}
 	promptNext(tcl)
 	if !strings.Contains(drawn.String(), "COMMANDS\n  komando database postgres query app-db \"select 1\"") {
 		t.Errorf("show: %s", drawn)
@@ -136,8 +138,10 @@ func TestPromptNext(t *testing.T) {
 	// a sqlite conn gets its own list, a key its own, and both end there
 	mustRun(t, "conn", "add", "notes", "sqlite:///tmp/notes.db")
 	for _, c := range []struct{ key, first, want, not string }{
-		{"conn show", "notes", "komando database sqlite backup notes --to backup.db", "db user list"},
-		{"conn show", "notes", "komando conn rm notes", "db activity"},
+		{"database sqlite show", "notes", "komando database sqlite backup notes --to backup.db", "db user list"},
+		{"database sqlite show", "notes", "komando database sqlite remove notes", "db activity"},
+		{"database sqlite show", "notes", "komando database sqlite rename notes NEW", "komando conn"},
+		{"database sqlite show", "notes", "komando test notes", "komando conn"},
 		{"credential key show", "deploy", "komando credential key install deploy TARGET", "db "},
 		{"group remove", "old", "Next: komando group create old TARGET...", "group remove"},
 		{"snippet show", "health", "komando snippet exec health TARGET", "conn "},
@@ -238,7 +242,8 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 		key := commandKey(c)
 		w := strings.Fields(key)
-		if !slices.Contains([]string{"add", "edit", "rename", "rm"}, w[len(w)-1]) {
+		entryRemove := w[len(w)-1] == "remove" && slices.Contains(connTypes, w[0])
+		if !slices.Contains([]string{"add", "edit", "rename", "rm"}, w[len(w)-1]) && !entryRemove {
 			continue
 		}
 		lines := nextLines(key, "web1", []string{"web1", "web2"})
@@ -251,13 +256,16 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"host ssh add":          "komando test web1",
-		"conn add":              "komando test web1",
-		"host ssh rename":       "komando host ssh show web2",
-		"credential key rename": "komando credential key show web2",
-		"rename":                "komando list web2",
-		"host ssh remove":       "komando host ssh list",
-		"vpn wireguard edit":    "komando vpn wireguard show web1",
+		"host ssh add":           "komando test web1",
+		"conn add":               "komando test web1",
+		"database postgres edit": "komando database postgres show web1",
+		"cache redis rename":     "komando cache redis show web2",
+		"queue kafka remove":     "komando queue kafka list",
+		"host ssh rename":        "komando host ssh show web2",
+		"credential key rename":  "komando credential key show web2",
+		"rename":                 "komando list web2",
+		"host ssh remove":        "komando host ssh list",
+		"vpn wireguard edit":     "komando vpn wireguard show web1",
 	} {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
 			t.Errorf("%s: Next: %q, want %q first", key, got, want)
@@ -288,5 +296,32 @@ func TestCacheClusterExamplesParse(t *testing.T) {
 	walk(newRoot(tcl))
 	if checked < 10 {
 		t.Errorf("checked only %d example lines", checked)
+	}
+}
+
+// An edit of an entry ends with its show and a test, as a server's does.
+func TestEntryEditNextLines(t *testing.T) {
+	got := nextLines("database postgres edit", "app-db", []string{"app-db"})
+	want := []string{"komando database postgres show app-db", "komando test app-db"}
+	if !slices.Equal(got, want) {
+		t.Errorf("Next: %q, want %q", got, want)
+	}
+}
+
+// Every per-type show lists the commands for the entry afterwards, and
+// they are the entry's own path, never the conn group.
+func TestPerTypeShowListsItsCommands(t *testing.T) {
+	root := newRoot(tcl)
+	for _, l := range capability.All() {
+		if l.State != capability.Built || l.Key.Verb != "show" || l.Key.Area != "" || !slices.Contains(connTypes, l.Key.Type) {
+			continue
+		}
+		key := l.Key.String()
+		if cmdByKey(root, key) == nil {
+			continue
+		}
+		if kind, ok := showKinds[key]; !ok || kind != "" {
+			t.Errorf("%s: no entry in showKinds", key)
+		}
 	}
 }

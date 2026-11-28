@@ -330,7 +330,7 @@ func registryResolveProblem(v string) string {
 	return ""
 }
 
-// registryBuild is conn add with a registry:// URL (no password in it,
+// registryBuild is registry oci add with a registry:// URL (no password in it,
 // ever), then a test, which logs in to the registry.
 func registryBuild(k registryKind, a formAnswers) [][]string {
 	host, port := k.host, ""
@@ -354,7 +354,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 		}
 	}
 	u.RawQuery = strings.ReplaceAll(q.Encode(), "%3A", ":") // ca=credential:NAME reads as typed
-	args := []string{"conn", "add", a["name"], u.String()}
+	args := append(entryWordsOfURL(u.String()), "add", a["name"], u.String())
 	switch {
 	case registryCloud(k.id) && k.id != regECR: // no secret: the Azure or Google login each time
 	case k.id == regECR: // no secret: komando logs in with the AWS profile each time
@@ -362,7 +362,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 			args = append(args, "--option", "aws_profile="+p)
 		}
 	case a["login"] == regVault && a["secret"] != "":
-		args = append(args, "--password-ref", formSecretRef(a["secret"]))
+		args = append(args, formCredentialFlag(a["secret"])...)
 	case a["login"] == regToken || (a["login"] == "" && a["user"] != ""):
 		args = append(args, "--ask-password")
 	}

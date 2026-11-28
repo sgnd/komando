@@ -276,7 +276,7 @@ Good to know:
   ending: output the server still held can be lost. `--signal` takes TERM
   or KILL: a run in a session ignores INT and QUIT (it runs in the
   background) and HUP (nohup). A run that traps or ignores TERM and is
-  still running 5 seconds after the stop gives `SESSION_STILL_RUNNING`:
+  still running 5 seconds after the stop gives `SESSION_STILL_BUSY`:
   stop it with `--signal KILL`.
 - The session merges stdout and stderr into one output: a single-server
   `exec` result has no separate stderr.

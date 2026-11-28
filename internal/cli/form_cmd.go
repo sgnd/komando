@@ -29,7 +29,7 @@ type formHint struct {
 	args  []formArg  // by position; a missing one is a typed answer named from Use
 	flags []formFlag // asked in this order; every other flag waits under More options
 	hide  []string   // flags never offered here, besides formNeverFlags
-	// form is a hand-made form used instead (host add, conn add, vpn add)
+	// form is a hand-made form used instead (a server, a conn type, a VPN)
 	form func(cl *call) []formGroup
 	// skip: nobody is ever asked its questions (ssh-gate: sshd runs it)
 	skip bool

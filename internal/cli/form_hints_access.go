@@ -152,7 +152,7 @@ func init() {
 		"host ssh tunnel start": {next: []string{"host ssh tunnel list", "host ssh tunnel stop TUNNEL"}},
 		"host ssh tunnel stop":  {next: []string{"host ssh tunnel list"}},
 		"login aws":             {next: []string{"test TARGET", "storage s3 object list NAME", "import aws"}},
-		"credential password add": {next: []string{"host ssh edit TARGET --credential {}", "conn edit NAME --password-ref credential:{}",
+		"credential password add": {next: []string{"host ssh edit TARGET --credential {}", "database postgres edit NAME --credential {}",
 			"credential list"}},
 		"credential token add":       {next: []string{"credential list"}},
 		"credential list":            {next: []string{"credential password show NAME", "credential password add NAME"}},

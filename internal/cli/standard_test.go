@@ -594,8 +594,7 @@ func TestStandardReferences(t *testing.T) {
 	root := newRoot(tcl)
 	got := map[string]string{}
 	check := func(where, ref string) {
-		// KIND after database is the provider word, filled from the conn (fillHint)
-		ref = strings.Replace(ref, "database KIND", "database postgres", 1)
+		ref = sampleEntryPath(ref)
 		words := shellWords(strings.ReplaceAll(ref, "\n", " "))
 		if len(words) == 0 {
 			return

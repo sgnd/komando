@@ -643,13 +643,41 @@ func targetsAreOf(cl *call, st *store.State, targets []string, typ, provider, ve
 	return nil
 }
 
-// entryPath is the words that run a kind's entries once its type has
-// moved to the table, or today's words before.
-func entryPath(k driver.Kind) string {
-	if slices.Contains(movedTypes, typeWord(k.Family)) {
-		return "komando " + typeWord(k.Family) + " " + providerWord(k)
+// entryPath is the words that run a kind's entries: komando database postgres.
+func entryPath(k driver.Kind) string { return entryCmd(entryWordsOfKind(k), "", "") }
+
+// entryWordsOfKind are a kind's type and provider words in the table.
+func entryWordsOfKind(k driver.Kind) []string { return []string{typeWord(k.Family), providerWord(k)} }
+
+// entryWords are the type and provider words of a saved entry
+// ({"database", "postgres"}); nil when its URL does not parse.
+func entryWords(c *store.Conn) []string {
+	if c == nil {
+		return nil
 	}
-	return "komando " + k.Family
+	return entryWordsOfURL(c.URL)
+}
+
+// entryWordsOfURL is entryWords for an address that is not saved yet.
+func entryWordsOfURL(raw string) []string {
+	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
+	if err != nil {
+		return nil
+	}
+	return entryWordsOfKind(t.Kind)
+}
+
+// entryCmd is the command that does verb for an entry: komando database
+// postgres show pg. A type or provider not known where the text is written
+// is TYPE or PROVIDER, a name not known is NAME: fillHint fills them from
+// the target. An empty verb is the provider's path alone.
+func entryCmd(words []string, verb, name string) string {
+	path := []string{"komando", "TYPE", "PROVIDER"}
+	copy(path[1:], words)
+	if verb == "" {
+		return strings.Join(path, " ")
+	}
+	return strings.Join(append(path, verb, cmp.Or(name, "NAME")), " ")
 }
 
 // inventoryHandlers registers the seven inventory verbs of an entry type

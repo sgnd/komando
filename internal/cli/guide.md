@@ -164,7 +164,7 @@ Your list itself changes in bulk too, each with `--dry-run` first:
 
 ## 5. Databases, caches, queues, storage, clusters, registries
 
-These are conns (`komando list kind:conn`). Each has its own command; never
+These are conns (`komando list kind:database`, `kind:cache`, ...). Each has its own command; never
 reach them through `exec`.
 
 **Databases** (PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake, BigQuery, SQLite):

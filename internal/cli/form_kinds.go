@@ -29,23 +29,17 @@ func formGroups(cl *call) []formGroup {
 	}
 }
 
-// formGroupsFor is the groups `komando KIND add` offers when typed alone:
-// host add asks for a server, vpn add for a VPN, conn add for the rest.
+// formGroupsFor is the groups `komando host ssh add` offers when typed
+// alone: the server form.
 func formGroupsFor(cl *call, kind string) []formGroup {
 	var gs []formGroup
 	for _, g := range formGroups(cl) {
-		switch {
-		case kind == "host" && g.label == "Server",
-			kind == "vpn" && g.label == "VPN",
-			kind == "conn" && g.label != "Server" && g.label != "VPN":
+		if kind == "host" && g.label == "Server" {
 			gs = append(gs, g)
 		}
 	}
 	return gs
 }
-
-// formFamilyAdd is each `komando FAMILY add` and its Add group.
-var formFamilyAdd = map[string]string{}
 
 // formGroupNamed is the one Add group with this label.
 func formGroupNamed(cl *call, label string) []formGroup {
@@ -489,7 +483,7 @@ func sqlForm(scheme, product, port string) formSpec {
 }
 
 // dbTLSQ asks, under More options, how a database connection is
-// encrypted: "" lets conn add choose (checked TLS over a network),
+// encrypted: "" lets the add choose (checked TLS over a network),
 // "nocheck" encrypts without checking, "off" sends it unencrypted.
 func dbTLSQ() formQ {
 	return formQ{key: "tls", label: "Encryption", ask: "How should the connection be encrypted?", advanced: true,
@@ -502,9 +496,10 @@ func dbTLSQ() formQ {
 		}}
 }
 
-// formConnBuild is conn add for the answers, then a test.
+// formConnBuild is the add of the URL's own type and provider for the
+// answers (komando database postgres add NAME URL), then a test.
 func formConnBuild(a formAnswers, rawURL string, askPassword bool) [][]string {
-	args := []string{"conn", "add", a["name"], rawURL}
+	args := append(entryWordsOfURL(rawURL), "add", a["name"], rawURL)
 	switch {
 	case a["password"] == "each": // formPasswordQ
 		args = append(args, "--login", "ask")
@@ -512,6 +507,12 @@ func formConnBuild(a formAnswers, rawURL string, askPassword bool) [][]string {
 		args = append(args, "--ask-password")
 	}
 	return [][]string{formFlags(args, a), {"test", a["name"]}}
+}
+
+// formCredentialFlag is the flag that names a saved secret on an add: a
+// picked or typed name, with or without the credential: it may carry.
+func formCredentialFlag(v string) []string {
+	return []string{"--credential", strings.TrimPrefix(v, "credential:")}
 }
 
 // formReachQ asks how this computer reaches a service: directly, or
@@ -612,16 +613,11 @@ func sqliteForm(_ *call) formSpec {
 	}}
 }
 
-// The add commands use the hand-made forms above from every menu path.
+// The add commands use the hand-made forms above from every menu path
+// (the per-type adds have theirs in inventoryHints).
 func init() {
 	addFormHints(map[string]formHint{
 		"host ssh add":   {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host ssh show {}", "host ssh edit {} --protected"}},
 		"host winrm add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host winrm show {}", "host winrm edit {} --ask-password"}},
-		"conn add":       {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
 	})
-	// queue add, storage add, ...: conn add for one family, asked the same way.
-	next := map[string][]string{}
-	for cmd, label := range formFamilyAdd {
-		addFormHints(map[string]formHint{cmd: {form: func(cl *call) []formGroup { return formGroupNamed(cl, label) }, next: next[cmd]}})
-	}
 }

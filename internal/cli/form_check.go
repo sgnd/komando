@@ -7,6 +7,7 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -60,15 +61,16 @@ func formIsCheck(c []string) bool {
 	return false
 }
 
-// formRemoveCmd takes out again what the add in cmds added (host rm, conn
-// rm, vpn KIND remove), or nil when it is not one add of one name.
+// connTypes are the types whose entries are conns, each with the seven
+// inventory verbs per provider.
+var connTypes = []string{"database", "cache", "queue", "storage", "cluster", "registry"}
+
+// formRemoveCmd takes out again what the add in cmds added (TYPE PROVIDER
+// remove NAME), or nil when it is not one add of one name.
 func formRemoveCmd(cmds [][]string) []string {
 	for _, c := range cmds {
-		switch {
-		case len(c) >= 3 && c[1] == "add" && (c[0] == "host" || c[0] == "conn"):
-			return []string{c[0], "rm", c[2]}
-		case len(c) >= 4 && c[0] == "vpn" && c[2] == "add":
-			return []string{"vpn", c[1], "remove", c[3]}
+		if len(c) >= 4 && c[2] == "add" && (c[0] == "host" || c[0] == "vpn" || slices.Contains(connTypes, c[0])) {
+			return []string{c[0], c[1], "remove", c[3]}
 		}
 	}
 	return nil

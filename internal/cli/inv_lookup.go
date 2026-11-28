@@ -175,7 +175,7 @@ func rmConns(cl *call, s *store.State, args []string) ([]*store.Conn, error) {
 	return res, nil
 }
 
-// rmResult is what host rm and conn rm print.
+// rmResult is what a remove of a server or a conn prints.
 type rmResult struct {
 	Removed       []string `json:"removed"`
 	HostKeysKept  []string `json:"host_keys_kept,omitempty"` // host rm: servers whose pinned key stays in known_hosts

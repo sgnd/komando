@@ -11,38 +11,28 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// `komando host ssh add` (conn add, vpn add, db add, cache add ...) typed alone
-// by a person at a terminal asks that kind's own questions, one line each:
-// which kind, a name, the address or the parts of a URL, how to log in,
-// whether it is production. The answers make ordinary command lines, shown
-// before they run (the add, then the test that shows it works), so the
-// person learns them. A password is never asked here: the add command asks
-// it itself, hidden (--ask-password).
+// `komando host ssh add` (database postgres add, cache redis add, vpn
+// wireguard add ...) typed alone by a person at a terminal asks that
+// kind's own questions, one line each: a name, the address or the parts of
+// a URL, how to log in, whether it is production. The answers make
+// ordinary command lines, shown before they run (the add, then the test
+// that shows it works), so the person learns them. A password is never
+// asked here: the add command asks it itself, hidden (--ask-password).
 
-// formAddCmd: host add, conn add, vpn add or a family's add (db add ...),
-// which have questions of their own.
+// formAddCmd says whether cmd is an add that has questions of its own: its
+// hint carries a form (a server, a conn type's provider, a VPN kind).
 func formAddCmd(cmd *cobra.Command) bool {
-	k := commandKey(cmd)
-	return k == "host ssh add" || k == "host winrm add" || k == "conn add" || isVpnAdd(k) || formFamilyAdd[k] != ""
-}
-
-// isVpnAdd: the key of vpn KIND add.
-func isVpnAdd(key string) bool {
-	w := strings.Fields(key)
-	return len(w) == 3 && w[0] == "vpn" && w[2] == "add"
+	h, ok := hintOf(commandKey(cmd))
+	return ok && h.form != nil
 }
 
 // formAddGroups are the add forms an add command offers.
 func formAddGroups(cmd *cobra.Command) []formGroup {
-	cl := callOf(cmd)
-	k := commandKey(cmd)
-	if g := formFamilyAdd[k]; g != "" {
-		return formGroupNamed(cl, g)
+	h, _ := hintOf(commandKey(cmd))
+	if h.form == nil {
+		return nil
 	}
-	if h, ok := vpnHint(k); ok && h.form != nil {
-		return h.form(cl)
-	}
-	return formGroupsFor(cl, strings.Fields(k)[0])
+	return h.form(callOf(cmd))
 }
 
 // promptAdd asks an add command's questions, shows the lines, asks Run it?
@@ -97,13 +87,13 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 		return err
 	}
 	if rm := formRemoveCmd(cmds); code != 0 && reason != "" && rm != nil {
-		name := rm[2]
+		path, name := rm[0]+" "+rm[1], rm[3]
 		fmt.Fprintf(promptW(cl), "\n%s did not answer: %s\nIt stays in your list. What next:\n", name, reason)
 		for _, l := range [][2]string{
-			{"komando " + rm[0] + " edit " + name, "change how komando reaches it"},
+			{"komando " + path + " edit " + name, "change how komando reaches it"},
 			{"komando test " + name, "test it again"},
-			{"komando " + rm[0] + " rm " + name, "take it out of your list"}} {
-			fmt.Fprintf(promptW(cl), "  %-*s  %s\n", len("komando "+rm[0]+" edit "+name), l[0], l[1])
+			{"komando " + rm[0] + " " + rm[1] + " remove " + name, "take it out of your list"}} {
+			fmt.Fprintf(promptW(cl), "  %-*s  %s\n", len("komando "+path+" edit "+name), l[0], l[1])
 		}
 	}
 	return fillDone{code: code}

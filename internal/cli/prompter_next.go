@@ -15,8 +15,8 @@ import (
 
 // After a command a person ran at the terminal ends well, komando says on
 // stderr what usually comes next (a formHint's next), and after a command
-// it filled in, the line to type next time. `host show`, `conn show` and
-// `vpn show` end with the commands that work on that item. Nothing of this
+// it filled in, the line to type next time. The show of a server, a conn and
+// a VPN ends with the commands that work on that item. Nothing of this
 // is ever printed for an agent, a script or a pipe.
 
 // fillInfo is what promptFill saw of this command.
@@ -120,7 +120,7 @@ func verbNext(key string) []string {
 		return nil
 	}
 	show, list := cmdByKey(root, noun+" show"), cmdByKey(root, noun+" list")
-	inventory := slices.Contains([]string{"host", "conn", "vpn"}, w[0])
+	inventory := slices.Contains([]string{"host", "conn", "vpn"}, w[0]) || len(w) == 3 && slices.Contains(connTypes, w[0])
 	// sameFirst: c takes the same first argument as cmd (user list TARGET
 	// after user add TARGET USER), so {} fills it
 	sameFirst := func(c *cobra.Command) bool {
@@ -202,6 +202,7 @@ func useArgs(c *cobra.Command) []string {
 
 // showKinds are the commands that show one item, and its kind for
 // itemCommands; "" finds the kind in the inventory (a server, conn or VPN).
+// The show of every provider of a conn type joins it at start.
 var showKinds = map[string]string{
 	"host ssh show": "", "conn show": "",
 	"group list": "group", "credential key show": "key", "credential password show": "secret",
@@ -210,8 +211,9 @@ var showKinds = map[string]string{
 }
 
 // itemCommands are the commands that work on one item of a kind, {} the
-// item; the show commands in showKinds list them for a person. A conn
-// gets its family's (or its kind's, db:sqlite) list, then the conn list.
+// item, {TP} its type and provider; the show commands in showKinds list
+// them for a person. A conn gets its family's (or its kind's, db:sqlite)
+// list, then the entry list.
 var itemCommands = map[string][]string{
 	"server": {"logs {} --since 30m", "host ssh exec {} -- uptime", "host ssh shell {}",
 		"pkg upgradable {}", "docker ps {}", "fs list {} /etc", "copy ./FILE {}:/tmp/FILE",
@@ -221,7 +223,7 @@ var itemCommands = map[string][]string{
 	// a server tagged swarm is also a Docker Swarm manager
 	"swarm": {"cluster swarm raw {} -- service ls", "cluster swarm raw {} -- service logs SERVICE",
 		"cluster swarm raw {} --write -- service update --image IMAGE SERVICE"},
-	"conn": {"conn edit {}", "conn rename {} NEW", "conn rm {}", "test {}"},
+	"entry": {"{TP} edit {}", "{TP} rename {} NEW", "{TP} remove {}", "test {}"},
 	"db:postgres": {"database postgres query {} \"select 1\"", "db schema {}", "db info {}", "db activity {}",
 		"database postgres backup {} --to backup.sql", "db user list {}", "database postgres shell {}"},
 	"db:mysql": {"database mysql query {} \"select 1\"", "db schema {}", "db info {}", "db activity {}",
@@ -266,6 +268,14 @@ var itemCommands = map[string][]string{
 	"recipe":  {"snippet exec {} TARGET", "snippet create {} COMMAND --overwrite --dry-run", "snippet remove {}"},
 }
 
+func init() {
+	for _, l := range capability.All() {
+		if l.State == capability.Built && l.Key.Verb == "show" && l.Key.Area == "" && slices.Contains(connTypes, l.Key.Type) {
+			showKinds[l.Key.String()] = ""
+		}
+	}
+}
+
 // itemKinds are the itemCommands lists for name, shown by a command that
 // shows kind ("" for host, conn and vpn show: found in the inventory).
 func itemKinds(st *store.State, kind, name string) []string {
@@ -293,12 +303,18 @@ func itemKinds(st *store.State, kind, name string) []string {
 		if c.Kind == "s3" || c.Kind == "gcs" || c.Kind == "azblob" {
 			ks = append(ks, "storage:link") // only these sign links
 		}
-		return append(ks, "conn")
+		return append(ks, "entry")
 	}
 	if _, ok := st.Vpns[name]; ok {
 		return []string{"vpn"}
 	}
 	return nil
+}
+
+// entryPathOfName is the type and provider words of the saved conn called
+// name (database postgres); TYPE PROVIDER when there is none.
+func entryPathOfName(st *store.State, name string) string {
+	return strings.TrimPrefix(entryCmd(entryWords(st.Conns[name]), "", ""), "komando ")
 }
 
 // showCommands prints the commands for one item after a show command, for
@@ -320,6 +336,7 @@ func showCommands(cl *call, kind, name string) {
 		if v, ok := st.Vpns[name]; ok {
 			c = strings.ReplaceAll(c, "vpn KIND ", "vpn "+v.Kind+" ")
 		}
-		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(strings.ReplaceAll(c, "{}", name), "{P}", providerOfEntry(name)))
+		c = strings.ReplaceAll(strings.ReplaceAll(c, "{}", name), "{P}", providerOfEntry(name))
+		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(c, "{TP}", entryPathOfName(st, name)))
 	}
 }
