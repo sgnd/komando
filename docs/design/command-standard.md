@@ -88,8 +88,7 @@ changes the ID with the name, in the same change.
 `commandName` returns it. The success envelope, the error envelope, the
 audit log, `audit --command`, `commandKinds`, the gate tables
 (`gateOnServers`, `gateReadForm`), `personalCmds`, `localReads`,
-`leavesHome` and the masking checks are all keyed by it. A wrapper
-command (S-1.8) carries the ID of the command it runs.
+`leavesHome` and the masking checks are all keyed by it.
 [code: every key in every name-keyed table resolves to a command ID; the
 error and success envelope of a command carry the same ID]
 
@@ -98,9 +97,9 @@ print nothing: `ls` for `list`, `rm` words (`remove`, `delete`, `del`),
 plural nouns, `server` and `database`, and the ones the tables below name.
 Help, examples and docs use only the primary name. [code]
 
-**S-1.8** A synonym that needs its own argument shape, or lives under
-another parent, is a thin hidden wrapper command with its own `Args`,
-carrying the ID of the command it runs (S-1.6). [review]
+**S-1.8** A synonym has the argument shape and the parent of the command
+it names: no hidden wrapper commands. A name that needs another shape or
+parent is a command of its own, with its own ID. [review]
 
 ## 2. Nouns
 

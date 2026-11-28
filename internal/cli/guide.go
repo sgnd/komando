@@ -483,35 +483,14 @@ func schemaPath(args []string) []string {
 }
 
 // schemaFind is the command `komando schema` describes for args: a path,
-// an alias (fs ls), a command ID (secret.show, db.user.show) or a hidden
-// synonym, each resolved to the visible command it runs (S-9.8). nil when
-// there is none.
+// an alias (fs ls) or a command ID (secret.show, db.user.show) (S-9.8).
+// nil when there is none.
 func schemaFind(root *cobra.Command, args []string) *cobra.Command {
 	found, rest, err := root.Find(args)
 	if err != nil || found == root || len(rest) > 0 {
 		found = byCmdID(root, strings.Join(args, "."))
 	}
-	for i := 0; found != nil && found.Hidden && i < 3; i++ {
-		now := found.Annotations[synonymNote]
-		if now == "" {
-			return found // komando's own background command: walk() leaves it out
-		}
-		found = schemaFind(root, pathWords(now))
-	}
 	return found
-}
-
-// pathWords are the command words at the start of a usage such as
-// "exec TARGET --script FILE": up to the first argument or flag.
-func pathWords(usage string) []string {
-	var w []string
-	for _, f := range strings.Fields(usage) {
-		if strings.HasPrefix(f, "-") || strings.ToLower(f) != f {
-			break
-		}
-		w = append(w, f)
-	}
-	return w
 }
 
 // byCmdID is the visible command with ID id, or nil.

@@ -37,23 +37,3 @@ func TestSynonymsPrintNothing(t *testing.T) {
 		t.Errorf("ls printed %q", note)
 	}
 }
-
-// TestSynonymsGetEveryCheck: a synonym wrapper is hidden but typed by a
-// person or an agent, so it gets every check of the command it names:
-// guardHome and the store-writable check do not skip it as a background
-// command, and the ssh-gate does not refuse it as plumbing.
-func TestSynonymsGetEveryCheck(t *testing.T) {
-	n := 0
-	for _, c := range allCommands(newRoot(tcl)) {
-		if c.Annotations[synonymNote] == "" {
-			continue
-		}
-		n++
-		if backgroundCmd(c) {
-			t.Errorf("%s: a synonym is skipped as a background command", c.CommandPath())
-		}
-	}
-	if n < 1 {
-		t.Errorf("found %d synonym wrappers, want at least 1", n)
-	}
-}

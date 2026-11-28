@@ -135,8 +135,8 @@ func TestSynonymWrappers(t *testing.T) {
 	}
 }
 
-// `komando schema NAME` describes the command NAME runs: an alias, a
-// command ID or a hidden synonym (G-03, S-9.8).
+// `komando schema NAME` describes the command NAME runs: an alias or a
+// command ID (G-03, S-9.8).
 func TestSchemaResolvesNames(t *testing.T) {
 	invHome(t)
 	for _, c := range []struct {
