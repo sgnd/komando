@@ -92,29 +92,6 @@
     },
     "ok": "bool"
   },
-  "conn kinds": {
-    "command": "string",
-    "data": {
-      "kinds": [
-        {
-          "default_port": "number",
-          "example": "string",
-          "family": "string",
-          "file": "bool",
-          "name": "string",
-          "schemes": [
-            "string"
-          ]
-        }
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "conn list": {
     "command": "string",
     "data": {
@@ -738,21 +715,6 @@
     "data": {
       "count": "number",
       "tunnels": []
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "host ssh-command web": {
-    "command": "string",
-    "data": {
-      "argv": [
-        "string"
-      ],
-      "command": "string"
     },
     "meta": {
       "contract": "number",

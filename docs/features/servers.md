@@ -592,7 +592,7 @@ another store on such a flag (`env:VAR`, `op://...`) is refused with
 `REFERENCE_UNSUPPORTED`. A store that still holds one does not move to format 3:
 the move changes nothing, names each server, service, VPN or key by kind and
 field, and gives the steps of the fix (the last v0.17 release and its install
-line, `komando secret set NAME` and `secret:NAME` there, then `komando update`
+line, `secret set NAME` and `secret:NAME` there, then `komando update`
 again). `komando doctor --dry-run` gives the same, so you can fix it before
 you update: see [Update to v0.18.0](install.md#update-to-v0180).
 
