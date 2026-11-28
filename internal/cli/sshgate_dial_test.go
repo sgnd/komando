@@ -460,10 +460,20 @@ var reviewedDialSites = map[string]int{
 	"dbx/clickhouse.go openClickHouse": 2, "dbx/bigquery.go openBigQuery": 2, "dbx/snowflake.go openSnowflake": 2,
 	"registry/registry.go New": 2, "kube/kube.go New": 1, "kube/spdy.go *Client.dialSPDY": 1,
 	"kube/stream.go *Client.dialWS": 1, // takes the transport's dialer: the gate's in a key's run
+	// a library handed a host and the caller's dialer: always (Redis, Kafka,
+	// NATS, FTP, S3, a socks proxy's way out), or when there is one, which a
+	// key's run always gives (Postgres, MySQL, SQL Server, Oracle, Mongo)
+	"cachex/cachex.go Open": 3, "queuex/queuex.go Open": 1, "queuex/queuex.go *Kafka.client": 1, "queuex/nats/nats.go Open": 1,
+	"storex/ftp.go loginFTP": 1, "storex/storex.go OpenS3Creds": 1, "transport/proxy.go Dial": 1,
+	"dbx/dbx.go Open": 2, "dbx/mysql.go openMySQL": 1, "dbx/sqlserver.go openSQLServer": 1,
+	"dbx/oracle.go *oracleConnector.Connect": 1, "dbx/mongo.go OpenMongo": 1,
+	// minio without the dialer, in no key's run: ListBuckets serves only
+	// `import aws` (the gate refuses import), LinkAt signs here and sends nothing
+	"storex/storex.go ListBuckets": 1, "storex/storex.go *s3Bucket.LinkAt": 1,
 	// a socket on this computer komando itself uses: ssh-agent, a held login
 	"sshx/auth.go openAgent": 1, "sshx/held.go dialHeld": 1, "cli/host_sshagent.go ": 1,
 	// a VPN's own connection and the dials through it (the C655 residual row)
-	"netx/netx.go OpenDirect": 3, "netx/netx.go sessionDialer": 1, "netx/netx.go socksDialer": 1,
+	"netx/netx.go OpenDirect": 4, "netx/netx.go sessionDialer": 1, "netx/netx.go socksDialer": 2,
 	"netx/httpproxy.go openHTTPProxy": 1, "openvpn/client.go Connect": 1, "ipsec/transport.go newTransport": 1,
 	"ipsec/transport.go *udpTransport.startNATT": 1, "sslvpn/sslvpn.go dialTLSWith": 1, "sslvpn/sslvpn.go httpClient": 1,
 	"cli/vpn_status.go vpnReachable": 1, "cli/vpn_session.go listening": 1,
@@ -526,16 +536,20 @@ func TestDialSitesAreReviewed(t *testing.T) {
 
 // gateDialSites counts, per function of file ("" for package level), the
 // places that open a connection by themselves or put the gate's dialer in:
-// a net, tls or websocket Dialer or an http.Transport (a literal, new(), a
-// var; a Transport literal only without a Dial field), a net or tls Dial
-// call, http.DefaultClient, http.DefaultTransport, websocket.DefaultDialer,
-// http.Get and the like, and gateDialFor. An import is read by its path,
-// so an alias counts too.
+// a net, tls or websocket Dialer, an http.Transport or http.Client (a
+// literal, new(), a var; a Transport literal only without its own Dial
+// field, a Client literal only without its own Transport), a Dial field
+// set after to nil or to another package's function, a Transport set after
+// to nil, a net or tls Dial call,
+// http.DefaultClient, http.DefaultTransport, websocket.DefaultDialer,
+// http.Get and the like, a library function that dials the host it is
+// handed (gateLibDials), and gateDialFor. An import is read by its path, so
+// an alias counts too.
 func gateDialSites(file *ast.File) map[string]int {
 	imports := map[string]string{} // local name -> path
 	for _, im := range file.Imports {
 		path, _ := strconv.Unquote(im.Path.Value)
-		name := path[strings.LastIndex(path, "/")+1:]
+		name := gateImportName(path)
 		if im.Name != nil {
 			name = im.Name.Name
 		}
@@ -551,30 +565,69 @@ func gateDialSites(file *ast.File) map[string]int {
 	}
 	const netPkg, tlsPkg, httpPkg, wsPkg = "net", "crypto/tls", "net/http", "github.com/gorilla/websocket"
 	dialer := func(e ast.Expr) bool {
-		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport")
+		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport", "Client")
 	}
-	ownDial := func(e ast.Expr) bool {
-		kv, ok := e.(*ast.KeyValueExpr)
-		if !ok {
-			return false
+	// own: a dialer or transport the caller made, not nil and not another package's
+	own := func(v ast.Expr) bool {
+		if id, ok := v.(*ast.Ident); ok {
+			return id.Name != "nil"
 		}
-		id, ok := kv.Key.(*ast.Ident)
-		return ok && strings.HasPrefix(id.Name, "Dial")
+		s, ok := v.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		id, ok := s.X.(*ast.Ident)
+		return !ok || imports[id.Name] == ""
+	}
+	sets := func(e ast.Expr, field string) bool { // field is Dial... or Transport
+		var name string
+		switch k := e.(type) {
+		case *ast.Ident:
+			name = k.Name
+		case *ast.SelectorExpr:
+			name = k.Sel.Name
+		}
+		return field == "Dial" && strings.HasPrefix(name, "Dial") || field != "Dial" && name == field
+	}
+	setsOwn := func(field string) func(ast.Expr) bool {
+		return func(e ast.Expr) bool {
+			kv, ok := e.(*ast.KeyValueExpr)
+			return ok && sets(kv.Key, field) && own(kv.Value)
+		}
+	}
+	lib := func(f ast.Expr, args []ast.Expr) bool {
+		for path, l := range gateLibDials {
+			if is(f, path, l.funcs...) {
+				return path != "database/sql" || len(args) == 0 || types.ExprString(args[0]) != `"sqlite"` // a file
+			}
+		}
+		return false
 	}
 	site := func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.CompositeLit:
-			if is(n.Type, httpPkg, "Transport") {
-				return !slices.ContainsFunc(n.Elts, ownDial)
+			switch {
+			case is(n.Type, httpPkg, "Transport"):
+				return !slices.ContainsFunc(n.Elts, setsOwn("Dial"))
+			case is(n.Type, httpPkg, "Client"):
+				return !slices.ContainsFunc(n.Elts, setsOwn("Transport"))
 			}
 			return dialer(n.Type)
+		case *ast.AssignStmt:
+			for i, l := range n.Lhs {
+				if _, ok := l.(*ast.SelectorExpr); ok && i < len(n.Rhs) &&
+					(sets(l, "Dial") && !own(n.Rhs[i]) || sets(l, "Transport") && types.ExprString(n.Rhs[i]) == "nil") {
+					return true
+				}
+			}
+			return false
 		case *ast.CallExpr:
 			if id, ok := n.Fun.(*ast.Ident); ok {
 				return id.Name == "gateDialFor" || id.Name == "new" && len(n.Args) == 1 && dialer(n.Args[0])
 			}
 			s, ok := n.Fun.(*ast.SelectorExpr)
 			return ok && (is(s, netPkg) || is(s, tlsPkg)) && strings.HasPrefix(s.Sel.Name, "Dial") ||
-				is(n.Fun, httpPkg, "Get", "Head", "Post", "PostForm")
+				is(n.Fun, httpPkg, "Get", "Head", "Post", "PostForm") || lib(n.Fun, n.Args)
 		case *ast.SelectorExpr:
 			return is(n, httpPkg, "DefaultClient", "DefaultTransport") || is(n, wsPkg, "DefaultDialer")
 		case *ast.ValueSpec:
@@ -599,6 +652,39 @@ func gateDialSites(file *ast.File) map[string]int {
 		})
 	}
 	return res
+}
+
+// gateLibDials are the functions of other libraries that connect to a host
+// they are handed, by import path, with the name the package declares.
+var gateLibDials = map[string]struct {
+	name  string
+	funcs []string
+}{
+	"database/sql":                         {"sql", []string{"Open"}},
+	"github.com/go-sql-driver/mysql":       {"mysql", []string{"NewConnector"}},
+	"github.com/jackc/pgx/v5":              {"pgx", []string{"Connect", "ConnectConfig"}},
+	"github.com/jackc/pgx/v5/pgconn":       {"pgconn", []string{"Connect", "ConnectConfig"}},
+	"github.com/jackc/pgx/v5/stdlib":       {"stdlib", []string{"OpenDB"}},
+	"github.com/jlaffaye/ftp":              {"ftp", []string{"Dial", "DialTimeout", "Connect"}},
+	"github.com/microsoft/go-mssqldb":      {"mssql", []string{"NewConnector", "NewConnectorConfig", "NewConnectorWithAccessTokenProvider"}},
+	"github.com/minio/minio-go/v7":         {"minio", []string{"New"}},
+	"github.com/nats-io/nats.go":           {"nats", []string{"Connect"}},
+	"github.com/rabbitmq/amqp091-go":       {"amqp091", []string{"Dial", "DialConfig", "DialTLS", "DialTLS_ExternalAuth"}},
+	"github.com/redis/go-redis/v9":         {"redis", []string{"NewClient", "NewClusterClient", "NewFailoverClient", "NewFailoverClusterClient", "NewRing", "NewSentinelClient", "NewUniversalClient"}},
+	"github.com/sijms/go-ora/v2":           {"go_ora", []string{"NewConnection", "NewConnector"}},
+	"github.com/twmb/franz-go/pkg/kgo":     {"kgo", []string{"NewClient"}},
+	"go.mongodb.org/mongo-driver/v2/mongo": {"mongo", []string{"Connect"}},
+	"golang.org/x/crypto/ssh":              {"ssh", []string{"Dial"}},
+	"golang.org/x/net/proxy":               {"proxy", []string{"Dial", "FromEnvironment", "FromEnvironmentUsing", "FromURL", "SOCKS5"}},
+	"google.golang.org/grpc":               {"grpc", []string{"Dial", "DialContext", "NewClient"}},
+}
+
+// gateImportName is the name an import without an alias goes by.
+func gateImportName(path string) string {
+	if l, ok := gateLibDials[path]; ok {
+		return l.name
+	}
+	return path[strings.LastIndex(path, "/")+1:]
 }
 
 // The scan finds each form, under an aliased import too, and names the
@@ -639,6 +725,7 @@ func nilDial()          { _ = &http.Transport{DialContext: nil} }
 func otherDial()        { _ = &http.Transport{DialContext: proxy.Dial} }
 func setAfter(d dialer) { t := &http.Transport{DialContext: d}; t.DialContext = nil }
 func setOther(t *tr)    { t.Dial = proxy.Dial }
+func setNilTr(c *cl)    { c.Transport = nil }
 func client()           { _ = &http.Client{} }
 func clientNil()        { _ = &http.Client{Transport: nil} }
 func clientOwn(t *tr)   { _ = &http.Client{Transport: t} }
@@ -672,7 +759,7 @@ func (*c) method() { _ = &stdnet.Dialer{}; _ = stdnet.JoinHostPort("a", "1") }
 	}
 	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "tlsDialer": 1, "tlsDial": 1,
 		"transport": 1, "newTransport": 1, "defaultClient": 1, "defaultTransport": 1, "get": 1, "wsDialer": 1, "wsDefault": 1,
-		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "setAfter": 1, "setOther": 1, "client": 1, "clientNil": 1,
+		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "setAfter": 1, "setOther": 1, "setNilTr": 1, "client": 1, "clientNil": 1,
 		"newClient": 1, "sshDial": 1, "ftpDial": 1, "minioNew": 1, "redisNew": 1, "mongoConnect": 1, "kgoNew": 1,
 		"natsConnect": 1, "sqlOpen": 1, "grpcNew": 1, "socks": 1}
 	if got := gateDialSites(f); !maps.Equal(got, want) {
