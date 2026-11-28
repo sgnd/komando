@@ -128,7 +128,7 @@ This page is made from the code (`komando schema` lists the same under
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
 | `MOVE_FAILED` | 5 | the copy on the server (…) ended badly: …; … was kept | run it again: `komando storage s3 object move NAME … …` |
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
-| `NEEDS_PERSON` | 6 | logging in to … needs a person at a terminal to answer its questions | ask a person to run `komando login …` in a terminal; after that your commands to … need no login |
+| `NEEDS_PERSON` | 6 | setting up the approval code shows its secret, so only a person at a terminal can do it | a person runs `komando config approval-code` in their own terminal |
 | `NEEDS_TERMINAL` | 2 | cluster kubernetes shell needs a person at a terminal | agents and scripts use `komando cluster kubernetes exec` |
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando credential list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | sync works on folders; for one file use `komando copy` without --sync |
