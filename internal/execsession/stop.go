@@ -15,8 +15,21 @@ import (
 // the live one: gone, or its PID reused by another process.
 const ExitNotRunning = 92
 
-// Signals a stop may send.
-var Signals = []string{"TERM", "INT", "HUP", "QUIT", "KILL"}
+// ExitStillRunning is the stop script's exit when the run's root is still
+// alive after the wait: the signal was sent, and the run goes on.
+const ExitStillRunning = 96
+
+// Signals a stop may send. A run in a session runs in the background with
+// no job control, so it ignores INT and QUIT, and nohup makes it ignore HUP.
+var Signals = []string{"TERM", "KILL"}
+
+// CheckSignal refuses a signal a stop does not send.
+func CheckSignal(sig string) error {
+	if !slices.Contains(Signals, sig) {
+		return out.Usage("--signal %q: a run in a session takes TERM or KILL (it runs in the background, so it ignores INT and QUIT, and nohup makes it ignore HUP)", sig)
+	}
+	return nil
+}
 
 // ForStop finds the record a stop works from. The record on this computer
 // is the only source: the session folder on the server belongs to the
@@ -40,8 +53,8 @@ func ForStop(rt *store.Runtime, host, id string) (*store.ExecSession, error) {
 // the run leads its own group (PGID equal to PID) and only the PID
 // otherwise, and prints which ("signalled group" or "signalled pid").
 func StopScript(rec *store.ExecSession, sig string) (string, error) {
-	if !slices.Contains(Signals, sig) {
-		return "", out.Usage("--signal %q: give one of TERM, INT, HUP, QUIT or KILL", sig)
+	if err := CheckSignal(sig); err != nil {
+		return "", err
 	}
 	if rec.PID <= 1 || rec.PGID <= 1 || rec.ProcStart == "" {
 		return "", fmt.Errorf("session %s: the record has no usable pid, group or start", rec.ID)
@@ -83,7 +96,7 @@ func StopCommand(rec *store.ExecSession, sig string, password bool) (string, err
 		}
 	}
 	return markStopped(rec.ID, sig) + `( ` + stop + ` ); c=$?; ` +
-		`if [ $c -ne 0 ]; then [ -z "$m" ] || rm -f "$d/killed"; exit $c; fi; ` + awaitEnding(sig), nil
+		`if [ $c -ne 0 ]; then [ -z "$m" ] || rm -f "$d/killed"; exit $c; fi; ` + awaitEnding(rec, sig), nil
 }
 
 // markStopped writes killed ("TERM stop") in the session's folder as the
@@ -98,20 +111,24 @@ func markStopped(id, sig string) string {
 		`(set -C; printf '%s stop\n' ` + sshx.Q(sig) + ` > "$d/killed") 2>/dev/null && m=1; fi; `
 }
 
-// awaitEnding waits up to 5 s for the run's root to finish its ending
-// (it removes the fifo once the capper wrote the log), so a read right
-// after the stop has the whole output. KILL leaves the root no ending.
-func awaitEnding(sig string) string {
+// awaitEnding waits up to 5 s for the run's root to end (it ends after the
+// capper wrote the log), so a read right after the stop has the whole
+// output. A root still alive then goes on despite the signal: the stop
+// takes its mark back and exits ExitStillRunning. KILL leaves the root no ending.
+func awaitEnding(rec *store.ExecSession, sig string) string {
 	if sig == "KILL" {
 		return `exit 0`
 	}
-	return `i=0; while [ -n "$m" ] && [ -p "$d/.o" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || { sleep 1; i=$((i+9)); }; i=$((i+1)); done; exit 0`
+	alive := `[ -n "$m" ] && [ "$(ks_start ` + strconv.Itoa(rec.PID) + `)" = ` + sshx.Q(rec.ProcStart) + ` ]`
+	return FactsScript + `; i=0; while ` + alive + ` && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || { sleep 1; i=$((i+9)); }; i=$((i+1)); done; ` +
+		`if ` + alive + `; then rm -f "$d/killed"; echo 'signal sent; the run still runs'; exit ` + strconv.Itoa(ExitStillRunning) + `; fi; exit 0`
 }
 
 // StopExit is the error for a stop's exit code: nil for 0. ExitNotRunning
 // is SESSION_PROCESS_MISSING: the stored process ended, or its PID belongs
-// to another process now. Any other is SESSION_STOP_FAILED with the
-// server's words.
+// to another process now. ExitStillRunning is SESSION_STILL_RUNNING: the
+// signal was sent and the run goes on. Any other is SESSION_STOP_FAILED
+// with the server's words.
 func StopExit(host, id string, exit int, stderr string) error {
 	switch exit {
 	case 0:
@@ -120,6 +137,10 @@ func StopExit(host, id string, exit int, stderr string) error {
 		return out.Errf(out.ExitNotFound, "SESSION_PROCESS_MISSING",
 			"`komando host ssh exec TARGET --attach ID` reads how it ended; `komando host ssh exec TARGET --attach ID --remove` removes it",
 			"session %s on %s is not running: its process ended, or its PID belongs to another process now", id, host)
+	case ExitStillRunning:
+		return out.Errf(out.ExitConflict, "SESSION_STILL_RUNNING",
+			"the run traps or ignores TERM; stop it hard with `komando host ssh exec TARGET --attach ID --stop --signal KILL`",
+			"session %s on %s: the signal was sent, and the run still runs", id, host)
 	}
 	return out.Errf(out.ExitRemote, "SESSION_STOP_FAILED",
 		"a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-credential NAME`",

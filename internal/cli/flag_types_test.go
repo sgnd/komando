@@ -230,3 +230,16 @@ func TestKvArrayReadsBackExactly(t *testing.T) {
 		t.Errorf("SliceValue: %v %q, want %q", ok, sv, values)
 	}
 }
+
+// pflag reads String once per KEY=VALUE flag when the tree is built, so an
+// empty one must not build a CSV writer (start time, scripts/start-time.sh).
+func TestKvArrayEmptyStringAllocatesNothing(t *testing.T) {
+	var none []string
+	v := &kvArray{p: &none, name: "var"}
+	if n := testing.AllocsPerRun(100, func() { _ = v.String() }); n != 0 {
+		t.Errorf("String of an empty array: %v allocations, want 0", n)
+	}
+	if s := v.String(); s != "[]" {
+		t.Errorf("String of an empty array: %q, want []", s)
+	}
+}
