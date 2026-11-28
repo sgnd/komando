@@ -78,7 +78,7 @@ q $K database postgres query pg --write --allow-dangerous "drop table t2"
 check "restore --run-on needs --allow-dangerous" POLICY_BLOCKED "$($K database postgres restore pg-on --from "$TMP/on.dump" --run-on bastion | jget 'd["error"]["code"]' || true)"
 q $K database postgres restore pg-on --from "$TMP/on.dump" --run-on bastion --allow-dangerous
 check "pg_restore --run-on brings the table back" 1 "$($K database postgres query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "audit names where the dump ran" bastion "$($K audit list -n 50 | jget '" ".join(sorted({e.get("runs_on", "") for e in d["data"]["entries"] if e.get("command") == "db.dump" and str(e.get("file", "")).endswith("/on.dump")}))')"
+check "audit names where the dump ran" bastion "$($K audit list -n 50 | jget '" ".join(sorted({e.get("runs_on", "") for e in d["data"]["entries"] if e.get("command") == "database.postgres.backup" and str(e.get("file", "")).endswith("/on.dump")}))')"
 q $K conn rm pg-on
 
 # mariadb (protected): --yes, dump and restore through bastion
