@@ -163,7 +163,7 @@ func TestExecSessionStopExits(t *testing.T) {
 	for _, tc := range []struct {
 		code int
 		want string
-	}{{92, "SESSION_PROCESS_MISSING"}, {1, "SESSION_STOP_FAILED"}} {
+	}{{92, "SESSION_PROCESS_MISSING"}, {96, "SESSION_STILL_BUSY"}, {1, "SESSION_STOP_FAILED"}} {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)
@@ -190,6 +190,9 @@ func TestExecSessionStopRefusals(t *testing.T) {
 	}{
 		{[]string{"--attach", attachID, "--stop", "--signal", "USR1"}, "USAGE"},
 		{[]string{"--attach", attachID, "--stop", "--signal", "term"}, "USAGE"},
+		{[]string{"--attach", attachID, "--stop", "--signal", "INT"}, "USAGE"}, // T1: a run in the background ignores INT, QUIT and HUP
+		{[]string{"--attach", attachID, "--stop", "--signal", "QUIT"}, "USAGE"},
+		{[]string{"--attach", attachID, "--stop", "--signal", "HUP"}, "USAGE"},
 		{[]string{"--attach", attachID, "--stop", "--remove"}, "USAGE"},
 		{[]string{"--attach", attachID + ",c" + attachID[1:], "--stop"}, "USAGE"},
 		{[]string{"--attach", attachID + ",c" + attachID[1:], "--remove"}, "USAGE"},

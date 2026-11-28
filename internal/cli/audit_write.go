@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"testing"
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
@@ -38,13 +37,9 @@ func auditEvent(cl *call, st *store.State, event string, hosts []string, remote 
 	auditRecord(cl, st, runningLeaf(cl), event, hosts, remote, ok, extra)
 }
 
-// auditEventBug panics under test: an event outside the closed list is a
-// bug to find there, not in the field.
-var auditEventBug = func(event string) {
-	if testing.Testing() {
-		panic(fmt.Sprintf("%q is not in auditEvents", event))
-	}
-}
+// auditEventBug is told of an event outside the closed list: TestMain makes
+// it panic, so the bug is found under test, not in the field.
+var auditEventBug = func(string) {}
 
 // auditRecord is the one writer of the audit log (rule R1, audit_identity.go).
 func auditRecord(cl *call, st *store.State, command, event string, hosts []string, remote string, ok bool, extra map[string]any) {

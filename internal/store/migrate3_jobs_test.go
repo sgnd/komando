@@ -55,7 +55,11 @@ func TestOldJobsListed(t *testing.T) {
 // is carried with its mark.
 func TestOldJobMarkedThenMoved(t *testing.T) {
 	oldJobsHome(t)
-	if err := EndOldJobs(context.Background(), []string{"j1", "j3"}); err != nil {
+	if err := EndOldJobs(context.Background(), []string{"j1"}, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	Close()
+	if err := EndOldJobs(context.Background(), []string{"j3"}, "bob"); err != nil {
 		t.Fatal(err)
 	}
 	Close()
@@ -66,9 +70,18 @@ func TestOldJobMarkedThenMoved(t *testing.T) {
 	if _, err := migrateFormat3(context.Background(), personOpts()); err != nil {
 		t.Fatalf("the move after the marks: %v", err)
 	}
-	// the marks are in the audit log, in the move's own write (audit A3)
-	if e := lastAudit(t); !strings.Contains(e, `"event":"doctor.end-old-jobs"`) || !strings.Contains(e, `"jobs":["j1","j3"]`) {
-		t.Errorf("the last audit record is %s, want the marked jobs", e)
+	// the marks are in the audit log, in the move's own write (audit A3),
+	// one record per person who marked: the record names that person, not komando
+	rows := auditRows(t)
+	n := len(rows)
+	if n < 2 {
+		t.Fatalf("%d audit records, want the two marks last", n)
+	}
+	for i, want := range []struct{ actor, jobs string }{{"alice", `"jobs":["j1"]`}, {"bob", `"jobs":["j3"]`}} {
+		e := rows[n-2+i]
+		if !strings.Contains(e, `"event":"doctor.end-old-jobs"`) || !strings.Contains(e, `"actor":"`+want.actor+`"`) || !strings.Contains(e, want.jobs) {
+			t.Errorf("audit record %d from the end is %s, want %s marking %s", 2-i, e, want.actor, want.jobs)
+		}
 	}
 	rt, err := ReadRuntime()
 	if err != nil {
@@ -86,7 +99,7 @@ func TestOldJobMarkedThenMoved(t *testing.T) {
 func TestEndOldJobsUnknownID(t *testing.T) {
 	oldJobsHome(t)
 	for _, ids := range [][]string{{"j9"}, {"j2"}, {"j1", "j9"}} {
-		err := EndOldJobs(context.Background(), ids)
+		err := EndOldJobs(context.Background(), ids, "alice")
 		var e *out.Error
 		if !errors.As(err, &e) || e.Code != "STORE_IN_USE" {
 			t.Fatalf("%v: want STORE_IN_USE, got %v", ids, err)

@@ -148,7 +148,7 @@ func doctorOldJobs(cl *call, ctx context.Context) error {
 	if len(ids) == 0 {
 		return nil // the move then stops and names them
 	}
-	return endOldJobs(ctx, ids)
+	return endOldJobs(ctx, ids, actor(cl))
 }
 
 // oldJobsText lists the records: never the command's arguments, which may

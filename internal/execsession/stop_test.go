@@ -137,16 +137,18 @@ func TestStopScriptReadsNoFile(t *testing.T) {
 	}
 }
 
-// U9 and the record's own sanity: only the five signals, never PID 0 or 1
+// U9 and the record's own sanity: only TERM and KILL, never PID 0 or 1
 // (kill -TERM -1 would reach every process the user may signal).
 func TestStopScriptRefuses(t *testing.T) {
 	ok := &store.ExecSession{ID: testID, PID: 4242, PGID: 4242, ProcStart: "proc 1"}
-	for _, sig := range []string{"", "USR1", "term", "TERM;rm", "9", "SIGTERM"} {
-		if _, err := StopScript(ok, sig); err == nil {
-			t.Errorf("signal %q was taken", sig)
+	for _, sig := range []string{"", "USR1", "term", "TERM;rm", "9", "SIGTERM", "INT", "HUP", "QUIT"} {
+		_, err := StopScript(ok, sig)
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != "USAGE" || !strings.Contains(oe.Message, "TERM or KILL") {
+			t.Errorf("signal %q: %v, want a usage error that names TERM or KILL", sig, err)
 		}
 	}
-	for _, sig := range []string{"TERM", "INT", "HUP", "QUIT", "KILL"} {
+	for _, sig := range []string{"TERM", "KILL"} {
 		if _, err := StopScript(ok, sig); err != nil {
 			t.Errorf("signal %s: %v", sig, err)
 		}
@@ -214,6 +216,7 @@ func TestStopExit(t *testing.T) {
 		inMessage string
 	}{
 		{ExitNotRunning, "SESSION_PROCESS_MISSING", out.ExitNotFound, "is not running"},
+		{ExitStillRunning, "SESSION_STILL_BUSY", out.ExitConflict, "the run still runs"},
 		{1, "SESSION_STOP_FAILED", out.ExitRemote, "sudo: a password is required"},
 	} {
 		err := StopExit("web", testID, tt.exit, "sudo: a password is required\n")
@@ -306,7 +309,7 @@ func readSession(t *testing.T, home string) (Status, string) {
 
 // C652: a stop marks the run killed with its signal before it signals, the
 // output up to the stop stays in the log, and the run's own ending still
-// runs: no exit file, no lost mark, the fifo gone.
+// runs: its exit written (T3), no lost mark, the fifo gone.
 func TestStopCommandKeepsOutputAndMarksTheSignal(t *testing.T) {
 	home := t.TempDir()
 	rec := startStoppable(t, home, `echo a; sleep 30; echo late`)
@@ -321,10 +324,131 @@ func TestStopCommandKeepsOutputAndMarksTheSignal(t *testing.T) {
 	if data != "a\n" {
 		t.Errorf("the log holds %q, want the output up to the stop", data)
 	}
-	for _, f := range []string{"exit", "lost", ".o"} {
+	for _, f := range []string{"lost", ".o"} {
 		if _, err := os.Lstat(filepath.Join(sessionDir(home), f)); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s after a stop: %v", f, err)
 		}
+	}
+	if _, err := os.Lstat(filepath.Join(sessionDir(home), "exit")); err != nil {
+		t.Errorf("no exit after the run's ending: %v", err)
+	}
+}
+
+// T1: a run in the background ignores INT and QUIT, and nohup makes it
+// ignore HUP: a stop with one of them is refused before anything runs, so
+// no killed mark says the run ended while it goes on, and its exit is
+// written when it really ends.
+func TestStopCommandRefusesSignalsTheRunIgnores(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `sleep 2`)
+	for _, sig := range []string{"INT", "HUP", "QUIT"} {
+		_, err := StopCommand(rec, sig, false)
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != "USAGE" || !strings.Contains(oe.Message, "TERM or KILL") {
+			t.Errorf("stop with %s: %v, want a usage error that names TERM or KILL", sig, err)
+		}
+	}
+	if got := strings.TrimSpace(waitFile(t, home, "exit")); got != "0" {
+		t.Errorf("exit %q, want 0", got)
+	}
+	if st, _ := readSession(t, home); st.Killed != "" || st.Exit != 0 || !st.Ended() {
+		t.Errorf("status %+v, want ended with exit 0 and no killed mark", st)
+	}
+}
+
+// T1: a root still alive after the wait got the signal and goes on (it
+// traps or ignores it): the stop takes its mark back and says so with
+// ExitStillRunning, so no read says the run ended.
+func TestStopCommandSaysTheRunStillRuns(t *testing.T) {
+	home := t.TempDir()
+	d := sessionDir(home)
+	if err := os.MkdirAll(d, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(d, ".o"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := exec.Command("sh", "-c", `trap '' TERM; while :; do sleep 1; done`)
+	root.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := root.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pid := root.Process.Pid
+	t.Cleanup(func() { _ = syscall.Kill(-pid, syscall.SIGKILL); _ = root.Wait() })
+	start, code := runShOut(t, home, FactsScript+"; ks_start "+strconv.Itoa(pid))
+	if code != 0 || strings.TrimSpace(start) == "" {
+		t.Fatalf("ks_start exit %d, %q", code, start)
+	}
+	rec := &store.ExecSession{ID: testID, PID: pid, PGID: pid, ProcStart: strings.TrimSpace(start)}
+	got, code := runStopIn(t, home, rec, "TERM")
+	if code != ExitStillRunning || !strings.Contains(got, "signal sent; the run still runs") {
+		t.Errorf("stop exit %d, %q; want %d and the line that it still runs", code, got, ExitStillRunning)
+	}
+	if _, err := os.Lstat(filepath.Join(d, "killed")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the killed mark stayed while the run goes on: %v", err)
+	}
+	if syscall.Kill(pid, 0) != nil {
+		t.Error("the root is gone; the test needs it alive")
+	}
+}
+
+// T2: a run that ignores TERM goes on after a TERM stop, and so does its
+// root: the root's wait returns when its own trap runs, and it waits for
+// the run again, so the session does not read as ended, and a KILL stop
+// still finds the recorded root.
+func TestStopKeepsTheRootWhileTheRunIgnoresTERM(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `trap '' TERM; sleep 30`)
+	if got, code := runStopIn(t, home, rec, "TERM"); code != ExitStillRunning {
+		t.Fatalf("TERM stop exit %d, %q; want %d", code, got, ExitStillRunning)
+	}
+	if syscall.Kill(rec.PID, 0) != nil {
+		t.Fatal("the root ended while the run goes on")
+	}
+	if st, _ := readSession(t, home); st.Ended() {
+		t.Errorf("status %+v while the run goes on, want not ended", st)
+	}
+	if got, code := runStopIn(t, home, rec, "KILL"); code != 0 {
+		t.Fatalf("KILL stop exit %d, %q; want 0", code, got)
+	}
+	if !gone(rec.PID) {
+		t.Error("the root is still there after KILL")
+	}
+}
+
+// T3: the run ends on its own after the stop wrote its mark and before
+// its start check (a slow ps or sed here): the stop finds no process and
+// takes its mark back, and the run's exit code is still there, so the
+// session reads as ended with it, not as lost.
+func TestStopRaceKeepsTheExitCode(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `sleep 2`)
+	slow := t.TempDir()
+	for _, tool := range []string{"ps", "sed"} {
+		real, err := exec.LookPath(tool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stub := "#!/bin/sh\nsleep 3\nexec " + real + " \"$@\"\n"
+		if err := os.WriteFile(filepath.Join(slow, tool), []byte(stub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	text, err := StopCommand(rec, "TERM", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", "-c", text)
+	cmd.Env = []string{"HOME=" + home, "PATH=" + slow + ":/usr/bin:/bin"}
+	if got, err := cmd.Output(); exitOf(err) != ExitNotRunning {
+		t.Fatalf("stop exit %d, %q; want %d", exitOf(err), got, ExitNotRunning)
+	}
+	st, _ := readSession(t, home)
+	if !st.Ended() || st.Lost || st.Killed != "" || st.Exit != 0 {
+		t.Errorf("status %+v, want ended with exit 0, no killed mark, not lost", st)
+	}
+	if _, err := os.Lstat(filepath.Join(sessionDir(home), "exit")); err != nil {
+		t.Errorf("no exit file: %v", err)
 	}
 }
 

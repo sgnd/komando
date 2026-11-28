@@ -1,6 +1,11 @@
 package cli
 
 import (
+	"go/parser"
+	"go/token"
+	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -43,4 +48,30 @@ func TestAuditEventOutsideTheListPanicsUnderTest(t *testing.T) {
 		}
 	}()
 	auditEvent(tcl, nil, "made.up", nil, "", true, nil)
+}
+
+// testingImports are the production files that still import the testing
+// package; the list may only shrink. A hook the tests need is a package
+// variable TestMain sets (auditEventBug), never testing.Testing (audit T6).
+var testingImports = []string{"prompter.go"}
+
+func TestProductionCodeImportsNoTesting(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		af, err := parser.ParseFile(token.NewFileSet(), f, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imp := range af.Imports {
+			if path, _ := strconv.Unquote(imp.Path.Value); path == "testing" && !slices.Contains(testingImports, f) {
+				t.Errorf("%s imports testing: give the tests a hook that TestMain sets", f)
+			}
+		}
+	}
 }

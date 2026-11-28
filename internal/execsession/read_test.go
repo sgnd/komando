@@ -83,6 +83,20 @@ func TestReadScriptEnded(t *testing.T) {
 	}
 }
 
+// T5: the run can write killed itself; one that holds only spaces is no
+// mark, so no reader takes a first word that is not there.
+func TestReadScriptBlankKilledIsNoMark(t *testing.T) {
+	home := session(t, map[string]string{"out.log": "x\n", "killed": "   \n"})
+	text, _ := runRead(t, home, 0)
+	st, _, err := ParseRead(text, testID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Killed != "" || st.Ended() {
+		t.Fatalf("got %+v, want no killed mark and not ended", st)
+	}
+}
+
 // A-499-5: on every read the folder is the login user's, a folder, not a link.
 func TestReadScriptRefusesUnsafe(t *testing.T) {
 	t.Run("a link", func(t *testing.T) {

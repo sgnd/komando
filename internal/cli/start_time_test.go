@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -445,5 +446,35 @@ func TestStartFlatWithMoreLeaves(t *testing.T) {
 		t.Errorf("500 leaves of another type: the tree of version grew by %.0f allocations, the whole tree by %.0f: want under half", grew, wholeGrew)
 	} else {
 		t.Logf("500 leaves of another type: the tree of version grew by %.0f allocations, the whole tree by %.0f", grew, wholeGrew)
+	}
+}
+
+// mountLeaves reads every ID of today's tree once per start, before any
+// command has its ID stamped: one string per command, the same IDs cmdID
+// gives (a withID annotation wins).
+func TestIdsInTreeAgreesWithCmdIDAtOneStringEach(t *testing.T) {
+	root := &cobra.Command{Use: "komando"}
+	for g := range 5 {
+		group := &cobra.Command{Use: fmt.Sprintf("group%d", g)}
+		root.AddCommand(group)
+		for a := range 5 {
+			area := &cobra.Command{Use: fmt.Sprintf("area%d", a)}
+			group.AddCommand(area)
+			for v := range 5 {
+				area.AddCommand(&cobra.Command{Use: fmt.Sprintf("verb%d ARG", v)})
+			}
+		}
+	}
+	withID(root.Commands()[0].Commands()[0], "wrapped.id")
+	want := map[string]bool{}
+	cmds := allCommands(root)[1:]
+	for _, c := range cmds {
+		want[cmdID(c)] = true
+	}
+	if got := idsInTree(root); !maps.Equal(got, want) {
+		t.Fatalf("idsInTree has %d IDs, cmdID of every command %d: they differ", len(got), len(want))
+	}
+	if n := testing.AllocsPerRun(5, func() { idsInTree(root) }); n > float64(2*len(cmds)) {
+		t.Errorf("idsInTree: %.0f allocations for %d commands, want at most two each", n, len(cmds))
 	}
 }
