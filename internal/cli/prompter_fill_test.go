@@ -117,7 +117,7 @@ func TestPromptFillPicks(t *testing.T) {
 		t.Errorf("%v %v\n%s", got, err, drawn)
 	}
 	drawn = promptFake(t)
-	if _, err := promptFill(tcl, []string{"db", "info"}); err == nil || !strings.Contains(drawn.String(), "No databases yet: `komando database postgres add`") {
+	if _, err := promptFill(tcl, []string{"database", "postgres", "query"}); err == nil || !strings.Contains(drawn.String(), "No databases yet: `komando database postgres add`") {
 		t.Errorf("%v\n%s", err, drawn)
 	}
 }
