@@ -234,6 +234,7 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"mcast.example":  {ips("203.0.113.5", "239.1.1.1")},
 		"empty.example":  {nil},
 		"imds.example":   {ips("203.0.113.5", "169.254.169.254")},
+		"nat64.example":  {ips("2001:db8::5", "64:ff9b::7f00:1")},
 		"ll6.example":    {ips("fe80::5")},
 	}
 	gateStubInterfaces(t)
@@ -292,6 +293,18 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"[2001:db8::9%en0]:22": "2001:db8::9%en0 names a network interface",
 		"[2001:db8::9%4]:22":   "2001:db8::9%4 names a network interface",
 		"web.example%en0:22":   "web.example%en0 names a network interface",
+
+		// an IPv6 address that leads to an IPv4 one: judged by it, or refused
+		// when the gate cannot read it
+		"[64:ff9b::7f00:1]:22":                      "64:ff9b::7f00:1 is this computer", // NAT64 of 127.0.0.1
+		"[64:ff9b::a9fe:a9fe]:80":                   "64:ff9b::a9fe:a9fe is this computer",
+		"[64:ff9b::c0a8:10a]:22":                    "64:ff9b::c0a8:10a is this computer", // its own LAN address
+		"[::ffff:0:7f00:1]:22":                      "::ffff:0:7f00:1 is this computer",   // SIIT
+		"[64:ff9b:1::a00:5]:22":                     "64:ff9b:1::a00:5 is this computer",  // local NAT64
+		"[2002:7f00:1::]:22":                        "2002:7f00:1:: is this computer",     // 6to4
+		"[2002:cb00:7105::1]:22":                    "2002:cb00:7105::1 is this computer",
+		"[2001:0:4136:e378:8000:63bf:3fff:fdd2]:22": "2001:0:4136:e378:8000:63bf:3fff:fdd2 is this computer", // Teredo
+		"nat64.example:22":                          "nat64.example is this computer",
 	}
 	for addr, msg := range refused {
 		d := &gateDialStub{}
@@ -358,7 +371,7 @@ func TestGateDialJudgesItsOwnLookup(t *testing.T) {
 	if asked["two.example"] != 1 {
 		t.Errorf("two.example looked up %d times, want once", asked["two.example"])
 	}
-	for _, addr := range []string{"203.0.113.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22", "100.64.0.9:22", "[fd00:ec2::253]:22"} {
+	for _, addr := range []string{"203.0.113.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22", "100.64.0.9:22", "[fd00:ec2::253]:22", "[64:ff9b::cb00:7105]:22", "[2001:db8:0:1::9]:22"} {
 		d := &gateDialStub{}
 		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err != nil || !slices.Equal(d.asked, []string{"tcp " + addr}) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)
