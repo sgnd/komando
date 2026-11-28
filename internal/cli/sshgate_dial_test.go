@@ -743,6 +743,7 @@ func nilDial()          { _ = &http.Transport{DialContext: nil} }
 func otherDial()        { _ = &http.Transport{DialContext: proxy.Dial} }
 func tlsOnly(d dialer)  { _ = &http.Transport{DialTLSContext: d} }
 func ownBoth(d dialer)  { _ = &http.Transport{Dial: d, DialTLSContext: d} }
+func mixedTLS(d dialer) { _ = &http.Transport{DialContext: d, DialTLSContext: proxy.Dial} }
 func setAfter(d dialer) { t := &http.Transport{DialContext: d}; t.DialContext = nil }
 func setOther(t *tr)    { t.Dial = proxy.Dial }
 func setNilTr(c *cl)    { c.Transport = nil }
@@ -779,7 +780,7 @@ func (*c) method() { _ = &stdnet.Dialer{}; _ = stdnet.JoinHostPort("a", "1") }
 	}
 	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "tlsDialer": 1, "tlsDial": 1,
 		"transport": 1, "newTransport": 1, "defaultClient": 1, "defaultTransport": 1, "get": 1, "wsDialer": 1, "wsDefault": 1,
-		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "tlsOnly": 1, "setAfter": 1, "setOther": 1, "setNilTr": 1, "client": 1, "clientNil": 1,
+		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "tlsOnly": 1, "mixedTLS": 1, "setAfter": 1, "setOther": 1, "setNilTr": 1, "client": 1, "clientNil": 1,
 		"newClient": 1, "sshDial": 1, "ftpDial": 1, "minioNew": 1, "redisNew": 1, "mongoConnect": 1, "kgoNew": 1,
 		"natsConnect": 1, "sqlOpen": 1, "grpcNew": 1, "socks": 1}
 	if got := gateDialSites(f); !maps.Equal(got, want) {
