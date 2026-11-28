@@ -588,7 +588,9 @@ func gateDialSites(file *ast.File) map[string]int {
 		id, ok := s.X.(*ast.Ident)
 		return !ok || imports[id.Name] == ""
 	}
-	sets := func(e ast.Expr, field string) bool { // field is Dial... or Transport
+	// sets: field "Dial" is any Dial* hook; "DialContext" is the plain dial
+	// (Dial or DialContext), which every connection uses unless DialTLS* is set
+	sets := func(e ast.Expr, field string) bool {
 		var name string
 		switch k := e.(type) {
 		case *ast.Ident:
@@ -596,7 +598,13 @@ func gateDialSites(file *ast.File) map[string]int {
 		case *ast.SelectorExpr:
 			name = k.Sel.Name
 		}
-		return field == "Dial" && strings.HasPrefix(name, "Dial") || field != "Dial" && name == field
+		switch field {
+		case "Dial":
+			return strings.HasPrefix(name, "Dial")
+		case "DialContext":
+			return name == "Dial" || name == "DialContext"
+		}
+		return name == field
 	}
 	setsOwn := func(field string) func(ast.Expr) bool {
 		return func(e ast.Expr) bool {
@@ -617,7 +625,7 @@ func gateDialSites(file *ast.File) map[string]int {
 		case *ast.CompositeLit:
 			switch {
 			case is(n.Type, httpPkg, "Transport"):
-				return !slices.ContainsFunc(n.Elts, setsOwn("Dial"))
+				return !slices.ContainsFunc(n.Elts, setsOwn("DialContext"))
 			case is(n.Type, httpPkg, "Client"):
 				return !slices.ContainsFunc(n.Elts, setsOwn("Transport"))
 			}
