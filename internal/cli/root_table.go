@@ -279,7 +279,7 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Aliases: slices.Clone(l.Synonyms),
 		GroupID: group,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := secretValueInArgs(strings.Join(l.Key.Path(), "."), cmd.CommandPath(), args); err != nil {
+			if err := secretValueInArgs(strings.Join(l.Key.Path(), "."), args); err != nil {
 				return err
 			}
 			if len(args) == 0 && l.Type == "host" && formAddCmd(cmd) { // a server's add alone asks, or says how

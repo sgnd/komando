@@ -187,7 +187,7 @@ Only a person can run it: for an AI agent, a yes/no answer about a value it
 picks would be a way to guess the secret one try at a time.`,
 		Example: "  komando secret check vpn-pass            # type or paste it after the prompt\n  pbpaste | komando secret check vpn-pass",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := secretValueInArgs("secret.check", cmd.CommandPath(), args); err != nil {
+			if err := secretValueInArgs("secret.check", args); err != nil {
 				return err
 			}
 			return cobra.ExactArgs(1)(cmd, args)

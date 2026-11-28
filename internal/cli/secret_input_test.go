@@ -69,7 +69,8 @@ func TestSecretValueInArgsRefusedFirst(t *testing.T) {
 			}
 			args := append(strings.Split(tc.id, "."), "db-pass", "hunter22-typed")
 			e := wantCode(t, "SECRET_IN_ARGS", args...)
-			if !strings.Contains(e.Message, "shell history") || !strings.Contains(e.Hint, tc.hint) || strings.Contains(e.Message+e.Hint, "hunter22") {
+			again := "run `komando " + strings.Join(args[:len(args)-1], " ") + "` and type it (hidden)"
+			if !strings.Contains(e.Message, "shell history") || !strings.Contains(e.Hint, tc.hint) || !strings.HasPrefix(e.Hint, again) || strings.Contains(e.Message+e.Hint, "hunter22") {
 				t.Errorf("%+v", e)
 			}
 			if tc.id != "secret.check" {
