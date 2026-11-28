@@ -736,6 +736,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
+	"golang.zx2c4.com/wireguard/conn"
 	"google.golang.org/grpc"
 	"tailscale.com/tsnet"
 )
@@ -751,6 +752,7 @@ func listenPacket()     { stdnet.ListenPacket("udp", ":0") }
 func dtlsClient()       { dtls.ClientWithOptions(nil, nil) }
 func dtlsDial()         { dtls.Dial("udp", nil, nil) }
 func tsnetServer()      { _ = &tsnet.Server{} }
+func wgBind()           { conn.NewDefaultBind() }
 func tlsDialer()        { _ = tls.Dialer{} }
 func tlsDial()          { tls.Dial("tcp", "a:1", nil) }
 func transport()        { _ = &http.Transport{} }
@@ -795,7 +797,7 @@ func (*c) method() { _ = &stdnet.Dialer{}; _ = stdnet.JoinHostPort("a", "1") }
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "listenUDP": 1, "listenPacket": 1, "dtlsClient": 1, "dtlsDial": 1, "tsnetServer": 1, "tlsDialer": 1, "tlsDial": 1,
+	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "listenUDP": 1, "listenPacket": 1, "dtlsClient": 1, "dtlsDial": 1, "tsnetServer": 1, "wgBind": 1, "tlsDialer": 1, "tlsDial": 1,
 		"transport": 1, "newTransport": 1, "defaultClient": 1, "defaultTransport": 1, "get": 1, "wsDialer": 1, "wsDefault": 1,
 		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "tlsOnly": 1, "mixedTLS": 1, "setAfter": 1, "setOther": 1, "setNilTr": 1, "client": 1, "clientNil": 1,
 		"newClient": 1, "sshDial": 1, "ftpDial": 1, "minioNew": 1, "redisNew": 1, "mongoConnect": 1, "kgoNew": 1,
