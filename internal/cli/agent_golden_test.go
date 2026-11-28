@@ -189,7 +189,7 @@ var goldenSchema = [][]string{
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
 	{"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"fs", "list"},                        // C-F08: --limit int
-	{"fs", "cat"}, {"exec"}, // C-F09: bytes
+	{"fs", "cat"}, {"exec"},               // C-F09: bytes
 	{"queue", "kafka", "topic", "create"}, {"queue", "rabbitmq", "topic", "create"}, {"queue", "nats", "topic", "create"}, // C-F22: no -1 default
 	{"queue", "sqs", "topic", "create"}, {"queue", "pubsub", "topic", "create"},
 }
