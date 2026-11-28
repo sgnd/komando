@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// kitFiles are the 57 program files that become the one package kit: the
+// kitFiles are the 58 program files that become the one package kit: the
 // call, argument and platform files (16), the guard, read-only and risk
-// files (21), the approval, confirm and ask files (19) and login_ask.go.
+// files (22), the approval, confirm and ask files (19) and login_ask.go.
 // They are listed by name so that a move of exactly these files changes
 // nothing here but the directory the test reads.
 var kitFiles = []string{
@@ -21,9 +21,9 @@ var kitFiles = []string{
 	"approval_trust.go", "approval_view.go", "approval_win_other.go", "approval_win_windows.go",
 	"approval_words.go", "approval_words_id.go", "args_passthrough.go", "args_words.go",
 	"ask_password.go", "ask_ssh.go", "call.go", "call_hooks.go", "common.go", "confirm_tty.go",
-	"confirm_typed.go", "guard.go", "guard_agents.go", "guard_before_lock.go", "guard_delete.go",
+	"confirm_typed.go", "guard.go", "guard_agents.go", "guard_before_lock.go",
 	"guard_home.go", "guard_hook.go", "guard_local_write.go", "guard_path.go", "guard_protected.go", "guard_readers.go",
-	"guard_shell.go", "guard_spawn.go", "localtool.go", "localtool_unix.go", "localtool_windows.go",
+	"guard_shell.go", "guard_spawn.go", "guard_vars.go", "guard_wrappers.go", "localtool.go", "localtool_unix.go", "localtool_windows.go",
 	"login_ask.go", "personal.go", "personal_guard.go", "platform_nopeek_linux.go",
 	"platform_nopeek_other.go", "platform_unix.go", "platform_windows.go", "readonly.go",
 	"readonly_forms.go", "readonly_kill.go", "readonly_tools.go", "readonly_words.go",
@@ -40,8 +40,8 @@ var kitExports = []string{
 }
 
 func TestKitExports(t *testing.T) {
-	if len(kitFiles) != 57 {
-		t.Fatalf("kitFiles lists %d files, want 57", len(kitFiles))
+	if len(kitFiles) != 58 {
+		t.Fatalf("kitFiles lists %d files, want 58", len(kitFiles))
 	}
 	var got []string
 	fset := token.NewFileSet()

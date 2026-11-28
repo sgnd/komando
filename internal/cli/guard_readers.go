@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -280,6 +281,102 @@ func sedScriptReadsOnly(sc string) bool {
 	return true
 }
 
+// scriptWords are the arguments of sed or awk, by index, that name no file
+// the program writes: sed's script and, without -i, the files it reads;
+// awk's options and program. Code in them is an interpreter's (row C534).
+// It is nil for an option the guard does not read.
+func scriptWords(base string, args []string) map[int]bool {
+	text := map[int]bool{}
+	switch base {
+	case "sed", "gsed":
+		scripts, inPlace, ok := sedScripts(args)
+		if !ok {
+			return nil
+		}
+		for i, a := range args {
+			text[i] = !inPlace && !strings.HasPrefix(a, "-")
+		}
+		for _, i := range scripts {
+			text[i] = true
+		}
+	case "awk", "gawk", "mawk", "nawk":
+		_, operands, ok := awkSpec.parse(args)
+		if !ok || len(operands) == 0 {
+			return nil
+		}
+		for i := 0; i <= operands[0]; i++ {
+			text[i] = true
+		}
+	}
+	return text
+}
+
+// sedScripts gives, for sed ARGS, the indexes of the words that hold its
+// script (-e SCRIPT, -eSCRIPT, --expression=SCRIPT, or else the first
+// operand) and whether it edits its files in place (-i, -iSUFFIX, BSD's
+// -i with an empty suffix, --in-place); ok is false for an option it does
+// not know.
+func sedScripts(args []string) (scripts []int, inPlace, ok bool) {
+	given := false // a script came with -e or -f
+	first := -1
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			if !given && first < 0 && i+1 < len(args) {
+				scripts = append(scripts, i+1)
+			}
+			return scripts, inPlace, true
+		case a == "--expression" || a == "--file" || a == "--line-length":
+			given = given || a != "--line-length"
+			if a == "--expression" && i+1 < len(args) {
+				scripts = append(scripts, i+1)
+			}
+			i++
+		case strings.HasPrefix(a, "--expression="):
+			scripts, given = append(scripts, i), true
+		case strings.HasPrefix(a, "--file="):
+			given = true
+		case a == "--in-place" || strings.HasPrefix(a, "--in-place="):
+			inPlace = true
+		case strings.HasPrefix(a, "--"):
+		case len(a) > 1 && a[0] == '-':
+			for k := 1; k < len(a); k++ {
+				c := a[k]
+				if strings.IndexByte("nErsuzba", c) >= 0 {
+					continue
+				}
+				switch c {
+				case 'i':
+					inPlace = true
+					if k == len(a)-1 && i+1 < len(args) && args[i+1] == "" {
+						i++ // BSD's -i '': no backup
+					}
+				case 'e', 'f', 'l':
+					given = given || c != 'l'
+					if k < len(a)-1 {
+						if c == 'e' {
+							scripts = append(scripts, i)
+						}
+					} else if i+1 < len(args) {
+						if c == 'e' {
+							scripts = append(scripts, i+1)
+						}
+						i++
+					}
+				default:
+					return nil, false, false
+				}
+				break // the rest of the cluster is the letter's value
+			}
+		case !given && first < 0:
+			first = i
+			scripts = append(scripts, i)
+		}
+	}
+	return scripts, inPlace, true
+}
+
 // awkWrites is awk code that writes a file or runs a command: print or
 // printf into a file (> or >>), a pipe (| but not ||), system(), and
 // gawk's @load and @include (an extension such as inplace or rwarray).
@@ -306,7 +403,7 @@ func harmlessKomandoLine(line string) bool {
 		return false
 	}
 	for _, seg := range splitShell(line) {
-		words := shellWords(seg)
+		words := shellWords(dropRedirects(seg)) // <in may stand before the program
 		if len(words) > 0 && words[0] == "for" {
 			continue // for NAME in WORDS: a list, not a command
 		}
@@ -514,4 +611,166 @@ func lineWithoutReadFiles(line string) string {
 		out = append(out, strings.Join(kept, " "))
 	}
 	return strings.Join(out, " ; ")
+}
+
+// find changes files three ways: -delete removes what it finds; -exec,
+// -execdir, -ok and -okdir run a command with {} for each file it finds;
+// and -fprint, -fprint0, -fprintf and -fls write the file they name.
+
+// checkFind checks what find ARGS (globs are theirs) changes. The command
+// of -exec and the others is checked as a shell line one level deeper. Its
+// {} is a file under the start folders: known when every start folder is
+// known and holds nothing an agent may not change (findStarts), unknown
+// otherwise, and -delete is refused where it is unknown. -execdir and
+// -okdir run in the found file's folder, so a relative name in their
+// command is unknown too.
+func checkFind(cl *call, args []string, globs []bool, vars lineVars, home, cwd string, depth int) guardDecision {
+	i, follows := 0, false
+	var starts []string
+	var sglobs []bool
+opts:
+	for ; i < len(args); i++ {
+		switch a := args[i]; {
+		case a == "-H" || a == "-L":
+			follows = true // links lead out of the start folders
+		case a == "-P" || a == "-E" || a == "-X" || a == "-d" || a == "-s" || a == "-x" || strings.HasPrefix(a, "-O"):
+		case a == "-D" && i+1 < len(args):
+			i++
+		case a == "-f" && i+1 < len(args): // BSD: a start folder
+			i++
+			starts, sglobs = append(starts, args[i]), append(sglobs, globs[i])
+		default:
+			break opts
+		}
+	}
+	for ; i < len(args) && !strings.HasPrefix(args[i], "-") && !strings.ContainsAny(args[i][:min(1, len(args[i]))], "()!,"); i++ {
+		starts, sglobs = append(starts, args[i]), append(sglobs, globs[i])
+	}
+	if len(starts) == 0 {
+		starts, sglobs = []string{"."}, []bool{false}
+	}
+	expr, eglobs := args[i:], globs[i:]
+	first, safe := findStarts(cl, starts, sglobs, vars, home, cwd)
+	safe = safe && !follows && !slices.ContainsFunc(expr, func(w string) bool { return w == "-follow" || w == "-files0-from" })
+	name := unknownOutput
+	if safe {
+		name = filepath.Join(first, "{}")
+	}
+	for j := 0; j < len(expr); j++ {
+		switch e := expr[j]; e {
+		case "-delete":
+			if !safe {
+				return deny("find -delete removes files under %s, which komando's guard cannot tell apart from komando's data, keys or guard files; delete the files by name", strings.Join(starts, " "))
+			}
+		case "-fprint", "-fprint0", "-fprintf", "-fls":
+			if j+1 < len(expr) {
+				if d := checkWritten(cl, expr[j+1], eglobs[j+1], true, vars, home, cwd); d.Deny {
+					return d
+				}
+			}
+		case "-exec", "-execdir", "-ok", "-okdir":
+			k := j + 1
+			for k < len(expr) && expr[k] != ";" && !(expr[k] == "+" && expr[k-1] == "{}") {
+				k++
+			}
+			if k > j+1 {
+				if depth >= guardDepth {
+					return tooDeep()
+				}
+				icwd := cwd
+				if e == "-execdir" || e == "-okdir" {
+					icwd = lostDir
+				}
+				if d := checkShellIn(cl, findCommandLine(expr[j+1:k], name), home, icwd, depth+1, vars); d.Deny {
+					return d
+				}
+			}
+			j = k
+		}
+	}
+	return allow()
+}
+
+// findCommandLine is the command of find's -exec WORDS as a shell line:
+// each word in "...", where a $ is still read as a variable as the line had
+// it, with name in place of each {}.
+func findCommandLine(words []string, name string) string {
+	esc := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "`", "\\`")
+	var b strings.Builder
+	for i, w := range words {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(`"` + esc.Replace(strings.ReplaceAll(w, "{}", name)) + `"`)
+	}
+	return b.String()
+}
+
+// findStarts says whether every start folder of find is known and holds
+// nothing an agent may not change: it is not in and does not hold a folder
+// secretPath guards, an AI agent's settings folder or a komando program the
+// guard hook runs. It gives the first as a full path.
+func findStarts(cl *call, starts []string, globs []bool, vars lineVars, home, cwd string) (string, bool) {
+	first := ""
+	for i, s := range starts {
+		vals, known := vars.expand(cl, s, home, cwd)
+		if globs[i] || !known {
+			return "", false
+		}
+		for _, v := range vals {
+			p := guardPathAt(cl, v, home, cwd)
+			if !filepath.IsAbs(p) {
+				return "", false // the working folder is not known
+			}
+			if touchesProtected(cl, p, home, vars) {
+				return "", false
+			}
+			if first == "" {
+				first = p
+			}
+		}
+	}
+	return first, first != ""
+}
+
+// recursiveReader reports whether a command reads every file under the
+// folders it is given (grep -r, rg, tar c, zip -r, cp -r, find -exec, ...):
+// given the home folder, it reads komando's data and the private keys too.
+func recursiveReader(base string, args []string) bool {
+	cluster := func(letters string) bool {
+		for _, a := range args {
+			if len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsAny(a[1:], letters) {
+				return true
+			}
+		}
+		return false
+	}
+	has := func(long ...string) bool {
+		for _, a := range args {
+			for _, l := range long {
+				if a == l || strings.HasPrefix(a, l+"=") {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	switch base {
+	case "rg", "ag", "ack", "ack-grep", "rclone", "restic", "borg", "7z", "7za", "7zz":
+		return true
+	case "grep", "egrep", "fgrep", "zgrep", "ugrep":
+		return cluster("rR") || has("--recursive", "--dereference-recursive", "--directories=recurse")
+	case "zip", "diff":
+		return cluster("rR") || has("--recurse-paths", "--recursive")
+	case "cp", "rsync":
+		return cluster("rRa") || has("--recursive", "--archive")
+	case "tar", "bsdtar", "gtar":
+		if has("--extract", "--list", "--get", "--diff", "--compare") || cluster("xtd") {
+			return false
+		}
+		return len(args) == 0 || strings.HasPrefix(args[0], "-") || !strings.ContainsAny(args[0], "xtd")
+	case "find":
+		return has("-exec", "-execdir", "-ok", "-okdir")
+	}
+	return false
 }
