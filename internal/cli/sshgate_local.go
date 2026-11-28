@@ -29,9 +29,8 @@ import (
 // files here (COPY TO PROGRAM, pg_read_file, CONFIG SET dir, a hostPath
 // volume). So every key, read-only too, is refused every command, reads
 // included, on a file conn or a target at a loopback address
-// (gateLocalAddr). A change whose target the gate cannot find is refused
-// too; a read with one it cannot find runs when the name is no loopback
-// address, as written or resolved (a typo that fails anyway). This
+// (gateLocalAddr). A target the gate cannot find is refused too, for a
+// read as for a change: the gate fails closed. This
 // computer under another name or address is found by its pinned host key,
 // which is one of this computer's own (gateSameHostKey), or by an address
 // that is one of this computer's network addresses (gateLocalAddr).
@@ -113,10 +112,7 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 	for _, e := range targets {
 		sel, err := resolveSelection(cl, st, e)
 		if err != nil {
-			if change || gateLocalAddr(gateArgHost(e)) {
-				return fmt.Sprintf("the gate cannot tell where %q is", e)
-			}
-			continue
+			return fmt.Sprintf("the gate cannot tell where %q is", e)
 		}
 		for _, h := range sel.Hosts {
 			// An ad hoc target (u@host, an IP) could be this computer under a
@@ -144,22 +140,6 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 		}
 	}
 	return ""
-}
-
-// gateArgHost is the host an argument names that is not in the inventory:
-// https://localhost:8443/x, u@127.0.0.1, [::1]:22 (an empty one is here).
-func gateArgHost(a string) string {
-	if _, rest, ok := strings.Cut(a, "://"); ok {
-		a = rest
-	}
-	a, _, _ = strings.Cut(a, "/")
-	if at := strings.LastIndex(a, "@"); at > 0 {
-		a = a[at+1:]
-	}
-	if a == "" {
-		return "localhost"
-	}
-	return a
 }
 
 // gateURLHosts are the other hosts a conn URL names, which its driver may
