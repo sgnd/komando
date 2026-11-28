@@ -9,6 +9,7 @@ import (
 	"go/types"
 	"maps"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,8 +25,9 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// gateStubDNS answers for gateLookup: each name's answers in turn (the
-// last one again when they run out), an error for "err.example", and
+// gateStubDNS answers for gateLookup: an IP literal, also an IPv6 one with
+// a zone, as itself (as Go's resolver does); each name's answers in turn
+// (the last one again when they run out), an error for "err.example", and
 // NXDOMAIN for every other name. It counts the lookups per name.
 func gateStubDNS(t *testing.T, answers map[string][][]net.IP) map[string]int {
 	t.Helper()
@@ -39,6 +41,9 @@ func gateStubDNS(t *testing.T, answers map[string][][]net.IP) map[string]int {
 		host = strings.ToLower(strings.TrimSuffix(host, "."))
 		n := asked[host]
 		asked[host]++
+		if ip, err := netip.ParseAddr(host); err == nil {
+			return []net.IP{ip.AsSlice()}, nil
+		}
 		if host == "err.example" {
 			return nil, &net.DNSError{Err: "server misbehaving", Name: host, IsTemporary: true}
 		}
@@ -62,8 +67,8 @@ func ips(s ...string) []net.IP {
 // gateOwn is the LAN address gateStubInterfaces gives this computer.
 const gateOwn = "192.168.1.10"
 
-// gateStubInterfaces answers for gateInterfaces: lo0 (index 1, loopback,
-// with fe80::1 as on macOS), en0 (index 4) and utun3 (index 9).
+// gateStubInterfaces answers for gateInterfaces: lo0 (with fe80::1 as on
+// macOS), en0 and utun3.
 func gateStubInterfaces(t *testing.T) {
 	t.Helper()
 	saved := gateInterfaces
@@ -80,9 +85,9 @@ func gateStubInterfaces(t *testing.T) {
 		return res
 	}
 	ifs := []gateIface{
-		{name: "lo0", index: 1, loopback: true, addrs: nets("127.0.0.1/8", "::1/128", "fe80::1/64")},
-		{name: "en0", index: 4, addrs: nets(gateOwn+"/24", "fe80::aaaa/64", "169.254.7.7/16", "2001:db8::10/64")},
-		{name: "utun3", index: 9, addrs: nets("10.9.9.0/31")}, // a point-to-point link: 10.9.9.1 is the peer
+		{addrs: nets("127.0.0.1/8", "::1/128", "fe80::1/64")},
+		{addrs: nets(gateOwn+"/24", "fe80::aaaa/64", "169.254.7.7/16", "2001:db8::10/64")},
+		{addrs: nets("10.9.9.0/31")}, // a point-to-point link: 10.9.9.1 is the peer
 	}
 	gateInterfaces = func() ([]gateIface, error) { return ifs, nil }
 }
@@ -111,13 +116,18 @@ func TestGateLocalAddrFailsClosed(t *testing.T) {
 	gateStubInterfaces(t)
 	answers["own.example"] = [][]net.IP{ips(gateOwn)}
 	answers["ownll.example"] = [][]net.IP{ips("169.254.7.7")}
+	answers["imds.example"] = [][]net.IP{ips("169.254.169.254")}
+	answers["router.example"] = [][]net.IP{ips("fe80::bbbb")}
+	answers["203.0.113.9%en0"] = [][]net.IP{ips("203.0.113.9")} // only the zone rule refuses it
 	gateStubDNS(t, answers)
 	want := map[string]bool{
-		"own.example": true, "ownll.example": true,
+		"own.example": true, "ownll.example": true, "imds.example": true, "router.example": true, "169.254.169.254": true,
 		"nx.example": true, "err.example": true, "empty.example": true, // cannot tell
 		"mixed.example": true, "mixed6.example": true, "mapped.example": true, "zero.example": true, "unspec.example": true,
 		"mixed.example:5432": true,
-		"web.example":        false, "two.example": false, "public6.example": false, "web.example:22": false,
+		// a zone names a link here; the resolver would answer the bare address
+		"2001:db8:5::9%en0": true, "[2001:db8:5::9%4]:22": true, "203.0.113.9%en0": true,
+		"web.example": false, "two.example": false, "public6.example": false, "web.example:22": false,
 		"rebind.example": false, // its first answer: the dial judges its own (TestGateDialJudgesItsOwnLookup)
 	}
 	for a, w := range want {
@@ -231,6 +241,9 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"unspec.example": {ips("::")},
 		"mcast.example":  {ips("203.0.113.5", "239.1.1.1")},
 		"empty.example":  {nil},
+		"imds.example":   {ips("203.0.113.5", "169.254.169.254")},
+		"nat64.example":  {ips("2001:db8::5", "64:ff9b::7f00:1")},
+		"ll6.example":    {ips("fe80::5")},
 	}
 	gateStubInterfaces(t)
 	answers["own.example"] = [][]net.IP{ips(gateOwn)}
@@ -240,12 +253,12 @@ func TestGateDialRefusesHere(t *testing.T) {
 		gateOwn + ":22":         gateOwn + " is this computer",
 		"169.254.7.7:22":        "169.254.7.7 is this computer", // its own link-local IPv4 address
 		"[fe80::aaaa]:22":       "fe80::aaaa is this computer",  // its own, with no zone
-		"[fe80::aaaa%en0]:22":   "fe80::aaaa%en0 is this computer",
-		"[fe80::aaaa%4]:22":     "fe80::aaaa%4 is this computer", // the zone by number
-		"[fe80::1%1]:22":        "fe80::1%1 is this computer",    // 1 is lo0
-		"[fe80::5%lo0]:22":      "fe80::5%lo0 is this computer",  // on the loopback link, held or not
-		"[::1%en0]:22":          "::1%en0 is this computer",
-		"[fe80::bbbb%en9]:22":   "fe80::bbbb%en9 is this computer", // no such interface here
+		"[fe80::aaaa%en0]:22":   "fe80::aaaa%en0 names a network interface",
+		"[fe80::aaaa%4]:22":     "fe80::aaaa%4 names a network interface",
+		"[fe80::1%1]:22":        "fe80::1%1 names a network interface",
+		"[fe80::5%lo0]:22":      "fe80::5%lo0 names a network interface",
+		"[::1%en0]:22":          "::1%en0 names a network interface",
+		"[fe80::bbbb%en9]:22":   "fe80::bbbb%en9 names a network interface",
 		"nx.example:22":         "the gate cannot resolve nx.example",
 		"err.example:22":        "the gate cannot resolve err.example",
 		"empty.example:22":      "the gate cannot resolve empty.example",
@@ -260,15 +273,50 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"0.0.0.0:22":            "0.0.0.0 is this computer",
 		"[::]:22":               ":: is this computer",
 		"localhost:6379":        "localhost is this computer",
-		"[fe80::1%lo0]:22":      "fe80::1%lo0 is this computer",
+		"[fe80::1%lo0]:22":      "fe80::1%lo0 names a network interface",
 		"224.0.0.1:5353":        "224.0.0.1 is this computer", // multicast reaches this computer too
-		"[ff02::1%en0]:22":      "ff02::1%en0 is this computer",
+		"[ff02::1%en0]:22":      "ff02::1%en0 names a network interface",
 		"[ff01::1]:22":          "ff01::1 is this computer",
 		"255.255.255.255:22":    "255.255.255.255 is this computer",
 		"192.168.1.255:22":      "192.168.1.255 is this computer", // en0's broadcast
 		"[::127.0.0.1]:22":      "::127.0.0.1 is this computer",   // IPv4-compatible
 		"0.1.2.3:22":            "0.1.2.3 is this computer",
 		"mcast.example:22":      "mcast.example is this computer",
+		// any link-local address, and a cloud's metadata service, which hands
+		// out this machine's own credentials
+		"169.254.9.9:22":              "169.254.9.9 is this computer",
+		"169.254.169.254:80":          "169.254.169.254 is this computer",
+		"[::ffff:169.254.169.254]:80": "::ffff:169.254.169.254 is this computer",
+		"[fe80::bbbb]:22":             "fe80::bbbb is this computer",
+		"[fd00:ec2::254]:80":          "fd00:ec2::254 is this computer",
+		"[fd20:ce::254]:80":           "fd20:ce::254 is this computer",
+		"[fd00:ec2::23]:80":           "fd00:ec2::23 is this computer",
+		"[fd00:ec2::1]:80":            "fd00:ec2::1 is this computer", // all of fd00:ec2::/32 is AWS's
+		"[fd00:ec2:0:ffff::123]:80":   "fd00:ec2:0:ffff::123 is this computer",
+		"[fd00:c1::a9fe:a9fe]:80":     "fd00:c1::a9fe:a9fe is this computer",
+		"100.100.100.200:80":          "100.100.100.200 is this computer",
+		"168.63.129.16:80":            "168.63.129.16 is this computer",
+		"192.0.0.192:80":              "192.0.0.192 is this computer",
+		"imds.example:80":             "imds.example is this computer",
+		"ll6.example:22":              "ll6.example is this computer",
+
+		// a zone names a link here, on any address: the gate cannot tell where it leads
+		"203.0.113.9%en0:22":   "203.0.113.9%en0 names a network interface",
+		"[2001:db8::9%en0]:22": "2001:db8::9%en0 names a network interface",
+		"[2001:db8::9%4]:22":   "2001:db8::9%4 names a network interface",
+		"web.example%en0:22":   "web.example%en0 names a network interface",
+
+		// an IPv6 address that leads to an IPv4 one: judged by it, or refused
+		// when the gate cannot read it
+		"[64:ff9b::7f00:1]:22":                      "64:ff9b::7f00:1 is this computer", // NAT64 of 127.0.0.1
+		"[64:ff9b::a9fe:a9fe]:80":                   "64:ff9b::a9fe:a9fe is this computer",
+		"[64:ff9b::c0a8:10a]:22":                    "64:ff9b::c0a8:10a is this computer", // its own LAN address
+		"[::ffff:0:7f00:1]:22":                      "::ffff:0:7f00:1 is this computer",   // SIIT
+		"[64:ff9b:1::a00:5]:22":                     "64:ff9b:1::a00:5 is this computer",  // local NAT64
+		"[2002:7f00:1::]:22":                        "2002:7f00:1:: is this computer",     // 6to4
+		"[2002:cb00:7105::1]:22":                    "2002:cb00:7105::1 is this computer",
+		"[2001:0:4136:e378:8000:63bf:3fff:fdd2]:22": "2001:0:4136:e378:8000:63bf:3fff:fdd2 is this computer", // Teredo
+		"nat64.example:22":                          "nat64.example is this computer",
 	}
 	for addr, msg := range refused {
 		d := &gateDialStub{}
@@ -335,8 +383,7 @@ func TestGateDialJudgesItsOwnLookup(t *testing.T) {
 	if asked["two.example"] != 1 {
 		t.Errorf("two.example looked up %d times, want once", asked["two.example"])
 	}
-	// fe80::1 is lo0's here, and on en0 a router's: the zone says which
-	for _, addr := range []string{"203.0.113.9:22", "[fe80::1%en0]:22", "[fe80::bbbb%4]:22", "169.254.9.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22"} {
+	for _, addr := range []string{"203.0.113.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22", "100.64.0.9:22", "[fd00:ec3::253]:22", "[64:ff9b::cb00:7105]:22", "[2001:db8:0:1::9]:22"} {
 		d := &gateDialStub{}
 		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err != nil || !slices.Equal(d.asked, []string{"tcp " + addr}) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)
@@ -425,13 +472,26 @@ var reviewedDialSites = map[string]int{
 	"dbx/clickhouse.go openClickHouse": 2, "dbx/bigquery.go openBigQuery": 2, "dbx/snowflake.go openSnowflake": 2,
 	"registry/registry.go New": 2, "kube/kube.go New": 1, "kube/spdy.go *Client.dialSPDY": 1,
 	"kube/stream.go *Client.dialWS": 1, // takes the transport's dialer: the gate's in a key's run
+	// a library handed a host and the caller's dialer: always (Redis, Kafka,
+	// NATS, FTP, S3, a socks proxy's way out), or when there is one, which a
+	// key's run always gives (Postgres, MySQL, SQL Server, Oracle, Mongo)
+	"cachex/cachex.go Open": 3, "queuex/queuex.go Open": 1, "queuex/queuex.go *Kafka.client": 1, "queuex/nats/nats.go Open": 1,
+	"storex/ftp.go loginFTP": 1, "storex/storex.go OpenS3Creds": 1, "transport/proxy.go Dial": 1,
+	"dbx/dbx.go Open": 2, "dbx/mysql.go openMySQL": 1, "dbx/sqlserver.go openSQLServer": 1,
+	"dbx/oracle.go *oracleConnector.Connect": 1, "dbx/mongo.go OpenMongo": 1,
+	// minio without the dialer, in no key's run: ListBuckets serves only
+	// `import aws` (the gate refuses import), LinkAt signs here and sends nothing
+	"storex/storex.go ListBuckets": 1, "storex/storex.go *s3Bucket.LinkAt": 1,
 	// a socket on this computer komando itself uses: ssh-agent, a held login
 	"sshx/auth.go openAgent": 1, "sshx/held.go dialHeld": 1, "cli/host_sshagent.go ": 1,
 	// a VPN's own connection and the dials through it (the C655 residual row)
-	"netx/netx.go OpenDirect": 3, "netx/netx.go sessionDialer": 1, "netx/netx.go socksDialer": 1,
+	"netx/netx.go OpenDirect": 4, "netx/netx.go sessionDialer": 1, "netx/netx.go socksDialer": 2,
 	"netx/httpproxy.go openHTTPProxy": 1, "openvpn/client.go Connect": 1, "ipsec/transport.go newTransport": 1,
 	"ipsec/transport.go *udpTransport.startNATT": 1, "sslvpn/sslvpn.go dialTLSWith": 1, "sslvpn/sslvpn.go httpClient": 1,
 	"cli/vpn_status.go vpnReachable": 1, "cli/vpn_session.go listening": 1,
+	"netx/tailscale.go newTailscale":             1, // dials through its own tailnet
+	"netx/wireguard.go StartWG":                  1, // UDP to the peer's endpoint
+	"sslvpn/anyconnect_dtls.go *acTun.startDTLS": 2, // UDP to the DTLS address the gateway hands back
 	// no target a key names: the audit sink, cloud sign-in, a test proxy
 	"cli/audit_syslog.go deliver": 2, "transport/http.go HTTP": 1, "cloud/azure.go ": 1, "cloud/ssm.go SSMDial": 1,
 	"transport/proxytest/proxytest.go *Proxy.serve": 1,
@@ -491,16 +551,20 @@ func TestDialSitesAreReviewed(t *testing.T) {
 
 // gateDialSites counts, per function of file ("" for package level), the
 // places that open a connection by themselves or put the gate's dialer in:
-// a net, tls or websocket Dialer or an http.Transport (a literal, new(), a
-// var; a Transport literal only without a Dial field), a net or tls Dial
-// call, http.DefaultClient, http.DefaultTransport, websocket.DefaultDialer,
-// http.Get and the like, and gateDialFor. An import is read by its path,
-// so an alias counts too.
+// a net, tls or websocket Dialer, an http.Transport or http.Client (a
+// literal, new(), a var; a Transport literal only without its own Dial
+// field, a Client literal only without its own Transport), a Dial field
+// set after to nil or to another package's function, a Transport set after
+// to nil, a net or tls Dial call,
+// http.DefaultClient, http.DefaultTransport, websocket.DefaultDialer,
+// http.Get and the like, a library function that dials the host it is
+// handed (gateLibDials), and gateDialFor. An import is read by its path, so
+// an alias counts too.
 func gateDialSites(file *ast.File) map[string]int {
 	imports := map[string]string{} // local name -> path
 	for _, im := range file.Imports {
 		path, _ := strconv.Unquote(im.Path.Value)
-		name := path[strings.LastIndex(path, "/")+1:]
+		name := gateImportName(path)
 		if im.Name != nil {
 			name = im.Name.Name
 		}
@@ -514,32 +578,84 @@ func gateDialSites(file *ast.File) map[string]int {
 		id, ok := s.X.(*ast.Ident)
 		return ok && imports[id.Name] == path && (len(names) == 0 || slices.Contains(names, s.Sel.Name))
 	}
-	const netPkg, tlsPkg, httpPkg, wsPkg = "net", "crypto/tls", "net/http", "github.com/gorilla/websocket"
+	const netPkg, tlsPkg, httpPkg, wsPkg, tsnetPkg = "net", "crypto/tls", "net/http", "github.com/gorilla/websocket", "tailscale.com/tsnet"
 	dialer := func(e ast.Expr) bool {
-		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport")
+		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport", "Client") ||
+			is(e, tsnetPkg, "Server") // its Dial goes out through its own tailnet
 	}
-	ownDial := func(e ast.Expr) bool {
-		kv, ok := e.(*ast.KeyValueExpr)
-		if !ok {
-			return false
+	// own: a dialer or transport the caller made, not nil and not another package's
+	own := func(v ast.Expr) bool {
+		if id, ok := v.(*ast.Ident); ok {
+			return id.Name != "nil"
 		}
-		id, ok := kv.Key.(*ast.Ident)
-		return ok && strings.HasPrefix(id.Name, "Dial")
+		s, ok := v.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		id, ok := s.X.(*ast.Ident)
+		return !ok || imports[id.Name] == ""
+	}
+	// sets: field "Dial" is any Dial* hook; "DialContext" is the plain dial
+	// (Dial or DialContext), which every connection uses unless DialTLS* is set
+	sets := func(e ast.Expr, field string) bool {
+		var name string
+		switch k := e.(type) {
+		case *ast.Ident:
+			name = k.Name
+		case *ast.SelectorExpr:
+			name = k.Sel.Name
+		}
+		switch field {
+		case "Dial":
+			return strings.HasPrefix(name, "Dial")
+		case "DialContext":
+			return name == "Dial" || name == "DialContext"
+		}
+		return name == field
+	}
+	setsOwn := func(field string) func(ast.Expr) bool {
+		return func(e ast.Expr) bool {
+			kv, ok := e.(*ast.KeyValueExpr)
+			return ok && sets(kv.Key, field) && own(kv.Value)
+		}
+	}
+	lib := func(f ast.Expr, args []ast.Expr) bool {
+		for path, l := range gateLibDials {
+			if is(f, path, l.funcs...) {
+				return path != "database/sql" || len(args) == 0 || types.ExprString(args[0]) != `"sqlite"` // a file
+			}
+		}
+		return false
 	}
 	site := func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.CompositeLit:
-			if is(n.Type, httpPkg, "Transport") {
-				return !slices.ContainsFunc(n.Elts, ownDial)
+			switch {
+			case is(n.Type, httpPkg, "Transport"): // its own plain dial, and no Dial* hook of another's
+				return !slices.ContainsFunc(n.Elts, setsOwn("DialContext")) || slices.ContainsFunc(n.Elts, func(e ast.Expr) bool {
+					kv, ok := e.(*ast.KeyValueExpr)
+					return ok && sets(kv.Key, "Dial") && !own(kv.Value)
+				})
+			case is(n.Type, httpPkg, "Client"):
+				return !slices.ContainsFunc(n.Elts, setsOwn("Transport"))
 			}
 			return dialer(n.Type)
+		case *ast.AssignStmt:
+			for i, l := range n.Lhs {
+				if _, ok := l.(*ast.SelectorExpr); ok && i < len(n.Rhs) &&
+					(sets(l, "Dial") && !own(n.Rhs[i]) || sets(l, "Transport") && types.ExprString(n.Rhs[i]) == "nil") {
+					return true
+				}
+			}
+			return false
 		case *ast.CallExpr:
 			if id, ok := n.Fun.(*ast.Ident); ok {
 				return id.Name == "gateDialFor" || id.Name == "new" && len(n.Args) == 1 && dialer(n.Args[0])
 			}
 			s, ok := n.Fun.(*ast.SelectorExpr)
-			return ok && (is(s, netPkg) || is(s, tlsPkg)) && strings.HasPrefix(s.Sel.Name, "Dial") ||
-				is(n.Fun, httpPkg, "Get", "Head", "Post", "PostForm")
+			return ok && ((is(s, netPkg) || is(s, tlsPkg)) && strings.HasPrefix(s.Sel.Name, "Dial") ||
+				is(s, netPkg, "ListenUDP", "ListenPacket")) || // a socket that sends anywhere
+				is(n.Fun, httpPkg, "Get", "Head", "Post", "PostForm") || lib(n.Fun, n.Args)
 		case *ast.SelectorExpr:
 			return is(n, httpPkg, "DefaultClient", "DefaultTransport") || is(n, wsPkg, "DefaultDialer")
 		case *ast.ValueSpec:
@@ -566,6 +682,41 @@ func gateDialSites(file *ast.File) map[string]int {
 	return res
 }
 
+// gateLibDials are the functions of other libraries that connect to a host
+// they are handed, by import path, with the name the package declares.
+var gateLibDials = map[string]struct {
+	name  string
+	funcs []string
+}{
+	"database/sql":                         {"sql", []string{"Open"}},
+	"github.com/go-sql-driver/mysql":       {"mysql", []string{"NewConnector"}},
+	"github.com/jackc/pgx/v5":              {"pgx", []string{"Connect", "ConnectConfig"}},
+	"github.com/jackc/pgx/v5/pgconn":       {"pgconn", []string{"Connect", "ConnectConfig"}},
+	"github.com/jackc/pgx/v5/stdlib":       {"stdlib", []string{"OpenDB"}},
+	"github.com/jlaffaye/ftp":              {"ftp", []string{"Dial", "DialTimeout", "Connect"}},
+	"github.com/microsoft/go-mssqldb":      {"mssql", []string{"NewConnector", "NewConnectorConfig", "NewConnectorWithAccessTokenProvider"}},
+	"github.com/minio/minio-go/v7":         {"minio", []string{"New"}},
+	"github.com/nats-io/nats.go":           {"nats", []string{"Connect"}},
+	"github.com/pion/dtls/v3":              {"dtls", []string{"Client", "ClientWithOptions", "Dial", "DialWithOptions"}},
+	"github.com/rabbitmq/amqp091-go":       {"amqp091", []string{"Dial", "DialConfig", "DialTLS", "DialTLS_ExternalAuth"}},
+	"github.com/redis/go-redis/v9":         {"redis", []string{"NewClient", "NewClusterClient", "NewFailoverClient", "NewFailoverClusterClient", "NewRing", "NewSentinelClient", "NewUniversalClient"}},
+	"github.com/sijms/go-ora/v2":           {"go_ora", []string{"NewConnection", "NewConnector"}},
+	"github.com/twmb/franz-go/pkg/kgo":     {"kgo", []string{"NewClient"}},
+	"go.mongodb.org/mongo-driver/v2/mongo": {"mongo", []string{"Connect"}},
+	"golang.org/x/crypto/ssh":              {"ssh", []string{"Dial"}},
+	"golang.org/x/net/proxy":               {"proxy", []string{"Dial", "FromEnvironment", "FromEnvironmentUsing", "FromURL", "SOCKS5"}},
+	"golang.zx2c4.com/wireguard/conn":      {"conn", []string{"NewDefaultBind", "NewStdNetBind"}},
+	"google.golang.org/grpc":               {"grpc", []string{"Dial", "DialContext", "NewClient"}},
+}
+
+// gateImportName is the name an import without an alias goes by.
+func gateImportName(path string) string {
+	if l, ok := gateLibDials[path]; ok {
+		return l.name
+	}
+	return path[strings.LastIndex(path, "/")+1:]
+}
+
 // The scan finds each form, under an aliased import too, and names the
 // function it is in.
 func TestGateDialSitesFindsEachForm(t *testing.T) {
@@ -573,10 +724,23 @@ func TestGateDialSitesFindsEachForm(t *testing.T) {
 
 import (
 	"crypto/tls"
+	"database/sql"
 	stdnet "net"
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/jlaffaye/ftp"
+	"github.com/minio/minio-go/v7"
+	"github.com/nats-io/nats.go"
+	"github.com/pion/dtls/v3"
+	"github.com/redis/go-redis/v9"
+	kafka "github.com/twmb/franz-go/pkg/kgo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/proxy"
+	"golang.zx2c4.com/wireguard/conn"
+	"google.golang.org/grpc"
+	"tailscale.com/tsnet"
 )
 
 var pkgDialer stdnet.Dialer
@@ -585,11 +749,40 @@ func literal()          { _ = &stdnet.Dialer{} }
 func newDialer()        { _ = new(stdnet.Dialer) }
 func varDialer()        { var d stdnet.Dialer; _ = d }
 func dialCall()         { stdnet.Dial("tcp", "a:1") }
+func listenUDP()        { stdnet.ListenUDP("udp", nil) }
+func listenPacket()     { stdnet.ListenPacket("udp", ":0") }
+func dtlsClient()       { dtls.ClientWithOptions(nil, nil) }
+func dtlsDial()         { dtls.Dial("udp", nil, nil) }
+func tsnetServer()      { _ = &tsnet.Server{} }
+func wgBind()           { conn.NewDefaultBind() }
 func tlsDialer()        { _ = tls.Dialer{} }
 func tlsDial()          { tls.Dial("tcp", "a:1", nil) }
 func transport()        { _ = &http.Transport{} }
 func newTransport()     { _ = new(http.Transport) }
-func ownDial()          { _ = &http.Transport{DialContext: nil} }
+func ownDial(d dialer)  { _ = &http.Transport{DialContext: d} }
+func nilDial()          { _ = &http.Transport{DialContext: nil} }
+func otherDial()        { _ = &http.Transport{DialContext: proxy.Dial} }
+func tlsOnly(d dialer)  { _ = &http.Transport{DialTLSContext: d} }
+func ownBoth(d dialer)  { _ = &http.Transport{Dial: d, DialTLSContext: d} }
+func mixedTLS(d dialer) { _ = &http.Transport{DialContext: d, DialTLSContext: proxy.Dial} }
+func setAfter(d dialer) { t := &http.Transport{DialContext: d}; t.DialContext = nil }
+func setOther(t *tr)    { t.Dial = proxy.Dial }
+func setNilTr(c *cl)    { c.Transport = nil }
+func client()           { _ = &http.Client{} }
+func clientNil()        { _ = &http.Client{Transport: nil} }
+func clientOwn(t *tr)   { _ = &http.Client{Transport: t} }
+func newClient()        { _ = new(http.Client) }
+func sshDial()          { ssh.Dial("tcp", "a:22", nil) }
+func ftpDial()          { ftp.Dial("a:21") }
+func minioNew()         { minio.New("a", nil) }
+func redisNew()         { redis.NewClient(nil) }
+func mongoConnect()     { mongo.Connect() }
+func kgoNew()           { kafka.NewClient() }
+func natsConnect()      { nats.Connect("a") }
+func sqlOpen()          { sql.Open("pgx", "postgres://a") }
+func sqliteOpen()       { sql.Open("sqlite", "f.db") }
+func grpcNew()          { grpc.NewClient("a:1") }
+func socks()            { proxy.SOCKS5("tcp", "a:1", nil, nil) }
 func defaultClient()    { _ = http.DefaultClient }
 func defaultTransport() { _ = http.DefaultTransport }
 func get()              { http.Get("https://a") }
@@ -606,9 +799,11 @@ func (*c) method() { _ = &stdnet.Dialer{}; _ = stdnet.JoinHostPort("a", "1") }
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "tlsDialer": 1, "tlsDial": 1,
+	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "listenUDP": 1, "listenPacket": 1, "dtlsClient": 1, "dtlsDial": 1, "tsnetServer": 1, "wgBind": 1, "tlsDialer": 1, "tlsDial": 1,
 		"transport": 1, "newTransport": 1, "defaultClient": 1, "defaultTransport": 1, "get": 1, "wsDialer": 1, "wsDefault": 1,
-		"gate": 1, "*c.method": 1}
+		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "tlsOnly": 1, "mixedTLS": 1, "setAfter": 1, "setOther": 1, "setNilTr": 1, "client": 1, "clientNil": 1,
+		"newClient": 1, "sshDial": 1, "ftpDial": 1, "minioNew": 1, "redisNew": 1, "mongoConnect": 1, "kgoNew": 1,
+		"natsConnect": 1, "sqlOpen": 1, "grpcNew": 1, "socks": 1}
 	if got := gateDialSites(f); !maps.Equal(got, want) {
 		t.Errorf("found %v, want %v", got, want)
 	}

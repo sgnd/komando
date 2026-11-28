@@ -241,7 +241,7 @@ func gateLocalAddr(a string) (bool, error) {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, _, _ = strings.Cut(inventory.NormAddr(a), "%")
+	a = inventory.NormAddr(a)
 	if a == "" || net.ParseIP(a) != nil {
 		return false, nil
 	}
@@ -262,11 +262,66 @@ var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 	return net.DefaultResolver.LookupIP(ctx, "ip", host)
 }
 
-// gateLocalIP: ip is this computer: loopback, unspecified, one of its
-// network addresses, or an address that reaches it too (gateGroupIP).
-// Tests whose servers listen on loopback swap it.
-var gateLocalIP = func(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsUnspecified() || gateGroupIP(ip) || gateOwnIP(ip)
+// gateLocalIP is gateHereIP; tests whose servers listen on loopback swap it.
+var gateLocalIP = gateHereIP
+
+// gateHereIP: ip is this computer: loopback, unspecified, one of its
+// network addresses, an address that reaches it too (gateGroupIP), one
+// only its own link or cloud answers (gateNearIP), an IPv6 address that
+// carries such an IPv4 address, or one whose IPv4 address the gate cannot
+// read (gateOpaqueIP).
+func gateHereIP(ip net.IP) bool {
+	if v4 := gateCarriedIPv4(ip); v4 != nil && gateHereIP(v4) {
+		return true
+	}
+	return ip.IsLoopback() || ip.IsUnspecified() || gateNearIP(ip) || gateGroupIP(ip) || gateOpaqueIP(ip) || gateOwnIP(ip)
+}
+
+// gateCarriedIPv4 is the IPv4 address a translator connects to for ip:
+// NAT64's well-known prefix (64:ff9b::/96) or SIIT (::ffff:0:0/96); nil
+// for any other address.
+func gateCarriedIPv4(ip net.IP) net.IP {
+	ip16 := ip.To16()
+	if ip16 == nil || ip.To4() != nil {
+		return nil
+	}
+	if p := [12]byte(ip16[:12]); p == [12]byte{0, 0x64, 0xff, 0x9b} || p == [12]byte{8: 0xff, 9: 0xff} {
+		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])
+	}
+	return nil
+}
+
+// gateOpaqueIP: ip leads to an IPv4 address the gate cannot read: 6to4
+// (2002::/16) and Teredo (2001::/32) go through a relay, and local NAT64
+// (64:ff9b:1::/48) puts it where only its network's prefix length says.
+func gateOpaqueIP(ip net.IP) bool {
+	ip16 := ip.To16()
+	if ip16 == nil || ip.To4() != nil {
+		return false
+	}
+	return [2]byte(ip16[:2]) == [2]byte{0x20, 0x02} || [4]byte(ip16[:4]) == [4]byte{0x20, 0x01} ||
+		[6]byte(ip16[:6]) == [6]byte{0, 0x64, 0xff, 0x9b, 0, 1}
+}
+
+// gateNearIP: ip answers only on this computer's own link (169.254.0.0/16,
+// fe80::/10), or is a cloud's metadata service, which hands out this
+// machine's own credentials: for a key both are here.
+func gateNearIP(ip net.IP) bool {
+	return ip.IsLinkLocalUnicast() || gateAWSNet.Contains(ip) || slices.ContainsFunc(gateMetadataIPs, ip.Equal)
+}
+
+// gateAWSNet is AWS's own IPv6 services on the instance (metadata at ::254,
+// the EKS Pod Identity agent at ::23, "Set up the Amazon EKS Pod Identity
+// Agent", and the rest of the range).
+var gateAWSNet = &net.IPNet{IP: net.ParseIP("fd00:ec2::"), Mask: net.CIDRMask(32, 128)}
+
+// gateMetadataIPs are the other cloud metadata services outside
+// 169.254.0.0/16: Google over IPv6, Oracle over IPv6 (its own pages name
+// only 169.254.169.254: refused as a precaution), Alibaba, Azure's wire
+// server, Oracle's older one.
+var gateMetadataIPs = []net.IP{
+	net.ParseIP("fd20:ce::254"), net.ParseIP("fd00:c1::a9fe:a9fe"),
+	net.ParseIP("100.100.100.200"), net.ParseIP("168.63.129.16"), net.ParseIP("192.0.0.192"),
 }
 
 // gateGroupIP: ip is no one server's: multicast and broadcast reach this
@@ -279,19 +334,19 @@ func gateGroupIP(ip net.IP) bool {
 	return ip.IsMulticast() || len(ip) == net.IPv6len && [12]byte(ip[:12]) == [12]byte{}
 }
 
-// gateLocalAsWritten is gateLocalAddr without resolving the name.
+// gateLocalAsWritten is gateLocalAddr without resolving the name. An
+// address written with a zone (%en0) counts as here: the zone names a link
+// of this computer, and the gate cannot tell where it leads.
 func gateLocalAsWritten(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, zone, _ := strings.Cut(inventory.NormAddr(a), "%")
-	if ip := net.ParseIP(a); ip != nil {
-		return gateZonedIPHere(ip, zone)
+	a = inventory.NormAddr(a)
+	if strings.Contains(a, "%") {
+		return true
 	}
-	if zone != "" {
-		if i, ok := gateZone(zone); !ok || i.loopback {
-			return true
-		}
+	if ip := net.ParseIP(a); ip != nil {
+		return gateLocalIP(ip)
 	}
 	me, _ := os.Hostname()
 	me = inventory.NormAddr(me)
@@ -300,48 +355,9 @@ func gateLocalAsWritten(a string) bool {
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""
 }
 
-// gateZonedIPHere: ip written with an IPv6 zone (fe80::1%en0) is this
-// computer. A link-local address is judged on the zone's link only: fe80::1
-// is lo0's on macOS and a router's on en0. A zone this computer has no
-// interface for counts as here: the gate cannot tell which link it names.
-func gateZonedIPHere(ip net.IP, zone string) bool {
-	if zone == "" || !ip.IsLinkLocalUnicast() {
-		if gateLocalIP(ip) {
-			return true
-		}
-		if zone == "" {
-			return false
-		}
-	}
-	i, ok := gateZone(zone)
-	return !ok || i.loopback || ip.IsLinkLocalUnicast() && i.holds(ip)
-}
-
-// gateZone is the interface an IPv6 zone names, by name or by number, as
-// the dial reads it.
-func gateZone(zone string) (gateIface, bool) {
-	ifs, err := gateInterfaces()
-	if err != nil {
-		return gateIface{}, false
-	}
-	for _, i := range ifs {
-		if i.name == zone {
-			return i, true
-		}
-	}
-	if n, err := strconv.Atoi(zone); err == nil {
-		for _, i := range ifs {
-			if i.index == n {
-				return i, true
-			}
-		}
-	}
-	return gateIface{}, false
-}
-
 // gateOwnIP: ip is an address of one of this computer's network
-// interfaces (its LAN address, its own 169.254 or fe80 address), so a
-// server at it is this computer. Without the list, any address may be.
+// interfaces (its LAN address), or the broadcast address of one of its
+// networks, so a server at it is this computer. Without the list, any address may be.
 func gateOwnIP(ip net.IP) bool {
 	ifs, err := gateInterfaces()
 	if err != nil {
@@ -352,10 +368,7 @@ func gateOwnIP(ip net.IP) bool {
 
 // gateIface is one of this computer's network interfaces as the gate sees it.
 type gateIface struct {
-	name     string
-	index    int
-	loopback bool
-	addrs    []*net.IPNet
+	addrs []*net.IPNet
 }
 
 func (i gateIface) holds(ip net.IP) bool {
@@ -396,7 +409,7 @@ var gateInterfaces = func() ([]gateIface, error) {
 		if err != nil {
 			return nil, err
 		}
-		g := gateIface{name: i.Name, index: i.Index, loopback: i.Flags&net.FlagLoopback != 0}
+		var g gateIface
 		for _, a := range addrs {
 			switch a := a.(type) {
 			case *net.IPNet:

@@ -26,7 +26,11 @@ type fakeRedis struct {
 	denyType bool                 // TYPE answers NOPERM, as under an ACL without it
 	mu       sync.Mutex
 	stalled  bool
-	gets     int // GET/HGETALL/... commands: a key list never reads values
+	gets     int    // GET/HGETALL/... commands: a key list never reads values
+	announce string // the node address CLUSTER hands back; "" is its own
+	master   string // the master address a SENTINEL hands back
+	redirect string // the error the first TYPE answers, as "-MOVED 0 host:port"
+	answered bool   // the redirect went out
 }
 
 func newFakeRedis(t *testing.T, keys map[string][2]string) *fakeRedis {
@@ -101,9 +105,20 @@ func (f *fakeRedis) serve(c net.Conn) {
 			io.WriteString(c, "-ERR unknown command 'HELLO'\r\n")
 		case "PING":
 			io.WriteString(c, "+PONG\r\n")
+		case "SENTINEL":
+			if len(args) > 1 && strings.EqualFold(args[1], "GET-MASTER-ADDR-BY-NAME") {
+				host, port, _ := net.SplitHostPort(f.master)
+				fmt.Fprintf(c, "*2\r\n%s%s", bulk(host), bulk(port))
+			} else {
+				io.WriteString(c, "*0\r\n")
+			}
 		case "CLUSTER":
-			_, port, _ := net.SplitHostPort(f.ln.Addr().String())
-			fmt.Fprintf(c, "*1\r\n*3\r\n:0\r\n:16383\r\n*2\r\n%s:%s\r\n", bulk("127.0.0.1"), port)
+			node := f.announce
+			if node == "" {
+				node = f.ln.Addr().String()
+			}
+			host, port, _ := net.SplitHostPort(node)
+			fmt.Fprintf(c, "*1\r\n*3\r\n:0\r\n:16383\r\n*2\r\n%s:%s\r\n", bulk(host), port)
 		case "SCAN":
 			var b strings.Builder
 			for k := range f.keys {
@@ -112,7 +127,13 @@ func (f *fakeRedis) serve(c net.Conn) {
 			fmt.Fprintf(c, "*2\r\n%s*%d\r\n%s", bulk("0"), len(f.keys), b.String())
 		case "TYPE", "PTTL":
 			k := f.keys[args[1]]
+			f.mu.Lock()
+			redirect := cmd == "TYPE" && f.redirect != "" && !f.answered
+			f.answered = f.answered || redirect
+			f.mu.Unlock()
 			switch {
+			case redirect:
+				held = append(held, f.redirect+"\r\n")
 			case cmd == "TYPE" && f.denyType:
 				held = append(held, "-NOPERM this user has no permissions to run the 'type' command\r\n")
 			case cmd == "TYPE" && k[0] == "":

@@ -75,6 +75,15 @@ type session struct {
 
 func (ss *session) say(f string, a ...any) { fmt.Fprintf(ss.c, f+"\r\n", a...) }
 
+// listen opens a new data listener and returns its port.
+func (ss *session) listen() int {
+	if ss.data != nil {
+		ss.data.Close()
+	}
+	ss.data, _ = net.Listen("tcp", "127.0.0.1:0")
+	return ss.data.Addr().(*net.TCPAddr).Port
+}
+
 // accept opens the data connection for cmd; nil when the fake cut it.
 func (ss *session) accept(cmd, arg string) (net.Conn, error) {
 	s := ss.s
@@ -150,11 +159,10 @@ func (ss *session) handle(cmd, arg string) bool {
 		}
 		ss.c, ss.r = tc, bufio.NewReader(tc)
 	case "EPSV":
-		if ss.data != nil {
-			ss.data.Close()
-		}
-		ss.data, _ = net.Listen("tcp", "127.0.0.1:0")
-		ss.say("229 ok (|||%d|)", ss.data.Addr().(*net.TCPAddr).Port)
+		ss.say("229 ok (|||%d|)", ss.listen())
+	case "PASV": // hands back the data listener's own address, 127.0.0.1
+		p := ss.listen()
+		ss.say("227 ok (127,0,0,1,%d,%d)", p>>8, p&0xff)
 	case "LIST", "RETR", "STOR", "APPE":
 		return ss.transfer(cmd, arg)
 	case "QUIT":

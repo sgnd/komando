@@ -19,13 +19,15 @@ import (
 // JetStream API for the unit tests: streams with messages and consumers,
 // kept in memory. Live tests (TestNatsLive) use a real server.
 type fakeServer struct {
-	ln      net.Listener
-	mu      sync.Mutex
-	streams map[string]*fakeStream
-	user    string // "" takes any login
-	pass    string
-	noJS    bool   // answer the JetStream API with "not enabled"
-	deny    string // an API subject prefix the user may not use
+	ln          net.Listener
+	mu          sync.Mutex
+	streams     map[string]*fakeStream
+	user        string // "" takes any login
+	pass        string
+	noJS        bool       // answer the JetStream API with "not enabled"
+	deny        string     // an API subject prefix the user may not use
+	connectURLs []string   // INFO's connect_urls: the servers it hands back
+	conns       []net.Conn // every client connection, to drop them all
 }
 
 type fakeStream struct {
@@ -95,6 +97,12 @@ func (f *fakeServer) serve(c net.Conn) {
 	fc := &fakeConn{f: f, w: bufio.NewWriter(c), subs: map[string]string{}}
 	info := map[string]any{"server_id": "NFAKE", "server_name": "fake-1", "version": "2.12.1", "proto": 1, "headers": true, "max_payload": 1048576,
 		"jetstream": !f.noJS, "auth_required": f.user != "", "cluster": "lab"}
+	f.mu.Lock()
+	f.conns = append(f.conns, c)
+	if len(f.connectURLs) > 0 {
+		info["connect_urls"] = f.connectURLs
+	}
+	f.mu.Unlock()
 	b, _ := json.Marshal(info)
 	fc.send("INFO " + string(b) + "\r\n")
 	r := bufio.NewReader(c)

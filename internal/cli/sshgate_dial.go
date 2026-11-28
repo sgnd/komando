@@ -61,10 +61,13 @@ func gateDialAddrs(ctx context.Context, network, addr string) ([]string, error) 
 	if err != nil || !strings.HasPrefix(network, "tcp") && !strings.HasPrefix(network, "udp") {
 		return nil, gateDialErr("the gate connects a key only to a host and port, never to a socket on this computer")
 	}
+	if strings.Contains(host, "%") {
+		return nil, gateDialErr("%s names a network interface; the gate connects a key only to an address without a zone", host)
+	}
 	if gateLocalAsWritten(host) {
 		return nil, gateDialErr("%s is this computer; the gate connects a key to servers, not to this computer", host)
 	}
-	if bare, _, _ := strings.Cut(host, "%"); net.ParseIP(bare) != nil {
+	if net.ParseIP(host) != nil {
 		return []string{addr}, nil
 	}
 	lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
