@@ -653,7 +653,7 @@ var (
 	// account placeholders
 	allowTerms = []string{
 		"cli/pkg_security.go: This only looks: the pending security updates of each server",
-		"cli/select.go: unknown kind %q: use host, conn, vpn, a conn kind (see `koma",
+		"cli/select.go: unknown kind %q: use host, vpn, a type (%s) or a kind from t",
 		"dbx/users.go: host %q: a name, an address, or a pattern with %%",
 		"driver/driver.go: %s URL needs a user name, for example %s://deploy@host/folde",
 		"driver/storage_urls.go: add the user name, for example smb://alice@host/share; a gue",

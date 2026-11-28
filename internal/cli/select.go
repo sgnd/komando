@@ -226,16 +226,14 @@ func allNames(st *store.State) []string {
 	return names
 }
 
-// matchKind picks by type: kind:host, kind:conn, kind:vpn, a conn kind
-// (kind:postgres), the command a conn works with (kind:db, kind:cache,
-// kind:storage) or a VPN kind (kind:wireguard).
+// matchKind picks by type: kind:host, kind:vpn, an entry's kind
+// (kind:postgres), its type (kind:database, kind:cache, or the family
+// word kind:db) or a VPN kind (kind:wireguard).
 func matchKind(st *store.State, k string) (selection, error) {
-	k = strings.ToLower(k)
+	k = familyOfType(strings.ToLower(k))
 	switch k {
 	case "host", "server":
 		return selection{Hosts: st.SortedHosts()}, nil
-	case "conn":
-		return selection{Conns: st.SortedConns()}, nil
 	case "vpn":
 		return selection{Vpns: st.SortedVpns()}, nil
 	}
@@ -249,16 +247,16 @@ func matchKind(st *store.State, k string) (selection, error) {
 		return selection{Vpns: vs}, nil
 	}
 	known := false
-	var families []string
+	var types []string
 	for _, kd := range driver.Kinds() {
 		known = known || kd.Name == k || kd.Family == k
-		if !slices.Contains(families, kd.Family) {
-			families = append(families, kd.Family)
+		if !slices.Contains(types, typeWord(kd.Family)) {
+			types = append(types, typeWord(kd.Family))
 		}
 	}
 	if !known {
-		slices.Sort(families)
-		return selection{}, out.Usage("unknown kind %q: use host, conn, vpn, a conn kind (see `komando conn kinds`) or %s", k, strings.Join(families, ", "))
+		slices.Sort(types)
+		return selection{}, out.Usage("unknown kind %q: use host, vpn, a type (%s) or a kind from the KIND column of `komando list`", k, strings.Join(types, ", "))
 	}
 	var cs []*store.Conn
 	for _, c := range st.SortedConns() {

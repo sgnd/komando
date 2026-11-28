@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -284,13 +283,14 @@ func addHint(cl *call, family, wanted string) string {
 // target's own noun (`komando conn edit NAME` with a conn), so `vpn up
 // corp` never turns into `komando host ssh exec corp`. `komando test TARGET` takes
 // any of them or a VPN. `komando conn test` becomes `komando test`, the
-// one spelling.
+// one spelling. An entry's path written without the entry (`komando TYPE
+// PROVIDER show NAME`, entryCmd) gets the conn's type and provider.
 func fillHint(e *out.Error, target string) {
 	if e.Hint == "" || !strings.Contains(e.Hint, "`komando ") {
 		return
 	}
 	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
-	if target == "" || !placeholder.MatchString(e.Hint) && !strings.Contains(e.Hint, " KIND ") {
+	if target == "" || !placeholder.MatchString(e.Hint) && !entryPlaceholder.MatchString(e.Hint) {
 		return // nothing to fill: no need to read the inventory
 	}
 	st, err := loadState()
@@ -307,15 +307,18 @@ func fillHint(e *out.Error, target string) {
 		if len(words) > 1 {
 			noun = words[1]
 		}
-		// a type moved to the table names its conns NAME, its provider KIND;
-		// only the conn's own type (credential moved too, and its NAME is a
-		// credential's)
+		// a type moved to the table names its conns NAME, its provider
+		// PROVIDER or KIND; only the conn's own type (credential moved too,
+		// and its NAME is a credential's)
 		typed := false
-		if kind == "conn" && slices.Contains(movedTypes, noun) {
-			if t, err := driver.Parse(st.Conns[name].URL); err == nil && typeWord(t.Kind.Family) == noun {
+		if ew := entryWords(st.Conns[name]); kind == "conn" && ew != nil {
+			if noun == "TYPE" {
+				c, noun = "`komando "+ew[0]+strings.TrimPrefix(c, "`komando TYPE"), ew[0]
+			}
+			if noun == ew[0] && slices.Contains(movedTypes, noun) {
 				typed = true
-				if len(words) > 2 && words[2] == "KIND" {
-					c = strings.Replace(c, " KIND ", " "+providerWord(t.Kind)+" ", 1)
+				if len(words) > 2 && (words[2] == "KIND" || words[2] == "PROVIDER") {
+					c = strings.Replace(c, " "+words[2], " "+ew[1], 1)
 				}
 			}
 		}
@@ -336,6 +339,8 @@ func fillHint(e *out.Error, target string) {
 var (
 	hintCmd     = regexp.MustCompile("`komando [^`]*`")
 	placeholder = regexp.MustCompile(`(\s)(?:TARGET|SERVER|CONN|NAME)\b`)
+	// entryPlaceholder is the type or provider of an entry's path
+	entryPlaceholder = regexp.MustCompile("`komando (?:TYPE|[a-z]+ (?:KIND|PROVIDER))\\b")
 )
 
 // article is "a" or "an" for word, by its first letter.

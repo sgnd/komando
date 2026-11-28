@@ -19,7 +19,7 @@ komando host ssh exec @web -- uptime            # run on every server in group w
 | `@prod` | everything in group `prod` |
 | `tag:prod` | everything tagged `prod` |
 | `label:dc=jkt` | everything with label `dc=jkt` (`label:dc` picks everything that has a `dc` label) |
-| `kind:db` | every database (also `kind:host`, `kind:conn`, `kind:vpn`, `kind:cache`, `kind:queue`, `kind:storage`, `kind:cluster`, `kind:registry`, `kind:postgres`, and the other conn kinds) |
+| `kind:database` | every database (also `kind:db`, `kind:host`, `kind:vpn`, `kind:cache`, `kind:queue`, `kind:storage`, `kind:cluster`, `kind:registry`, `kind:postgres`, and the other conn kinds) |
 | `os:windows` | every Windows server (`os:linux`: every other server) |
 | `all` | everything |
 | `@prod,!web2` | combine with `,`; leave out with `!` |
