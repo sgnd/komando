@@ -55,16 +55,31 @@ func ips(s ...string) []net.IP {
 	return res
 }
 
-// gateOwnAddr is one of this computer's own addresses that is neither
-// loopback nor link-local, or "" when it has none.
-func gateOwnAddr() string {
-	addrs, _ := net.InterfaceAddrs()
-	for _, a := range addrs {
-		if n, ok := a.(*net.IPNet); ok && !n.IP.IsLoopback() && !n.IP.IsLinkLocalUnicast() {
-			return n.IP.String()
+// gateOwn is the LAN address gateStubInterfaces gives this computer.
+const gateOwn = "192.168.1.10"
+
+// gateStubInterfaces answers for gateInterfaces: lo0 (index 1, loopback,
+// with fe80::1 as on macOS) and en0 (index 4).
+func gateStubInterfaces(t *testing.T) {
+	t.Helper()
+	saved := gateInterfaces
+	t.Cleanup(func() { gateInterfaces = saved })
+	nets := func(cidrs ...string) []*net.IPNet {
+		var res []*net.IPNet
+		for _, c := range cidrs {
+			ip, n, err := net.ParseCIDR(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res = append(res, &net.IPNet{IP: ip, Mask: n.Mask})
 		}
+		return res
 	}
-	return ""
+	ifs := []gateIface{
+		{name: "lo0", index: 1, loopback: true, addrs: nets("127.0.0.1/8", "::1/128", "fe80::1/64")},
+		{name: "en0", index: 4, addrs: nets(gateOwn+"/24", "fe80::aaaa/64", "169.254.7.7/16", "2001:db8::10/64")},
+	}
+	gateInterfaces = func() ([]gateIface, error) { return ifs, nil }
 }
 
 // gateHereOrUnknown: the gate refuses a, as here or as a name it cannot resolve.
@@ -88,20 +103,17 @@ func TestGateLocalAddrFailsClosed(t *testing.T) {
 		"rebind.example":  {ips("203.0.113.5"), ips("127.0.0.1")},
 		"public6.example": {ips("2001:db8::5")},
 	}
-	own := gateOwnAddr()
-	if own != "" {
-		answers["own.example"] = [][]net.IP{ips(own)}
-	}
+	gateStubInterfaces(t)
+	answers["own.example"] = [][]net.IP{ips(gateOwn)}
+	answers["ownll.example"] = [][]net.IP{ips("169.254.7.7")}
 	gateStubDNS(t, answers)
 	want := map[string]bool{
+		"own.example": true, "ownll.example": true,
 		"nx.example": true, "err.example": true, "empty.example": true, // cannot tell
 		"mixed.example": true, "mixed6.example": true, "mapped.example": true, "zero.example": true, "unspec.example": true,
 		"mixed.example:5432": true,
 		"web.example":        false, "two.example": false, "public6.example": false, "web.example:22": false,
-		"rebind.example": false, // its first answer: the dial judges its own (TestGateDialPinsTheJudgedAnswer)
-	}
-	if own != "" {
-		want["own.example"] = true
+		"rebind.example": false, // its first answer: the dial judges its own (TestGateDialJudgesItsOwnLookup)
 	}
 	for a, w := range want {
 		if got := gateHereOrUnknown(a); got != w {
@@ -202,12 +214,20 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"unspec.example": {ips("::")},
 		"empty.example":  {nil},
 	}
-	own := gateOwnAddr()
-	if own != "" {
-		answers["own.example"] = [][]net.IP{ips(own)}
-	}
+	gateStubInterfaces(t)
+	answers["own.example"] = [][]net.IP{ips(gateOwn)}
 	gateStubDNS(t, answers)
 	refused := map[string]string{
+		"own.example:22":        "own.example is this computer",
+		gateOwn + ":22":         gateOwn + " is this computer",
+		"169.254.7.7:22":        "169.254.7.7 is this computer", // its own link-local IPv4 address
+		"[fe80::aaaa]:22":       "fe80::aaaa is this computer",  // its own, with no zone
+		"[fe80::aaaa%en0]:22":   "fe80::aaaa%en0 is this computer",
+		"[fe80::aaaa%4]:22":     "fe80::aaaa%4 is this computer", // the zone by number
+		"[fe80::1%1]:22":        "fe80::1%1 is this computer",    // 1 is lo0
+		"[fe80::5%lo0]:22":      "fe80::5%lo0 is this computer",  // on the loopback link, held or not
+		"[::1%en0]:22":          "::1%en0 is this computer",
+		"[fe80::bbbb%en9]:22":   "fe80::bbbb%en9 is this computer", // no such interface here
 		"nx.example:22":         "the gate cannot resolve nx.example",
 		"err.example:22":        "the gate cannot resolve err.example",
 		"empty.example:22":      "the gate cannot resolve empty.example",
@@ -223,10 +243,6 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"[::]:22":               ":: is this computer",
 		"localhost:6379":        "localhost is this computer",
 		"[fe80::1%lo0]:22":      "fe80::1%lo0 is this computer",
-	}
-	if own != "" {
-		refused["own.example:22"] = "own.example is this computer"
-		refused[net.JoinHostPort(own, "22")] = own + " is this computer"
 	}
 	for addr, msg := range refused {
 		d := &gateDialStub{}
@@ -245,11 +261,13 @@ func TestGateDialRefusesHere(t *testing.T) {
 	}
 }
 
-// The address the dial connects to is the one it judged: a name that
-// answers a public address to the gate and loopback to the dial is
-// refused at the dial, and a public name is dialed by its judged IPs, in
-// order, never by the name (which would resolve again).
-func TestGateDialPinsTheJudgedAnswer(t *testing.T) {
+// The dial judges its own lookup, not the gate check's: a name that
+// answered public to the check and answers loopback to the dial is
+// refused at the dial (it never connects to the check's answer). A public
+// name is dialed by the IPs this lookup judged, in order, never by the name
+// (which would resolve again).
+func TestGateDialJudgesItsOwnLookup(t *testing.T) {
+	gateStubInterfaces(t)
 	asked := gateStubDNS(t, map[string][][]net.IP{
 		"rebind.example": {ips("203.0.113.5"), ips("127.0.0.1")},
 		"two.example":    {ips("203.0.113.5", "2001:db8::6")},
@@ -273,7 +291,8 @@ func TestGateDialPinsTheJudgedAnswer(t *testing.T) {
 	if asked["two.example"] != 1 {
 		t.Errorf("two.example looked up %d times, want once", asked["two.example"])
 	}
-	for _, addr := range []string{"203.0.113.9:22", "[fe80::1%en0]:22", "[2001:db8::9]:22"} {
+	// fe80::1 is lo0's here, and on en0 a router's: the zone says which
+	for _, addr := range []string{"203.0.113.9:22", "[fe80::1%en0]:22", "[fe80::bbbb%4]:22", "169.254.9.9:22", "[2001:db8::9]:22"} {
 		d := &gateDialStub{}
 		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err != nil || !slices.Equal(d.asked, []string{"tcp " + addr}) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)

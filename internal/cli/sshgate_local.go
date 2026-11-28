@@ -262,35 +262,108 @@ func gateLocalAsWritten(a string) bool {
 		a = h
 	}
 	a, zone, _ := strings.Cut(inventory.NormAddr(a), "%")
-	if zone != "" && gateLoopbackZone(zone) {
-		return true // fe80::1%lo0: on this computer's loopback
+	if ip := net.ParseIP(a); ip != nil {
+		return gateZonedIPHere(ip, zone)
+	}
+	if zone != "" {
+		if i, ok := gateZone(zone); !ok || i.loopback {
+			return true
+		}
 	}
 	me, _ := os.Hostname()
 	me = inventory.NormAddr(me)
 	short, _, _ := strings.Cut(me, ".")
-	if ip := net.ParseIP(a); ip != nil {
-		return gateLocalIP(ip)
-	}
 	return a == "localhost" || strings.HasSuffix(a, ".localhost") || a != "" && (a == me || a == short) ||
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""
 }
 
-// gateOwnIP: ip is an address of one of this computer's network
-// interfaces (its LAN address, say), so a server at it is this computer.
-func gateOwnIP(ip net.IP) bool {
-	if ip.IsLinkLocalUnicast() {
-		return false // fe80::1 is on every interface: its zone says which (gateLoopbackZone)
+// gateZonedIPHere: ip written with an IPv6 zone (fe80::1%en0) is this
+// computer. A link-local address is judged on the zone's link only: fe80::1
+// is lo0's on macOS and a router's on en0. A zone this computer has no
+// interface for counts as here: the gate cannot tell which link it names.
+func gateZonedIPHere(ip net.IP, zone string) bool {
+	if zone == "" || !ip.IsLinkLocalUnicast() {
+		if gateLocalIP(ip) {
+			return true
+		}
+		if zone == "" {
+			return false
+		}
 	}
-	addrs, err := net.InterfaceAddrs()
+	i, ok := gateZone(zone)
+	return !ok || i.loopback || ip.IsLinkLocalUnicast() && i.holds(ip)
+}
+
+// gateZone is the interface an IPv6 zone names, by name or by number, as
+// the dial reads it.
+func gateZone(zone string) (gateIface, bool) {
+	ifs, err := gateInterfaces()
+	if err != nil {
+		return gateIface{}, false
+	}
+	for _, i := range ifs {
+		if i.name == zone {
+			return i, true
+		}
+	}
+	if n, err := strconv.Atoi(zone); err == nil {
+		for _, i := range ifs {
+			if i.index == n {
+				return i, true
+			}
+		}
+	}
+	return gateIface{}, false
+}
+
+// gateOwnIP: ip is an address of one of this computer's network
+// interfaces (its LAN address, its own 169.254 or fe80 address), so a
+// server at it is this computer.
+func gateOwnIP(ip net.IP) bool {
+	ifs, err := gateInterfaces()
 	if err != nil {
 		return false
 	}
-	for _, a := range addrs {
-		if n, ok := a.(*net.IPNet); ok && n.IP.Equal(ip) {
-			return true
-		}
+	return slices.ContainsFunc(ifs, func(i gateIface) bool { return i.holds(ip) })
+}
+
+// gateIface is one of this computer's network interfaces as the gate sees it.
+type gateIface struct {
+	name     string
+	index    int
+	loopback bool
+	addrs    []*net.IPNet
+}
+
+func (i gateIface) holds(ip net.IP) bool {
+	return slices.ContainsFunc(i.addrs, func(n *net.IPNet) bool { return n.IP.Equal(ip) })
+}
+
+// gateInterfaces lists this computer's network interfaces and their
+// addresses; tests answer for it.
+var gateInterfaces = func() ([]gateIface, error) {
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return nil, err
 	}
-	return false
+	res := make([]gateIface, 0, len(ifs))
+	for _, i := range ifs {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		g := gateIface{name: i.Name, index: i.Index, loopback: i.Flags&net.FlagLoopback != 0}
+		for _, a := range addrs {
+			switch a := a.(type) {
+			case *net.IPNet:
+				g.addrs = append(g.addrs, a)
+			case *net.IPAddr:
+				g.addrs = append(g.addrs, &net.IPNet{IP: a.IP, Mask: net.CIDRMask(8*len(a.IP), 8*len(a.IP))})
+			}
+		}
+		res = append(res, g)
+	}
+	return res, nil
 }
 
 // sshdHostKeys are where this computer's own SSH server keeps its public
@@ -326,14 +399,4 @@ func gateSameHostKey(h *store.Host) bool {
 		}
 	}
 	return false
-}
-
-// gateLoopbackZone: an IPv6 zone that is a loopback interface here (lo,
-// lo0, or one this computer marks loopback).
-func gateLoopbackZone(zone string) bool {
-	if zone == "lo" || zone == "lo0" {
-		return true
-	}
-	i, err := net.InterfaceByName(zone)
-	return err == nil && i.Flags&net.FlagLoopback != 0
 }
