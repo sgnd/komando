@@ -220,6 +220,9 @@ type kvArray struct {
 // brackets), because GetStringArray reads that text back: a value with a
 // comma or a double quote comes back as the one value it is.
 func (v *kvArray) String() string {
+	if len(*v.p) == 0 {
+		return "[]"
+	}
 	var b strings.Builder
 	w := csv.NewWriter(&b)
 	if err := w.Write(*v.p); err != nil {
