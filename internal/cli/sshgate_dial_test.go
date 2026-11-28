@@ -289,6 +289,8 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"[fe80::bbbb]:22":             "fe80::bbbb is this computer",
 		"[fd00:ec2::254]:80":          "fd00:ec2::254 is this computer",
 		"[fd20:ce::254]:80":           "fd20:ce::254 is this computer",
+		"[fd00:ec2::23]:80":           "fd00:ec2::23 is this computer",
+		"[fd00:c1::a9fe:a9fe]:80":     "fd00:c1::a9fe:a9fe is this computer",
 		"100.100.100.200:80":          "100.100.100.200 is this computer",
 		"168.63.129.16:80":            "168.63.129.16 is this computer",
 		"192.0.0.192:80":              "192.0.0.192 is this computer",
