@@ -51,10 +51,16 @@ func cmdID(c *cobra.Command) string {
 	if id := c.Annotations[cmdIDNote]; id != "" {
 		return id
 	}
-	p := strings.TrimSpace(strings.TrimPrefix(c.CommandPath(), "komando"))
-	if p == "" {
-		return "komando"
+	if p := pathID(c); p != "" {
+		return p
 	}
+	return "komando"
+}
+
+// pathID is c's dotted path without "komando", whatever its annotation
+// says: "" for the root.
+func pathID(c *cobra.Command) string {
+	p := strings.TrimSpace(strings.TrimPrefix(c.CommandPath(), "komando"))
 	return strings.ReplaceAll(p, " ", ".")
 }
 
