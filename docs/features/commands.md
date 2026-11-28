@@ -271,6 +271,9 @@ Good to know:
   started the run (`SESSION_RECORD_MISSING` elsewhere); a run started with
   `--sudo` is stopped through sudo as the same user. `--remove` refuses a
   running session (`SESSION_BUSY`): stop it first.
+- A stopped run keeps its output up to the stop, and `--attach ID` says it
+  was stopped and with which signal. `--signal KILL` gives the run no
+  ending: output the server still held can be lost.
 - The session merges stdout and stderr into one output: a single-server
   `exec` result has no separate stderr.
 - `--sudo` uses the server's `--sudo-credential` password when it has one. The

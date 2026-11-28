@@ -229,6 +229,25 @@ func TestStartScriptTimeout(t *testing.T) {
 	}
 }
 
+// C652: a run its --timeout stopped keeps the output it printed before:
+// the capper outlives the group's TERM and empties what it holds.
+func TestStartScriptTimeoutKeepsOutput(t *testing.T) {
+	home := t.TempDir()
+	if got, code := runStart(t, home, Start{ID: testID, Run: startRun("echo a; sleep 30"), Timeout: time.Second, LogMax: 1 << 20}, "", fakeSetsid(t, "0", true)); code != 0 {
+		t.Fatalf("exit %d, %q", code, got)
+	}
+	waitFile(t, home, "killed")
+	for range 50 {
+		if _, err := os.Lstat(filepath.Join(sessionDir(home), ".o")); errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if o, _ := os.ReadFile(filepath.Join(sessionDir(home), "out.log")); string(o) != "a\n" {
+		t.Errorf("out.log %q, want the output before the timeout", o)
+	}
+}
+
 // An unsafe folder refuses before anything is written or started.
 func TestStartScriptUnsafeFolder(t *testing.T) {
 	home := t.TempDir()

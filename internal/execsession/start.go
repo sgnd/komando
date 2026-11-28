@@ -84,9 +84,11 @@ func StartScript(s Start) (string, error) {
 // files and the fifo are gone: a reader that sees exit sees them gone.
 func wrapper(start string, timeout time.Duration, max int64) string {
 	watch, end := watcher(timeout)
-	return `echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+	// the group's TERM (a stop, the timeout) ends the run, not its ending: the
+	// root traps it; the capper ignores it, so head writes what it holds
+	return `trap : TERM INT QUIT; echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
 		`[ -e "$d/.go" ] || exit 0; rm -f "$d/.w" "$d/.go"; ` +
-		`{ head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
+		`{ trap '' TERM; head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
 		`exec > "$d/.o" 2>&1; umask "$1"; ` + start + `; umask 077; ` + watch + end +
 		`exec > /dev/null 2>&1; i=0; while kill -0 $k 2>/dev/null && [ $i -lt 3 ]; do sleep 1; i=$((i+1)); done; ` +
 		`rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"; [ -f "$d/killed" ] || { echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"; }`

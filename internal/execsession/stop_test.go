@@ -4,7 +4,9 @@ package execsession
 
 import (
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -170,13 +172,15 @@ func TestStopCommandSudo(t *testing.T) {
 		t.Fatal(err)
 	}
 	plain, err := StopCommand(&base, "TERM", false)
-	if err != nil || plain != inner {
+	if err != nil || !strings.Contains(plain, "( "+inner+" ); c=$?") || strings.Contains(plain, "sudo") {
 		t.Fatalf("no sudo: %q, %v", plain, err)
 	}
 	asApp := base
 	asApp.Sudo, asApp.SudoUser = true, "app"
 	got, err := StopCommand(&asApp, "TERM", false)
-	if err != nil || !strings.HasPrefix(got, "sudo -n -u 'app' sh -c ") || !strings.Contains(got, "ks_start") {
+	// the mark is the login user's: it is written before sudo, never inside it
+	if err != nil || !strings.Contains(got, "( sudo -n -u 'app' sh -c ") || !strings.Contains(got, "ks_start") ||
+		strings.Index(got, `> "$d/killed"`) > strings.Index(got, "sudo") {
 		t.Fatalf("sudo -u app: %q, %v", got, err)
 	}
 	root := base
@@ -254,5 +258,110 @@ func TestRemoveExit(t *testing.T) {
 	}
 	if err := RemoveExit("web", testID, 1); err == nil || !strings.Contains(err.Error(), "remove failed (exit 1)") {
 		t.Errorf("exit 1: %v", err)
+	}
+}
+
+// runStopIn runs StopCommand (no sudo) as the login user with HOME home.
+func runStopIn(t *testing.T, home string, rec *store.ExecSession, sig string) (string, int) {
+	t.Helper()
+	text, err := StopCommand(rec, sig, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return runShOut(t, home, text)
+}
+
+// startStoppable starts the real run inner in a session of its own group,
+// and gives its record once the run had a second to print.
+func startStoppable(t *testing.T, home, inner string) *store.ExecSession {
+	t.Helper()
+	got, code := runStart(t, home, Start{ID: testID, Shown: "x", Run: startRun(inner), LogMax: 1 << 20}, "", fakeSetsid(t, "0", true))
+	f, _, err := ReadStart("dev", code, got, testID)
+	if err != nil {
+		t.Fatalf("start: %v (exit %d) %q", err, code, got)
+	}
+	rec := &store.ExecSession{ID: testID, PID: f.PID, PGID: f.PGID, ProcStart: f.Start}
+	t.Cleanup(func() { _ = syscall.Kill(-f.PGID, syscall.SIGKILL) })
+	time.Sleep(time.Second)
+	return rec
+}
+
+// readSession reads session testID in home with the real read script.
+func readSession(t *testing.T, home string) (Status, string) {
+	t.Helper()
+	text, err := ReadScript(testID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, code := runShOut(t, home, text)
+	if code != 0 {
+		t.Fatalf("read exit %d: %q", code, got)
+	}
+	st, data, err := ParseRead(got, testID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st, string(data)
+}
+
+// C652: a stop marks the run killed with its signal before it signals, the
+// output up to the stop stays in the log, and the run's own ending still
+// runs: no exit file, no lost mark, the fifo gone.
+func TestStopCommandKeepsOutputAndMarksTheSignal(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `echo a; sleep 30; echo late`)
+	got, code := runStopIn(t, home, rec, "TERM")
+	if code != 0 || !strings.Contains(got, "signalled group") {
+		t.Fatalf("stop exit %d, %q", code, got)
+	}
+	st, data := readSession(t, home)
+	if st.Killed != "TERM stop" || st.Lost || !st.Ended() {
+		t.Errorf("status %+v, want killed TERM stop", st)
+	}
+	if data != "a\n" {
+		t.Errorf("the log holds %q, want the output up to the stop", data)
+	}
+	for _, f := range []string{"exit", "lost", ".o"} {
+		if _, err := os.Lstat(filepath.Join(sessionDir(home), f)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s after a stop: %v", f, err)
+		}
+	}
+}
+
+// C652: a stop that signals nothing (the stored process is not the live
+// one) leaves no killed mark: the run's own end still decides.
+func TestStopCommandUnmarksWhenNothingWasSignalled(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `sleep 30`)
+	stale := *rec
+	stale.ProcStart += "0"
+	if got, code := runStopIn(t, home, &stale, "TERM"); code != ExitNotRunning {
+		t.Fatalf("stop exit %d, %q; want %d", code, got, ExitNotRunning)
+	}
+	if _, err := os.Lstat(filepath.Join(sessionDir(home), "killed")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("a stop that signalled nothing left a killed mark: %v", err)
+	}
+}
+
+// C652: the killed mark is never written through a link the run left in
+// its folder; the stop still stops the run.
+func TestStopCommandMarkNotThroughALink(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `sleep 30`)
+	target := filepath.Join(t.TempDir(), "elsewhere")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(sessionDir(home), "killed")); err != nil {
+		t.Fatal(err)
+	}
+	if got, code := runStopIn(t, home, rec, "TERM"); code != 0 {
+		t.Fatalf("stop exit %d, %q", code, got)
+	}
+	if b, _ := os.ReadFile(target); len(b) != 0 {
+		t.Errorf("the mark went through the link: %q", b)
+	}
+	if !gone(rec.PID) {
+		t.Error("the run is still there")
 	}
 }

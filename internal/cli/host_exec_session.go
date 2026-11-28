@@ -256,6 +256,9 @@ func (s *sessionRun) follow(cl *call, ctx context.Context, c *sshx.Client, from 
 		res.ExitCode, res.TimedOut = -1, true
 	case st.Killed != "":
 		res.ExitCode, res.Signal = -1, strings.Fields(st.Killed)[0]
+		if sig, how, _ := strings.Cut(st.Killed, " "); how == "stop" {
+			cl.out.Warn(c.Host.Name + ": session " + s.id + " was stopped with " + sig)
+		}
 	default:
 		res.ExitCode = st.Exit
 	}

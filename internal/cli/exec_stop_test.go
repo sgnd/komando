@@ -122,7 +122,7 @@ func TestExecSessionStopSudo(t *testing.T) {
 	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
-	if e := srv.take(); len(e) != 1 || !strings.HasPrefix(e[0].cmd, "sudo -n -u 'bob' sh -c ") {
+	if e := srv.take(); len(e) != 1 || !strings.Contains(e[0].cmd, "; ( sudo -n -u 'bob' sh -c ") {
 		t.Fatalf("execs %+v", e)
 	}
 }
@@ -144,7 +144,7 @@ func TestExecSessionStopSudoPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := srv.take()
-	if len(e) != 1 || strings.Contains(e[0].cmd, pw) || e[0].stdin != pw+"\n" || !strings.HasPrefix(e[0].cmd, "if sudo -n sh -c : 2>/dev/null; then sudo -n sh -c ") {
+	if len(e) != 1 || strings.Contains(e[0].cmd, pw) || e[0].stdin != pw+"\n" || !strings.Contains(e[0].cmd, "; ( if sudo -n sh -c : 2>/dev/null; then sudo -n sh -c ") {
 		t.Fatalf("execs %+v", e)
 	}
 	// a run without sudo is stopped without it, and the password stays here

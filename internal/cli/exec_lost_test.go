@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -62,6 +63,37 @@ func TestExecConnectionLost(t *testing.T) {
 	if r.Error.Code != "CONNECTION_LOST" || r.Stdout != "step 1 done\n" || r.ExitCode != -1 ||
 		!strings.Contains(r.Error.Message, "may still be running") {
 		t.Fatalf("result: %+v", r)
+	}
+}
+
+// A run its stop ended reads as stopped, with the signal and the output up
+// to the stop: never as a run that ended without an exit code (row C652).
+func TestExecSessionStoppedSaysStopped(t *testing.T) {
+	srv := startSessionServer(t, "a\n", false)
+	srv.mu.Lock()
+	srv.answer = func(cmd string) (string, int) {
+		if m := readID.FindStringSubmatch(cmd); m != nil {
+			return "read-begin " + m[1] + "\nkilled TERM stop\nsize 2\nread-end " + m[1] + "\na\n", 0
+		}
+		out, status, _ := sessionAnswer(cmd, srv.log, false, 0)
+		return out, status
+	}
+	srv.mu.Unlock()
+	first, res, _ := runSession(t, "host", "ssh", "exec", "dev", "--read-only", "--", "uptime")
+	id, _ := first["session"].(string)
+	if len(res.Data.Results) != 1 {
+		t.Fatalf("results: %+v", res)
+	}
+	if r := res.Data.Results[0]; r.Stdout != "a\n" || r.Signal != "TERM" || r.ExitCode != -1 {
+		t.Errorf("result: %+v", r)
+	}
+	if want := "dev: session " + id + " was stopped with TERM"; !slices.Contains(res.Meta.Warnings, want) {
+		t.Errorf("warnings %q, want %q", res.Meta.Warnings, want)
+	}
+	for _, w := range res.Meta.Warnings {
+		if strings.Contains(w, "without an exit code") {
+			t.Errorf("a stopped run reads as lost: %q", w)
+		}
 	}
 }
 

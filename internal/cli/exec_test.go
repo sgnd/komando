@@ -118,6 +118,7 @@ type sessionResult struct {
 			Stdout   string  `json:"stdout"`
 			Cut      bool    `json:"stdout_truncated"`
 			NextFrom *int64  `json:"next_from"`
+			Signal   string  `json:"signal"`
 		} `json:"results"`
 	} `json:"data"`
 	Error struct{ Code, Hint string } `json:"error"`

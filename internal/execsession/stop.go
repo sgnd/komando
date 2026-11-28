@@ -59,24 +59,53 @@ func StopScript(rec *store.ExecSession, sig string) (string, error) {
 // StopCommand is StopScript run as the run ran: a run under sudo is
 // stopped through sudo as the same user, and the start check runs inside
 // that same sudo call. With a password (the host's sudo reference, sent as
-// the command's input) sudo is first asked whether it needs one.
+// the command's input) sudo is first asked whether it needs one. Around it,
+// as the login user: the killed mark before (markStopped), the wait for the
+// run's ending after (awaitEnding).
 func StopCommand(rec *store.ExecSession, sig string, password bool) (string, error) {
 	inner, err := StopScript(rec, sig)
 	if err != nil {
 		return "", err
 	}
-	if !rec.Sudo && rec.SudoUser == "" {
-		return inner, nil
+	if err := CheckID(rec.ID); err != nil {
+		return "", err
 	}
-	user := ""
-	if rec.SudoUser != "" {
-		user = "-u " + sshx.Q(rec.SudoUser) + " "
+	stop := inner
+	if rec.Sudo || rec.SudoUser != "" {
+		user := ""
+		if rec.SudoUser != "" {
+			user = "-u " + sshx.Q(rec.SudoUser) + " "
+		}
+		sh := "sh -c " + sshx.Q(inner)
+		stop = "sudo -n " + user + sh
+		if password {
+			stop = `if sudo -n ` + user + `sh -c : 2>/dev/null; then sudo -n ` + user + sh + `; else sudo -S -p '' ` + user + sh + `; fi`
+		}
 	}
-	sh := "sh -c " + sshx.Q(inner)
-	if !password {
-		return "sudo -n " + user + sh, nil
+	return markStopped(rec.ID, sig) + `( ` + stop + ` ); c=$?; ` +
+		`if [ $c -ne 0 ]; then [ -z "$m" ] || rm -f "$d/killed"; exit $c; fi; ` + awaitEnding(sig), nil
+}
+
+// markStopped writes killed ("TERM stop") in the session's folder as the
+// login user, before the signal: the run's root then writes no exit, and a
+// read says how it ended. Only in a folder of the login user that is no
+// link, and with noclobber, never through a link the run left there; m is
+// set when this stop wrote the mark, so a stop that signals nothing takes
+// it back. No folder there: the stop still signals.
+func markStopped(id, sig string) string {
+	return `r="$HOME/.komando"; s="$r/sessions"; d="$s/` + id + `"; m=; ` + ownCheck +
+		`if ( ks_own "$r"; ks_own "$s"; ks_own "$d" ) 2>/dev/null; then ` +
+		`(set -C; printf '%s stop\n' ` + sshx.Q(sig) + ` > "$d/killed") 2>/dev/null && m=1; fi; `
+}
+
+// awaitEnding waits up to 5 s for the run's root to finish its ending
+// (it removes the fifo once the capper wrote the log), so a read right
+// after the stop has the whole output. KILL leaves the root no ending.
+func awaitEnding(sig string) string {
+	if sig == "KILL" {
+		return `exit 0`
 	}
-	return `if sudo -n ` + user + `sh -c : 2>/dev/null; then sudo -n ` + user + sh + `; else sudo -S -p '' ` + user + sh + `; fi`, nil
+	return `i=0; while [ -n "$m" ] && [ -p "$d/.o" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || { sleep 1; i=$((i+9)); }; i=$((i+1)); done; exit 0`
 }
 
 // StopExit is the error for a stop's exit code: nil for 0. ExitNotRunning
