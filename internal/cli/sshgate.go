@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -410,6 +411,9 @@ func gateCheckIn(sc *call, root *cobra.Command, args []string, key gateKey) (nam
 	}
 	c.InitDefaultHelpFlag()
 	if err := c.ParseFlags(rest); err != nil {
+		if c.HasSubCommands() && slices.ContainsFunc(rest, func(w string) bool { return !strings.HasPrefix(w, "-") }) {
+			return "", "", gateUnknownLine(args) // a group with a word left over: no such subcommand
+		}
 		return name, "", nil // the same: a usage error, nothing runs
 	}
 	output = sc.flags.output
