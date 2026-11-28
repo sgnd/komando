@@ -23,6 +23,7 @@ var auditEvents = []string{
 	"export.sealed",          // a sealed export file written
 	"doctor.accept-old-copy", // a person took an older copy of the store
 	"doctor.reseal-meta",     // a person sealed the store's settings row again
+	"doctor.end-old-jobs",    // a person marked v0.17 jobs ended; the move writes it
 	// the file events of copy
 	"upload", "download", "sync", "delete",
 }

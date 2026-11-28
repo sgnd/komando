@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
 	"path"
 	"slices"
@@ -141,3 +142,26 @@ func commandName(cmd string) string {
 	return ""
 }
 
+// auditMarkedJobs records, in the move's own write step, the v0.17 jobs a
+// person marked ended before it (doctor, EndOldJobs): the store had no
+// format-3 audit log to take the event when they were marked.
+func auditMarkedJobs(tx *sealdb.Tx, o migrate3Opts, rt *Runtime) error {
+	var ids []string
+	for id, j := range rt.Jobs {
+		if j != nil && j.Ended == jobMarked {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	slices.Sort(ids)
+	entry, err := json.Marshal(map[string]any{
+		"ts": o.now().UTC().Format(time.RFC3339Nano), "command": "doctor", "event": "doctor.end-old-jobs",
+		"ok": true, "dry_run": false, "actor": "komando", "jobs": ids,
+	})
+	if err != nil {
+		return err
+	}
+	return tx.AppendAudit(entry)
+}

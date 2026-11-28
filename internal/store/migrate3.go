@@ -233,6 +233,9 @@ func writeMove(ctx context.Context, o migrate3Opts, d *sealdb.DB, master []byte,
 			if err := writeFormat3(tx, p, snap, vc, entry); err != nil {
 				return err
 			}
+			if err := auditMarkedJobs(tx, o, carried); err != nil {
+				return err
+			}
 			// Q7: the runtime records that outlive the migration go into
 			// the same step, under a new mark
 			if mark, err = putRuntimeCopy(tx, carried); err != nil {

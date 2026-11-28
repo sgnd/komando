@@ -66,6 +66,10 @@ func TestOldJobMarkedThenMoved(t *testing.T) {
 	if _, err := migrateFormat3(context.Background(), personOpts()); err != nil {
 		t.Fatalf("the move after the marks: %v", err)
 	}
+	// the marks are in the audit log, in the move's own write (audit A3)
+	if e := lastAudit(t); !strings.Contains(e, `"event":"doctor.end-old-jobs"`) || !strings.Contains(e, `"jobs":["j1","j3"]`) {
+		t.Errorf("the last audit record is %s, want the marked jobs", e)
+	}
 	rt, err := ReadRuntime()
 	if err != nil {
 		t.Fatal(err)
