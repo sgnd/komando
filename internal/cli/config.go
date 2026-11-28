@@ -173,7 +173,7 @@ var settings = []setting{
 			st.Settings.MaskPersonal = v
 			return nil
 		}},
-	{"login_for", "duration", "how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)",
+	{"login_for", "duration", "how long `komando test NAME` keeps a server's login for later commands (an AI agent's too)",
 		func(s *store.Settings) string { return s.LoginFor },
 		func(cl *call, st *store.State, v string) (err error) {
 			v, err = positiveDur("login_for", v, false)

@@ -374,7 +374,7 @@ func noLiveProcesses(rt *Runtime, alive func(int, string) bool) error {
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Logins)) {
 		if l := rt.Logins[n]; alive(l.PID, l.ProcStart) {
-			running = append(running, fmt.Sprintf("server login %s (end it: komando logout %s)", n, n))
+			running = append(running, fmt.Sprintf("server login %s (end it: komando test %s --end)", n, n))
 		}
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Tunnels)) {

@@ -92,6 +92,21 @@ func (d awsLogoutData) Text() string {
 	return sb.String()
 }
 
+// logoutCmd is the group of the logouts of cloud logins; a server's login
+// ends with `komando test --end`.
+func logoutCmd(cl *call) *cobra.Command {
+	c := &cobra.Command{
+		Use:   "logout",
+		Short: "End a cloud login",
+		Long: `komando logout aws ends an AWS IAM Identity Center (SSO) login.
+
+A server's login ends with ` + "`komando test --end`" + `.`,
+		Example: `  komando logout aws --profile prod`,
+	}
+	c.AddCommand(logoutAWSCmd(cl))
+	return c
+}
+
 func logoutAWSCmd(cl *call) *cobra.Command {
 	var profile string
 	var all bool

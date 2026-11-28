@@ -179,8 +179,7 @@ func keepSession(cl *call, st *store.State, h *store.Host) error {
 	if keep <= 0 {
 		keep = 8 * time.Hour
 	}
-	_, err := keepLogin(cl, st, h, keep)
-	return err
+	return keepLogin(cl, st, h, keep)
 }
 
 // endSessions is `test --end`: it ends the kept sessions of the servers

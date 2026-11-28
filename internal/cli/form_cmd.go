@@ -645,7 +645,7 @@ var formAreas = []struct {
 	{"File storage", "buckets, SFTP, FTP, WebDAV, SMB", []string{"storage"}},
 	{"Kubernetes", "clusters, apps, logs, Helm", []string{"cluster"}},
 	{"Container registries", "images and tags", []string{"registry"}},
-	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},
+	{"VPNs, logins and tunnels", "connect, log in to a cloud, forward ports", []string{"vpn", "tunnel", "login", "logout"}},
 	{"Secrets and keys", "the vault and SSH keys", []string{"credential", "secret"}},
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
 	{"Snippets", "saved commands", []string{"snippet"}},

@@ -61,6 +61,9 @@ func TestTestKeepsATwoFactorSession(t *testing.T) {
 	if l := st.Logins["web1"]; l == nil || time.Until(l.Until) < 7*time.Hour {
 		t.Fatalf("session record %+v", l)
 	}
+	if rows := runningStatus(tcl, st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
+		t.Errorf("status: %+v", rows)
+	}
 
 	// --end on the one server ends it: the agent is back to needing a person
 	mustRun(t, "host", "ssh", "test", "web1", "--end")
@@ -101,6 +104,17 @@ func TestTestEndAll(t *testing.T) {
 	if st, _ := store.Load(); len(st.Logins) != 0 {
 		t.Fatalf("test --end left %v", st.Logins)
 	}
+}
+
+// `test NAME --end` of a server with no session ends nothing; a name that
+// is neither a server nor a kept session is an error.
+func TestTestEndArgs(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.7")
+	if d := mustRun(t, "test", "web1", "--end"); len(d["ended"].([]any)) != 0 {
+		t.Errorf("test web1 --end with no session: %v", d)
+	}
+	wantCode(t, "TARGET_NOT_FOUND", "test", "nosuch", "--end")
 }
 
 func TestTestNeedsATargetWithoutEnd(t *testing.T) {

@@ -52,7 +52,7 @@ func formExitCode(err error) (int, error) {
 // formIsCheck: the command shows that what was just added works.
 func formIsCheck(c []string) bool {
 	switch {
-	case len(c) >= 1 && (c[0] == "test" || c[0] == "login"):
+	case len(c) >= 1 && c[0] == "test":
 		return true
 	case len(c) >= 3 && c[0] == "vpn" && c[2] == "start":
 		return true

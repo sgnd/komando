@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -89,7 +88,7 @@ func twoFactorSSHD(t *testing.T) (port string, logins *atomic.Int32) {
 	return port, logins
 }
 
-// TestHolderChild is `komando login-holder` in the login tests: the
+// TestHolderChild is `komando login-holder` in the kept-session tests: the
 // background process, run from this test binary.
 func TestHolderChild(t *testing.T) {
 	args, ok := os.LookupEnv("KOMANDO_HOLDER_ARGS")
@@ -118,76 +117,8 @@ func init() {
 	}
 }
 
-func TestLoginKeepsATwoFactorLogin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("starts processes")
-	}
-	invHome(t)
-	home, err := os.MkdirTemp("", "kl") // short: the login's socket lives in it
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(home) })
-	setHome(t, home)
-	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
-	port, logins := twoFactorSSHD(t)
-	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
-	t.Cleanup(func() { _, _ = invRun(t, "logout", "--all") })
-
-	// an AI agent cannot answer the code, and cannot log in for itself
-	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	_, e := invRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
-	if e == nil || !strings.Contains(e.Hint, "`komando test web1`") {
-		t.Fatalf("an agent without a login: %+v", e)
-	}
-	wantCode(t, "NEEDS_PERSON", "login", "web1")
-	// its dry run is never blocked: the plan says what the real run needs
-	d := mustRun(t, "login", "web1", "--dry-run")
-	if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); d["would_log_in"] != false || b["code"] != "NEEDS_PERSON" {
-		t.Fatalf("an agent's dry run: %v", d)
-	}
-
-	// a person logs in once, at a terminal
-	os.Unsetenv("KOMANDO_AGENT")
-	resetApproval()
-	p := startPTY(t, "login", "web1")
-	p.answer("Password: ", "pw\r")
-	p.answer("Verification code: ", "123456\r")
-	if code := p.exit(); code != 0 {
-		t.Fatalf("login: exit %d; the screen:\n%s", code, p.shown())
-	}
-	p.waitFor("logged in to web1")
-
-	// now the agent's commands use that login: no code, no new login
-	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	for range 2 {
-		d := mustRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
-		if !strings.Contains(asJSON(d), "ran on web1") {
-			t.Fatalf("exec through the kept login: %v", d)
-		}
-	}
-	if n := logins.Load(); n != 1 {
-		t.Errorf("the server saw %d logins, want 1", n)
-	}
-	st, _ := store.Load()
-	if l := st.Logins["web1"]; l == nil || time.Until(l.Until) < 7*time.Hour {
-		t.Fatalf("login record %+v", l)
-	}
-	if rows := runningStatus(tcl, st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
-		t.Errorf("status: %+v", rows)
-	}
-
-	// logout ends it: the agent is back to needing a person
-	mustRun(t, "logout", "web1")
-	if _, e := invRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime"); e == nil {
-		t.Fatal("exec worked after logout")
-	}
-	if n := logins.Load(); n != 1 {
-		t.Errorf("after logout the server saw %d logins, want 1", n)
-	}
-}
-
-func TestLoginWrongCodeSaysWhy(t *testing.T) {
+// A wrong code at `komando test` says why and keeps no session.
+func TestTestWrongCodeSaysWhy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts processes")
 	}
@@ -201,7 +132,7 @@ func TestLoginWrongCodeSaysWhy(t *testing.T) {
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
-	p := startPTY(t, "login", "web1")
+	p := startPTY(t, "test", "web1")
 	p.answer("Password: ", "pw\r")
 	p.answer("Verification code: ", "000000\r")
 	if code := p.exit(); code != out.ExitConnect {
@@ -213,7 +144,8 @@ func TestLoginWrongCodeSaysWhy(t *testing.T) {
 	}
 }
 
-func TestLoginCtrlCAtTheCode(t *testing.T) {
+// Ctrl-C at the code of `komando test` stops it and keeps no session.
+func TestTestCtrlCAtTheCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts processes")
 	}
@@ -227,7 +159,7 @@ func TestLoginCtrlCAtTheCode(t *testing.T) {
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
 	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
-	p := startPTY(t, "login", "web1")
+	p := startPTY(t, "test", "web1")
 	p.answer("Password: ", "pw\r")
 	p.answer("Verification code: ", "\x03")
 	if code := p.exit(); code != out.ExitError {
@@ -252,7 +184,7 @@ func asJSON(v any) string {
 	return string(b)
 }
 
-// login-holder's input comes only from `komando login`: anything else on
+// login-holder's input comes only from `komando test`: anything else on
 // it (by hand, or a broken line) is one answer, NEEDS_PERSON, never a
 // parse error that reads as a failed login.
 func TestHolderStdinNotByHand(t *testing.T) {

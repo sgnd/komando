@@ -3,8 +3,6 @@ package cli
 import (
 	"slices"
 	"strings"
-
-	"github.com/sgnd/komando/internal/store"
 )
 
 // The questions for the VPNs, logins and tunnels area and the Secrets and
@@ -57,14 +55,10 @@ func init() {
 			flags: []formFlag{{name: "all", ask: "Stop every tunnel instead?"}}},
 
 		// Logins
-		"login": {form: loginForm},
 		"login aws": {flags: []formFlag{{name: "profile", ask: "Which AWS profile?", example: "prod",
 			help: "Its name in ~/.aws/config. Leave empty for the usual one. Your browser opens for the AWS sign-in."}}},
 		"logout aws": {flags: []formFlag{{name: "profile", ask: "Which AWS profile?", example: "prod",
 			help: "The profile in ~/.aws/config whose SSO login should end. Empty: AWS_PROFILE, else default."}}},
-		"logout": {args: []formArg{{ask: "From which servers? (leave empty with --all)", pick: "host", free: true,
-			help: "Ends the login `komando login` kept. Several: separate them with spaces."}},
-			flags: []formFlag{{name: "all", ask: "End every kept login instead?"}}},
 
 		// Secrets
 		"credential password add":  {args: []formArg{accSecretAdd}},
@@ -131,24 +125,10 @@ func init() {
 	})
 }
 
-// loginForm asks for one server: a bare `komando login` only shows its
-// help, so a person at a terminal is always asked for the server.
-func loginForm(cl *call) []formGroup {
-	sp := formSpec{title: "Log in to a server once and keep it", qs: []formQ{{
-		key: "arg0", label: "Host", ask: "Which server should you log in to?",
-		help:    "komando asks what the server asks (a password, a code from your phone) and keeps the login open for a while, so later commands need no login.",
-		choices: func(st *store.State, _ formAnswers) []pickRow { return formPickRows(st, "server") },
-	}}}
-	sp.build = func(_ *store.State, a formAnswers) [][]string { return [][]string{{"login", a["arg0"]}} }
-	return []formGroup{{label: "Login", kinds: []formKind{{label: "Server", spec: func(cl *call) formSpec { return sp }}}}}
-}
-
 // Next: lines for VPNs, logins, tunnels, secrets and keys (network,
 // secrets, core and cloud areas).
 func init() {
 	addFormHints(map[string]formHint{
-		"login":                 {next: []string{"status", "host ssh exec {} -- uptime", "logout {}"}},
-		"logout":                {next: []string{"status"}},
 		"host ssh tunnel start": {next: []string{"host ssh tunnel list", "host ssh tunnel stop TUNNEL"}},
 		"host ssh tunnel stop":  {next: []string{"host ssh tunnel list"}},
 		"login aws":             {next: []string{"test TARGET", "storage s3 object list NAME", "import aws"}},

@@ -312,7 +312,7 @@ func serverForm(cl *call) formSpec {
 		serverJumpQ(),
 		formWhen(formMore(formYesNoQ("code", "One-time code", "Does it also ask for a one-time code when you log in?",
 			"A 6-digit code from an app like Google Authenticator. Most servers do not.", "no",
-			"after adding, komando login keeps one login for 8 hours", "after adding, komando tests it")), ssh),
+			"after adding, komando tests it and keeps the login for 8 hours", "after adding, komando tests it")), ssh),
 		formGroupQ(), formNotesQ(),
 	}, build: serverBuild}
 }
@@ -427,11 +427,7 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	case "keylist":
 		args = append(args, "--key", a["key"])
 	}
-	next := []string{"test", a["name"]}
-	if a["code"] == "yes" {
-		next = []string{"login", a["name"]}
-	}
-	return [][]string{formFlags(args, a), next}
+	return [][]string{formFlags(args, a), {"test", a["name"]}}
 }
 
 // Databases.

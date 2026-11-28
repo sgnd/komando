@@ -10,13 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,80 +31,27 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// komando login HOST: a person logs in to a server once, answering what
-// it asks (the password, a two-factor code), and a background komando
-// process keeps that login for the login_for setting (8h). Later commands
-// reach the server through it, an AI agent's too, without a person; every
-// other check (rules, approvals, audit) still runs in those commands.
-// `komando logout SERVER` ends it sooner. See sshx/held.go.
-
-// loginHost runs `komando login SERVER`.
-func loginHost(cl *call, ctx context.Context, name string) error {
-	st, err := loadState()
-	if err != nil {
-		return err
-	}
-	h, err := findHost(cl, st, name)
-	if err != nil {
-		return err
-	}
-	needsPerson := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
-		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
-	if !cl.interactive() && !cl.dryRun() {
-		return needsPerson
-	}
-	keep, _ := time.ParseDuration(st.Settings.LoginFor)
-	if keep <= 0 {
-		keep = 8 * time.Hour
-	}
-	if l := sshx.HeldFor(st, h); l != nil && heldAlive(l) {
-		cl.out.Print("login.host", loginResult{Host: h.Name, Until: l.Until, Already: true}, nil)
-		return nil
-	}
-	if cl.dryRun() { // never blocked: what the real run would need is in would_be_blocked
-		res := map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}
-		if !cl.interactive() {
-			res["would_log_in"] = false
-			cl.out.WouldBlock(needsPerson)
-		}
-		cl.out.Print("login.host", res, nil)
-		return nil
-	}
-	r, err := keepLogin(cl, st, h, keep)
-	if err != nil {
-		return err
-	}
-	cl.out.Print("login.host", r, nil)
-	return nil
-}
+// A kept server login: a person logs in to a server once, answering what
+// it asks (the password, a two-factor code), by running `komando test NAME`
+// at a terminal. A background komando process keeps that login for the
+// login_for setting (8h). Later commands reach the server through it, an AI
+// agent's too, without a person; every other check (rules, approvals,
+// audit) still runs in those commands. `komando test --end` ends it
+// sooner. See test_wait.go and sshx/held.go.
 
 // keepLogin starts the kept session of h and records it.
-func keepLogin(cl *call, st *store.State, h *store.Host, keep time.Duration) (loginResult, error) {
+func keepLogin(cl *call, st *store.State, h *store.Host, keep time.Duration) error {
 	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
 	l, err := startHolder(cl, h, keep)
 	if err != nil {
-		return loginResult{}, err
+		return err
 	}
 	if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
 		endLogin(l)
-		return loginResult{}, err
+		return err
 	}
-	auditEvent(cl, st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
-	return loginResult{Host: h.Name, Until: l.Until}, nil
-}
-
-type loginResult struct {
-	Host    string    `json:"host"`
-	Until   time.Time `json:"until"`
-	Already bool      `json:"already_logged_in,omitempty"`
-}
-
-func (r loginResult) Text() string {
-	left := humanAge(time.Until(r.Until))
-	if r.Already {
-		return fmt.Sprintf("already logged in to %s for %s more; `komando logout %s` ends it\n", term.CleanText(r.Host), left, term.CleanText(r.Host))
-	}
-	return fmt.Sprintf("logged in to %s; commands to it (an AI agent's too) use this login for %s, or until `komando logout %s`\n", term.CleanText(r.Host), left, term.CleanText(r.Host))
+	auditEvent(cl, st, "test.keep", []string{h.Name}, "", true, map[string]any{"until": l.Until})
+	return nil
 }
 
 // heldAlive reports whether l's process still runs.
@@ -273,10 +218,10 @@ func safeFileName(name string) string {
 	}, name)
 }
 
-// loginHolderCmd is the background process of `komando login SERVER`: it
-// logs in (its questions go to the person through `login` on its output)
+// loginHolderCmd is the background process of `komando test NAME`: it
+// logs in (its questions go to the person through `test` on its output)
 // and then serves the login on a Unix socket until the login_for time, a
-// `komando logout`, or the server closing the connection.
+// `komando test --end`, or the server closing the connection.
 func loginHolderCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:    "login-holder NAME",
@@ -302,16 +247,16 @@ func loginHolderCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
-			if err := checkTicket(cl, ticket, "login-holder", "login "+args[0]); err != nil {
+			if err := checkTicket(cl, ticket, "login-holder", "test "+args[0]); err != nil {
 				return fail(err)
 			}
 			if cl.isAgent() {
 				// its questions go to whoever started it: an agent would
 				// answer them as the person, and accept a new host key
-				return fail(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando login "+args[0]+"` in their own terminal",
-					"login-holder is the background process of `komando login`, which only a person runs").NoFlag())
+				return fail(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando test "+args[0]+"` in their own terminal",
+					"login-holder is the background process of `komando test`, which only a person runs").NoFlag())
 			}
-			// only a holder its `login` started outlives it: `login` exits once it is up
+			// the holder outlives the `test` that started it
 			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP)
 			st, err := loadState()
 			if err != nil {
@@ -415,7 +360,7 @@ func heldSocket() (net.Listener, string, ssh.Signer, error) {
 }
 
 // holdUntil waits until the login ends and says why: its time is up, a
-// logout stopped it, or the server closed the connection.
+// `test --end` stopped it, or the server closed the connection.
 func holdUntil(ctx context.Context, c *sshx.Client, until time.Time) string {
 	ended := make(chan error, 1)
 	go func() { ended <- c.Wait() }()
@@ -423,7 +368,7 @@ func holdUntil(ctx context.Context, c *sshx.Client, until time.Time) string {
 	case <-time.After(time.Until(until)):
 		return "login_for time is up"
 	case <-ctx.Done():
-		return "stopped (komando logout)"
+		return "stopped (komando test --end)"
 	case err := <-ended:
 		if err != nil {
 			return "the server closed the connection: " + err.Error()
@@ -435,8 +380,8 @@ func holdUntil(ctx context.Context, c *sshx.Client, until time.Time) string {
 // holderStdin reads what startHolder sends after the ticket: the socket's
 // token, the end time and the vault passphrase.
 func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
-	notByHand := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando login`: it checks and records what login-holder does",
-		"login-holder is started by `komando login`, not by hand").NoFlag()
+	notByHand := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando test NAME`: it checks and records what login-holder does",
+		"login-holder is started by `komando test`, not by hand").NoFlag()
 	for _, want := range []string{"TOKEN", "UNTIL", "PASS"} {
 		line, rerr := in.ReadString('\n')
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
@@ -468,95 +413,4 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 		return "", time.Time{}, notByHand
 	}
 	return token, until, nil
-}
-
-func logoutCmd(cl *call) *cobra.Command {
-	var all bool
-	c := &cobra.Command{
-		Use:   "logout [SERVER...]",
-		Args:  cobra.ArbitraryArgs, // server names; `aws` is the subcommand
-		Short: "End server logins kept by `komando login` (--all for every one)",
-		Long: `Ends what ` + "`komando login SERVER`" + ` keeps: the connection closes, and later
-commands to that server log in again (a two-factor server asks a person).
-` + "`komando status`" + ` lists the logins that are kept. ` + "`komando logout aws`" + ` ends an
-AWS IAM Identity Center (SSO) login.`,
-		Example: `  komando logout web1
-  komando logout --all
-  komando logout aws --profile prod`,
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			st, err := loadState()
-			if err != nil {
-				return err
-			}
-			names := args
-			switch {
-			case all && len(names) > 0:
-				return out.Errf(out.ExitUsage, "USAGE", "use `komando logout --all` or `komando logout "+strings.Join(names, " ")+"`", "--all logs out of every server; give names or --all, not both")
-			case all:
-				names = slices.Sorted(maps.Keys(st.Logins))
-			case len(names) == 0:
-				return out.Usage("give the server names to log out of, or --all")
-			}
-			for _, n := range names {
-				// a login of a server removed since still ends
-				if _, err := findHost(cl, st, n); err != nil && st.Logins[n] == nil {
-					return err
-				}
-			}
-			if cl.dryRun() {
-				cl.out.Print("logout", map[string]any{"would_log_out": names}, nil)
-				return nil
-			}
-			done, none := []string{}, []string{}
-			for _, n := range names {
-				l := st.Logins[n]
-				if l == nil {
-					if h, err := findHost(cl, st, n); err == nil && st.Logins[h.Name] != nil {
-						n, l = h.Name, st.Logins[h.Name]
-					}
-				}
-				if l == nil || !heldAlive(l) {
-					none = append(none, n)
-				} else {
-					done = append(done, n)
-				}
-				endLogin(l)
-			}
-			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
-				for _, n := range append(append([]string{}, done...), none...) {
-					delete(s.Logins, n)
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-			if len(done) > 0 {
-				audit(cl, st, "logout", done, "", true, nil)
-			}
-			cl.out.Print("logout", logoutData{LoggedOut: done, NotLoggedIn: none}, nil)
-			return nil
-		}),
-	}
-	c.Flags().BoolVar(&all, "all", false, "end every kept server login")
-	c.AddCommand(logoutAWSCmd(cl))
-	return c
-}
-
-type logoutData struct {
-	LoggedOut   []string `json:"logged_out"`
-	NotLoggedIn []string `json:"not_logged_in,omitempty"`
-}
-
-func (d logoutData) Text() string {
-	var sb strings.Builder
-	for _, n := range d.LoggedOut {
-		sb.WriteString("logged out of " + term.CleanText(n) + "\n")
-	}
-	for _, n := range d.NotLoggedIn {
-		sb.WriteString(term.CleanText(n) + " was not logged in\n")
-	}
-	if sb.Len() == 0 {
-		sb.WriteString("no kept logins, so nothing to end (`komando status` lists them)\n")
-	}
-	return sb.String()
 }
