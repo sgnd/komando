@@ -385,7 +385,7 @@ func codesAt(e ast.Expr, vars map[string][]assign) (codes []string, scopes []sco
 			}
 		}
 	case *ast.Ident:
-		// code := "CERT_PROBLEMS" ... out.Error{Code: code}
+		// code := "PROTECTED_TARGET" ... out.Error{Code: code}
 		for _, a := range vars[x.Name] {
 			if s := lit(a.val); codeShape.MatchString(s) {
 				codes, scopes = append(codes, s), append(scopes, scope{vars: vars, stmt: a.stmt})

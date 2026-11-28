@@ -3,8 +3,6 @@ package cli
 // jsonTagAllowed are the JSON keys from before S-9.1 and S-9.2 that break
 // them; contract 1 keeps them as they are (TestJSONTagLint). Only shrink it.
 var jsonTagAllowed = []string{
-	"cli.certInfo.not_after",     // a moment is <event>_at
-	"cli.certInfo.not_before",    // a moment is <event>_at
 	"cli.errorCode.exit",         // say the unit: _at, _ms, _seconds, _bytes, _count, exit_code
 	"cli.fileInfo.mod_time",      // a moment is <event>_at
 	"cli.fileInfo.size",          // say the unit: _at, _ms, _seconds, _bytes, _count, exit_code

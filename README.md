@@ -121,7 +121,7 @@ you a window to allow it once. The agent never sees your passwords.
 | Bring in what you already have, or move to another computer | `import`, `export` |
 | Run commands on one or many servers | `exec`, `job`, `shell` |
 | Read, edit and copy files | `fs`, `upload`, `download`, `cp`, `sync` |
-| Check health and certificates | `facts`, `recipe`, `cert` |
+| Check health | `facts`, `recipe` |
 | Services, logs, Docker, packages, users, schedules, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
 | Reach things behind a VPN | `vpn` |
