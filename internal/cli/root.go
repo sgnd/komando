@@ -492,10 +492,7 @@ func newRootFor(cl *call, line []string) *cobra.Command {
 // and every command in it runs in cl (callOf). What the last command in cl
 // recorded is forgotten.
 func treeOf(cl *call) *cobra.Command {
-	cl.out.Reset()
-	cl.flags = globalFlags{} // the flags below bind to it with their defaults
-	cl.askedAbout, cl.blockAudited, cl.interrupted, cl.preRan = nil, false, false, false
-	cl.personalCmd, cl.fsSudoRetry = false, "retry with --sudo"
+	cl.forgetLastCommand()
 	root := &cobra.Command{
 		Use:           "komando",
 		Short:         "One safe CLI for servers, databases, caches, storage, clusters",

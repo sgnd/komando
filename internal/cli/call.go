@@ -140,6 +140,15 @@ func newCall(c engine.Call, args []string) *call {
 	return cl
 }
 
+// forgetLastCommand clears what the last command in cl recorded, before a
+// new tree binds its flags to cl.flags with their defaults (treeOf).
+func (cl *call) forgetLastCommand() {
+	cl.out.Reset()
+	cl.flags = globalFlags{}
+	cl.askedAbout, cl.blockAudited, cl.interrupted, cl.preRan = nil, false, false, false
+	cl.personalCmd, cl.fsSudoRetry = false, "retry with --sudo"
+}
+
 // eofReader is the input of a call that has none.
 type eofReader struct{}
 
