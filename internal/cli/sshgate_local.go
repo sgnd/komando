@@ -241,7 +241,7 @@ func gateLocalAddr(a string) (bool, error) {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, _, _ = strings.Cut(inventory.NormAddr(a), "%")
+	a = inventory.NormAddr(a)
 	if a == "" || net.ParseIP(a) != nil {
 		return false, nil
 	}
@@ -294,19 +294,19 @@ func gateGroupIP(ip net.IP) bool {
 	return ip.IsMulticast() || len(ip) == net.IPv6len && [12]byte(ip[:12]) == [12]byte{}
 }
 
-// gateLocalAsWritten is gateLocalAddr without resolving the name.
+// gateLocalAsWritten is gateLocalAddr without resolving the name. An
+// address written with a zone (%en0) counts as here: the zone names a link
+// of this computer, and the gate cannot tell where it leads.
 func gateLocalAsWritten(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
-	a, zone, _ := strings.Cut(inventory.NormAddr(a), "%")
-	if ip := net.ParseIP(a); ip != nil {
-		return gateZonedIPHere(ip, zone)
+	a = inventory.NormAddr(a)
+	if strings.Contains(a, "%") {
+		return true
 	}
-	if zone != "" {
-		if i, ok := gateZone(zone); !ok || i.loopback {
-			return true
-		}
+	if ip := net.ParseIP(a); ip != nil {
+		return gateLocalIP(ip)
 	}
 	me, _ := os.Hostname()
 	me = inventory.NormAddr(me)
@@ -315,45 +315,9 @@ func gateLocalAsWritten(a string) bool {
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""
 }
 
-// gateZonedIPHere: ip written with an IPv6 zone (ff02::1%en0) is this
-// computer. A zone on the loopback interface, or one this computer has no
-// interface for, counts as here: the gate cannot tell which link it names.
-func gateZonedIPHere(ip net.IP, zone string) bool {
-	if gateLocalIP(ip) {
-		return true
-	}
-	if zone == "" {
-		return false
-	}
-	i, ok := gateZone(zone)
-	return !ok || i.loopback
-}
-
-// gateZone is the interface an IPv6 zone names, by name or by number, as
-// the dial reads it.
-func gateZone(zone string) (gateIface, bool) {
-	ifs, err := gateInterfaces()
-	if err != nil {
-		return gateIface{}, false
-	}
-	for _, i := range ifs {
-		if i.name == zone {
-			return i, true
-		}
-	}
-	if n, err := strconv.Atoi(zone); err == nil {
-		for _, i := range ifs {
-			if i.index == n {
-				return i, true
-			}
-		}
-	}
-	return gateIface{}, false
-}
-
 // gateOwnIP: ip is an address of one of this computer's network
-// interfaces (its LAN address, its own 169.254 or fe80 address), so a
-// server at it is this computer. Without the list, any address may be.
+// interfaces (its LAN address), or the broadcast address of one of its
+// networks, so a server at it is this computer. Without the list, any address may be.
 func gateOwnIP(ip net.IP) bool {
 	ifs, err := gateInterfaces()
 	if err != nil {
@@ -364,10 +328,7 @@ func gateOwnIP(ip net.IP) bool {
 
 // gateIface is one of this computer's network interfaces as the gate sees it.
 type gateIface struct {
-	name     string
-	index    int
-	loopback bool
-	addrs    []*net.IPNet
+	addrs []*net.IPNet
 }
 
 func (i gateIface) holds(ip net.IP) bool {
@@ -408,7 +369,7 @@ var gateInterfaces = func() ([]gateIface, error) {
 		if err != nil {
 			return nil, err
 		}
-		g := gateIface{name: i.Name, index: i.Index, loopback: i.Flags&net.FlagLoopback != 0}
+		var g gateIface
 		for _, a := range addrs {
 			switch a := a.(type) {
 			case *net.IPNet:

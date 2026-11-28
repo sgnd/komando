@@ -62,8 +62,8 @@ func ips(s ...string) []net.IP {
 // gateOwn is the LAN address gateStubInterfaces gives this computer.
 const gateOwn = "192.168.1.10"
 
-// gateStubInterfaces answers for gateInterfaces: lo0 (index 1, loopback,
-// with fe80::1 as on macOS), en0 (index 4) and utun3 (index 9).
+// gateStubInterfaces answers for gateInterfaces: lo0 (with fe80::1 as on
+// macOS), en0 and utun3.
 func gateStubInterfaces(t *testing.T) {
 	t.Helper()
 	saved := gateInterfaces
@@ -80,9 +80,9 @@ func gateStubInterfaces(t *testing.T) {
 		return res
 	}
 	ifs := []gateIface{
-		{name: "lo0", index: 1, loopback: true, addrs: nets("127.0.0.1/8", "::1/128", "fe80::1/64")},
-		{name: "en0", index: 4, addrs: nets(gateOwn+"/24", "fe80::aaaa/64", "169.254.7.7/16", "2001:db8::10/64")},
-		{name: "utun3", index: 9, addrs: nets("10.9.9.0/31")}, // a point-to-point link: 10.9.9.1 is the peer
+		{addrs: nets("127.0.0.1/8", "::1/128", "fe80::1/64")},
+		{addrs: nets(gateOwn+"/24", "fe80::aaaa/64", "169.254.7.7/16", "2001:db8::10/64")},
+		{addrs: nets("10.9.9.0/31")}, // a point-to-point link: 10.9.9.1 is the peer
 	}
 	gateInterfaces = func() ([]gateIface, error) { return ifs, nil }
 }
@@ -244,12 +244,12 @@ func TestGateDialRefusesHere(t *testing.T) {
 		gateOwn + ":22":         gateOwn + " is this computer",
 		"169.254.7.7:22":        "169.254.7.7 is this computer", // its own link-local IPv4 address
 		"[fe80::aaaa]:22":       "fe80::aaaa is this computer",  // its own, with no zone
-		"[fe80::aaaa%en0]:22":   "fe80::aaaa%en0 is this computer",
-		"[fe80::aaaa%4]:22":     "fe80::aaaa%4 is this computer", // the zone by number
-		"[fe80::1%1]:22":        "fe80::1%1 is this computer",    // 1 is lo0
-		"[fe80::5%lo0]:22":      "fe80::5%lo0 is this computer",  // on the loopback link, held or not
-		"[::1%en0]:22":          "::1%en0 is this computer",
-		"[fe80::bbbb%en9]:22":   "fe80::bbbb%en9 is this computer", // no such interface here
+		"[fe80::aaaa%en0]:22":   "fe80::aaaa%en0 names a network interface",
+		"[fe80::aaaa%4]:22":     "fe80::aaaa%4 names a network interface",
+		"[fe80::1%1]:22":        "fe80::1%1 names a network interface",
+		"[fe80::5%lo0]:22":      "fe80::5%lo0 names a network interface",
+		"[::1%en0]:22":          "::1%en0 names a network interface",
+		"[fe80::bbbb%en9]:22":   "fe80::bbbb%en9 names a network interface",
 		"nx.example:22":         "the gate cannot resolve nx.example",
 		"err.example:22":        "the gate cannot resolve err.example",
 		"empty.example:22":      "the gate cannot resolve empty.example",
@@ -264,9 +264,9 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"0.0.0.0:22":            "0.0.0.0 is this computer",
 		"[::]:22":               ":: is this computer",
 		"localhost:6379":        "localhost is this computer",
-		"[fe80::1%lo0]:22":      "fe80::1%lo0 is this computer",
+		"[fe80::1%lo0]:22":      "fe80::1%lo0 names a network interface",
 		"224.0.0.1:5353":        "224.0.0.1 is this computer", // multicast reaches this computer too
-		"[ff02::1%en0]:22":      "ff02::1%en0 is this computer",
+		"[ff02::1%en0]:22":      "ff02::1%en0 names a network interface",
 		"[ff01::1]:22":          "ff01::1 is this computer",
 		"255.255.255.255:22":    "255.255.255.255 is this computer",
 		"192.168.1.255:22":      "192.168.1.255 is this computer", // en0's broadcast
