@@ -54,6 +54,7 @@ its highlights; the sections below them give the details. Versions follow
 - The agent guard (`komando guide guard`) refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
 - **Breaking:** `komando cluster kubernetes raw` ends with the codes the removed `cluster` commands had, as every other cluster path does: a cluster that does not answer within `--timeout` is `TIMEOUT` (exit 7), a login program that is not on this computer is `TOOL_MISSING` (exit 3, with the kubeconfig's install hint), a login that fails is `LOGIN_FAILED` (exit 4). Before, raw said `TOOL_FAILED` (exit 5) for all three. A change that timed out is in the audit log, as a broken connection is.
 - An AI agent's `db dump` stops with `NEEDS_PERSON` on every database, not only where personal data is hidden: the file holds every row as it is, passwords and tokens included. No flag lifts it; a person runs the dump in their own terminal.
+- **Breaking:** `komando login SERVER` and `komando logout SERVER` are gone. A person logs in to a server with `komando test NAME` at a terminal: it asks what the server asks (the password, a code) and keeps one login for the `login_for` time (8 hours by default), which an AI agent's commands then use. `komando test NAME --end` ends it, and `komando test --end` ends every kept login; `komando status` lists them as before. `komando login aws` and `komando logout aws` stay for AWS IAM Identity Center (SSO), and `komando login gcp` and `komando login azure` still say they are not built.
 
 ### Fixed
 

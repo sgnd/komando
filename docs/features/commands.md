@@ -430,7 +430,7 @@ scripts and pipes never get them, and the JSON output does not change.
 
 Some things keep running after the command that started them: a VPN (from
 `vpn KIND start`, or connected by a command), a server login kept by
-`komando login`, a tunnel, or an exec session on a server. `komando status` lists
+`komando test`, a tunnel, or an exec session on a server. `komando status` lists
 them all:
 
 ```bash
@@ -440,7 +440,7 @@ komando status
 ```text
 KIND    NAME                   DETAIL                                             SINCE
 vpn     office                 used 3m ago, closes in 26m if unused               42m
-login   web1                   kept for 7h more (`komando logout web1` ends it)   1h
+login   web1                   kept for 7h more (`komando test web1 --end` ends it)   1h
 aws     dev,ops                SSO login, kept for 3h more (`komando logout aws --profile dev` ends it)   1h
 tunnel  t1108-195255-ab12cd34  127.0.0.1:5433 → prod-db                            2h
 exec    mfrggzdfmztwq2lknnwg23tpobyxe43uovwgy3tjnrswy5dxnzsxs  web1: tar czf /backup/www.tgz /var/www             15m

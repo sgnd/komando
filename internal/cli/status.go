@@ -31,7 +31,7 @@ type runningVpn struct {
 	UsedBy   []string  `json:"used_by,omitempty"`
 }
 
-// runningLogin is a server login kept by `komando test NAME`.
+// runningLogin is a server login kept by `komando test TARGET`.
 type runningLogin struct {
 	Host  string    `json:"host"`
 	Since time.Time `json:"since"`
@@ -54,7 +54,7 @@ func statusCmd() *cobra.Command {
 		Short: "What komando left running: VPNs, logins, tunnels, exec sessions",
 		Long: `Lists what still runs after the command that started it ended: VPN
 sessions (from vpn KIND start, or started by a command), server logins kept by
-` + "`komando test NAME`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
+` + "`komando test TARGET`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
 ~/.aws/config and when they end, tunnels, and the exec sessions started on servers. Nothing is contacted, so it is quick and works offline.
 An exec session is listed until ` + "`komando host ssh exec TARGET --attach ID --remove`" + `
 (or a read to its end by the one who started it) removes it; whether it still

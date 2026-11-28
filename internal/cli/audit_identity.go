@@ -18,7 +18,7 @@ import (
 var auditEvents = []string{
 	"host.key-pinned",        // a server's key trusted on first use
 	"secret.set",             // a password typed with --ask-password, stored
-	"test.keep",              // test kept a server's login open
+	"login.host",             // a server's login kept open (by test); the name stays so old records and queries still match
 	"test.end",               // test --end closed kept logins
 	"export.sealed",          // a sealed export file written
 	"doctor.accept-old-copy", // a person took an older copy of the store

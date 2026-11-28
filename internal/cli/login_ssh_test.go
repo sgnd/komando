@@ -112,7 +112,7 @@ func TestHolderChild(t *testing.T) {
 	os.Exit(Execute())
 }
 
-// holderFromTests makes `komando login` (here, or in a pty child that has
+// holderFromTests makes `komando test` (here, or in a pty child that has
 // KOMANDO_HOLDER_FROM_TESTS) start its background process from this test
 // binary.
 func holderFromTests() {
@@ -178,7 +178,7 @@ func TestTestCtrlCAtTheCode(t *testing.T) {
 	if code := p.exit(); code != out.ExitError {
 		t.Fatalf("exit %d, want %d; the screen:\n%s", code, out.ExitError, p.shown())
 	}
-	p.waitFor("Stopped (Ctrl-C)")
+	p.waitFor("CANCELLED")
 }
 
 func TestLoginForSetting(t *testing.T) {

@@ -18,7 +18,7 @@ import (
 
 // komando login aws renews a person's cloud login without the vendor's
 // CLI. It is for a person: they answer the login in their browser. A
-// person's server login is `komando test NAME` (test_wait.go).
+// person's server login is `komando test TARGET` (test_wait.go).
 
 func loginCmd(cl *call) *cobra.Command {
 	c := &cobra.Command{
@@ -26,8 +26,10 @@ func loginCmd(cl *call) *cobra.Command {
 		Short: "Log in to a cloud account",
 		Long: `komando login aws logs in to AWS IAM Identity Center (SSO).
 
-A server's login is kept by ` + "`komando test NAME`" + `, and ` + "`komando test --end`" + ` ends it.`,
-		Example: `  komando login aws --profile prod`,
+A server's login is kept by ` + "`komando test TARGET`" + `, and ` + "`komando test --end`" + ` ends it.`,
+		Example: `  komando login aws --profile prod       # opens the browser; confirm the code shown
+  komando login aws                      # the profile in AWS_PROFILE, else default
+  komando login aws --profile prod --dry-run   # which sign-in page, without logging in`,
 	}
 	// a new subcommand goes into loginClouds too, so no server takes its name
 	c.AddCommand(loginAWSCmd(cl),

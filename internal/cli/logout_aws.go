@@ -101,7 +101,9 @@ func logoutCmd(cl *call) *cobra.Command {
 		Long: `komando logout aws ends an AWS IAM Identity Center (SSO) login.
 
 A server's login ends with ` + "`komando test --end`" + `.`,
-		Example: `  komando logout aws --profile prod`,
+		Example: `  komando logout aws --profile prod
+  komando logout aws --all
+  komando logout aws --profile prod --dry-run`,
 	}
 	c.AddCommand(logoutAWSCmd(cl))
 	return c

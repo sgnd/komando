@@ -50,7 +50,7 @@ func keepLogin(cl *call, st *store.State, h *store.Host, keep time.Duration) err
 		endLogin(l)
 		return err
 	}
-	auditEvent(cl, st, "test.keep", []string{h.Name}, "", true, map[string]any{"until": l.Until})
+	auditEvent(cl, st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
 	return nil
 }
 

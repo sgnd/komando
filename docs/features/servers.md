@@ -549,7 +549,7 @@ So komando keeps the way in your hands:
   to a `--login ask` server, whose host key komando has not seen yet,
   needs a person at a terminal: an AI agent's command stops with
   `NEEDS_PERSON`, opens no window and pins nothing. Run
-  `komando login web1` (or any command) at your terminal once: komando
+  `komando test web1` (or any command) at your terminal once: komando
   prints the new key to compare, then asks the password. A pinned key is
   not enough on its own: komando pins keys by address, and an agent can
   pin whatever answers at an address through any server it adds there.
@@ -560,10 +560,9 @@ So komando keeps the way in your hands:
   window warns on a first connection or login. The same holds while
   `host_key_policy` is `off`, and for a WinRM server with `tls=off` or
   `tls=skip-verify`: nothing checks who answers there.
-- **The login's background process is yours.** An AI agent cannot run
-  `komando login`, nor start its background process itself (both
-  `NEEDS_PERSON`), whose questions it would answer as if it were
-  you.
+- **The login's background process is yours.** An AI agent cannot start
+  the background process of a kept login itself (`NEEDS_PERSON`): it would
+  answer its questions as if it were you.
 
 One command asks once per server: `komando host ssh exec @web -P 10` asks each
 login-ask server once, and a jump host once for every server behind it.
@@ -574,7 +573,7 @@ written to disk, the audit log or a program's environment. komando zeroes
 its own copy when the command ends; copies the SSH library made cannot be
 zeroed and go when the command's process ends.
 
-To type it once for a while instead, log in with `komando login web1`
+To type it once for a while instead, run `komando test web1`
 (below): every command, an AI agent's too, uses that login until it ends,
 and nobody is asked. A server that prints the password back cannot be
 masked then: the command that uses the login never had it. A tunnel runs
@@ -604,11 +603,12 @@ terminal is asked: for an AI agent or a script the login stops with
 counts against the account. The agent asks you to log in once for it:
 
 ```bash
-komando login web1        # type the password and the code once
-komando logout web1       # end it sooner
+komando test web1          # type the password and the code once
+komando test web1 --end    # end it sooner
+komando test --end         # end every kept login
 ```
 
-`komando login` asks what the server asks and then keeps that login open
+`komando test` at a terminal asks what the server asks and then keeps that login open
 in the background for 8 hours (the `login_for` setting). Every command to
 web1 uses it, your AI agent's too, so nobody types a code again until it
 ends; komando's rules, approvals and audit still apply to each command.
@@ -616,9 +616,10 @@ A login to a jump host is used for every server behind it. `komando status`
 lists the kept logins, and a login ends early when the server closes it or
 its address changes.
 
-Only a person at a terminal can run `komando login`; an AI agent's
-`komando login web1 --dry-run` shows the plan (`would_log_in: false`, and
-`meta.would_be_blocked` names `NEEDS_PERSON`).
+Only a person at a terminal is asked: an AI agent's `komando test web1`
+reports the failure and its hint names `komando test web1` for you to run.
+Ending a kept login only takes access away, so an AI agent may run
+`komando test web1 --end`; on a protected server it needs `--yes`.
 
 ### Sudo passwords and the vault
 
@@ -854,12 +855,12 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
   `azure`: `komando login aws` is the AWS login.
 - `--address` in `host ssh edit` works on one server only.
 - A key file added with `credential key add` is never moved or deleted by komando.
-- `--ask-password`, `komando login`, `host ssh-command` and replacing a
+- `--ask-password`, the login `komando test` keeps, `host ssh-command` and replacing a
   pinned host key (`host ssh trust --reset`) need a person at a terminal.
 - A `--login ask` server's password is typed by a person: a script, cron
-  or CI job reaches it only through a `komando login` a person started,
+  or CI job reaches it only through a `komando test` a person ran,
   and its first connection needs a person at a terminal. A WinRM server
-  has no `komando login`. Only a person changes where it goes, or a
+  has no kept login. Only a person changes where it goes, or a
   server or VPN on its way, or `default_user` while a login-ask server
   has no user of its own.
 - What `--login ask` cannot stop. komando knows an AI agent only by its
@@ -883,7 +884,7 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `AUTH_FAILED` | the server refused the login, or asked a question (a two-factor code) with no person at a terminal | check the user and password; for a code, run `komando login SERVER` once |
+| `AUTH_FAILED` | the server refused the login, or asked a question (a two-factor code) with no person at a terminal | check the user and password; for a code, run `komando test SERVER` once |
 | `KEY_PASSPHRASE_REQUIRED` | the key is encrypted and no ssh-agent holds it | `ssh-add PATH`, or store its passphrase and use `--passphrase-credential` |
 | `HOSTKEY_MISMATCH` | the server shows another host key than the pinned one: rebuilt, or someone is in between | check the fingerprint another way; after a real rebuild, `komando host ssh trust SERVER --reset` in your own terminal |
 | `HOSTKEY_UNKNOWN` | `host_key_policy` is `strict` and this key is not pinned yet | compare the fingerprint, then `komando host ssh trust SERVER` |
@@ -896,7 +897,6 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |
 | `SECRET_UNRESOLVED` | komando could not read a reference (no login for the password manager, or no such secret) | follow the hint: it names the logins that work |
 | `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando host ssh shell SERVER` |
-| `NEEDS_PERSON` | only a person at a terminal can do this (`host ssh trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
-| `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando login SERVER` |
-| `NEEDS_PERSON` | `komando login` without a person at a terminal (an AI agent or a script) | a person runs `komando login SERVER` |
+| `NEEDS_PERSON` | only a person at a terminal can do this (`host ssh trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando test SERVER` once |
+| `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando test SERVER` |
 | `IMPORT_INCOMPLETE` | some servers were not imported (listed under `skipped`) | fix them in the source and import again |
