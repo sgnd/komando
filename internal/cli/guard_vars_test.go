@@ -3,9 +3,23 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
+
+// checkProvedLines is checkLines for lines whose written file a proof of
+// mktemp or date names: allowed where those programs live at
+// trustedPrograms; on Windows the guard cannot prove their output and
+// refuses the line.
+func checkProvedLines(t *testing.T, home, cwd string, lines []string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		checkRefusedBy(t, home, cwd, lines, "cannot read before the line runs")
+		return
+	}
+	checkLines(t, home, cwd, lines, false)
+}
 
 // A value the guard checks is known only when every part of it is literal
 // or comes from a rule that proves it. A redirect target or an argument of
@@ -39,15 +53,17 @@ func TestGuardCommandOutputIsKnownOnlyWhenProved(t *testing.T) {
 		`echo x > ~/"$(printf '\x2ekomando')"/state.json`,
 		`f=$(date +%F)$(cat /tmp/n); echo x > "$f"`,
 	}, true)
-	checkLines(t, home, home, []string{
+	checkProvedLines(t, home, home, []string{
 		`tmp=$(mktemp); echo x > "$tmp"`,
 		`echo x > "$(mktemp)"`,
 		`cmd > "$(mktemp)"`,
-		`d=$(mktemp -d); echo x > "$d/out"`,
 		`LOG=$(mktemp); go test ./... > "$LOG" 2>&1`,
+		`echo x > /tmp/log.$(date -u +%Y%m%dT%H%M%S)`,
+	})
+	checkLines(t, home, home, []string{
+		`d=$(mktemp -d); echo x > "$d/out"`,
 		`echo x > "$(date +%F).log"`,
 		`echo x > "build-$(date +%s).log"`,
-		`echo x > /tmp/log.$(date -u +%Y%m%dT%H%M%S)`,
 		`f=$(date '+%F %T'); echo x > "/tmp/$f.log"`,
 	}, false)
 }
@@ -71,7 +87,7 @@ func TestGuardProofIsLostOnlyByARealRedefinition(t *testing.T) {
 		`echo "$PATH"`, `grep -n 'func f()' main.go`, `go test ./... -run 'TestAlias'`, `echo hash enable`,
 		"git commit -m 'Keep `~/.komando`. Then run (see docs). Done'",
 	} {
-		checkLines(t, home, home, []string{pre + `; f=$(mktemp); echo x > "$f"`}, false)
+		checkProvedLines(t, home, home, []string{pre + `; f=$(mktemp); echo x > "$f"`})
 	}
 }
 
@@ -125,8 +141,8 @@ func TestGuardVariableKeepsEveryValueItMayHave(t *testing.T) {
 	checkLines(t, home, home, []string{
 		`out=/tmp/x.log; [ -n "$CI" ] && out=/tmp/ci.log; echo x > "$out"`,
 		`f=a.txt; f=b.txt; cp a "$f"`,
-		`tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT; echo x > "$tmp"`,
 	}, false)
+	checkProvedLines(t, home, home, []string{`tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT; echo x > "$tmp"`})
 }
 
 // After a name reference, eval, source or a trap that may run at any time,
@@ -196,16 +212,18 @@ func TestGuardWritingProgramArgumentIsReadAsTheProgramReadsIt(t *testing.T) {
 		`dd if=/tmp/a of=~/.komando/state.json`,
 		`cp --target-directory=$HOME/.komando /tmp/a`,
 		`cp -t$HOME/.komando /tmp/a`,
-		`cp /tmp/a /$HOME/.komando/state.json`,
 		`touch ~/.komando/state.json`,
 		`mkdir -p ~/.komando/keys2`,
 		`touch "$HOME/.ssh/id_ed25519"`,
 		`d=.komando; touch ~/$d/audit.log`,
 	}, true)
+	if runtime.GOOS != "windows" { // a HOME of C:\... after / names no path there
+		checkLines(t, home, home, []string{`cp /tmp/a /$HOME/.komando/state.json`}, true)
+	}
 	t.Setenv("GUARD_TEST_DIR", "/tmp/guard-test")
+	checkProvedLines(t, home, home, []string{`tmp=$(mktemp -d); cp a.txt "$tmp/"; rm -rf "$tmp"`})
 	checkLines(t, home, home, []string{
 		`for f in a.go b.go; do cp "$f" "$f.bak"; done`,
-		`tmp=$(mktemp -d); cp a.txt "$tmp/"; rm -rf "$tmp"`,
 		`rm -rf "$GUARD_TEST_DIR/out"`,
 		`sed -i 's/a/b/' notes.txt`,
 		`chmod +x build/run.sh`,
@@ -352,8 +370,8 @@ func TestGuardWritesThroughTheseFormsAreRefused(t *testing.T) {
 // the value mktemp or date gives is known there too.
 func TestGuardAssignedCommandOutputStaysKnown(t *testing.T) {
 	home, _ := guardLineHome(t)
+	checkProvedLines(t, home, home, []string{`tmp="$(mktemp)"; echo x > "$tmp"`})
 	checkLines(t, home, home, []string{
-		`tmp="$(mktemp)"; echo x > "$tmp"`,
 		`d="$(mktemp -d)"; cp a.txt "$d/a.txt"`,
 		`stamp=$(date '+%F %T'); echo x > "/tmp/run $stamp.log"`,
 		`stamp=$(date '+%F rm -rf /'); echo "$stamp"`,
@@ -435,10 +453,10 @@ func TestGuardOutputOptionNamesAWrittenFile(t *testing.T) {
 	checkLines(t, home, home, []string{
 		`go build -o /tmp/kmd ./cmd/tool`,
 		`curl -o /tmp/x.tgz https://example.com/x.tgz`,
-		`out=$(mktemp); curl -o "$out" https://example.com/x`,
 		`ps -o pid,comm`,
 		`komando list -o json`,
 	}, false)
+	checkProvedLines(t, home, home, []string{`out=$(mktemp); curl -o "$out" https://example.com/x`})
 }
 
 // After an alias the guard reads (alias, or the word alias in an eval's

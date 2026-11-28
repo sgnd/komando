@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -306,7 +307,11 @@ func TestGuardWrapperFolderLeavesRedirectsInTheShellsFolder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(opt, "komando-0.17.4"), []byte("x\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(filepath.Join(opt, "komando-0.17.4"), filepath.Join(bin, "komando")); err == nil {
+	link := "komando"
+	if runtime.GOOS == "windows" { // PATH finds komando.exe there
+		link += ".exe"
+	}
+	if err := os.Symlink(filepath.Join(opt, "komando-0.17.4"), filepath.Join(bin, link)); err == nil {
 		t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 		checkRefusedBy(t, home, opt, []string{
 			`env -C /tmp true > komando-0.17.4`,
@@ -391,8 +396,12 @@ func TestGuardFolderRuleChecksEachWordOnce(t *testing.T) {
 	many := took(values + "$P -Rf $A $A $A $A $A $A" + words)
 	single := took("P=rm; A=a; true || A=b; $P -Rf $A $A $A $A $A $A" + words)
 	t.Logf("64 lists %v, one list %v, one program %v", many, one, single)
-	if many > time.Second || many > 8*one || many > 4*single {
-		t.Errorf("64 lists took %v, one list %v, one program %v: want under 1s, under 8 times one list and under 4 times one program", many, one, single)
+	wall := time.Second
+	if runtime.GOOS == "windows" { // the Windows runner is slower; the ratios hold there too
+		wall = 20 * time.Second
+	}
+	if many > wall || many > 8*one || many > 4*single {
+		t.Errorf("64 lists took %v, one list %v, one program %v: want under %v, under 8 times one list and under 4 times one program", many, one, single, wall)
 	}
 }
 
@@ -411,7 +420,7 @@ func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
 		`rm -rf ../other`,
 		`mv ../other /tmp/o`,
 		`chmod -R u+w ../other`,
-		`rm -rf ` + wt,
+		`rm -rf ` + filepath.ToSlash(wt),
 		`git -C ../other pull`,
 		`eval true; rm -rf ../other`,
 		`rm -rf ./build`,
@@ -421,12 +430,12 @@ func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
 	checkRefusedBy(t, home, repo, []string{
 		`rm -rf .`,
 		`rm -rf ..`,
-		`cd /tmp && rm -rf ` + repo,
+		`cd /tmp && rm -rf ` + filepath.ToSlash(repo),
 		`chmod -R u+w .`,
-		`mv ` + repo + ` /tmp/r`,
+		`mv ` + filepath.ToSlash(repo) + ` /tmp/r`,
 	}, treeRefusal)
 	checkRefusedBy(t, home, wt, []string{
-		`rm -rf ` + repo,
+		`rm -rf ` + filepath.ToSlash(repo),
 		`rm -rf .`,
 	}, treeRefusal)
 	// from a folder of the project that holds no agent folder itself
@@ -434,8 +443,8 @@ func TestGuardFolderRuleGuardsTheProjectInUse(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	checkRefusedBy(t, home, sub, []string{`rm -rf ` + repo, `rm -rf ..`}, treeRefusal)
-	checkLines(t, home, wt, []string{`rm -rf ` + other}, false)
+	checkRefusedBy(t, home, sub, []string{`rm -rf ` + filepath.ToSlash(repo), `rm -rf ..`}, treeRefusal)
+	checkLines(t, home, wt, []string{`rm -rf ` + filepath.ToSlash(other)}, false)
 }
 
 // A folder the line names with a part the guard cannot know before it
@@ -571,7 +580,7 @@ func TestGuardGitWritesOnlyInsideDotGitStayAllowed(t *testing.T) {
 		`worktree remove /tmp/wt-x`, `archive -o /tmp/a.tar HEAD`, `config user.name x`, `branch -D old`,
 		`-c color.ui=never log --oneline -3`, `worktree add ../wt-y`,
 	} {
-		lines = append(lines, "git -C "+repo+" "+cmd)
+		lines = append(lines, "git -C "+filepath.ToSlash(repo)+" "+cmd)
 	}
 	lines = append(lines, `for w in /tmp/a /tmp/b; do git -C $w pull --ff-only; done`)
 	checkLines(t, home, home, lines, false)
@@ -582,7 +591,7 @@ func TestGuardGitWritesTheWorktreeIsChecked(t *testing.T) {
 	agentRepo(t, repo)
 	var lines []string
 	for _, cmd := range []string{`checkout -- .`, `stash pop`, `stash`, `reset --hard`, `pull`, `co main`, `merge x`} {
-		lines = append(lines, "git -C "+repo+" "+cmd)
+		lines = append(lines, "git -C "+filepath.ToSlash(repo)+" "+cmd)
 	}
 	lines = append(lines,
 		`git -C /tmp/r worktree add ~/.ssh/x`,
@@ -592,7 +601,7 @@ func TestGuardGitWritesTheWorktreeIsChecked(t *testing.T) {
 		`git -C ~ worktree add .komando/x`,
 		`git -C /tmp/r worktree move /tmp/r/wt ~/.ssh/wt`,
 		`git -C /tmp/r config --file ~/.claude/settings.json a.b c`,
-		`git -C /tmp/r config --file=`+repo+`/.claude/settings.json a.b c`,
+		`git -C /tmp/r config --file=`+filepath.ToSlash(repo)+`/.claude/settings.json a.b c`,
 		`git -C /tmp/r bundle create ~/.claude/settings.json HEAD`,
 		`x=$(cat /tmp/n); git -C /tmp/r worktree add "$x"`,
 		`x=$(cat /tmp/n); git -C /tmp/r worktree move /tmp/r/wt "$x"`,
@@ -604,7 +613,7 @@ func TestGuardGitWritesTheWorktreeIsChecked(t *testing.T) {
 	// a clone that is not the project in use holds no agent's own folder
 	plain := t.TempDir()
 	checkLines(t, home, plain, []string{`git -C ~ checkout -- .`}, true)
-	checkLines(t, home, plain, []string{`git -C ` + repo + ` pull`}, false)
+	checkLines(t, home, plain, []string{`git -C ` + filepath.ToSlash(repo) + ` pull`}, false)
 }
 
 // A worktree Claude Code keeps in REPO/.claude/worktrees/NAME is a project
@@ -621,15 +630,15 @@ func TestGuardWorktreeInAnAgentFolderIsAProject(t *testing.T) {
 		`ln -s ../../../.venv .venv`,
 		`find build -name '*.o' -delete`,
 		`cp -r /tmp/src/. internal/`,
-		`ln -sfn ` + filepath.Join(repo, ".claude", "skills", "x") + ` /tmp/skill`,
+		`ln -sfn ` + filepath.ToSlash(filepath.Join(repo, ".claude", "skills", "x")) + ` /tmp/skill`,
 	}, false)
 	checkLines(t, home, wt, []string{
 		`mv /tmp/a .claude/settings.json`,
 		`cp -r /tmp/x/. .`,
 		`rm -rf .claude`,
-		`cp -r /tmp/x/. ` + filepath.Join(repo, ".claude", "worktrees"),
-		`ln -s ` + filepath.Join(repo, ".claude", "worktrees") + ` /tmp/l`,
-		`ln -s ` + wt + ` /tmp/l`,
+		`cp -r /tmp/x/. ` + filepath.ToSlash(filepath.Join(repo, ".claude", "worktrees")),
+		`ln -s ` + filepath.ToSlash(filepath.Join(repo, ".claude", "worktrees")) + ` /tmp/l`,
+		`ln -s ` + filepath.ToSlash(wt) + ` /tmp/l`,
 	}, true)
 }
 

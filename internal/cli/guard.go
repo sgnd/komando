@@ -356,6 +356,9 @@ func globUnder(p, dir, home string) (string, bool) {
 
 func guardPath(cl *call, p, home string) string {
 	p = strings.Trim(p, `"'`)
+	if runtime.GOOS == "windows" {
+		p = msysDrive(p)
+	}
 	kh := cl.getenv("KOMANDO_HOME")
 	if kh == "" {
 		kh = filepath.Join(home, ".komando")
@@ -383,6 +386,16 @@ func guardPath(cl *call, p, home string) string {
 		return p // guardPathAt puts the working folder in front, then reads it
 	}
 	return lexOrKernel(p)
+}
+
+// msysDrive is the Windows path Git Bash opens for an MSYS or Cygwin drive
+// path: /c/Users/x and /cygdrive/c/Users/x are C:/Users/x. Other paths stay.
+func msysDrive(p string) string {
+	rest := strings.TrimPrefix(p, "/cygdrive")
+	if len(rest) < 2 || rest[0] != '/' || !('a' <= rest[1]|0x20 && rest[1]|0x20 <= 'z') || len(rest) > 2 && rest[2] != '/' {
+		return p
+	}
+	return strings.ToUpper(rest[1:2]) + ":/" + strings.TrimPrefix(rest[2:], "/")
 }
 
 var userName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9._-]*$`)

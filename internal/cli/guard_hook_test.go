@@ -641,15 +641,14 @@ func TestGuardPathInAVariable(t *testing.T) {
 	checkLines(t, home, home, []string{
 		`out=/tmp/x.log; echo x > "$out"`,
 		`for f in a.go b.go; do gofmt "$f" > "$f.tmp"; done`,
-		`tmp=$(mktemp); echo x > "$tmp"`,
 		`echo x > "$GUARD_TEST_KNOWN_DIR/out"`,
 		`f=notes.txt; cat "$f"`,
 		`f=notes.txt; echo x > $f 2>&1`,
 		`echo x > "$HOME/notes.txt"`,
-		`echo x > "$(mktemp)"`,
 		`echo x > /tmp/log.$$`,
 		`echo x > "$PWD/out.txt"`,
 	}, false)
+	checkProvedLines(t, home, home, []string{`tmp=$(mktemp); echo x > "$tmp"`, `echo x > "$(mktemp)"`})
 }
 
 // A shell nested deeper than the guard reads is refused, not let through.
@@ -680,4 +679,28 @@ func TestGuardOrdinaryRedirectsStayAllowed(t *testing.T) {
 		"echo X=1 > .env.example",
 		"go test ./... >| /tmp/out",
 	}, false)
+}
+
+// Git Bash on Windows names a drive as /c/... (MSYS) or /cygdrive/c/...
+// (Cygwin); msysDrive gives the path Windows reads. Other paths stay.
+func TestGuardMsysDrivePath(t *testing.T) {
+	for in, want := range map[string]string{
+		"/c/Users/x/.komando":      "C:/Users/x/.komando",
+		"/C/Users/x":               "C:/Users/x",
+		"/d":                       "D:/",
+		"/c/":                      "C:/",
+		"/cygdrive/c/Users/x/.ssh": "C:/Users/x/.ssh",
+		"/tmp/x":                   "/tmp/x",
+		"/cc/x":                    "/cc/x",
+		"/cygdrivex/c/y":           "/cygdrivex/c/y",
+		"/1/x":                     "/1/x",
+		"C:/Users/x":               "C:/Users/x",
+		`C:\Users\x`:               `C:\Users\x`,
+		"c/Users":                  "c/Users",
+		"":                         "",
+	} {
+		if got := msysDrive(in); got != want {
+			t.Errorf("msysDrive(%q) = %q, want %q", in, got, want)
+		}
+	}
 }

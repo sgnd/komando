@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -14,6 +15,11 @@ import (
 func TestGuardFindThatChangesFilesIsChecked(t *testing.T) {
 	home, _ := guardLineHome(t)
 	t.Setenv("PATH", filepath.Join(home, "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if runtime.GOOS == "windows" { // PATH finds komando.exe there, not ~/bin/komando
+		if err := os.WriteFile(filepath.Join(home, "bin", "komando.exe"), []byte("x\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	checkLines(t, home, home, []string{
 		`find ~ -name state.json -delete`,
 		`find ~/.komando -name '*.json' -delete`,
