@@ -100,11 +100,11 @@ func StopCommand(rec *store.ExecSession, sig string, password bool) (string, err
 }
 
 // markStopped writes killed ("TERM stop") in the session's folder as the
-// login user, before the signal: the run's root then writes no exit, and a
-// read says how it ended. Only in a folder of the login user that is no
-// link, and with noclobber, never through a link the run left there; m is
-// set when this stop wrote the mark, so a stop that signals nothing takes
-// it back. No folder there: the stop still signals.
+// login user, before the signal: a read then says how it ended. Only in a
+// folder of the login user that is no link, and with noclobber, never
+// through a link the run left there; m is set when this stop wrote the
+// mark, so a stop that signals nothing takes it back. No folder there: the
+// stop still signals.
 func markStopped(id, sig string) string {
 	return `r="$HOME/.komando"; s="$r/sessions"; d="$s/` + id + `"; m=; ` + ownCheck +
 		`if ( ks_own "$r"; ks_own "$s"; ks_own "$d" ) 2>/dev/null; then ` +
@@ -126,7 +126,7 @@ func awaitEnding(rec *store.ExecSession, sig string) string {
 
 // StopExit is the error for a stop's exit code: nil for 0. ExitNotRunning
 // is SESSION_PROCESS_MISSING: the stored process ended, or its PID belongs
-// to another process now. ExitStillRunning is SESSION_STILL_RUNNING: the
+// to another process now. ExitStillRunning is SESSION_STILL_BUSY: the
 // signal was sent and the run goes on. Any other is SESSION_STOP_FAILED
 // with the server's words.
 func StopExit(host, id string, exit int, stderr string) error {
@@ -138,7 +138,7 @@ func StopExit(host, id string, exit int, stderr string) error {
 			"`komando host ssh exec TARGET --attach ID` reads how it ended; `komando host ssh exec TARGET --attach ID --remove` removes it",
 			"session %s on %s is not running: its process ended, or its PID belongs to another process now", id, host)
 	case ExitStillRunning:
-		return out.Errf(out.ExitConflict, "SESSION_STILL_RUNNING",
+		return out.Errf(out.ExitConflict, "SESSION_STILL_BUSY",
 			"the run traps or ignores TERM; stop it hard with `komando host ssh exec TARGET --attach ID --stop --signal KILL`",
 			"session %s on %s: the signal was sent, and the run still runs", id, host)
 	}

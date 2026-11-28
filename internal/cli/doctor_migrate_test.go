@@ -188,11 +188,12 @@ func TestDoctorOldJobs(t *testing.T) {
 			listed := false
 			oldJobs = func(context.Context) ([]store.OldJob, error) { listed = true; return jobs, nil }
 			var marked []string
-			endOldJobs = func(_ context.Context, ids []string) error {
-				marked = ids
+			var markedBy string
+			endOldJobs = func(_ context.Context, ids []string, by string) error {
+				marked, markedBy = ids, by
 				return nil
 			}
-			vars := map[string]string{}
+			vars := map[string]string{"KOMANDO_ACTOR": "alice"}
 			if c.agent {
 				vars["CLAUDECODE"] = "1"
 			}
@@ -213,6 +214,10 @@ func TestDoctorOldJobs(t *testing.T) {
 			}
 			if !slices.Equal(marked, c.want) {
 				t.Fatalf("marked %v, want %v\n%s", marked, c.want, e.String())
+			}
+			// audit A3: the person who answered is on the mark, not komando
+			if len(c.want) > 0 && markedBy != "alice" {
+				t.Errorf("marked by %q, want the person who answered: alice", markedBy)
 			}
 			if c.agent {
 				if listed || e.Len() > 0 {

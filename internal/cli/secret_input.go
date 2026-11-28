@@ -63,7 +63,8 @@ var secretValueLeaves = map[string]bool{"credential.password.add": true, "creden
 
 // secretValueInArgs refuses a value typed after the secret's name on a
 // secretValueLeaves command, before the arguments are counted, so the
-// person learns why: it would stay in shell history and in ps.
+// person learns why: it would stay in shell history and in ps. The hint
+// says NAME: the value may be the argument given first.
 func secretValueInArgs(id string, args []string) error {
 	if !secretValueLeaves[id] || len(args) < 2 {
 		return nil
@@ -71,9 +72,9 @@ func secretValueInArgs(id string, args []string) error {
 	const why = "refusing a secret value on the command line: it would be saved in shell history"
 	words := strings.ReplaceAll(id, ".", " ")
 	if id != "secret.check" {
-		return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" "+args[0]+"` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", why)
+		return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" NAME` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", why)
 	}
-	return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" "+args[0]+"` and type it (hidden), or pipe it in (stdin)", why)
+	return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" NAME` and type it (hidden), or pipe it in (stdin)", why)
 }
 
 // hideBeforeStart is the pre-run's hiding for an error that comes before it

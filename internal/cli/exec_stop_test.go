@@ -163,7 +163,7 @@ func TestExecSessionStopExits(t *testing.T) {
 	for _, tc := range []struct {
 		code int
 		want string
-	}{{92, "SESSION_PROCESS_MISSING"}, {96, "SESSION_STILL_RUNNING"}, {1, "SESSION_STOP_FAILED"}} {
+	}{{92, "SESSION_PROCESS_MISSING"}, {96, "SESSION_STILL_BUSY"}, {1, "SESSION_STOP_FAILED"}} {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)

@@ -148,25 +148,7 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 		id := strings.Join(words, ".")
 		stays[id] = true
 		built, order, paths = append(built, l), append(order, n), append(paths, words)
-		var got []map[string]any
-		for _, ids := range [2][]string{l.Today, l.Carries} {
-			for _, old := range ids {
-				for i, tb := range tables {
-					v, ok := tb.get(old)
-					if !ok {
-						continue
-					}
-					if got == nil {
-						got = make([]map[string]any, len(tables))
-					}
-					if got[i] == nil {
-						got[i] = map[string]any{}
-					}
-					got[i][old] = v
-				}
-			}
-		}
-		carried[id] = got
+		carried[id] = entriesOf(l, tables)
 	}
 	var gone []string
 	for k, l := range built {
@@ -232,6 +214,31 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 		}
 	}
 	keyGroups(typ, gone, tables)
+}
+
+// entriesOf is, per table, the entries the IDs l names (Today and Carries)
+// have there: nil when they have none, and a map only for a table that
+// holds one of them.
+func entriesOf(l capability.Leaf, tables []idTable) []map[string]any {
+	var got []map[string]any
+	for _, ids := range [2][]string{l.Today, l.Carries} {
+		for _, old := range ids {
+			for i, tb := range tables {
+				v, ok := tb.get(old)
+				if !ok {
+					continue
+				}
+				if got == nil {
+					got = make([]map[string]any, len(tables))
+				}
+				if got[i] == nil {
+					got[i] = map[string]any{}
+				}
+				got[i][old] = v
+			}
+		}
+	}
+	return got
 }
 
 // connVerbsUntilStepD are today's conn commands, which every moved conn type
