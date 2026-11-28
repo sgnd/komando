@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
@@ -338,6 +339,32 @@ func TestGateDialJudgesItsOwnLookup(t *testing.T) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)
 		}
 	}
+}
+
+// A dead first address (an IPv6 black hole) gets only its share of the
+// time left, so the next address still connects before the context ends.
+func TestGateDialSharesTheTime(t *testing.T) {
+	gateStubInterfaces(t)
+	gateStubDNS(t, map[string][][]net.IP{"dual.example": {ips("2001:db8::6", "203.0.113.5")}})
+	dial := func(ctx context.Context, _, addr string) (net.Conn, error) {
+		if addr == "[2001:db8::6]:443" {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		c, s := net.Pipe()
+		s.Close()
+		return c, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+	c, err := gateDial(dial)(ctx, "tcp", "dual.example:443")
+	if err != nil {
+		t.Fatalf("the second address did not get its turn: %v", err)
+	}
+	c.Close()
 }
 
 // Only a run for a key dials through the gate: a person's and an AI

@@ -33,8 +33,8 @@ func gateDial(dial netx.Dialer) netx.Dialer {
 			return nil, err
 		}
 		var errs []error
-		for _, a := range addrs {
-			c, err := dial(ctx, network, a)
+		for i, a := range addrs {
+			c, err := gateDialShare(ctx, dial, network, a, len(addrs)-i)
 			if err == nil {
 				return c, nil
 			}
@@ -42,6 +42,17 @@ func gateDial(dial netx.Dialer) netx.Dialer {
 		}
 		return nil, errors.Join(errs...)
 	}
+}
+
+// gateDialShare dials a with its share of the time left among the left
+// addresses: a dead one (an IPv6 black hole) leaves the next time to answer.
+func gateDialShare(ctx context.Context, dial netx.Dialer, network, a string, left int) (net.Conn, error) {
+	if end, ok := ctx.Deadline(); ok && left > 1 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Until(end)/time.Duration(left))
+		defer cancel() // a connection made is not tied to its dial's context
+	}
+	return dial(ctx, network, a)
 }
 
 // gateDialAddrs are the addresses gateDial may connect to for addr.
