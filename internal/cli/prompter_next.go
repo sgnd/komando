@@ -260,8 +260,7 @@ var itemCommands = map[string][]string{
 		"group create {} TARGET", "group remove {} TARGET", "group rename {} NEW"},
 	"key": {"credential key install {} TARGET", "credential key uninstall {} TARGET", "credential key edit {}",
 		"credential key rename {} NEW", "credential key remove {}"},
-	"secret": {"secret check {}", "credential password add {}", "credential password rename {} NEW", "secret cp {} NEW",
-		"credential password remove {}"},
+	"secret":  {"credential password add {}", "credential password rename {} NEW", "credential password remove {}"},
 	"setting": {"config set {} VALUE"},
 	"recipe":  {"snippet exec {} TARGET", "snippet create {} COMMAND --overwrite --dry-run", "snippet remove {}"},
 }

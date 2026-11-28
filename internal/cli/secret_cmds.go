@@ -125,7 +125,7 @@ at a terminal can add --reveal to print it; from a program without a terminal
 (the Komando Mac app), komando first asks the person in its own window. AI
 agents never get the value (they reference it as credential:NAME instead). A warning says when the value
 starts or ends with a space, tab or line break, a common cause of a failing
-login; 'komando secret check NAME' lets a person compare it.`
+login; set it again with ` + "`komando credential password add NAME`" + ` if that is not part of it.`
 
 func secretGetCmd() *cobra.Command {
 	get := &cobra.Command{

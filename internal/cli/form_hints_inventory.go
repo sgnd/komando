@@ -121,20 +121,6 @@ var invConnHints = map[string]formHint{
 var invListHints = map[string]formHint{
 	"list": {args: []formArg{invTargetsAll}},
 	"test": {args: []formArg{invTargets}, flags: []formFlag{invWait}},
-	"rename": {
-		args: []formArg{
-			{ask: "Which start of the names should change?", example: "shop-",
-				help: "Every name that starts with it is renamed: shop-web and shop-db with shop-."},
-			{ask: "What should they start with instead?", example: "acme-shop-",
-				help: "shop-web becomes acme-shop-web."},
-		},
-		always: []string{"--starts-with"},
-		hide:   []string{"starts-with"},
-		flags: []formFlag{
-			{name: "in-notes", ask: "Also change the old names in notes?",
-				help: "Yes changes them in the notes of servers, conns, VPNs and secrets too."},
-		},
-	},
 	"import": {
 		args: []formArg{
 			{ask: "What do you want to bring in?", example: "ssh-config", choices: importSourceNames(),

@@ -12,8 +12,8 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// `credential key rename` and `group mv` rename one key or one group with the engine of
-// `komando rename` (rename.go): every reference follows, in one step.
+// `credential key rename` and `group mv` rename one key or one group with the
+// engine in rename_engine.go: every reference follows, in one step.
 
 // mvFromRename turns the engine's result into what the mv commands print.
 func mvFromRename(kind, from, to string, r renameResult) mvResult {

@@ -44,6 +44,8 @@ var removedGoneAllowed = map[string]bool{
 	"internal/capability/cache.go":               true, // Carries: the IDs `cache redis raw` took over (TestMovedLeavesCarryTheirTables)
 	"internal/capability/cluster.go":             true, // rawCarries: the same for `cluster kubernetes raw`
 	"internal/capability/testdata/v0_17_ids.txt": true,
+	"internal/store/migrate3_fix.go":             true, // its steps run in the last format 2 release, where `komando secret set` exists
+	"internal/store/migrate3_refs_test.go":       true, // pins those steps and the format 2 reference spellings
 	"internal/cli/root_removed.go":               true,
 	"internal/cli/root_removed_test.go":          true,
 }

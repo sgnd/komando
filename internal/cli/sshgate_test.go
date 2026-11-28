@@ -174,7 +174,6 @@ func TestGateCheck(t *testing.T) {
 		{"database postgres shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster kubernetes shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config vault passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config approval-code", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"ssh-gate --name x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},

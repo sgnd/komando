@@ -450,7 +450,7 @@ func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
 	}
 	t.Setenv("OTHER", "x")
 	mustRun(t, "credential", "password", "add", "other-thing", "--from-env", "OTHER")
-	wantCode(t, "NEEDS_PERSON", "secret", "cp", "other-thing", "office-config", "--overwrite")
+	wantCode(t, "NEEDS_PERSON", "credential", "password", "rename", "other-thing", "office-config", "--overwrite")
 	if v, _ := vault.Get("office-config"); strings.Contains(v, "203.0.113.66") || v == "x" {
 		t.Error("the profile was replaced")
 	}

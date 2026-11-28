@@ -333,8 +333,8 @@ func (w *writer3) sharedRefusal(entry, what, cred string) error {
 func (w *writer3) loginCred(entry, name, user string, alone func(string) bool) error {
 	c := w.st.cred(name)
 	if c == nil {
-		// named before its value is saved (an import, or `komando secret
-		// set NAME` later), as format 2 allowed: a credential with no value
+		// named before its value is saved (an import, or a password added
+		// later), as format 2 allowed: a credential with no value
 		c = &Credential{Name: w.names.keep(name), Kind: CredPassword, User: user}
 		id, err := w.put(KindCredential, "", c)
 		if err != nil {

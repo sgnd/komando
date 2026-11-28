@@ -18,8 +18,8 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// The rename engine behind `komando rename --starts-with`, `credential key rename` and `group
-// mv`: many renames at once, in one step. The inventory and the vault are
+// The rename engine behind `credential key rename` and `group rename`:
+// renames done together, in one step. The inventory and the vault are
 // each written once, after every check passed, or not at all. Every
 // reference follows (--via paths, password and other refs, credential:NAME in a
 // conn URL, the key a server uses, group membership), as `host mv`, `secret

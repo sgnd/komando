@@ -33,8 +33,6 @@ type formHint struct {
 	form func(cl *call) []formGroup
 	// skip: nobody is ever asked its questions (ssh-gate: sshd runs it)
 	skip bool
-	// always are flags every line gets (rename --starts-with)
-	always []string
 	// next are the commands that usually follow, {} the first argument:
 	// shown on stderr as Next: after it ends well for a person at a terminal
 	next []string
@@ -123,7 +121,7 @@ func withWinRM(m map[string]formHint) map[string]formHint {
 // nextOnly: h gives Next: lines and nothing else.
 func nextOnly(h formHint) bool {
 	return len(h.next) > 0 && h.area == "" && h.args == nil && h.flags == nil && h.hide == nil &&
-		h.form == nil && !h.skip && h.always == nil
+		h.form == nil && !h.skip
 }
 
 // formNeverFlags are never asked or added by a question. A person approves what needs
@@ -139,8 +137,7 @@ type formUseArg struct {
 }
 
 // formUseArgs reads the arguments from a Use line. A flag in it is skipped
-// with its value ("--old TEXT"), a switch alone ("rename --starts-with OLD
-// NEW"); a choice of flags in parentheses ends it.
+// with its value ("--old TEXT"); a choice of flags in parentheses ends it.
 func formUseArgs(use string, flags *pflag.FlagSet) []formUseArg {
 	f := strings.Fields(use)
 	var out []formUseArg
@@ -517,13 +514,11 @@ func formCmdArgs(cmd *cobra.Command, uses []formUseArg, h formHint, a formAnswer
 		}
 		args = append(args, formArgWords(key, u, ah, v)...)
 	}
-	flags := slices.DeleteFunc(slices.Clone(h.always), func(w string) bool {
-		return slices.Contains(formNeverFlags, strings.SplitN(strings.TrimLeft(w, "-"), "=", 2)[0])
-	})
+	var flags []string
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		v, ok := a["flag:"+f.Name]
 		ff := formFlagHint(h, f.Name)
-		if ok && !slices.Contains(h.always, "--"+f.Name) && (v != f.DefValue || ff.keep) {
+		if ok && (v != f.DefValue || ff.keep) {
 			flags = append(flags, formFlagWords(f, ff, v)...)
 		}
 	})
@@ -646,8 +641,8 @@ var formAreas = []struct {
 	{"Kubernetes", "clusters, apps, logs, Helm", []string{"cluster"}},
 	{"Container registries", "images and tags", []string{"registry"}},
 	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},
-	{"Secrets and keys", "the vault and SSH keys", []string{"credential", "secret"}},
-	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
+	{"Secrets and keys", "the vault and SSH keys", []string{"credential"}},
+	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "import", "export", "test"}},
 	{"Snippets", "saved commands", []string{"snippet"}},
 	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
 	{"Setup", "AI agents, updates", []string{"guide", "agent", "update", "version", "schema", "completion"}},

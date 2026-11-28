@@ -25,7 +25,6 @@ aok "list" list
 aok "test direct" test direct
 aok "host ssh show (references, no values)" host ssh show direct
 aok "conn show" conn show pg
-aok "conn kinds" conn kinds
 aok "vpn list" vpn system list
 aok "vpn show" vpn system show corp
 aok "group list" group list
@@ -110,7 +109,6 @@ acode "a value on the command line is refused" SECRET_IN_ARGS credential passwor
 export T_AGENT_EMPTY=
 acode "an empty --from-env is refused" USAGE credential password add t-agent-pass --from-env T_AGENT_EMPTY
 unset T_AGENT_EMPTY
-acode "only a person compares a value" NEEDS_PERSON secret check ops-pass
 check "agent: a generated token can come on stdin" True "$(echo gen-token-123 | A credential token add t-agent-token | jget 'd["ok"]' || true)"
 check "agent: the token is listed, without its value" "True False" "$(ag credential list | jget '"t-agent-token" in json.dumps(d), "gen-token-123" in json.dumps(d)' || true)"
 check "agent: rename a secret it cannot read" True "$(ag credential token rename t-agent-token t-agent-token2 | jget 'd["ok"]' || true)"

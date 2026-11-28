@@ -26,7 +26,6 @@ var shapeCases = [][]string{
 	{"version"},
 	{"config", "show"},
 	{"config", "get", "parallel"},
-	{"conn", "kinds"},
 	{"policy", "list"},
 	{"policy", "check", "rm -rf /"},
 	{"policy", "check", "uptime"},
