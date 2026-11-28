@@ -76,13 +76,18 @@ has_service() { case " ${SERVICES[*]} " in *" $1 "*) return 0 ;; esac; return 1;
 
 # jget '<python expression on d>' : evaluate against JSON on stdin
 # A run in a session prints its ID as the first JSON line, then the result:
-# d is the last line. When the output is not the JSON the check expects (an
-# error instead of data), it prints that output, so a failure in CI says why.
+# d is the whole input when it is one JSON value (a file), else the last
+# line. When the output is not the JSON the check expects (an error instead
+# of data), it prints that output, so a failure in CI says why.
 jget() { python3 -c "
 import json,sys
 raw=sys.stdin.read()
 try:
-    d=json.loads(raw.strip().splitlines()[-1]); print($1)
+    try:
+        d=json.loads(raw)
+    except ValueError:
+        d=json.loads(raw.strip().splitlines()[-1])
+    print($1)
 except Exception as e:
     sys.stderr.write('jget: %s: %s; komando printed: %s\n' % (type(e).__name__, e, raw.strip()[:1500] or '(nothing)')); sys.exit(1)
 "; }
