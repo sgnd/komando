@@ -223,22 +223,32 @@ func hasBackup(es []os.DirEntry) bool {
 
 func lastAudit(t *testing.T) string {
 	t.Helper()
+	rows := auditRows(t)
+	if len(rows) == 0 {
+		return ""
+	}
+	return rows[len(rows)-1]
+}
+
+// auditRows are the audit log's records, oldest first.
+func auditRows(t *testing.T) []string {
+	t.Helper()
 	d, err := DB(false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var last string
+	var all []string
 	err = d.View(context.Background(), func(tx *sealdb.Tx) error {
 		rows, err := tx.Audit(0, 1000)
-		if len(rows) > 0 {
-			last = string(rows[len(rows)-1].Data)
+		for _, r := range rows {
+			all = append(all, string(r.Data))
 		}
 		return err
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return last
+	return all
 }
 
 // T7 (N2): a migration that waited for the lock while another finished

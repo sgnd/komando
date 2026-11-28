@@ -224,6 +224,8 @@ type Job struct {
 	// before the move to format 3 (EndOldJobs); empty while it ran or
 	// nobody asked yet
 	Ended string `json:"ended,omitempty"`
+	// EndedBy is the person (the audit log's actor) who marked it ended
+	EndedBy string `json:"ended_by,omitempty"`
 }
 
 // ExecSession is a run exec started in a session folder on a Unix server
