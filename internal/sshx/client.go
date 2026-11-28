@@ -30,7 +30,7 @@ import (
 type Options struct {
 	ConnectTimeout time.Duration
 	HostKeyPolicy  string // accept-new | strict | off
-	// Fresh logs in anew, never through a held login (`komando login`
+	// Fresh logs in anew, never through a held login (`komando test`
 	// itself, which makes one)
 	Fresh bool
 
@@ -154,7 +154,7 @@ func Dial(ctx context.Context, st *store.State, h *store.Host, o Options) (*Clie
 	}
 }
 
-// useHeld is the connection through h's held login (`komando login`),
+// useHeld is the connection through h's held login (`komando test`),
 // or nil when there is none or it no longer answers.
 func useHeld(ctx context.Context, st *store.State, h *store.Host, o Options) *ssh.Client {
 	if o.Fresh || o.scan != nil {
@@ -198,7 +198,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 			"%s is reached over WinRM, which cannot carry other connections", hop.Name)
 	}
 	if c := useHeld(ctx, st, hop, o); c != nil {
-		return c, nil // a jump host a person logged in to with `komando login`
+		return c, nil // a jump host a person logged in to with `komando test`
 	}
 	cfg, q, agentConn, err := clientConfig(ctx, st, hop, o)
 	if err != nil {

@@ -269,7 +269,7 @@ type Settings struct {
 	Audit            bool      `json:"audit"`
 	AuditSQL         string    `json:"audit_sql"`                    // full | hash | off: how SQL text is kept in the audit log
 	VpnIdle          string    `json:"vpn_idle"`                     // a VPN session unused this long is disconnected
-	LoginFor         string    `json:"login_for"`                    // how long `komando login SERVER` keeps a server's login
+	LoginFor         string    `json:"login_for"`                    // how long `komando test TARGET` keeps a server's login
 	ApprovalCode     bool      `json:"approval_code,omitempty"`      // the approval window asks for a TOTP code
 	ApprovalCodeStep int64     `json:"approval_code_step,omitempty"` // the last 30 s step whose code was accepted: it is not taken again
 	AuditSyslog      string    `json:"audit_syslog,omitempty"`       // also send audit records to this log server (udp://, tcp://, tls://)
@@ -354,7 +354,7 @@ type VpnSession struct {
 	SharedWith string `json:"shared_with,omitempty"`
 }
 
-// SSHLogin is a server login a person made with `komando login SERVER`, held
+// SSHLogin is a server login a person made with `komando test NAME`, held
 // by a background komando process (sshx/held.go) on a Unix socket only this
 // user can open, and only for a client with Token.
 type SSHLogin struct {

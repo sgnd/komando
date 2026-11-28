@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -17,49 +16,20 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// komando login HOST keeps a person's server login (login_ssh.go);
 // komando login aws renews a person's cloud login without the vendor's
-// CLI. Both are for a person: they answer the login at the terminal or in
-// their browser.
+// CLI. It is for a person: they answer the login in their browser. A
+// person's server login is `komando test TARGET` (test_wait.go).
 
 func loginCmd(cl *call) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "login [SERVER]",
-		Short: "Log in once to a server or a cloud account",
-		Long: `Type the password and code once; for 8 hours your commands and your AI
-agent reuse that login. The safety rules, approvals and history of each
-command stay the same.
+		Use:   "login",
+		Short: "Log in to a cloud account",
+		Long: `komando login aws logs in to AWS IAM Identity Center (SSO).
 
-` + "`komando logout SERVER`" + ` ends it sooner, and ` + "`komando status`" + ` lists the kept logins.
-A login to a jump host covers every server behind it. The 8 hours come from
-the login_for setting.
-
-komando login aws logs in to AWS IAM Identity Center (SSO).`,
-		Example: `  komando login web1      # answer the code once; AI agents can then use web1
-  komando logout web1
-  komando login aws --profile prod`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				if cl.out.Format == "json" {
-					// piped: one JSON envelope, never help text (ux.md, section 4)
-					return out.Usage("komando login needs a server or a cloud account").WithHint("komando login HOST, or komando login aws")
-				}
-				return cmd.Help()
-			}
-			if i := slices.IndexFunc(loginClouds, func(c string) bool { return strings.EqualFold(c, args[0]) }); i >= 0 {
-				// no server can have that name (checkHostName): it is the cloud login
-				return out.Usage("cloud logins are lower case: komando login %s", loginClouds[i]).WithHint("komando login " + loginClouds[i])
-			}
-			err := loginHost(cl, cmd.Context(), args[0])
-			if e := toErr(err); e != nil && e.Code == "TARGET_NOT_FOUND" {
-				if c := closest(args[0], loginClouds[:1]); c != "" { // only aws is built
-					e.Hint += " For the AWS login: komando login " + c
-				}
-				return e
-			}
-			return err
-		}),
+A server's login is kept by ` + "`komando test TARGET`" + `, and ` + "`komando test --end`" + ` ends it.`,
+		Example: `  komando login aws --profile prod       # opens the browser; confirm the code shown
+  komando login aws                      # the profile in AWS_PROFILE, else default
+  komando login aws --profile prod --dry-run   # which sign-in page, without logging in`,
 	}
 	// a new subcommand goes into loginClouds too, so no server takes its name
 	c.AddCommand(loginAWSCmd(cl),

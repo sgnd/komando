@@ -61,6 +61,9 @@ func TestTestKeepsATwoFactorSession(t *testing.T) {
 	if l := st.Logins["web1"]; l == nil || time.Until(l.Until) < 7*time.Hour {
 		t.Fatalf("session record %+v", l)
 	}
+	if rows := runningStatus(tcl, st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
+		t.Errorf("status: %+v", rows)
+	}
 
 	// --end on the one server ends it: the agent is back to needing a person
 	mustRun(t, "host", "ssh", "test", "web1", "--end")
@@ -101,6 +104,39 @@ func TestTestEndAll(t *testing.T) {
 	if st, _ := store.Load(); len(st.Logins) != 0 {
 		t.Fatalf("test --end left %v", st.Logins)
 	}
+}
+
+// An AI agent's test of a server that only a person can log in to (no key,
+// no stored password) stops before anything leaves this computer: NO_AUTH
+// from the login methods (sshx authMethods), no connection, no login try,
+// and the hint names the person step. The retired `komando login` gave an
+// agent NEEDS_PERSON; a server with a stored password still gets its
+// password tried, as for any command of an agent.
+func TestAgentTestOfAPersonStepServerSendsNothing(t *testing.T) {
+	invHome(t)
+	port, _, saw := twoFactorSSHDCount(t)
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	for _, args := range [][]string{{"test", "web1"}, {"host", "ssh", "test", "web1"}} {
+		e := wantCode(t, "NO_AUTH", args...)
+		if !strings.Contains(e.Hint, "`komando test web1`") {
+			t.Errorf("%v: the hint does not name the person step: %+v", args, e)
+		}
+	}
+	if saw.conns.Load() != 0 || saw.tries.Load() != 0 {
+		t.Errorf("the server saw %d connections and %d login tries, want none", saw.conns.Load(), saw.tries.Load())
+	}
+}
+
+// `test NAME --end` of a server with no session ends nothing; a name that
+// is neither a server nor a kept session is an error.
+func TestTestEndArgs(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.7")
+	if d := mustRun(t, "test", "web1", "--end"); len(d["ended"].([]any)) != 0 {
+		t.Errorf("test web1 --end with no session: %v", d)
+	}
+	wantCode(t, "TARGET_NOT_FOUND", "test", "nosuch", "--end")
 }
 
 func TestTestNeedsATargetWithoutEnd(t *testing.T) {

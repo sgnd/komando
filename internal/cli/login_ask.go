@@ -31,7 +31,7 @@ import (
 //     command (DECLINED), and the window stays shut for that server for a
 //     minute (loginCoolDown), so an agent cannot ask again and again;
 //   - a script, an agent with no screen and ssh-gate get NEEDS_PERSON;
-//   - a held login (`komando login NAME`) is used first, without asking.
+//   - a held login (`komando test NAME`) is used first, without asking.
 //
 // The person's password goes to whatever answers at the server's address,
 // so the address counts as a place a secret goes (hostPlace: an AI agent
@@ -89,7 +89,7 @@ func (t *typedLogins) forget(name string) {
 }
 
 // terminalPerson is the question for the person at the terminal (or the
-// person `komando login` relays to), or nil.
+// person `komando test` relays to), or nil.
 func terminalPerson() func(host, text string, hidden bool) (string, error) {
 	if sshx.Asker == nil {
 		return nil
@@ -215,7 +215,7 @@ func hideTyped(pw string) {
 }
 
 // typeLoginPassword asks the person for the password: at the terminal (or
-// through `komando login`'s background process), in the app's window, or
+// through `komando test`'s background process), in the app's window, or
 // in komando's window for an AI agent.
 func (cl *call) typeLoginPassword(a askTarget) (string, error) {
 	if person := terminalPerson(); person != nil {
@@ -369,7 +369,7 @@ var askLoginOnScreen = func(cl *call, text string) (pw string, given, shown bool
 // tunnel start asks for the passwords of the login-ask servers on the
 // path now and hands them to it on its input, never in its arguments or
 // environment. The background process keeps them in memory for its
-// reconnects, as `komando login` keeps a login.
+// reconnects, as `komando test` keeps a login.
 
 // loginsStdinFlag makes tunnel serve read the passwords first on stdin.
 const loginsStdinFlag = "--logins-stdin"
@@ -447,7 +447,7 @@ func readLogins(cl *call, in *bufio.Reader) error {
 // A conn whose login is "ask" (conn add --login ask) is asked as a
 // server is, through the same questions (typedLogin): its password goes
 // to the conn's address, at the end of its --via path, for this command
-// only. A conn has no `komando login`, so the next step for an agent is
+// only. A conn has no kept login, so the next step for an agent is
 // the person running the command.
 
 // connLoginPassword is the password of login-ask conn c for this

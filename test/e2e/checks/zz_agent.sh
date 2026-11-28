@@ -92,7 +92,7 @@ fi
 
 if in_area data; then
 acode "a change on a protected host needs a person" PROTECTED_TARGET host ssh exec target -- touch /tmp/t-agent
-acode "an agent cannot log in for a person" NEEDS_PERSON login direct
+acode "an agent cannot log in to AWS for a person" NEEDS_PERSON login aws --profile e2e
 acode "an agent gets no SQL shell" NEEDS_TERMINAL database postgres shell pg
 fi
 

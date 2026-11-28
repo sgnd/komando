@@ -31,7 +31,7 @@ type runningVpn struct {
 	UsedBy   []string  `json:"used_by,omitempty"`
 }
 
-// runningLogin is a server login kept by `komando login SERVER`.
+// runningLogin is a server login kept by `komando test TARGET`.
 type runningLogin struct {
 	Host  string    `json:"host"`
 	Since time.Time `json:"since"`
@@ -54,7 +54,7 @@ func statusCmd() *cobra.Command {
 		Short: "What komando left running: VPNs, logins, tunnels, exec sessions",
 		Long: `Lists what still runs after the command that started it ended: VPN
 sessions (from vpn KIND start, or started by a command), server logins kept by
-` + "`komando login SERVER`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
+` + "`komando test TARGET`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
 ~/.aws/config and when they end, tunnels, and the exec sessions started on servers. Nothing is contacted, so it is quick and works offline.
 An exec session is listed until ` + "`komando host ssh exec TARGET --attach ID --remove`" + `
 (or a read to its end by the one who started it) removes it; whether it still
@@ -164,7 +164,7 @@ func (d runningData) Text() string {
 		rows = append(rows, []string{"vpn", v.Name, detail, humanAge(now.Sub(v.Since))})
 	}
 	for _, l := range d.Logins {
-		rows = append(rows, []string{"login", term.CleanText(l.Host), "kept for " + humanAge(l.Until.Sub(now)) + " more (`komando logout " + term.CleanText(l.Host) + "` ends it)", humanAge(now.Sub(l.Since))})
+		rows = append(rows, []string{"login", term.CleanText(l.Host), "kept for " + humanAge(l.Until.Sub(now)) + " more (`komando test " + term.CleanText(l.Host) + " --end` ends it)", humanAge(now.Sub(l.Since))})
 	}
 	for _, l := range d.AWSLogins {
 		since := "-"

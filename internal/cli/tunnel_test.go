@@ -137,12 +137,11 @@ func TestParseTunnelIPv6(t *testing.T) {
 	}
 }
 
-// TestAllWithNames: tunnel stop refuses names together with --all, as
-// logout does; the names (even unknown ones) were ignored.
+// TestAllWithNames: tunnel stop refuses names together with --all; the
+// names (even unknown ones) were ignored.
 func TestAllWithNames(t *testing.T) {
 	invHome(t)
 	wantCode(t, "USAGE", "host", "ssh", "tunnel", "stop", "t-nosuch", "--all")
-	wantCode(t, "USAGE", "logout", "web1", "--all")
 	mustRun(t, "host", "ssh", "tunnel", "stop", "--all")
 }
 

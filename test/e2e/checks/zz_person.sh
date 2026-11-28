@@ -60,16 +60,16 @@ check "person: an empty answer stores nothing (2)" 2 "$RC"
 check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K credential password show "$P1-empty" | jget 'd["error"]["code"]' || true)"
 q $K credential password remove "$P1-pass" --allow-dangerous
 
-# komando login HOST: a person logs in once, then an AI agent can use it
+# komando test HOST: a person logs in once, then an AI agent can use it
 q $K host ssh add "$P1-login" "agent@127.0.0.1:$E2E_SSH_DIRECT"
 check "person: without a login an agent cannot reach it" False "$(A host ssh exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
-O=$(tty 'agentpass\n' login "$P1-login"); RC=$?
-check "person: login asks what the server asks" 1 "$(grep -c 'Password' <<<"$O")"
-check "person: login succeeds" 0 "$RC"
+O=$(tty 'agentpass\n' test "$P1-login"); RC=$?
+check "person: test asks what the server asks" 1 "$(grep -c 'Password' <<<"$O")"
+check "person: test keeps the login" 0 "$RC"
 check "person: an agent uses the kept login" via-login "$(A host ssh exec "$P1-login" --read-only -- echo via-login </dev/null | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "person: status lists the login" True "$($K status | jget "'$P1-login' in json.dumps(d)")"
-q $K logout "$P1-login"
-check "person: after logout the agent is out again" False "$(A host ssh exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
+q $K test "$P1-login" --end
+check "person: after test --end the agent is out again" False "$(A host ssh exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
 q $K host ssh remove "$P1-login"
 
 # --login ask: a person types the password at every connect; an AI agent

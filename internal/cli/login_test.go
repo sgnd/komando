@@ -204,19 +204,6 @@ func TestLoginCloudNamesReserved(t *testing.T) {
 	}
 }
 
-// logout of a name that is neither a server nor a kept login is an error,
-// as login's is; --all with names is refused, not read as --all.
-func TestLogoutArgs(t *testing.T) {
-	invHome(t)
-	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.7")
-	if d := mustRun(t, "logout", "web1"); fmt.Sprint(d["not_logged_in"]) != "[web1]" {
-		t.Errorf("logout web1: %v", d)
-	}
-	wantCode(t, "TARGET_NOT_FOUND", "logout", "nosuch")
-	wantCode(t, "USAGE", "logout", "--all", "web1")
-	mustRun(t, "logout", "--all")
-}
-
 // awsHome points the AWS SDK at a throwaway config (never the person's own
 // ~/.aws) with an SSO profile, a role assumed from it and a keys-only
 // profile without keys.
@@ -306,17 +293,17 @@ func TestLoginCloudComing(t *testing.T) {
 	}
 }
 
-// `login AWS` is the AWS login (no server can be named so), and a server
-// name close to aws that does not exist points at it too.
+// `login AWS` is the AWS login (no server can be named so): a wrong case or
+// a near word points at it, and a server's name is not a login at all.
 func TestLoginCloudTypos(t *testing.T) {
 	invHome(t)
-	if e := wantCode(t, "USAGE", "login", "AWS"); e.Hint != "komando login aws" {
+	if e := wantCode(t, "USAGE", "login", "AWS"); e.Suggestion != "aws" {
 		t.Errorf("AWS: %+v", e)
 	}
-	if e := wantCode(t, "TARGET_NOT_FOUND", "login", "asw"); !strings.Contains(e.Hint, "komando login aws") {
-		t.Errorf("asw: %+v", e)
+	if e := wantCode(t, "USAGE", "login", "aw"); e.Suggestion != "aws" {
+		t.Errorf("aw: %+v", e)
 	}
-	if e := wantCode(t, "TARGET_NOT_FOUND", "login", "web1"); strings.Contains(e.Hint, "login aws") {
+	if e := wantCode(t, "USAGE", "login", "web1"); e.Suggestion != "" || !strings.Contains(e.Hint, "`komando login` has: ") {
 		t.Errorf("web1: %+v", e)
 	}
 }

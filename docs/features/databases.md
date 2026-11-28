@@ -94,7 +94,7 @@ nothing counts as where it goes. An agent's `database KIND backup` and `restore`
 of such a conn stop too: the dump tool would get the password in its environment, where
 the agent's own programs could read it; run those yourself. A file
 (SQLite) or a cluster has no password to type: `--login ask` is refused
-there. A conn has no `komando login`, so every command asks; use TLS
+there. A conn has no kept login, so every command asks; use TLS
 (`sslmode=verify-full`, `tls=true`) so the server is checked before the
 password goes out.
 

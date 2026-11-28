@@ -100,7 +100,7 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	}
 }
 
-// `komando login NAME` at a terminal logs in to a login-ask server once
+// `komando test NAME` at a terminal logs in to a login-ask server once
 // (the person types the password there); an AI agent's commands then use
 // that login and no window opens.
 func TestLoginAskHeldLogin(t *testing.T) {
@@ -118,15 +118,15 @@ func TestLoginAskHeldLogin(t *testing.T) {
 	const pw = "held-Pa55"
 	port, tries, _ := passwordSSHD(t, pw)
 	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
-	t.Cleanup(func() { _, _ = invRun(t, "logout", "--all") })
+	t.Cleanup(func() { _, _ = invRun(t, "test", "--end") })
 	savedAsker := sshx.Asker
 
-	p := startPTY(t, "login", "web1")
+	p := startPTY(t, "test", "web1")
 	p.answer("Password: ", pw+"\r")
 	if code := p.exit(); code != 0 {
-		t.Fatalf("login: exit %d; the screen:\n%s", code, p.shown())
+		t.Fatalf("test: exit %d; the screen:\n%s", code, p.shown())
 	}
-	p.waitFor("logged in to web1")
+	p.waitFor("web1")
 	if strings.Contains(p.shown(), pw) {
 		t.Errorf("the password shows on the screen:\n%s", p.shown())
 	}

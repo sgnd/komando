@@ -794,7 +794,7 @@ var approvalMeanings = map[string]string{
 var catalogSite = map[string]string{
 	"CANCELLED":           "interrupted", // kit/term.Interrupted, the stop of every cancelled command
 	"CONN_UNREACHABLE":    "cannot reach …: …",
-	"NEEDS_PERSON":        "logging in to … needs a person at a terminal to answer its questions",
+	"NEEDS_PERSON":        "setting up the approval code shows its secret, so only a person at a terminal can do it",
 	"FILE_EXISTS":         "… already exists on this computer",
 	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
 	"WEAK_PASSPHRASE":     "…; nothing was changed",

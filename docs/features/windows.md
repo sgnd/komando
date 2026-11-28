@@ -73,8 +73,8 @@ window (`SAFETY_SETTING` without it). A server that has the setting
 already asks nothing again.
 
 `--via` works: the connection goes through the bastion or VPN. WinRM
-carries commands only, so `shell`, tunnels, `host ssh trust`, `login` and
-`host ssh-command` need OpenSSH. To switch a server back to SSH:
+carries commands only, so `shell`, tunnels, `host ssh trust`, the kept login
+of `test` and `host ssh-command` need OpenSSH. To switch a server back to SSH:
 `komando host winrm edit win2 --unset transport`. Use NTLM with a domain user,
 over HTTPS (see [Limits](#limits) for what WinRM does not do).
 
@@ -237,7 +237,7 @@ lists services that should start automatically but stopped with an error.
 | `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `copy --sync` |
 | `copy` (single files) | exec sessions (a run on Windows has none), `copy -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
-| `host ssh trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host ssh trust` over WinRM |
+| `host ssh trust`, the kept login of `test`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host ssh trust` over WinRM |
 
 A command that is not there yet stops with `NOT_SUPPORTED` before anything
 runs; `fs restore` stops with a usage error (`USAGE`) that names
@@ -257,8 +257,8 @@ runs; `fs restore` stops with a usage error (`USAGE`) that names
   Windows: copy the backup back with `komando host ssh exec SERVER -- Copy-Item ...`.
 - Kerberos, CredSSP, client certificates and WinRM's own message encryption
   over plain HTTP are not supported.
-- WinRM carries commands only: `shell`, tunnels, `host ssh trust`, `login` and
-  `host ssh-command` need OpenSSH.
+- WinRM carries commands only: `shell`, tunnels, `host ssh trust`, the kept
+  login of `test` and `host ssh-command` need OpenSSH.
 - Windows has no sudo: `--sudo` and `--pty` are refused.
 - A target that picks Windows and other servers at once is refused for
   `exec` (`MIXED_OS`).

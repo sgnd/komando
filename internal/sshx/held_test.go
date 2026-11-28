@@ -17,7 +17,7 @@ import (
 )
 
 // heldLogin serves up (a logged-in server) on a fresh Unix socket, as
-// `komando login` does, and returns its record for host.
+// `komando test` does, and returns its record for host.
 func heldLogin(t *testing.T, up *ssh.Client, h *store.Host) *store.SSHLogin {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "kh") // short: a Unix socket path has a small limit

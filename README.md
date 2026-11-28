@@ -117,7 +117,7 @@ you a window to allow it once. The agent never sees your passwords.
 | Task | Commands |
 |------|----------|
 | See and check everything at once | `list`, `test`, `status` |
-| Keep your list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
+| Keep your list of servers and how to log in | `host`, `group`, `key`, `secret`, `test` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
 | Run commands on one or many servers | `host ssh exec` (long tasks run in sessions), `host ssh shell` |
 | Read, edit and copy files | `fs`, `copy` |

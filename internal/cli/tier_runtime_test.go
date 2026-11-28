@@ -263,7 +263,7 @@ type tierProof struct {
 // that the test exists and that its body (with the table it runs) names
 // the command and the code.
 var tierProvedBy = map[string]tierProof{
-	"host ssh test dynamic person | host.ssh.test":                             {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"host ssh test dynamic person | host.ssh.test":                             {test: "TestTestKeepsATwoFactorSession", cmd: "test", stop: "NO_AUTH"},
 	"import dynamic person | import":                                           {test: "TestSealedNeedsPerson"},
 	"update dynamic safety | update":                                           {test: "TestUpdateOlderAgentNeedsWindow"},
 	"floor | update":                                                           {test: "TestUpdateInstallsNewest"},
