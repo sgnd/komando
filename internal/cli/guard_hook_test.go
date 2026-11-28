@@ -668,3 +668,244 @@ func TestGuardReaderScriptNamingAHookFile(t *testing.T) {
 		"git fetch https://github.com/sgnd/komando",
 	}, true)
 }
+
+// guardSecretTargets are files the secret-path rule guards, one per kind:
+// komando's data (also through $HOME and ${KOMANDO_HOME}), a
+// private key, a credential store and a file named as one that holds
+// secrets.
+func guardSecretTargets() []string {
+	return []string{
+		"~/.komando/vault.json",
+		`"$HOME/.komando/state.json"`,
+		"${KOMANDO_HOME}/audit.log",
+		"~/.ssh/id_ed25519",
+		"~/.aws/credentials",
+		"/tmp/site/.pgpass",
+		"/tmp/site/.env",
+	}
+}
+
+// The file a plain > or >> redirect writes is checked as a secret path
+// for every program, as the >& and &> forms are: also for the programs
+// whose own arguments only name files (echo, printf, touch, mkdir, ls,
+// test).
+func TestGuardRedirectTargetIsCheckedAsSecretPath(t *testing.T) {
+	home, _ := guardLineHome(t)
+	for _, prog := range []string{"echo x", "printf x", "touch a", "mkdir -p a", "ls", "test -n x", "[ -n x ]", "date"} {
+		t.Run(strings.Fields(prog)[0], func(t *testing.T) {
+			var lines []string
+			for _, op := range []string{">", ">>", " >", "1>", ">&", "&>", ">|", ">>|", ">!", ">>!"} {
+				for _, target := range guardSecretTargets() {
+					lines = append(lines, prog+" "+op+" "+target, prog+" "+op+target)
+				}
+			}
+			checkLines(t, home, home, lines, true)
+		})
+	}
+}
+
+// The same check holds where the redirect stands in a longer line: after
+// a pipe or ;, inside $(...) and backquotes, in the script of bash -c, with
+// no space around the operator, and with the operator before the program.
+func TestGuardRedirectTargetInLongerLines(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"cat /tmp/a | echo x > ~/.komando/vault.json",
+		"true; printf x >> ~/.komando/vault.json",
+		"x=$(echo y > ~/.komando/vault.json)",
+		"x=`echo y > ~/.komando/vault.json`",
+		`bash -c 'echo y > ~/.komando/vault.json'`,
+		"echo x>~/.komando/vault.json",
+		"echo x>>~/.ssh/id_ed25519",
+		"> ~/.komando/vault.json echo x",
+		"echo x > /tmp/ok > ~/.komando/vault.json",
+		"cd ~/.ssh/.. && echo x > .komando/vault.json",
+		"echo X=1 > .env",
+	}, true)
+}
+
+// A redirect that writes elsewhere stays allowed, and so do the words
+// these programs only name: a file name in quoted text or in an argument
+// is no redirect.
+func TestGuardRedirectTargetHarmlessStaysAllowed(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"echo x > notes.txt",
+		"printf 'a\\n' >> /tmp/out.log",
+		"ls -la > /tmp/listing",
+		"echo x 2>/dev/null",
+		"mkdir -p build > /dev/null",
+		`echo "write the key to ~/.ssh/id_ed25519 > later" > /tmp/note`,
+		"echo 'a > ~/.komando/vault.json'",
+		"echo ~/.komando/vault.json",
+		"ls ~/.komando",
+		"test -f ~/.ssh/id_ed25519",
+		"echo .pgpass >> .gitignore",
+		"echo X=1 > .env.example",
+		"printf 'X=1\\n' >> /tmp/site/.env.sample",
+	}, false)
+}
+
+// The shell, not the program, writes a redirect's file: the check holds
+// for komando's own line, and for a redirect where the program reads a
+// value or a pattern (find -name, grep's pattern), and for <>.
+func TestGuardRedirectTargetWhereTheProgramSkipsWords(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"komando list > ~/.komando/vault.json",
+		"komando list -o json >> ~/.ssh/id_ed25519",
+		"find . -name > ~/.komando/vault.json x",
+		"grep > ~/.komando/vault.json foo /tmp/a",
+		"echo x <> ~/.komando/vault.json",
+		"komando list > ~/.claude/settings.json",
+		"komando guide >> ~/bin/komando",
+		"echo x >! ~/.claude/settings.json",
+		"echo x >>!~/.claude/settings.local.json",
+		"date >! ~/bin/komando",
+		"bash -c 'echo x >! ~/.komando/state.json'",
+		"date >! .env",
+	}, true)
+	checkLines(t, home, home, []string{
+		"komando list -o json > /tmp/hosts.json",
+		"find . -name '*.go' > /tmp/files",
+	}, false)
+}
+
+// The other ways a line writes a file are checked as secret paths too:
+// tee, cp and mv to it, and a redirect after a here-document or a
+// here-string.
+func TestGuardSecretPathWrittenOtherWays(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"echo x | tee ~/.komando/vault.json",
+		"echo x | tee -a ~/.ssh/id_ed25519",
+		"cp /tmp/x ~/.komando/vault.json",
+		"mv /tmp/x ~/.aws/credentials",
+		"cat <<EOF > ~/.komando/vault.json\nx\nEOF",
+		"cat <<'EOF' >> ~/.komando/vault.json\nx\nEOF",
+		"cat > ~/.komando/vault.json <<'EOF'\nx\nEOF",
+		"cat <<< x > ~/.komando/vault.json",
+		"echo <<< x > ~/.ssh/id_ed25519",
+	}, true)
+}
+
+// dollarQuoted writes the first dot of target, without its double quotes,
+// in each form bash and zsh decode: $'\x2e', $'\056', $'.', $'.'
+// and $".".
+func dollarQuoted(target string) []string {
+	t := strings.Trim(target, `"`)
+	var out []string
+	for _, q := range []string{`$'\x2e'`, `$'\056'`, `$'.'`, `$'.'`, `$"."`} {
+		out = append(out, strings.Replace(t, ".", q, 1))
+	}
+	return out
+}
+
+// A word in $'...' or $"..." quotes is checked as the shell reads it: in
+// a redirect, as an argument that writes and as one that reads.
+func TestGuardDollarQuotedPathIsDecoded(t *testing.T) {
+	home, _ := guardLineHome(t)
+	var lines []string
+	for _, target := range guardSecretTargets() {
+		for _, w := range dollarQuoted(target) {
+			lines = append(lines, "echo x > "+w, "cp /tmp/a "+w, "cat "+w)
+		}
+	}
+	lines = append(lines, `echo x > ~/$'.cl\x61ude'/settings.json`, `cp /tmp/a ~/$'.claude'/settings.json`)
+	checkLines(t, home, home, lines, true)
+	checkLines(t, home, home, []string{
+		`echo $'a\tb' > /tmp/out`,
+		`printf $'x\n' >> notes.txt`,
+		`echo "$'.komando'" > /tmp/out`,
+		`echo '$'"'"'x'"'" > /tmp/out`,
+	}, false)
+}
+
+// A path held in a variable set earlier on the line is checked as the
+// path itself: written, copied or read through the variable. A redirect
+// whose file the guard cannot know (a variable never set on the line or in
+// the environment, or a command's output) is refused.
+func TestGuardPathInAVariable(t *testing.T) {
+	home, _ := guardLineHome(t)
+	t.Setenv("GUARD_TEST_KNOWN_DIR", "/tmp")
+	checkLines(t, home, home, []string{
+		`f=~/.komando/vault.json; cp /tmp/a $f`,
+		`f=~/.komando/vault.json; cat $f`,
+		`f=~/.komando/vault.json; echo x > "$f"`,
+		`f=~/.komando/vault.json && echo x >> "${f}"`,
+		`export f=~/.ssh/id_ed25519; cat "$f"`,
+		`d=~/.komando; echo x > "$d/vault.json"`,
+		`d=~/.kom; echo x > "${d}ando/vault.json"`,
+		`for d in /tmp ~/.kom; do echo x > "${d}ando/vault.json"; done`,
+		`f=$(cat /tmp/name); echo x > "$f"`,
+		`echo x > "$GUARD_TEST_NEVER_SET"`,
+		"echo x > `cat /tmp/name`",
+		`echo x > $(cat /tmp/name)`,
+		`while read f; do echo x > "$f"; done < /tmp/list`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`out=/tmp/x.log; echo x > "$out"`,
+		`for f in a.go b.go; do gofmt "$f" > "$f.tmp"; done`,
+		`echo x > "$GUARD_TEST_KNOWN_DIR/out"`,
+		`f=notes.txt; cat "$f"`,
+		`f=notes.txt; echo x > $f 2>&1`,
+		`echo x > "$HOME/notes.txt"`,
+		`echo x > /tmp/log.$$`,
+		`echo x > "$PWD/out.txt"`,
+	}, false)
+	checkProvedLines(t, home, home, []string{`tmp=$(mktemp); echo x > "$tmp"`, `echo x > "$(mktemp)"`})
+}
+
+// A shell nested deeper than the guard reads is refused, not let through.
+func TestGuardNestingPastTheLimitIsRefused(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		`bash -c "bash -c 'bash -c \"bash -c \\\"echo x > ~/.komando/vault.json\\\"\"'"`,
+		`sh -c 'sh -c "sh -c \"sh -c \\\"cat ~/.ssh/id_ed25519\\\"\""'`,
+		`eval 'eval "eval \"eval true\""'`,
+		`env -S 'env -S "env -S \"env -S \\\"true\\\"\""' true`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`bash -c "bash -c 'echo ok > /tmp/out'"`,
+	}, false)
+}
+
+// Ordinary output handling stays allowed.
+func TestGuardOrdinaryRedirectsStayAllowed(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkLines(t, home, home, []string{
+		"echo x > /dev/null",
+		"ls > /dev/null 2>&1",
+		"go vet ./... 2>&1",
+		"echo done >&2",
+		"go build ./... &> build.log",
+		"make 2>&1 | tee build.log",
+		"echo x >> logs/build.log",
+		"echo X=1 > .env.example",
+		"go test ./... >| /tmp/out",
+	}, false)
+}
+
+// Git Bash on Windows names a drive as /c/... (MSYS) or /cygdrive/c/...
+// (Cygwin); msysDrive gives the path Windows reads. Other paths stay.
+func TestGuardMsysDrivePath(t *testing.T) {
+	for in, want := range map[string]string{
+		"/c/Users/x/.komando":      "C:/Users/x/.komando",
+		"/C/Users/x":               "C:/Users/x",
+		"/d":                       "D:/",
+		"/c/":                      "C:/",
+		"/cygdrive/c/Users/x/.ssh": "C:/Users/x/.ssh",
+		"/tmp/x":                   "/tmp/x",
+		"/cc/x":                    "/cc/x",
+		"/cygdrivex/c/y":           "/cygdrivex/c/y",
+		"/1/x":                     "/1/x",
+		"C:/Users/x":               "C:/Users/x",
+		`C:\Users\x`:               `C:\Users\x`,
+		"c/Users":                  "c/Users",
+		"":                         "",
+	} {
+		if got := msysDrive(in); got != want {
+			t.Errorf("msysDrive(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -57,7 +57,7 @@ func operands(args []string) []string {
 
 // deletesFiles: rm, unlink, rmdir, shred -u, find -delete or -exec rm,
 // and PowerShell's and cmd's deletes. fs rm stopped on every path it
-// deleted, a file or a folder (internal/cli/guard_delete.go guardFsRm).
+// deleted, a file or a folder (internal/cli/guard_protected.go guardFsRm).
 func deletesFiles(c simpleCommand) bool {
 	args := c.args[1:]
 	switch c.name() {

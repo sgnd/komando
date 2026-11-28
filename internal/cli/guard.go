@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/store"
@@ -235,11 +236,11 @@ func realPath(p string) string {
 }
 
 // guardPathAt is guardPath, with a relative path joined to cwd when cwd is
-// known.
+// known (not "" or lostDir).
 func guardPathAt(cl *call, w, home, cwd string) string {
 	p := guardPath(cl, w, home)
 	if !filepath.IsAbs(p) {
-		if cwd == "" {
+		if cwd == "" || cwd == lostDir {
 			return filepath.Clean(p)
 		}
 		p = lexOrKernel(cwd + string(filepath.Separator) + p)
@@ -253,7 +254,11 @@ func wordHasGlob(w string) bool { return strings.ContainsAny(w, "*?[{") }
 // it could name a protected folder or something in it: `~/.komand?`,
 // `~/.ss?/id_*` and `.komando/keys/*` (from the home folder) all count.
 func secretGlob(cl *call, w, home, cwd string) string {
-	for _, pat := range expandBraces(w, 0) {
+	pats, whole := expandBraces(w)
+	if !whole {
+		return braceLimitWhy
+	}
+	for _, pat := range pats {
 		p := guardPathAt(cl, pat, home, cwd)
 		if last := filepath.Base(p); strings.HasPrefix(last, ".") {
 			for _, n := range []string{".env", ".env.local", ".env.production", ".pgpass", ".my.cnf", ".netrc", ".git-credentials", ".htpasswd", ".npmrc", ".pypirc"} {
@@ -349,50 +354,11 @@ func globUnder(p, dir, home string) (string, bool) {
 	return filepath.Join(append([]string{dir}, pc[len(dc):]...)...), true
 }
 
-// expandBraces turns a{b,c}d into abd and acd, as the shell does.
-func expandBraces(w string, depth int) []string {
-	open := strings.IndexByte(w, '{')
-	if open < 0 || depth > 4 {
-		return []string{w}
-	}
-	level, end := 0, -1
-	var cuts []int
-	for i := open; i < len(w) && end < 0; i++ {
-		switch w[i] {
-		case '{':
-			level++
-		case '}':
-			if level--; level == 0 {
-				end = i
-			}
-		case ',':
-			if level == 1 {
-				cuts = append(cuts, i)
-			}
-		}
-	}
-	if end < 0 || len(cuts) == 0 {
-		return []string{w}
-	}
-	var alts []string
-	start := open + 1
-	for _, c := range append(cuts, end) {
-		alts = append(alts, w[start:c])
-		start = c + 1
-	}
-	var all []string
-	for _, a := range alts {
-		for _, x := range expandBraces(w[:open]+a+w[end+1:], depth+1) {
-			if len(all) < 64 {
-				all = append(all, x)
-			}
-		}
-	}
-	return all
-}
-
 func guardPath(cl *call, p, home string) string {
 	p = strings.Trim(p, `"'`)
+	if runtime.GOOS == "windows" {
+		p = msysDrive(p)
+	}
 	kh := cl.getenv("KOMANDO_HOME")
 	if kh == "" {
 		kh = filepath.Join(home, ".komando")
@@ -422,6 +388,16 @@ func guardPath(cl *call, p, home string) string {
 	return lexOrKernel(p)
 }
 
+// msysDrive is the Windows path Git Bash opens for an MSYS or Cygwin drive
+// path: /c/Users/x and /cygdrive/c/Users/x are C:/Users/x. Other paths stay.
+func msysDrive(p string) string {
+	rest := strings.TrimPrefix(p, "/cygdrive")
+	if len(rest) < 2 || rest[0] != '/' || !('a' <= rest[1]|0x20 && rest[1]|0x20 <= 'z') || len(rest) > 2 && rest[2] != '/' {
+		return p
+	}
+	return strings.ToUpper(rest[1:2]) + ":/" + strings.TrimPrefix(rest[2:], "/")
+}
+
 var userName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9._-]*$`)
 
 // userHome is the home folder of the user name, as ~name names it.
@@ -433,4 +409,375 @@ func userHome(name, home string) string {
 		return u.HomeDir
 	}
 	return filepath.Join(filepath.Dir(home), name)
+}
+
+// A glob names the files it matches when the line runs. A glob that names a
+// file a command writes is checked against the guard files two ways: the
+// files it matches now, and the agent folders and hook files it could match
+// by name. The shell's * and ? do not match a leading dot; a line that
+// changes how globs match, or uses a glob form the guard does not read, is
+// refused (checkGlobForms).
+
+// guardGlobWhy is guardSelfWhy for the glob w, read from cwd: why a file
+// it matches now, or a guard file it could match by name, may not be
+// changed by an AI agent, or "".
+func guardGlobWhy(cl *call, w, home, cwd string) string {
+	pats, whole := expandBraces(w)
+	if !whole {
+		return braceLimitWhy
+	}
+	for _, pat := range pats {
+		p := guardPathAt(cl, pat, home, cwd)
+		if why := guardSelfWhy(p); why != "" {
+			return why // a brace list leaves plain names
+		}
+		if filepath.IsAbs(p) {
+			if m, err := filepath.Glob(p); err == nil {
+				for i, f := range m {
+					if i == 500 {
+						break
+					}
+					if !shellGlobMatches(p, f) {
+						continue
+					}
+					if why := guardSelfWhy(f); why != "" {
+						return why
+					}
+				}
+			}
+		}
+		if why := guardNameGlob(p); why != "" {
+			return why
+		}
+	}
+	return ""
+}
+
+// shellGlobMatches says whether the shell's glob p matches the path f that
+// filepath.Glob gave: not where a part of f starts with a dot that the same
+// part of p does not start with.
+func shellGlobMatches(p, f string) bool {
+	pc := strings.Split(filepath.ToSlash(p), "/")
+	fc := strings.Split(filepath.ToSlash(f), "/")
+	if len(pc) != len(fc) {
+		return true
+	}
+	for i := range pc {
+		if strings.HasPrefix(fc[i], ".") && !strings.HasPrefix(pc[i], ".") {
+			return false
+		}
+	}
+	return true
+}
+
+// checkTreeChange refuses rm -r, mv and chmod, chown or chgrp -R of a
+// folder that is or holds a protected path or a guard file, the rule
+// find -delete follows (touchesProtected): the change reaches everything
+// under the folder. A glob counts as the names it matches now. bases are
+// the names the program may have; each word is checked once, however many
+// argument lists and names give it.
+func checkTreeChange(cl *call, bases, args []string, globs []bool, vars lineVars, home, cwd string) guardDecision {
+	lines, flat, whole := treeLines(cl, args, globs, vars, home, cwd)
+	if !whole {
+		return deny("the line has %s; name the folders plainly", braceLimitWhy)
+	}
+	if flat {
+		// one list of every value: an option from one value says nothing of
+		// the words after it, so a program that removes, moves or changes
+		// folders may take any of them as an operand
+		bases = slices.Clone(bases)
+		for i, b := range bases {
+			if treePrograms[b] {
+				bases[i] = anyProgram
+			}
+		}
+	}
+	checked, shaped := map[treeWord]bool{}, map[int]bool{}
+	for _, base := range bases {
+		for _, line := range lines {
+			words := make([]string, len(line))
+			for i, w := range line {
+				words[i] = w.w
+			}
+			for _, i := range treeOperands(base, words) {
+				if a := line[i].arg; !shaped[a] {
+					shaped[a] = true
+					for _, s := range unknownShapes(cl, args[a], globs[a], vars, home, cwd) {
+						if unknownFolderReaches(cl, s, home, vars) {
+							return deny("%s %s %s and everything under it, a folder komando's guard cannot know before the line runs that may be or hold komando's data, private keys or guard files; name the folder on the line", base, treeVerb(base), strings.ReplaceAll(args[a], unknownOutput, "$(...)"))
+						}
+					}
+				}
+				if words[i] == "" || checked[line[i]] {
+					continue // an empty value names no folder: the word goes, or rm "" fails
+				}
+				checked[line[i]] = true
+				for _, p := range treeTargets(cl, words[i], line[i].glob, home, cwd) {
+					if filepath.IsAbs(p) && touchesProtected(cl, p, home, vars) {
+						return deny("%s %s %s and everything under it, which is or holds komando's data, private keys or guard files; name the files inside instead", base, treeVerb(base), p)
+					}
+				}
+			}
+		}
+	}
+	return allow()
+}
+
+// treeVerb is what the program base does to a folder checkTreeChange
+// refuses.
+func treeVerb(base string) string {
+	switch base {
+	case "rm":
+		return "removes"
+	case "mv", "trash":
+		return "moves"
+	case anyProgram:
+		return "may remove or move"
+	}
+	return "changes"
+}
+
+// treePrograms remove, move or change folders with everything under them
+// (treeOperands).
+var treePrograms = map[string]bool{"rm": true, "mv": true, "trash": true, "chmod": true, "chown": true, "chgrp": true}
+
+// anyProgram stands for a program the guard cannot name before the line
+// runs (a value, command output, an alias): it may remove or move any of
+// its operands.
+const anyProgram = "a program komando's guard cannot name"
+
+// treeOperands are the indexes of the arguments base removes, moves or
+// changes with everything under them: rm -r's operands, mv's sources,
+// trash's operands (macOS moves them to the Trash), every operand of
+// anyProgram, and the operands of chmod, chown or chgrp -R (the mode or
+// owner among them names nothing that matters).
+func treeOperands(base string, args []string) []int {
+	var ops []int
+	recursive, target, opts := false, false, true
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case !opts || a == "-" || !strings.HasPrefix(a, "-"):
+			ops = append(ops, i)
+		case a == "--":
+			opts = false
+		case strings.HasPrefix(a, "--"):
+			name, _, valued := strings.Cut(a, "=")
+			recursive = recursive || longOption(name, "--recursive")
+			if base == "mv" && longOption(name, "--target-directory") {
+				target = true
+				if !valued {
+					i++
+				}
+			}
+		default:
+			letters := a[1:]
+			recursive = recursive || strings.Contains(letters, "R") || base == "rm" && strings.Contains(letters, "r")
+			if k := strings.IndexAny(letters, "tS"); base == "mv" && k >= 0 {
+				target = target || letters[k] == 't'
+				if k == len(letters)-1 {
+					i++ // the folder or the suffix is the next word
+				}
+			}
+		}
+	}
+	switch {
+	case recursive && (base == "rm" || base == "chmod" || base == "chown" || base == "chgrp"), base == "mv" && target, base == "trash", base == anyProgram:
+		return ops
+	case base == "mv" && len(ops) > 1:
+		return ops[:len(ops)-1]
+	}
+	return nil
+}
+
+// longOption says whether name is the long option opt or a short form of
+// it GNU tools accept (--rec for --recursive, --t for --target-directory).
+func longOption(name, opt string) bool {
+	return len(name) > 2 && strings.HasPrefix(opt, name)
+}
+
+// guardNameGlob says why a name the glob p could match is a guard file by
+// its name alone (guardSelfWhy): an AI agent's settings folder, its hook
+// file, or a program named komando. For komando the glob must hold a
+// plain letter: a bare * matches every name, and the files it matches now
+// are checked one by one.
+func guardNameGlob(p string) string {
+	parts := strings.Split(strings.TrimRight(filepath.ToSlash(p), "/"), "/")
+	base, parent := parts[len(parts)-1], ""
+	if len(parts) > 1 {
+		parent = parts[len(parts)-2]
+	}
+	for dir, files := range hookSettingFiles {
+		if globName(base, dir) {
+			return "an AI agent's settings folder, which holds komando's guard hook"
+		}
+		if globName(parent, dir) {
+			for _, f := range files {
+				if globName(base, f) {
+					return "an AI agent's hook settings, which run komando's guard"
+				}
+			}
+		}
+	}
+	plain := strings.ContainsFunc(base, func(r rune) bool { return 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' })
+	if plain && (globName(base, "komando") || runtime.GOOS == "windows" && globName(base, "komando.exe")) {
+		return komandoNamedWhy
+	}
+	return ""
+}
+
+// globName says whether the glob part pat matches name as the shell does:
+// * and ? not a leading dot, and names folded where the file system folds
+// them.
+func globName(pat, name string) bool {
+	if pat == "" || strings.HasPrefix(name, ".") && !strings.HasPrefix(pat, ".") {
+		return false
+	}
+	if caseFoldFS {
+		pat, name = foldCase(pat), foldCase(name)
+	}
+	ok, err := filepath.Match(pat, name)
+	return err == nil && ok
+}
+
+// globOptions are shell options that change what a glob matches: hidden
+// files too (dotglob, GLOB_DOTS, GLOBIGNORE), names in any case
+// (nocaseglob, CASE_GLOB), more pattern forms (extglob, EXTENDED_GLOB,
+// KSH_GLOB, globstar) or a glob in a variable's value (GLOB_SUBST).
+var globOptions = regexp.MustCompile(`(?i)dot_?glob|glob_?dots|globignore|ext_?glob|extended_?glob|ksh_?glob|sh_?glob|glob_?subst|glob_?star|bare_?glob_?qual|case_?glob`)
+
+// checkGlobForms refuses a line whose globs the guard cannot read: a glob
+// qualifier or group (globGroup), or a glob on a line that changes how
+// globs match (globOptions).
+func checkGlobForms(line string) guardDecision {
+	if globGroup(dropHeredocs(line, true)) {
+		return deny("the line has a glob qualifier or a ( ) group in a word, which komando's guard does not read (zsh's *(D) also matches hidden files, *(e:...:) runs code); name the files plainly")
+	}
+	if globOptions.MatchString(line) {
+		for _, seg := range splitShell(line) {
+			if _, globs := shellWordsGlob(seg); slices.Contains(globs, true) {
+				return deny("the line changes how globs match and uses a glob, which komando's guard cannot follow; name the files plainly")
+			}
+		}
+	}
+	for _, seg := range splitShell(dropHeredocs(line, true)) {
+		words, globs := shellWordsGlob(seg)
+		for i, w := range words {
+			if globs[i] && bracketDiffers(w) {
+				return deny("%s has a [ ] list that komando's guard does not read the way the shell does ([!x], [[:alpha:]], [a-]); name the files plainly", w)
+			}
+		}
+	}
+	return allow()
+}
+
+// bracketDiffers says whether the glob word w holds a [ ] list the shell
+// and filepath.Match read differently: [!x] (to Go, ! is a letter), a class,
+// collating symbol or equivalence ([[:alpha:]], [[.a.]], [[=a=]]), or a - or
+// ] where Go wants a letter ([a-], [-a], []a]). Without its closing ] the
+// shell reads [ as a letter.
+func bracketDiffers(w string) bool {
+	for rest := w; ; {
+		i := strings.IndexByte(rest, '[')
+		if i < 0 {
+			return false
+		}
+		rest = rest[i+1:]
+		start := 0
+		if strings.HasPrefix(rest, "!") || strings.HasPrefix(rest, "^") {
+			start = 1
+		}
+		end := strings.IndexByte(rest[min(start+1, len(rest)):], ']')
+		if end < 0 {
+			continue
+		}
+		list := rest[start : end+min(start+1, len(rest))]
+		if strings.HasPrefix(rest, "!") || strings.Contains(list, "[:") || strings.Contains(list, "[.") || strings.Contains(list, "[=") || goRangeRejects(list) {
+			return true
+		}
+	}
+}
+
+// goRangeRejects says whether filepath.Match rejects the [ ] list list: a
+// range may not start or end with - or ], which the shell takes as letters.
+func goRangeRejects(list string) bool {
+	for k := 0; k < len(list); k++ {
+		if list[k] == '-' || list[k] == ']' {
+			return true
+		}
+		if k+1 < len(list) && list[k+1] == '-' {
+			k += 2
+			if k >= len(list) || list[k] == '-' || list[k] == ']' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// globGroup says whether line has an unquoted ( inside a word: a zsh glob
+// qualifier or group (*(D), *(e:...:), a(b|c)) or an extended glob of bash
+// (@(...), !(...)). A ( after $, <, > or = starts a command or an array,
+// NAME() defines a function, and (( )) and $(( )) count.
+func globGroup(line string) bool {
+	var q byte
+	word := false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case q == '\'':
+			if c == '\'' {
+				q = 0
+			}
+		case c == '\\':
+			i++
+			word = true
+		case c == '$' && strings.HasPrefix(line[i:], "$(("), !word && strings.HasPrefix(line[i:], "(("):
+			i = arithEnd(line, i) // arithmetic: no globs
+			word = q == '"'
+		case c == '`' || c == '$' && i+1 < len(line) && line[i+1] == '(':
+			end, bodyEnd := outputEnd(line, i)
+			from := i + 2
+			if c == '`' {
+				from = i + 1
+			}
+			if globGroup(line[min(from, bodyEnd):bodyEnd]) {
+				return true
+			}
+			i, word = end-1, true
+		case q == '"':
+			if c == '"' {
+				q = 0
+			}
+		case c == '\'' || c == '"':
+			q, word = c, true
+		case c == '(':
+			if word && !strings.ContainsRune("$<>=(", rune(line[i-1])) && (i+1 >= len(line) || line[i+1] != ')') {
+				return true
+			}
+			word = false
+		case strings.ContainsRune(" \t\n;&|)<>", rune(c)):
+			word = false
+		default:
+			word = true
+		}
+	}
+	return false
+}
+
+// arithEnd is the index of the last ) of the (( )) or $(( )) that starts
+// at line[i], or the line's last index.
+func arithEnd(line string, i int) int {
+	depth := 0
+	for j := i; j < len(line); j++ {
+		switch line[j] {
+		case '(':
+			depth++
+		case ')':
+			if depth--; depth == 0 {
+				return j
+			}
+		}
+	}
+	return len(line) - 1
 }
