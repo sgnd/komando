@@ -46,7 +46,6 @@ var (
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
-		"conn kinds",
 		"conn show",
 		"db info",
 		"db locks",

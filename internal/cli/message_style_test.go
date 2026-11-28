@@ -419,7 +419,7 @@ var (
 	// directory are taken out first: a URL's host part, a database
 	// account's host, a host key or name, a jump host, a host subcommand,
 	// a systemd, Swarm or Kubernetes service, another program's words
-	termsAllowed = regexp.MustCompile(`(?i)(komando host|host (key|name|keys|part|port|header|edit|rename|ssh-command|ca)|host\s+key|jump host|--command host\.|host or host:port|kinds: host|user, host|hosts? file|localhost|--(from-)?host|host:|\bhost\)|:host|known_hosts|/etc/hosts|` +
+	termsAllowed = regexp.MustCompile(`(?i)(komando host|host (key|name|keys|part|port|header|edit|rename|ca)|host\s+key|jump host|--command host\.|host or host:port|kinds: host|user, host|hosts? file|localhost|--(from-)?host|host:|\bhost\)|:host|known_hosts|/etc/hosts|` +
 		`(URL|URL's|endpoint|portal|kubeconfig's server|redirected to another|the same|after the|virtual|account|Vault|to a|a|one) hosts?\b|hosts it may|` +
 		`service account|service principal|service name|systemd|unit|kubernetes|swarm|stack|cluster list|windows|Service\b|service/|services? \(|[a-z]+\.service|` +
 		`system files or services|Which services|Only services|without services|lists the services|or services|deployments, services|no such file or directory)`)

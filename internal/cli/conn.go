@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -132,14 +131,14 @@ func connCmd() *cobra.Command {
 		Aliases: []string{"conns"},
 		Short:   "Conns (databases, caches, queues, ...): add, change, remove",
 		Long: `A conn is a database, cache, message queue, file storage, cluster or registry
-komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
+komando talks to directly. The kind comes from the URL scheme (` + "`komando schema`" + `
 lists them). Passwords never go in the URL: store them with
 ` + "`komando credential password add`" + ` and pass --password-ref. Use --via HOST when the
 conn is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
 	}
-	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn", "List conns"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test", "Check that conns answer and let you in"), connKindsCmd())
+	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn", "List conns"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test", "Check that conns answer and let you in"))
 	return c
 }
 
@@ -452,33 +451,6 @@ func connRmCmd() *cobra.Command {
 	}
 }
 
-func connKindsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "kinds",
-		Short: "List the conn kinds komando knows and their URL schemes",
-		Args:  cobra.NoArgs,
-		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			cl.out.Print("conn.kinds", kindList{Kinds: driver.Kinds()}, nil)
-			return nil
-		}),
-	}
-}
-
-type kindList struct {
-	Kinds []driver.Kind `json:"kinds"`
-}
-
-func (l kindList) Text() string {
-	var sb strings.Builder
-	tw := tabwriter.NewWriter(&sb, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "KIND\tCOMMANDS\tURL EXAMPLE")
-	for _, k := range l.Kinds {
-		fmt.Fprintf(tw, "%s\tkomando %s\t%s\n", k.Name, k.Family, k.Example)
-	}
-	tw.Flush()
-	return sb.String()
-}
-
 // conn test.
 
 type connTestResult struct {
@@ -690,7 +662,7 @@ func connAddCmdFor(kind string) *cobra.Command {
 	k := connAddKinds[kind]
 	c := connAddCmd()
 	c.Short = "Add " + article(k.what) + " " + k.what
-	c.Long = "Same as `komando conn add NAME URL`, for " + article(k.what) + " " + k.what + ".\n\nSaves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
+	c.Long = "Same as `komando conn add NAME URL`, for " + article(k.what) + " " + k.what + ".\n\nSaves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando schema` lists them."
 	c.Example = "  " + k.example
 	if kind == "cluster" {
 		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--credential NAME). A Docker Swarm manager is a server: `komando host add`."

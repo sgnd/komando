@@ -623,9 +623,9 @@ func addCommands(cl *call, root *cobra.Command) {
 		dockerCmd(), pkgCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
+	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
-	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
+	add("inventory", connCmd(), groupCmd(), importCmd(), exportCmd())
 	add("setup", policyCmd(), guideCmd(), agentCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }

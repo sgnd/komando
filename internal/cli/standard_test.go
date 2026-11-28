@@ -160,8 +160,8 @@ var (
 		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
 		"cluster kubernetes tunnel start",
-		"credential key create", "credential key install", "host trust", "host ssh-command",
-		"ssh-gate line", "conn kinds", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
+		"credential key create", "credential key install", "host trust",
+		"ssh-gate line", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
 
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.

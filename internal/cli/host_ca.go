@@ -39,22 +39,6 @@ func caRow(c sshx.HostCA) hostCARow {
 	return r
 }
 
-// hostCACmd holds host ca revoke until cut step D removes it; add, list
-// and remove run as the credential certificate leaves.
-func hostCACmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:   "ca",
-		Short: "Never trust a host key or a CA key again",
-		Long: `Puts a host key or a CA key on the never-trust list, as a @revoked line in
-known_hosts does. The CAs komando trusts are under ` + "`komando credential certificate`" + `.`,
-		Example: `  komando host ca revoke --key old-ca.pub --dry-run
-  komando host ca revoke --key old-ca.pub
-  komando credential certificate list`,
-	}
-	c.AddCommand(hostCARevokeCmd())
-	return c
-}
-
 func hostCAListCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
@@ -305,42 +289,6 @@ func hostCARmCmd() *cobra.Command {
 			return nil
 		}),
 	}
-}
-
-func hostCARevokeCmd() *cobra.Command {
-	var keyFile string
-	c := &cobra.Command{
-		Use:   "revoke --key FILE",
-		Short: "Never trust a host key or a CA key again",
-		Long: `Puts the key in FILE.pub on the never-trust list (an @revoked line): no
-server is reached with it as its host key, no certificate it signed or holds
-is trusted, and it cannot be pinned or added as a CA.`,
-		Example: `  komando host ca revoke --key old-ca.pub`,
-		Args:    cobra.NoArgs,
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			b, err := readLocalFile(cl, keyFile)
-			if err != nil {
-				return err
-			}
-			k, _, _, _, err := ssh.ParseAuthorizedKey(b)
-			if err != nil {
-				return out.Errf(out.ExitUsage, "KEY_INVALID", "give a public key file (.pub)", "%s is not a public key: %v", keyFile, err)
-			}
-			res := map[string]any{"fingerprint": ssh.FingerprintSHA256(k), "action": "would_revoke"}
-			if !cl.dryRun() {
-				if err := sshx.RevokeHostKeys([]ssh.PublicKey{k}); err != nil {
-					return err
-				}
-				res["action"] = "revoked"
-				audit(cl, nil, "host.ca.revoke", nil, "", true, map[string]any{"fingerprint": res["fingerprint"]})
-			}
-			cl.out.Print("host.ca.revoke", res, nil)
-			return nil
-		}),
-	}
-	c.Flags().StringVar(&keyFile, "key", "", "the public key file (.pub) never to trust")
-	_ = c.MarkFlagRequired("key")
-	return c
 }
 
 // hostCAChecks are doctor's lines about the trusted host CAs.

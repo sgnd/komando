@@ -245,7 +245,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 					ce.Message += "; the proxy command said: " + tail
 					return nil, ce
 				}
-				return nil, out.Errf(out.ExitConnect, "PROXY_FAILED", "run the proxy command by hand to see why: komando host ssh-command "+hop.Name,
+				return nil, out.Errf(out.ExitConnect, "PROXY_FAILED", "see the proxy command with `komando host ssh show "+hop.Name+"` and run it by hand to see why",
 					"%s; the proxy command said: %s", ce.Message, tail)
 			}
 			return nil, ce

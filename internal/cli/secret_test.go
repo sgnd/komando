@@ -157,32 +157,8 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 	wantCode(t, "USAGE", "credential", "password", "rename", "other", "bad name")
 }
 
-func TestSecretCp(t *testing.T) {
-	invHome(t)
-	setSecret(t, "a", "v1")
-	refsTo(t, "a")
-	d := mustRun(t, "secret", "cp", "a", "b", "--dry-run")
-	if d["would_copy"] != true {
-		t.Errorf("dry run: %v", d)
-	}
-	if _, err := vault.Get("b"); err != vault.ErrNotFound {
-		t.Fatal("the dry run copied it")
-	}
-	mustRun(t, "secret", "cp", "a", "b")
-	for _, n := range []string{"a", "b"} {
-		if v, _ := vault.Get(n); v != "v1" {
-			t.Errorf("%s = %q", n, v)
-		}
-	}
-	st, _ := loadState()
-	if st.Hosts["h1"].PasswordRef != "credential:a" {
-		t.Error("cp moved a reference")
-	}
-	wantCode(t, "SECRET_EXISTS", "secret", "cp", "a", "b")
-}
-
 // The approval code's key is a person's, set up by `config approval-code`:
-// an agent must not replace, move, copy or remove it.
+// an agent must not replace, rename or remove it.
 func TestSecretReservedName(t *testing.T) {
 	invHome(t)
 	_ = vault.Set(store.Save(), approvalSecret, "SEED")
@@ -191,7 +167,7 @@ func TestSecretReservedName(t *testing.T) {
 	wantCode(t, "RESERVED_SECRET", "credential", "password", "add", approvalSecret, "--from-env", "SECRET_TEST_VALUE")
 	wantCode(t, "RESERVED_SECRET", "credential", "password", "remove", approvalSecret)
 	wantCode(t, "RESERVED_SECRET", "credential", "password", "rename", approvalSecret, "y")
-	wantCode(t, "RESERVED_SECRET", "secret", "cp", "x", approvalSecret)
+	wantCode(t, "RESERVED_SECRET", "credential", "password", "rename", "x", approvalSecret)
 	if v, _ := vault.Get(approvalSecret); v != "SEED" {
 		t.Errorf("changed: %q", v)
 	}
@@ -229,49 +205,7 @@ func TestSecretSetFromPipe(t *testing.T) {
 	withStdin(t, "\n\n", func() { wantCode(t, "USAGE", "credential", "password", "add", "p3") })
 }
 
-func TestSecretCheck(t *testing.T) {
-	invHome(t)
-	setSecret(t, "vpn-pass", "Hunter2 ")
-	withStdin(t, "Hunter2 \n", func() {
-		if d := mustRun(t, "secret", "check", "vpn-pass"); d["match"] != true {
-			t.Errorf("match: %v", d)
-		}
-	})
-	var d map[string]any
-	var e *out.Error
-	withStdin(t, "Hunter2\n", func() { d, e = invRun(t, "secret", "check", "vpn-pass") })
-	if e == nil || e.Code != "SECRET_MISMATCH" || e.Exit != out.ExitError || d["match"] != false {
-		t.Fatalf("mismatch: %v %+v", d, e)
-	}
-	if diff := d["difference"].(string); !strings.Contains(diff, "spaces") || strings.Contains(diff, "Hunter") {
-		t.Errorf("difference %q", diff)
-	}
-	b := []byte(auditText(t))
-	if !strings.Contains(string(b), `"secret.check"`) || strings.Contains(string(b), "Hunter") {
-		t.Errorf("audit: %s", b)
-	}
-
-	// an agent could guess with it one try at a time
-	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	withStdin(t, "Hunter2 \n", func() {
-		if e := wantCode(t, "NEEDS_PERSON", "secret", "check", "vpn-pass"); e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
-			t.Errorf("no flag allows it: %+v", e)
-		}
-	})
-}
-
-func TestSecretDiffAndWarning(t *testing.T) {
-	for _, c := range []struct{ stored, given, want string }{
-		{"abc ", "abc", "the stored value ends"},
-		{"abc", " abc", "the value you entered starts"},
-		{"Secret", "secret", "upper and lower case"},
-		{"abcd", "abce", "both have 4 characters"},
-		{"abcd", "ab", "has 4 characters, the one you entered 2"},
-	} {
-		if got := secretDiff(c.stored, c.given); !strings.Contains(got, c.want) {
-			t.Errorf("%q vs %q: %s", c.stored, c.given, got)
-		}
-	}
+func TestSecretValueWarning(t *testing.T) {
 	for v, want := range map[string]string{
 		"ok": "", "multi\nline\n": "", "x\n": "line break", " x": "space", "x\t": "tab",
 		"\x1b[200~x": "control characters",

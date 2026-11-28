@@ -258,7 +258,7 @@ func matchKind(st *store.State, k string) (selection, error) {
 	}
 	if !known {
 		slices.Sort(families)
-		return selection{}, out.Usage("unknown kind %q: use host, conn, vpn, a conn kind (see `komando conn kinds`) or %s", k, strings.Join(families, ", "))
+		return selection{}, out.Usage("unknown kind %q: use host, conn, vpn, a conn kind (see `komando schema`) or %s", k, strings.Join(families, ", "))
 	}
 	var cs []*store.Conn
 	for _, c := range st.SortedConns() {

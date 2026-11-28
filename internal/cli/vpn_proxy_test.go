@@ -1,9 +1,6 @@
 package cli
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 // A company HTTP proxy is a VPN of kind proxy: --via sends any conn or
 // server through it.
@@ -23,23 +20,9 @@ func TestVpnProxyKind(t *testing.T) {
 		wantCode(t, "USAGE", bad...)
 	}
 	mustRun(t, "host", "ssh", "add", "db1", "admin@10.0.0.5", "--via", "corp")
-	d := mustRun(t, "host", "ssh-command", "db1")
-	if cmd := strings.Join(toStrings(d["argv"]), " "); !strings.Contains(cmd, "ProxyCommand=nc -X connect -x proxy.corp.example:3128 %h %p") {
-		t.Errorf("OpenSSH goes through the proxy too: %s", cmd)
-	}
 	mustRun(t, "vpn", "proxy", "edit", "corp", "--proxy-address", "proxy2.corp.example:8080")
 	if d := mustRun(t, "vpn", "proxy", "show", "corp")["vpn"].(map[string]any); d["address"] != "http://proxy2.corp.example:8080" {
 		t.Errorf("edit keeps the address as a URL: %v", d)
 	}
 	wantCode(t, "USAGE", "vpn", "proxy", "edit", "corp", "--proxy-address", "socks5://p:1080")
-}
-
-func toStrings(v any) []string {
-	var s []string
-	if a, ok := v.([]any); ok {
-		for _, x := range a {
-			s = append(s, x.(string))
-		}
-	}
-	return s
 }

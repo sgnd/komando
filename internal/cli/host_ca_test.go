@@ -72,7 +72,7 @@ func TestHostCAAddRefusesWidePatterns(t *testing.T) {
 }
 
 // A person adds a CA (from a known_hosts file, whose @revoked lines go on
-// the never-trust list); anyone lists, removes and revokes.
+// the never-trust list); anyone lists and removes.
 func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 	invHome(t)
 	_, k := caPub(t)
@@ -103,13 +103,6 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 	}
 	if _, e := invRun(t, "credential", "certificate", "remove", "corp"); e == nil || e.Code != "CA_NOT_FOUND" {
 		t.Errorf("rm twice: %+v", e)
-	}
-	p, k2 := caPub(t)
-	if d := mustRun(t, "host", "ca", "revoke", "--key", p); d["action"] != "revoked" {
-		t.Errorf("revoke: %v", d)
-	}
-	if rev, _ := sshx.HostKeyRevoked(k2); !rev {
-		t.Error("not revoked")
 	}
 }
 

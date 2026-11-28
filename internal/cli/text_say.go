@@ -268,7 +268,7 @@ func addHint(cl *call, family, wanted string) string {
 	}
 	switch {
 	case familyWord[family] != [2]string{} || family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
-		return "add one with `komando conn add NAME URL` (`komando conn kinds` lists the kinds)"
+		return "add one with `komando conn add NAME URL` (`komando schema` lists the kinds)"
 	case family == "vpn" || wanted == "vpn":
 		return "add one with `komando vpn KIND add NAME` (`komando vpn --help` lists the kinds)"
 	}

@@ -25,6 +25,18 @@ func (so *scriptOpts) bind(c *cobra.Command) {
 	c.Flags().StringArrayVar(&so.args, "arg", nil, "with --script: an argument for the script, $1 ... (repeatable)")
 }
 
+// shellLine joins argv for a shell, quoting what needs it.
+func shellLine(parts []string) string {
+	line := make([]string, len(parts))
+	for i, p := range parts {
+		line[i] = p
+		if p == "" || strings.ContainsAny(p, " '\"$\\|&;<>()*?[]{}!`~#") {
+			line[i] = sshx.Q(p)
+		}
+	}
+	return strings.Join(line, " ")
+}
+
 // runScript runs a script from this computer on every server target picks:
 // the file goes to the interpreter as stdin, so nothing is left on disk.
 func runScript(cl *call, ctx context.Context, target string, so scriptOpts, o execOpts, readOnly bool) error {
