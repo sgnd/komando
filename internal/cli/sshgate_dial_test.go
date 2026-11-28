@@ -135,8 +135,11 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 			"nxhost": {Address: "nx.example"}, "errhost": {Address: "err.example"}, "mixedhost": {Address: "mixed.example"},
 			"pubhost": {Address: "web.example"}, "inner": {Address: "db.internal", Via: "bastion"},
 			"innerme": {Address: "db.internal", Via: "me"}, "vpninner": {Address: "db.internal", Via: "office"},
-			"ssmhost": {Address: "i-0abc123", ProxyCommand: "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p"},
-			"pcloop":  {Address: "localhost", ProxyCommand: "nc %h %p"},
+			"ssmhost":  {Address: "i-0abc123", ProxyCommand: "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p"},
+			"pcloop":   {Address: "localhost", ProxyCommand: "nc %h %p"},
+			"ssmjump":  {Address: "i-0jump123", ProxyCommand: "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p"},
+			"innerssm": {Address: "db.internal", Via: "ssmjump"}, "pcjump": {Address: "localhost", ProxyCommand: "nc %h %p"},
+			"innerpc": {Address: "db.internal", Via: "pcjump"},
 		} {
 			h.Name, h.User = n, "u"
 			st.Hosts[n] = &h
@@ -162,6 +165,8 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 		"logs inner":                          "", // the jump host bastion resolves it, far from here
 		"logs pcloop":                         R,
 		"logs ssmhost":                        "", // its proxy command connects: an instance ID resolves nowhere
+		"logs innerssm":                       "", // the same for a jump host
+		"logs innerpc":                        R,  // a jump host on this computer, through its proxy command
 		"storage download s3pub a.txt --to -": "",
 	} {
 		for _, readOnly := range []bool{true, false} {

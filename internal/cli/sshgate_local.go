@@ -124,13 +124,7 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if st.Hosts[h.Name] != h {
 				return fmt.Sprintf("%q is not in the inventory; a key runs commands only on servers a person added", e)
 			}
-			if h.ProxyCommand != "" {
-				// the program connects and resolves what it names (an SSM
-				// instance ID resolves nowhere): a lookup error does not count
-				if here, _ := gateLocalAddr(h.Address); here {
-					return "the server " + h.Name + " is on this computer (" + h.Address + ")"
-				}
-			} else if why := gateAt(cl, st, "the server "+h.Name, h.Address, h.Via, true, 0); why != "" {
+			if why := gateHostAt(cl, st, "the server "+h.Name, h, 0); why != "" {
 				return why
 			}
 			if gateSameHostKey(h) {
@@ -205,7 +199,7 @@ func gateAt(cl *call, st *store.State, subject, addr, via string, strict bool, d
 		last := steps[len(steps)-1]
 		h, ferr := findHost(cl, st, last)
 		if ferr == nil && depth <= 8 {
-			return gateAt(cl, st, subject, h.Address, h.Via, true, depth+1)
+			return gateHostAt(cl, st, subject, h, depth+1)
 		}
 		at += " through " + last // a VPN, or not found
 	}
@@ -213,6 +207,17 @@ func gateAt(cl *call, st *store.State, subject, addr, via string, strict bool, d
 		return "the gate cannot resolve " + at
 	}
 	return subject + " is on this computer (" + at + ")"
+}
+
+// gateHostAt is gateAt for subject reached as the server or jump host h. A
+// host with a proxy command is reached by that program, which resolves
+// what it names (an SSM instance ID resolves nowhere): a lookup error does
+// not count, only an address that is here.
+func gateHostAt(cl *call, st *store.State, subject string, h *store.Host, depth int) string {
+	if h.ProxyCommand != "" {
+		return gateAt(cl, st, subject, h.Address, "", false, depth)
+	}
+	return gateAt(cl, st, subject, h.Address, h.Via, true, depth)
 }
 
 // gateLocalAddr: a name or address, with or without a port, is this
