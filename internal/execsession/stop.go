@@ -100,10 +100,11 @@ func StopCommand(rec *store.ExecSession, sig string, password bool) (string, err
 }
 
 // markStopped writes killed ("TERM stop") in the session's folder as the
-// login user, before the signal: a read then says how it ended. Only in a folder of the login user that is no
-// link, and with noclobber, never through a link the run left there; m is
-// set when this stop wrote the mark, so a stop that signals nothing takes
-// it back. No folder there: the stop still signals.
+// login user, before the signal: a read then says how it ended. Only in a
+// folder of the login user that is no link, and with noclobber, never
+// through a link the run left there; m is set when this stop wrote the
+// mark, so a stop that signals nothing takes it back. No folder there: the
+// stop still signals.
 func markStopped(id, sig string) string {
 	return `r="$HOME/.komando"; s="$r/sessions"; d="$s/` + id + `"; m=; ` + ownCheck +
 		`if ( ks_own "$r"; ks_own "$s"; ks_own "$d" ) 2>/dev/null; then ` +
