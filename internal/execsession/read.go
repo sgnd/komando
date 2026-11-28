@@ -80,8 +80,10 @@ func ParseRead(s, id string) (Status, []byte, error) {
 		case "exit":
 			st.Exit, err = strconv.Atoi(v)
 			st.ended = true
-		case "killed":
-			st.Killed, st.ended = v, true
+		case "killed": // the run can write it: only spaces are no mark
+			if v = strings.TrimSpace(v); v != "" {
+				st.Killed, st.ended = v, true
+			}
 		case "lost":
 			st.Lost, st.ended = v == "", true
 			if !st.Lost {
