@@ -129,7 +129,7 @@ func TestClusterRunTimedOutWriteIsAudited(t *testing.T) {
 	if _, e := invRun(t, "--timeout", "500ms", "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
 		t.Fatalf("run: %+v", e)
 	}
-	d := mustRun(t, "audit", "--failed")
+	d := mustRun(t, "audit", "list", "--failed")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
 		t.Errorf("the timed out write is not in the audit log: %s", b)
 	}
