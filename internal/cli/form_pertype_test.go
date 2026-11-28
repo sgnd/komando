@@ -105,23 +105,6 @@ func TestFormAddBuildsThePerTypePath(t *testing.T) {
 	}
 }
 
-// Each scheme names its type and provider as the table words them.
-func TestEntryWordsOfURL(t *testing.T) {
-	for url, want := range map[string]string{
-		"postgres://u@h/db": "database postgres", "mysql://u@h/db": "database mysql", "sqlite:///tmp/a.db": "database sqlite",
-		"redis://h:6379": "cache redis", "memcached://h:11211": "cache memcached",
-		"kafka://h:9092": "queue kafka", "s3://bucket": "storage s3", "sftp://u@h/dir": "storage sftp",
-		"k8s://ctx": "cluster kubernetes", "registry://ghcr.io": "registry oci",
-	} {
-		if got := strings.Join(entryWordsOfURL(url), " "); got != want {
-			t.Errorf("%s: %q, want %q", url, got, want)
-		}
-	}
-	if w := entryWordsOfURL("not a url"); w != nil {
-		t.Errorf("a bad URL has words: %v", w)
-	}
-}
-
 // A saved secret is named with --credential, never --password-ref, and a
 // file path is never a reference (the store refuses file: since format 3).
 func TestFormAddNamesSecretsWithCredential(t *testing.T) {

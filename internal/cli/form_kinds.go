@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -508,17 +507,6 @@ func formConnBuild(a formAnswers, rawURL string, askPassword bool) [][]string {
 		args = append(args, "--ask-password")
 	}
 	return [][]string{formFlags(args, a), {"test", a["name"]}}
-}
-
-// entryWordsOfURL are the type and provider words of the entry a URL
-// makes, as the table spells them (database postgres); nil for a URL no
-// driver reads.
-func entryWordsOfURL(raw string) []string {
-	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
-	if err != nil {
-		return nil
-	}
-	return []string{typeWord(t.Kind.Family), providerWord(t.Kind)}
 }
 
 // formCredentialFlag is the flag that names a saved secret on an add: a
