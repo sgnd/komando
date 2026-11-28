@@ -200,7 +200,7 @@ func gateHere(c *cobra.Command, name string) string {
 	if f := gateSavesHere[cmdKeys[name]]; f != nil {
 		return f(c)
 	}
-	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "help" || top == "completion" {
+	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "completion" {
 		return "" // first steps, help and shell completion scripts: printed
 	}
 	k, ok := kindOf(c)
@@ -480,7 +480,7 @@ func gateUnknownLine(words []string) *out.Error {
 // gateWrites says why a read-only key may not run c, or "".
 func gateWrites(c *cobra.Command, name string) string {
 	top, _, _ := strings.Cut(name, ".")
-	if c == c.Root() || top == "help" || top == "completion" {
+	if c == c.Root() || top == "completion" {
 		return "" // first steps, help and shell completion scripts
 	}
 	if why := gateNotForReadKey[cmdKeys[name]]; why != "" {
@@ -671,9 +671,8 @@ the key's own output), no change to servers, VPNs, settings, rules, secrets, key
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache redis raw without --write), and only those that stay on the
-servers and conns in your list: no net, no cert check of a website, no
-exec, job start, docker exec, cluster kubernetes exec or recipe run, unless the line
-also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
+servers and conns in your list: no net, no exec, job start, docker exec,
+cluster kubernetes exec or recipe run, unless the line also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit`" + `, with --name, even when the
 audit setting is off.`,
 		Example: `  komando ssh-gate line --name phone ~/phone.pub

@@ -29,7 +29,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
 | [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, what komando asks at your terminal | `exec`, `job`, `recipe`, `shell` |
-| [Health and network checks](health.md) | what is this server, is it healthy, what can it reach, when do certificates expire | `facts`, `recipe`, `net`, `cert` |
+| [Health and network checks](health.md) | what is this server, is it healthy, what can it reach | `facts`, `recipe`, `net` |
 | [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |

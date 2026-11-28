@@ -75,7 +75,6 @@ echo "== $NEW, at a terminal"
 still2 "doctor --dry-run" 'n\n' "would" doctor --dry-run
 still2 "-o text doctor --dry-run" 'n\n' "nothing was written" -o text doctor --dry-run
 still2 "completion zsh" 'n\n' - completion zsh
-still2 "help" 'n\n' - help
 still2 "version" 'n\n' - version
 still2 "schema" 'n\n' - schema
 still2 "komando alone" 'n\n' -

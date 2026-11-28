@@ -713,56 +713,6 @@
         ]
       },
       {
-        "path": "komando cert",
-        "usage": "komando cert [flags]",
-        "short": "TLS certificates: when do they expire, and do they verify",
-        "aliases": [
-          "certs",
-          "tls"
-        ],
-        "example": "  komando cert check web1                           # certificates on the server\n  komando cert check @web --warn 30d\n  komando cert check https://shop.example.com --warn 14d",
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
-        "path": "komando cert check",
-        "usage": "komando cert check TARGET|URL... [flags]",
-        "short": "Check when the certificates of servers and websites expire",
-        "long": "Reads certificates and says when they expire. It only reads.\n\nA server (or @group, tag:, ...): komando looks for the certificates the\nserver uses: certbot's /etc/letsencrypt/live/*/cert.pem and the files that\nnginx (ssl_certificate), haproxy (crt) and apache (SSLCertificateFile) name,\nplus any --path. Files that need root are read with sudo only when sudo\nworks without a password; komando never asks for one. Only the CERTIFICATE\nblocks of a file leave the server: a private key in the same file never\ndoes. When certbot is there, the state of its renewal timer is shown too.\n\nA website (https://example.com, example.com:443) or a conn that uses TLS:\nkomando connects from this computer (or through --via, or the conn's own\n--via), reads the certificate the server sends and checks that it is\ntrusted and matches the name.\n\nA certificate that expires within --warn (default 30d), has expired, is not\ntrusted, or a certbot renewal that failed is a problem: the command then\nexits 1 (code CERT_PROBLEMS), like `komando doctor`.",
-        "example": "  komando cert check web1\n  komando cert check @prod --warn 14d\n  komando cert check https://shop.example.com api.example.com:8443\n  komando cert check https://intranet.local --via bastion\n  komando cert check web1 --path /etc/ssl/private/site.pem",
-        "flags": [
-          {
-            "name": "path",
-            "type": "stringSlice",
-            "default": "[]",
-            "usage": "also check this certificate file (or folder) on the servers"
-          },
-          {
-            "name": "via",
-            "type": "string",
-            "usage": "reach websites through this server or VPN (a --via path)"
-          },
-          {
-            "name": "warn",
-            "type": "duration",
-            "default": "30d",
-            "usage": "flag certificates that expire within this time (like 30d, 72h)"
-          }
-        ],
-        "runnable": true,
-        "kind": "read",
-        "confirm": [
-          {
-            "tier": "read"
-          }
-        ]
-      },
-      {
         "path": "komando cluster",
         "usage": "komando cluster [flags]",
         "short": "Kubernetes and Docker Swarm: save clusters, run commands",
@@ -3857,13 +3807,6 @@
         ]
       },
       {
-        "path": "komando environment",
-        "usage": "komando environment [flags]",
-        "short": "The environment variables komando reads",
-        "long": "The environment variables komando reads.\n\n  KOMANDO_HOME        where komando keeps its data (default ~/.komando)\n  KOMANDO_OUTPUT      json or text when -o is not given\n  KOMANDO_ACTOR       the name the audit log gives you\n  KOMANDO_AGENT=1     an AI agent komando does not know by itself\n  KOMANDO_VAULT_PASS  the vault passphrase, when the vault has one\n  CI                  a CI job: komando never asks anything\n  NO_COLOR            no colors",
-        "runnable": false
-      },
-      {
         "path": "komando exec",
         "usage": "komando exec TARGET [-- COMMAND...] [flags]",
         "short": "Run a shell command on one or many servers in parallel",
@@ -3964,13 +3907,6 @@
             "when": "when the command matches a destructive rule"
           }
         ]
-      },
-      {
-        "path": "komando exit-codes",
-        "usage": "komando exit-codes [flags]",
-        "short": "What komando's exit codes mean",
-        "long": "What komando's exit codes mean.\n\n  0 ok          1 error           2 usage           3 not found\n  4 connect     5 failed on the server              6 blocked for safety\n  7 timeout     8 precondition or conflict\n\n-o json shows the error code (USAGE, PROTECTED_TARGET ...) and a hint.",
-        "runnable": false
       },
       {
         "path": "komando export",
@@ -6017,13 +5953,6 @@
             "tier": "read"
           }
         ]
-      },
-      {
-        "path": "komando output",
-        "usage": "komando output [flags]",
-        "short": "Text for people, JSON for programs",
-        "long": "Text for people, JSON for programs.\n\nIn a terminal komando prints text; piped, one JSON envelope on stdout:\n  {\"ok\":true,\"command\":\"exec\",\"data\":{...},\"meta\":{...}}\n  {\"ok\":false,\"command\":\"exec\",\"error\":{\"code\":\"AUTH_FAILED\",...}}\nForce one with -o json or -o text (db query also takes csv and tsv).\nQuestions, the line komando runs ($ komando ...) and Next: go to stderr,\nand only at a person's terminal.",
-        "runnable": false
       },
       {
         "path": "komando pkg",
@@ -9859,13 +9788,6 @@
         ]
       },
       {
-        "path": "komando safety",
-        "usage": "komando safety [flags]",
-        "short": "How komando keeps a change from going wrong",
-        "long": "How komando keeps a change from going wrong.\n\n  --dry-run           every change can show what it would do first\n  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes\n  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous\n  read only           db query, cache redis raw and cluster kubernetes raw only read unless you add --write\n  audit               komando audit shows every change and who asked for it\n\nAn AI agent is never asked: it gets exit 6 and a person allows the flag in a\nwindow on the screen. See docs/features/safety.md.",
-        "runnable": false
-      },
-      {
         "path": "komando schema",
         "usage": "komando schema [COMMAND...] [flags]",
         "short": "Every command, flag and exit code, machine-readable",
@@ -10176,7 +10098,7 @@
         "path": "komando ssh-gate",
         "usage": "komando ssh-gate [flags]",
         "short": "Let an SSH key run komando here and nothing else (person only)",
-        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no cert check of a website, no exec, job start,\ndocker exec, cluster kubernetes exec or recipe run, unless the line also has\n--network. `komando ssh-gate status` tells a key which it is. Every command\na key runs or is refused is in `komando audit`, with --name, even when the\naudit setting is off.",
+        "long": "ssh-gate lets an SSH key (a phone's, say) run komando on this computer, and\nnothing else: no shell, no file copy, no port forwarding. Add the key to\n~/.ssh/authorized_keys with the line `komando ssh-gate line` prints; sshd\nthen runs ssh-gate for it, whatever the key asks for.\n\nSafety: only a person at a terminal can run it.\n\nssh-gate takes the command the key sent (SSH_ORIGINAL_COMMAND) only when it\nis one komando command. It splits it into words like a shell, but expands\nnothing and runs no shell: ; | & > < $ and backquotes are refused unless\nthey are quoted. One KOMANDO_AGENT=NAME may come before komando.\n\nkomando then runs as for an AI agent: secret values stay [hidden], --reveal\nand --allow-dangerous are refused, and --yes for a protected server needs a\nperson on this computer. Commands that need a person at a terminal (shell,\ndb shell, secret passphrase ...) are refused (a --shell-access key may open\n`komando shell SERVER`: see ssh-gate line; that shell is full control of the\nserver, outside these rules). The key runs commands on servers, never one\nthat writes on this computer or reads a file here (a script, SQL or upload\nsource by path; '-' for the key's own input works): no download or cp to a\nfile here (download --to - and cp SRC - stream to the key's own output), no\nchange to servers, VPNs, settings, rules, secrets, keys or recipes in\nkomando, no update, no change on a sqlite file or a target at localhost or\n127.x. With --read-only only commands that read run (db query and cache\nredis raw without --write), and only those that stay on the servers and\nconns in your list: no net, no exec, job start, docker exec, cluster\nkubernetes exec or recipe run, unless the line also has --network. `komando\nssh-gate status` tells a key which it is. Every command a key runs or is\nrefused is in `komando audit`, with --name, even when the audit setting is\noff.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'",
         "runnable": true,
         "kind": "depends",
@@ -10191,7 +10113,7 @@
         "path": "komando ssh-gate line",
         "usage": "komando ssh-gate line PUBLIC_KEY --name NAME [flags]",
         "short": "Print the authorized_keys line that limits a key to komando",
-        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay on\nthe servers and conns in your list: no net checks, no cert check of a\nwebsite, and no exec, job start, docker exec, cluster kubernetes exec or\nrecipe run, whose programs can connect anywhere and carry what they read in\na URL or a DNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one. The\nshell is refused on a protected server, a Windows server or this computer,\nwith any other word or flag, without the terminal, and on every server while\nyou have deny rules of your own (komando policy list); db shell and cluster\nkubernetes shell stay refused. On the servers it opens on, the shell is full\ncontrol of the server, as the account komando logs in with: what is typed is\noutside komando's per-command rules, masking and audit. Give such a key only\nto a device you would give that login to. Each session's start and end are\nin komando audit (key, server, how long, why it ended), and a session with\nno input and no output for 30 minutes ends.",
+        "long": "Prints the line to add to ~/.ssh/authorized_keys on this computer, so the\nkey runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's\nline (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names\nthis komando by its full path, as sshd does not search PATH.\n\nA --read-only key runs only commands that read, and only those that stay\non the servers and conns in your list: no net checks, and no exec, job\nstart, docker exec, cluster kubernetes exec or recipe run, whose programs\ncan connect anywhere and carry what they read in a URL or a\nDNS name. Add --network too for a read key that may do those.\n\nWith --shell-access (not with --read-only) the key may also open a login\nshell on one server: ssh -t HOST komando shell SERVER, word for word. Its\nline has restrict,pty, so sshd gives it a terminal when it asks for one. The\nshell is refused on a protected server, a Windows server or this computer,\nwith any other word or flag, without the terminal, and on every server while\nyou have deny rules of your own (komando policy list); db shell and cluster\nkubernetes shell stay refused. On the servers it opens on, the shell is full\ncontrol of the server, as the account komando logs in with: what is typed is\noutside komando's per-command rules, masking and audit. Give such a key only\nto a device you would give that login to. Each session's start and end are\nin komando audit (key, server, how long, why it ended), and a session with\nno input and no output for 30 minutes ends.",
         "example": "  komando ssh-gate line --name phone ~/phone.pub\n  komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'\n  komando ssh-gate line --name phone-checks --read-only --network ~/phone.pub\n  komando ssh-gate line --name ops --shell-access ~/ops.pub",
         "flags": [
           {
@@ -10203,7 +10125,7 @@
             "name": "network",
             "type": "bool",
             "default": "false",
-            "usage": "with --read-only: the key may also run reads that reach the network (net, cert check of a URL, exec --read-only)"
+            "usage": "with --read-only: the key may also run reads that reach the network (net, exec --read-only)"
           },
           {
             "name": "read-only",
@@ -18765,12 +18687,6 @@
         "hint": "see the CAs with `komando host ca list`"
       },
       {
-        "code": "CERT_PROBLEMS",
-        "exit": 1,
-        "example": "… of … targets need attention: …",
-        "hint": "renew or replace the certificates marked expiring, expired or not_trusted; see each result"
-      },
-      {
         "code": "CHECKSUM_MISMATCH",
         "exit": 1,
         "example": "… does not match checksums.txt of its release; nothing was changed",
@@ -18834,7 +18750,7 @@
         "code": "CONN_UNREACHABLE",
         "exit": 4,
         "example": "cannot reach …: …",
-        "hint": "check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check … --via NAME`"
+        "hint": "check the address and port; if it is only reachable from a server, set `komando conn edit … --via SERVER`"
       },
       {
         "code": "CONSUMER_GROUP_NOT_FOUND",
@@ -19410,12 +19326,6 @@
         "hint": "start ssh-agent, then run …"
       },
       {
-        "code": "NO_CERTIFICATE",
-        "exit": 5,
-        "example": "… sent no certificate",
-        "hint": "check that … is the TLS port of the site"
-      },
-      {
         "code": "NO_FOLDER",
         "exit": 1,
         "example": "cannot find the folder: …",
@@ -19436,8 +19346,8 @@
       {
         "code": "NO_MATCHING_TARGETS",
         "exit": 3,
-        "example": "nothing to check",
-        "hint": "give a server, a TLS conn or a website (https://NAME): `komando cert check URL`"
+        "example": "target … picked no …, only: …",
+        "hint": "check the name; `komando list` shows the servers, conns and VPNs komando knows"
       },
       {
         "code": "NO_PACKAGE_MANAGER",
@@ -19515,7 +19425,7 @@
         "code": "PARTIAL_FAILURE",
         "exit": 1,
         "example": "some targets failed and some worked (see each result)",
-        "hint": "read each target's error and hint (data.results in -o json)"
+        "hint": "each server's result has its own exit code and error output (data.results in -o json)"
       },
       {
         "code": "PARTIAL_TRANSFER",
@@ -20259,12 +20169,6 @@
         "exit": 7,
         "example": "redis did not answer in time",
         "hint": "raise --timeout"
-      },
-      {
-        "code": "TLS_HANDSHAKE_FAILED",
-        "exit": 4,
-        "example": "TLS handshake with … failed: …",
-        "hint": "the server ended the TLS handshake; run it again, and check that … is the TLS port (not plain HTTP)"
       },
       {
         "code": "TOOL_FAILED",

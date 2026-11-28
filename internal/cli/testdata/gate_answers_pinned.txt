@@ -206,22 +206,6 @@
 "cache"	netread	cache	runs
 "cache"	read	cache	runs
 "cache"	shell	cache	runs
-"cert --help"	full	cert	runs
-"cert --help"	netread	cert	runs
-"cert --help"	read	cert	runs
-"cert --help"	shell	cert	runs
-"cert check --help"	full	cert.check	runs
-"cert check --help"	netread	cert.check	runs
-"cert check --help"	read	cert.check	runs
-"cert check --help"	shell	cert.check	runs
-"cert check"	full	cert.check	runs
-"cert check"	netread	cert.check	runs
-"cert check"	read	cert.check	runs
-"cert check"	shell	cert.check	runs
-"cert"	full	cert	runs
-"cert"	netread	cert	runs
-"cert"	read	cert	runs
-"cert"	shell	cert	runs
 "cluster --help"	full	cluster	runs
 "cluster --help"	netread	cluster	runs
 "cluster --help"	read	cluster	runs
@@ -922,14 +906,6 @@
 "download"	netread	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
 "download"	read	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
 "download"	shell	download	SSH_GATE_REFUSED|komando download is refused for a key: it saves files on this computer (--to - streams one instead); the gate runs commands on servers, not on this computer
-"environment --help"	full	environment	runs
-"environment --help"	netread	environment	runs
-"environment --help"	read	environment	runs
-"environment --help"	shell	environment	runs
-"environment"	full	environment	runs
-"environment"	netread	environment	runs
-"environment"	read	environment	runs
-"environment"	shell	environment	runs
 "exec --analyze"	full	exec	runs
 "exec --analyze"	netread	exec	runs
 "exec --analyze"	read	exec	runs
@@ -954,14 +930,6 @@
 "exec"	netread	exec	SSH_GATE_READ_ONLY|komando exec is refused for a read-only key: without --read-only it can change something
 "exec"	read	exec	SSH_GATE_READ_ONLY|komando exec is refused for a read-only key: without --read-only it can change something
 "exec"	shell	exec	runs
-"exit-codes --help"	full	exit-codes	runs
-"exit-codes --help"	netread	exit-codes	runs
-"exit-codes --help"	read	exit-codes	runs
-"exit-codes --help"	shell	exit-codes	runs
-"exit-codes"	full	exit-codes	runs
-"exit-codes"	netread	exit-codes	runs
-"exit-codes"	read	exit-codes	runs
-"exit-codes"	shell	exit-codes	runs
 "export --help"	full	export	runs
 "export --help"	netread	export	runs
 "export --help"	read	export	runs
@@ -1134,14 +1102,6 @@
 "guide"	netread	guide	runs
 "guide"	read	guide	runs
 "guide"	shell	guide	runs
-"help --help"	full	help	runs
-"help --help"	netread	help	runs
-"help --help"	read	help	runs
-"help --help"	shell	help	runs
-"help"	full	help	runs
-"help"	netread	help	runs
-"help"	read	help	runs
-"help"	shell	help	runs
 "host --help"	full	host	runs
 "host --help"	netread	host	runs
 "host --help"	read	host	runs
@@ -1518,14 +1478,6 @@
 "logs"	netread	logs	runs
 "logs"	read	logs	runs
 "logs"	shell	logs	runs
-"output --help"	full	output	runs
-"output --help"	netread	output	runs
-"output --help"	read	output	runs
-"output --help"	shell	output	runs
-"output"	full	output	runs
-"output"	netread	output	runs
-"output"	read	output	runs
-"output"	shell	output	runs
 "pkg --help"	full	pkg	runs
 "pkg --help"	netread	pkg	runs
 "pkg --help"	read	pkg	runs
@@ -2662,14 +2614,6 @@
 "rename"	netread	rename	SSH_GATE_REFUSED|komando rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "rename"	read	rename	SSH_GATE_REFUSED|komando rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
 "rename"	shell	rename	SSH_GATE_REFUSED|komando rename is refused for a key: it changes komando's own setup on this computer (servers, VPNs, settings, rules, secrets, keys, recipes or komando itself); the gate runs commands on servers, not on this computer
-"safety --help"	full	safety	runs
-"safety --help"	netread	safety	runs
-"safety --help"	read	safety	runs
-"safety --help"	shell	safety	runs
-"safety"	full	safety	runs
-"safety"	netread	safety	runs
-"safety"	read	safety	runs
-"safety"	shell	safety	runs
 "schema --help"	full	schema	runs
 "schema --help"	netread	schema	runs
 "schema --help"	read	schema	runs

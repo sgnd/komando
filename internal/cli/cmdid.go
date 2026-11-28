@@ -166,13 +166,13 @@ func openAll(root *cobra.Command) {
 
 // openPath prepares the commands line runs through: the root, then the
 // command Find stops at, until Find stops at a prepared one (an alias or
-// a group's run is only there once its parent is open). `help LINE` and
-// the shell's completion prepare the command of the words after them.
+// a group's run is only there once its parent is open). The shell's
+// completion prepares the command of the words after it.
 func openPath(root *cobra.Command, line []string) {
 	openNode(root)
 	line = withoutCompleteWord(root, line)
 	for {
-		c, rest, _ := root.Find(line)
+		c, _, _ := root.Find(line)
 		if c == nil {
 			return
 		}
@@ -187,10 +187,6 @@ func openPath(root *cobra.Command, line []string) {
 			for i := len(path) - 1; i >= 0; i-- {
 				openNode(path[i])
 			}
-			continue
-		}
-		if c.Name() == "help" && c.Parent() == root && len(rest) < len(line) {
-			line = rest
 			continue
 		}
 		return

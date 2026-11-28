@@ -46,7 +46,7 @@ func TestExamplesParse(t *testing.T) {
 // them everywhere (30m, not -30m).
 func TestOpsGroupsShowAJourney(t *testing.T) {
 	root := newRoot(tcl)
-	for _, g := range []string{"pkg", "docker", "cert", "recipe"} {
+	for _, g := range []string{"pkg", "docker", "recipe"} {
 		c, _, err := root.Find([]string{g})
 		if err != nil {
 			t.Fatal(err)

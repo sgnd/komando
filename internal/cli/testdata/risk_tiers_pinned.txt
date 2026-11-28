@@ -19,8 +19,6 @@ cache.redis.remove	plain=change	highest=read
 cache.redis.rename	plain=change	highest=read
 cache.redis.show	plain=read	highest=read
 cache.redis.test	plain=read	highest=read
-cert	plain=read	highest=read
-cert.check	plain=read	highest=read
 cluster	plain=read	highest=read
 cluster.kubernetes	plain=read	highest=read
 cluster.kubernetes.add	plain=change	highest=read
@@ -95,9 +93,7 @@ docker.stats	plain=read	highest=read
 docker.stop	plain=change	highest=read
 doctor	plain=read	highest=read
 download	plain=read	highest=read
-environment	plain=change	highest=read
 exec	plain=dangerous	highest=dangerous
-exit-codes	plain=change	highest=read
 export	plain=read	highest=person
 fs	plain=read	highest=read
 fs.cat	plain=read	highest=read
@@ -119,7 +115,6 @@ guide	plain=read	highest=read
 guide.guard	plain=change	highest=read
 guide.install	plain=change	highest=read
 guide.uninstall	plain=safety	highest=safety
-help	plain=change	highest=read
 host	plain=read	highest=read
 host.add	plain=dangerous	highest=safety
 host.ca	plain=read	highest=read
@@ -164,7 +159,6 @@ login.gcp	plain=change	highest=read
 logout	plain=change	highest=read
 logout.aws	plain=change	highest=read
 logs	plain=read	highest=read
-output	plain=change	highest=read
 pkg	plain=read	highest=read
 pkg.install	plain=change	highest=read
 pkg.installed	plain=read	highest=read
@@ -326,7 +320,6 @@ registry.oci.rename	plain=change	highest=read
 registry.oci.show	plain=read	highest=read
 registry.oci.test	plain=read	highest=read
 rename	plain=change	highest=read
-safety	plain=change	highest=read
 schema	plain=read	highest=read
 secret	plain=read	highest=read
 secret.check	plain=person	highest=person

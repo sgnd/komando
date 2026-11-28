@@ -187,8 +187,8 @@ var goldenGateKeys = []string{
 var goldenSchema = [][]string{
 	{"storage", "s3", "object", "link"}, {"cluster", "kubernetes", "tunnel", "start"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
-	{"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
-	{"fs", "list"},          // C-F08: --limit int
+	{"registry", "oci", "image", "prune"}, // C-F04: duration
+	{"fs", "list"},                        // C-F08: --limit int
 	{"fs", "cat"}, {"exec"}, // C-F09: bytes
 	{"queue", "kafka", "topic", "create"}, {"queue", "rabbitmq", "topic", "create"}, {"queue", "nats", "topic", "create"}, // C-F22: no -1 default
 	{"queue", "sqs", "topic", "create"}, {"queue", "pubsub", "topic", "create"},

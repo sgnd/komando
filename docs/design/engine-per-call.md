@@ -120,8 +120,8 @@ above are gone. There is no "current call" in a package variable.
 - Every command of the tree is built at each start, but a run prepares
   only the commands its line runs through (`newRootFor`, `openPath` in
   `cmdid.go`): their conventions, completion, ID and help standard, and
-  the aliases and person-only marks of their sub-commands. `help LINE`
-  and the shell's completion prepare the command of the words after them.
+  the aliases and person-only marks of their sub-commands. The shell's
+  completion prepares the command of the words after it.
   A command the tree did not prepare runs nothing: the root stops it with
   `PREPARE_FAILED`. `newRoot` prepares every command; `komando schema`, the
   goldens and the help tests read that tree, and `TestLineTreeAgreesWithWholeTree`

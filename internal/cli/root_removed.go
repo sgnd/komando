@@ -10,12 +10,13 @@ import "slices"
 // tables after the release.
 var removedIDs = []string{
 	"cache.get", "cache.info", "cache.keys", "cache.rm", "cache.set",
+	"cert", "cert.check",
 	"cluster.apply", "cluster.deploy", "cluster.describe", "cluster.events", "cluster.get",
 	"cluster.helm", "cluster.helm.history", "cluster.helm.list", "cluster.helm.status", "cluster.helm.values",
 	"cluster.history", "cluster.list", "cluster.logs", "cluster.restart", "cluster.rm", "cluster.rollback",
 	"cluster.scale", "cluster.status",
-	"cron", "cron.list", "cron.rm", "cron.set", "facts",
-	"net", "net.check", "net.dns", "net.http", "net.ports", "reboot",
+	"cron", "cron.list", "cron.rm", "cron.set", "environment", "exit-codes", "facts", "help",
+	"net", "net.check", "net.dns", "net.http", "net.ports", "output", "reboot", "safety",
 	"svc", "svc.daemon-reload", "svc.disable", "svc.enable", "svc.list", "svc.logs", "svc.reload",
 	"svc.restart", "svc.start", "svc.status", "svc.stop",
 	"user", "user.add", "user.list", "user.lock", "user.rm", "user.unlock",

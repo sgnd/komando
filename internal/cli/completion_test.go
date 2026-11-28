@@ -126,3 +126,25 @@ func TestConnCompletionByFamily(t *testing.T) {
 		}
 	}
 }
+
+// Cobra completes its help command at the root even when it is hidden; komando
+// has none, so the shell offers commands only, never `__help`.
+func TestRootCompletionOffersNoHelpCommand(t *testing.T) {
+	invHome(t)
+	for _, req := range []string{"__complete", "__completeNoDesc"} {
+		got := captureOutput(t, func() error {
+			root := newRoot(tcl)
+			t.Cleanup(endCommand) // the next test starts with none of this command's flags
+			root.SetArgs([]string{req, ""})
+			return root.Execute()
+		})
+		for _, l := range strings.Split(got, "\n") {
+			if name, _, _ := strings.Cut(l, "\t"); strings.Contains(name, "help") {
+				t.Errorf("%s at the root offers %q", req, name)
+			}
+		}
+		if !strings.Contains(got, "host") {
+			t.Errorf("%s at the root offers no commands:\n%s", req, got)
+		}
+	}
+}

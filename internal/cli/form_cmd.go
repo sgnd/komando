@@ -623,7 +623,7 @@ var formAreas = []struct {
 	label, detail string
 	words         []string
 }{
-	{"Servers", "run commands, logs, packages, Docker, certificates", []string{"exec", "shell", "logs", "pkg", "docker", "cert"}},
+	{"Servers", "run commands, logs, packages, Docker", []string{"exec", "shell", "logs", "pkg", "docker"}},
 	{"Files", "read, edit, copy and move files on servers", []string{"fs", "upload", "download", "cp", "sync"}},
 	{"Databases", "queries, shells, dumps, users", []string{"db"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},

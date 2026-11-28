@@ -19,8 +19,6 @@ cache.redis.remove
 cache.redis.rename
 cache.redis.show
 cache.redis.test
-cert
-cert.check
 cluster
 cluster.kubernetes
 cluster.kubernetes.add
@@ -95,9 +93,7 @@ docker.stats
 docker.stop
 doctor
 download
-environment
 exec
-exit-codes
 export
 fs
 fs.cat
@@ -119,7 +115,6 @@ guide
 guide.guard
 guide.install
 guide.uninstall
-help
 host
 host.add
 host.ca
@@ -164,7 +159,6 @@ login.gcp
 logout
 logout.aws
 logs
-output
 pkg
 pkg.install
 pkg.installed
@@ -300,7 +294,6 @@ registry.oci.rename
 registry.oci.show
 registry.oci.test
 rename
-safety
 schema
 secret
 secret.check

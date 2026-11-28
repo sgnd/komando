@@ -76,9 +76,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"queue", "topic", "delete"}:   changes,
 	{"queue", "message", "create"}: changes,
 
-	{"cert", "", ""}:      reads,
-	{"cert", "", "check"}: reads,
-
 	{"cluster", "", ""}:            reads,
 	{"cluster", "", "exec"}:        dependsOn(unlessReadOnly),
 	{"cluster", "tunnel", "start"}: changes, // hands out access (OD-13)
