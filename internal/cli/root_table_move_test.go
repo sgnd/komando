@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -33,5 +35,41 @@ func TestConnVerbsUntilStepDHaveTheirLeaves(t *testing.T) {
 		if carriers == 0 {
 			t.Errorf("no built leaf carries %s: take it off connVerbsUntilStepD", id)
 		}
+	}
+}
+
+// A move reads every leaf but pays only for the ones it moves: the start
+// runs one move per type (scripts/start-time.sh).
+func TestMoveCostDoesNotGrowWithLeavesItLeaves(t *testing.T) {
+	none := func(capability.Leaf) bool { return false }
+	leaves := capability.All()
+	twice := slices.Concat(leaves, leaves)
+	one := testing.AllocsPerRun(5, func() { moveWhere("", leaves, none) })
+	two := testing.AllocsPerRun(5, func() { moveWhere("", twice, none) })
+	if two > one {
+		t.Errorf("a move that moves nothing: %.0f allocations over the table, %.0f over it twice, want no more", one, two)
+	}
+}
+
+// A moved leaf that carries no table's entry costs no map per table.
+func TestMovedLeafWithNoEntriesCostsLittle(t *testing.T) {
+	t.Cleanup(func() {
+		maps.DeleteFunc(cmdKeys, func(id string, _ safetyKey) bool { return strings.HasPrefix(id, "zzmove") })
+		maps.DeleteFunc(providerIDs, func(id string, _ bool) bool { return strings.HasPrefix(id, "zzmove") })
+		maps.DeleteFunc(providerOrder, func(id string, _ int) bool { return strings.HasPrefix(id, "zzmove") })
+	})
+	fake := func(n int) []capability.Leaf {
+		var ls []capability.Leaf
+		for i := range n {
+			ls = append(ls, capability.Leaf{Key: capability.Key{Type: "zzmove", Area: "a", Verb: fmt.Sprintf("v%03d", i)}, State: capability.Built})
+		}
+		return ls
+	}
+	pick := func(l capability.Leaf) bool { return l.Type == "zzmove" }
+	few, many := fake(1), fake(41)
+	one := testing.AllocsPerRun(5, func() { moveWhere("zzmove", few, pick) })
+	more := testing.AllocsPerRun(5, func() { moveWhere("zzmove", many, pick) })
+	if per, tables := (more-one)/40, len(idTables()); per >= float64(tables) {
+		t.Errorf("a moved leaf with no entries: %.1f allocations each, want under %d (one map per table)", per, tables)
 	}
 }

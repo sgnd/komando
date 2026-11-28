@@ -127,7 +127,7 @@ func databaseHints() map[string]formHint {
 	for p, label := range databaseFormLabels {
 		maps.Copy(hints, inventoryHints("database", p, "database", "Databases", label))
 	}
-	for _, l := range capability.All() {
+	for _, l := range allLeaves {
 		h, ok := databaseVerbHints[l.Verb]
 		if l.Type != "database" || l.State != capability.Built || !ok {
 			continue
