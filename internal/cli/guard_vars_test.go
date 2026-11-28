@@ -534,3 +534,52 @@ func TestGuardScriptTextNamesNoWrittenFile(t *testing.T) {
 		`read f < /tmp/n; sed -i "s/a/$f/" notes.md $f`,
 	}, true)
 }
+
+// $'...' ends where bash and zsh end it: a \ pairs with the next character,
+// so \c before the closing quote takes no quote. dollarQuoteEnd (the
+// here-document scan) and ansiC (the decoder) agree on the end of each, and
+// ansiC gives what bash 5.3 prints.
+func TestGuardDollarQuoteReadersAgree(t *testing.T) {
+	for _, c := range []struct {
+		line string
+		end  int
+		text string
+	}{
+		{`$'\c' ; x ; "'"`, 4, `\c`},
+		{`$'\c\\' ; x ; "'"`, 6, "\x1c"},
+		{`$'a\c' ; x ; "'"`, 5, `a\c`},
+		{`$'\c\'' ; x`, 6, "\x1c'"},
+		{`$'x\c\'y' ; x ; "'"`, 8, "x\x1c'y"},
+		{`$'\cA' x`, 5, "\x01"},
+		{`$'\'' x`, 4, `'`},
+		{`$'\\' x`, 4, `\`},
+		{`$'\x27' x`, 6, `'`},
+		{`$'\047' x`, 6, `'`},
+		{`$'ab' x`, 4, "ab"},
+	} {
+		end := dollarQuoteEnd(c.line, 0)
+		text, aend := ansiC(c.line, 2)
+		if end != c.end || aend != c.end || text != c.text {
+			t.Errorf("%s: dollarQuoteEnd %d, ansiC %d %q; the shell ends it at %d with %q", c.line, end, aend, text, c.end, c.text)
+		}
+	}
+}
+
+// A line whose $'...' ends early for the guard hides the commands after it
+// inside the quote the guard reads on; they are read as the shell runs them.
+func TestGuardDollarQuoteEndHidesNoCommand(t *testing.T) {
+	home, _ := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`echo $'\c' ; rm -rf ~ ; echo "'"`,
+		`echo $'\c\\' ; rm -rf ~ ; echo "'"`,
+		`echo $'x\c\'y' ; rm -rf ~ ; echo "'"`,
+	}, treeRefusal)
+	checkLines(t, home, home, []string{
+		`echo $'\c' ; cat ~/.ssh/id_ed25519 ; echo "'"`,
+		`echo $'\c' ; echo x > ~/.claude/settings.json ; echo "'"`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`echo $'\c' ; echo ok ; echo "'"`,
+		`printf '%s\n' $'\cA' > /tmp/out`,
+	}, false)
+}

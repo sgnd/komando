@@ -101,9 +101,12 @@ func shellQuote1(s string) string {
 }
 
 // ansiC decodes the body of $'...' that starts at line[i], and gives the
-// index of its closing quote (or of the line's last byte). The shell ends
-// the word at a NUL byte.
+// index of its closing quote (or of the line's last byte), where
+// dollarQuoteEnd finds it. The shell ends the word at a NUL byte.
 func ansiC(line string, i int) (string, int) {
+	whole := len(line)
+	end := min(dollarQuoteEnd(line, i-2), whole)
+	line = line[:end]
 	isHex := func(c byte) bool { return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F' }
 	isOct := func(c byte) bool { return '0' <= c && c <= '7' }
 	span := func(j, most int, ok func(byte) bool) int {
@@ -114,7 +117,7 @@ func ansiC(line string, i int) (string, int) {
 		return k
 	}
 	var b strings.Builder
-	for ; i < len(line) && line[i] != '\''; i++ {
+	for ; i < len(line); i++ {
 		c := line[i]
 		if c != '\\' || i+1 >= len(line) {
 			b.WriteByte(c)
@@ -139,9 +142,14 @@ func ansiC(line string, i int) (string, int) {
 		case 'v':
 			b.WriteByte('\v')
 		case 'c':
-			if i+1 < len(line) {
-				i++
-				b.WriteByte(line[i] & 0x1f)
+			if i+1 >= len(line) {
+				b.WriteString(`\c`)
+				break
+			}
+			i++
+			b.WriteByte(line[i] & 0x1f)
+			if line[i] == '\\' && i+1 < len(line) && line[i+1] == '\\' {
+				i++ // bash reads \c\\ as one control character
 			}
 		case 'x', 'u', 'U':
 			k := span(i+1, map[byte]int{'x': 2, 'u': 4, 'U': 8}[e], isHex)
@@ -172,10 +180,7 @@ func ansiC(line string, i int) (string, int) {
 		}
 	}
 	s, _, _ := strings.Cut(b.String(), "\x00")
-	if i >= len(line) {
-		i = len(line) - 1
-	}
-	return s, i
+	return s, min(end, whole-1)
 }
 
 // A value the guard checks is known only when every part of it is literal
