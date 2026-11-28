@@ -14,6 +14,29 @@ var shellKeyword = map[string]bool{"{": true, "}": true, "!": true, "if": true, 
 // program is the command a simple command runs, after shell keywords,
 // VAR=value words and wrappers such as sudo, env, time, timeout and nohup.
 func program(words []string) (string, []string) {
+	at := readWrappers(words, nil).at
+	if at < 0 {
+		return "", nil
+	}
+	return words[at], words[at+1:]
+}
+
+// wrapperRead is what readWrappers finds in a simple command's words: the
+// program's index (-1 for none), the wrapper options the guard does not
+// know, and the folder a wrapper runs the program in when chdir is set
+// (env -C DIR, sudo -D DIR; lostDir or "" when the guard cannot read it).
+type wrapperRead struct {
+	at      int
+	unknown []int
+	dir     string
+	chdir   bool
+}
+
+// readWrappers reads words as program does, where each wrapper option the
+// guard does not know whose index is in valued takes the next word as its
+// value; the others take none.
+func readWrappers(words []string, valued map[int]bool) wrapperRead {
+	r := wrapperRead{at: -1}
 	wrapper, pos := "", 0
 	for i := 0; i < len(words); i++ {
 		w := words[i]
@@ -33,18 +56,151 @@ func program(words []string) (string, []string) {
 			wrapper, pos = "env", 0
 			continue
 		case strings.HasPrefix(w, "-") && i > 0:
-			// a wrapper's flag, e.g. sudo -u app: skip its value too
-			if wrapperValue[wrapper][w] {
+			// a wrapper's option, e.g. sudo -u app: skip its value too
+			name, value, next, known := wrapperOption(wrapper, w)
+			if !known && wrapper != "" {
+				r.unknown = append(r.unknown, i)
+				next = valued[i]
+			}
+			if next && i+1 < len(words) {
 				i++
+				value = words[i]
+			}
+			switch {
+			case chdirOption[wrapper][name]:
+				r.dir, r.chdir = value, true
+			case mayChdir(wrapper, w, known):
+				r.dir, r.chdir = lostDir, true
 			}
 			continue
 		case pos < wrapperPositional[wrapper]:
 			pos++
 			continue
 		}
-		return w, words[i+1:]
+		r.at = i
+		return r
 	}
-	return "", nil
+	return r
+}
+
+// wrapperOption reads w, an option word of wrapper: the option in it that
+// takes a value ("" for none), that value when w holds it (--chdir=DIR,
+// -CDIR), whether the next word is the value instead, and whether the
+// guard knows each option in w.
+func wrapperOption(wrapper, w string) (name, value string, next, known bool) {
+	if w == "-" || w == "--" {
+		return "", "", false, true
+	}
+	if strings.HasPrefix(w, "--") {
+		n, v, eq := strings.Cut(w, "=")
+		switch {
+		case wrapperValue[wrapper][n]:
+			return n, v, !eq, true
+		case eq || wrapperFlag[wrapper][n]:
+			return "", "", false, true
+		}
+		return "", "", false, false
+	}
+	for k := 1; k < len(w); k++ {
+		o := "-" + w[k:k+1]
+		switch {
+		case wrapperValue[wrapper][o]:
+			return o, w[k+1:], k == len(w)-1, true
+		case !wrapperFlag[wrapper][o] && !(wrapper == "nice" && w[k] >= '0' && w[k] <= '9'):
+			return "", "", false, false // nice -10 is a flag
+		}
+	}
+	return "", "", false, true
+}
+
+// chdirOption are the wrapper options that run the program in another folder.
+var chdirOption = map[string]map[string]bool{"env": {"-C": true, "--chdir": true}, "sudo": {"-D": true, "--chdir": true}}
+
+// mayChdir reports whether w, an option of wrapper that is no chdirOption
+// itself, may still be one: the start of a long one (GNU takes --ch for
+// --chdir), or a cluster the guard does not know (known) holding its letter.
+func mayChdir(wrapper, w string, known bool) bool {
+	n, _, _ := strings.Cut(w, "=")
+	for o := range chdirOption[wrapper] {
+		if strings.HasPrefix(o, "--") && len(n) > 2 && n != o && strings.HasPrefix(o, n) ||
+			!known && !strings.HasPrefix(w, "--") && strings.Contains(w[1:], o[1:]) {
+			return true
+		}
+	}
+	return false
+}
+
+// maxReadings is how many other ways of reading a simple command's wrapper
+// options the guard checks (wrapperReadings).
+const maxReadings = 8
+
+// wrapperReadings are seg and the other ways its wrappers may read: a
+// wrapper option the guard does not know may take the next word as its
+// value (`nice --adjustment 5 rm`) or not (`sudo -B rm`). In each other way
+// the options that take one are joined to it with =, one word to the
+// shell, and seg's redirects, which seg itself checks, are left out. It is
+// false past maxReadings ways.
+func wrapperReadings(seg string) ([]string, bool) {
+	raw := rawWords(seg)
+	words := shellWords(strings.Join(raw, " "))
+	ways := optionWays(words)
+	if len(ways) == 0 {
+		return []string{seg}, true
+	}
+	if len(ways) > maxReadings || len(words) != len(raw) {
+		return nil, false
+	}
+	out := []string{seg}
+	for _, valued := range ways {
+		var b strings.Builder
+		for i, w := range raw {
+			if i > 0 && valued[i-1] {
+				b.WriteByte('=')
+			} else if i > 0 {
+				b.WriteByte(' ')
+			}
+			b.WriteString(w)
+		}
+		out = append(out, b.String())
+	}
+	return out, true
+}
+
+// optionWays are the ways words' wrapper options the guard does not know
+// may take a value, other than program's, where none does: for each, the
+// indexes of the options that take the next word.
+func optionWays(words []string) []map[int]bool {
+	var ways []map[int]bool
+	var walk func(valued map[int]bool, from int)
+	walk = func(valued map[int]bool, from int) {
+		for _, u := range readWrappers(words, valued).unknown {
+			if u < from || len(ways) > maxReadings {
+				continue
+			}
+			next := map[int]bool{u: true}
+			for k := range valued {
+				next[k] = true
+			}
+			ways = append(ways, next)
+			walk(next, u+1)
+		}
+	}
+	walk(nil, 0)
+	return ways
+}
+
+// wrapperCwd is the folder the program of words runs in: the one a wrapper
+// names (env -C DIR, sudo -D DIR), lostDir when the guard cannot read it,
+// else cwd; and whether a wrapper names one.
+func wrapperCwd(cl *call, words []string, vars lineVars, home, cwd string) (string, bool) {
+	r := readWrappers(words, nil)
+	switch {
+	case !r.chdir:
+		return cwd, false
+	case r.dir == "" || r.dir == lostDir:
+		return lostDir, true
+	}
+	return cdTarget(cl, []string{r.dir}, vars, home, cwd), true
 }
 
 // programRun is what a simple command may run: the base names of the
@@ -186,18 +342,50 @@ func isWrapper(w string) bool {
 
 // wrapperValue are the wrappers' flags that take the next word as a value.
 var wrapperValue = map[string]map[string]bool{
-	"env":        {"-u": true, "--unset": true, "-C": true, "--chdir": true, "-S": true, "--split-string": true},
-	"sudo":       {"-u": true, "-g": true, "-h": true, "-p": true, "-C": true, "-D": true, "-r": true, "-t": true, "-U": true, "-T": true},
-	"doas":       {"-u": true, "-C": true},
-	"nice":       {"-n": true},
-	"exec":       {"-a": true},
-	"time":       {"-f": true, "-o": true},
-	"xargs":      {"-I": true, "-n": true, "-P": true, "-L": true, "-d": true, "-E": true, "-s": true, "-a": true},
+	"env": {"-u": true, "--unset": true, "-C": true, "--chdir": true, "-S": true, "--split-string": true, "-a": true, "--argv0": true,
+		"-P": true, "-L": true, "-U": true},
+	"sudo": {"-u": true, "-g": true, "-h": true, "-p": true, "-C": true, "-D": true, "-r": true, "-t": true, "-U": true, "-T": true, "-R": true,
+		"--user": true, "--group": true, "--host": true, "--prompt": true, "--close-from": true, "--chdir": true, "--role": true,
+		"--type": true, "--other-user": true, "--command-timeout": true, "--chroot": true},
+	"doas": {"-u": true, "-C": true, "-a": true},
+	"nice": {"-n": true, "--adjustment": true},
+	"exec": {"-a": true},
+	"time": {"-f": true, "-o": true, "--format": true, "--output": true},
+	"xargs": {"-I": true, "-n": true, "-P": true, "-L": true, "-d": true, "-E": true, "-s": true, "-a": true, "-J": true, "-R": true, "-S": true,
+		"--max-args": true, "--max-procs": true, "--delimiter": true, "--max-chars": true, "--arg-file": true, "--process-slot-var": true},
 	"timeout":    {"-s": true, "--signal": true, "-k": true, "--kill-after": true},
 	"stdbuf":     {"-i": true, "-o": true, "-e": true, "--input": true, "--output": true, "--error": true},
-	"ionice":     {"-c": true, "-n": true, "--class": true, "--classdata": true},
-	"chrt":       {"-T": true, "-P": true, "-D": true},
+	"ionice":     {"-c": true, "-n": true, "-p": true, "-P": true, "-u": true, "--class": true, "--classdata": true, "--pid": true, "--pgid": true, "--uid": true},
+	"chrt":       {"-T": true, "-P": true, "-D": true, "--sched-runtime": true, "--sched-period": true, "--sched-deadline": true},
 	"caffeinate": {"-t": true, "-w": true},
+}
+
+// wrapperFlag are the wrappers' options that take no value. An option in
+// neither table is read both ways (wrapperReadings).
+var wrapperFlag = map[string]map[string]bool{
+	"env": {"-i": true, "-0": true, "-v": true, "--ignore-environment": true, "--null": true, "--debug": true, "--block-signal": true,
+		"--default-signal": true, "--ignore-signal": true, "--list-signal-handling": true},
+	"sudo": {"-A": true, "-B": true, "-b": true, "-E": true, "-e": true, "-H": true, "-i": true, "-K": true, "-k": true, "-l": true, "-N": true,
+		"-n": true, "-P": true, "-S": true, "-s": true, "-V": true, "-v": true, "--askpass": true, "--background": true, "--bell": true,
+		"--edit": true, "--login": true, "--list": true, "--non-interactive": true, "--no-update": true, "--preserve-env": true,
+		"--preserve-groups": true, "--remove-timestamp": true, "--reset-timestamp": true, "--set-home": true, "--shell": true,
+		"--stdin": true, "--validate": true, "--version": true},
+	"doas":    {"-n": true, "-s": true, "-L": true},
+	"exec":    {"-c": true, "-l": true},
+	"command": {"-p": true, "-v": true, "-V": true},
+	"time":    {"-p": true, "-l": true, "-v": true, "-a": true, "-q": true, "-h": true, "--portability": true, "--verbose": true, "--append": true, "--quiet": true},
+	"xargs": {"-0": true, "-r": true, "-t": true, "-p": true, "-x": true, "-o": true, "-e": true, "-i": true, "-l": true, "--null": true,
+		"--no-run-if-empty": true, "--verbose": true, "--interactive": true, "--exit": true, "--open-tty": true, "--replace": true,
+		"--max-lines": true, "--eof": true},
+	"timeout":    {"-v": true, "-f": true, "-p": true, "--foreground": true, "--preserve-status": true, "--verbose": true},
+	"setsid":     {"-c": true, "-f": true, "-w": true, "--ctty": true, "--fork": true, "--wait": true},
+	"caffeinate": {"-d": true, "-i": true, "-m": true, "-s": true, "-u": true},
+	"ionice":     {"-t": true, "--ignore": true},
+	"taskset":    {"-a": true, "-c": true, "-p": true, "--all-tasks": true, "--cpu-list": true, "--pid": true},
+	"chrt": {"-a": true, "-m": true, "-p": true, "-v": true, "-b": true, "-d": true, "-f": true, "-i": true, "-o": true, "-r": true, "-R": true,
+		"--all-tasks": true, "--max": true, "--pid": true, "--verbose": true, "--batch": true, "--deadline": true, "--fifo": true,
+		"--idle": true, "--other": true, "--rr": true, "--reset-on-fork": true},
+	"unbuffer": {"-p": true},
 }
 
 // wrapperPositional are the wrappers that take words before the program:

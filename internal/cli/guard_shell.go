@@ -426,38 +426,65 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 		if at := strings.Index(line[end:], seg); at >= 0 {
 			end += at + len(seg)
 		}
-		mwords, mglobs := shellWordsGlob(seg)
+		mwords, _ := shellWordsGlob(seg)
 		vars.aliasesFrom(line, end-len(seg))
 		vars.learn(cl, line, seg, end, home, cwd, mwords)
-		_, margs := program(mwords)
-		rseg := strings.ReplaceAll(seg, unknownOutput, "")
-		words, globs := shellWordsGlob(rseg)
-		if d := checkShellVars(words, depth); d.Deny {
-			return d
+		segs, ok := wrapperReadings(seg)
+		if !ok {
+			return deny("komando's guard cannot tell which word is the program: a wrapper on the line has options it does not know (more than %d ways to read them); write each as --name=value, or run the program without the wrapper", maxReadings)
 		}
-		prog, args := program(words)
-		base := filepath.Base(prog)
-		if d := checkGuardFiles(cl, rline, rseg, prog, args, home, cwd); d.Deny {
-			return d
+		after := cwd
+		for i, s := range segs {
+			next, d := checkSimple(cl, rline, s, vars, home, cwd, depth)
+			if d.Deny {
+				return d
+			}
+			if i > 0 && next != after {
+				next = lostDir
+			}
+			after = next
 		}
-		if d := checkWrites(cl, seg, vars, home, cwd); d.Deny {
-			return d
-		}
-		if prog == "" || base == "komando" {
-			continue
-		}
-		var d guardDecision
-		if cwd, d = checkProgram(cl, base, args, margs, mglobs, vars, home, cwd, depth); d.Deny {
-			return d
-		}
-		if d := checkReadWords(cl, base, words, globs, args, vars, home, cwd); d.Deny {
-			return d
-		}
-		if cwd, d = checkValuePrograms(cl, seg, vars, home, cwd, depth); d.Deny {
-			return d
-		}
+		cwd = after
 	}
 	return allow()
+}
+
+// checkSimple checks the simple command seg, read one way its wrappers may
+// read (wrapperReadings), and gives the working folder after it. rline is
+// the line without its command outputs.
+func checkSimple(cl *call, rline, seg string, vars lineVars, home, cwd string, depth int) (string, guardDecision) {
+	mwords, mglobs := shellWordsGlob(seg)
+	_, margs := program(mwords)
+	rseg := strings.ReplaceAll(seg, unknownOutput, "")
+	words, globs := shellWordsGlob(rseg)
+	if d := checkShellVars(words, depth); d.Deny {
+		return cwd, d
+	}
+	prog, args := program(words)
+	base := filepath.Base(prog)
+	// env -C DIR and sudo -D DIR run the program in DIR; the shell stays
+	run, chdir := wrapperCwd(cl, shellWords(dropRedirects(seg)), vars, home, cwd)
+	if d := checkGuardFiles(cl, rline, rseg, prog, args, home, run); d.Deny {
+		return cwd, d
+	}
+	if d := checkWrites(cl, seg, vars, home, run); d.Deny {
+		return cwd, d
+	}
+	if prog == "" || base == "komando" {
+		return cwd, allow()
+	}
+	next, d := checkProgram(cl, base, args, margs, mglobs, vars, home, run, depth)
+	if d.Deny {
+		return cwd, d
+	}
+	if d := checkReadWords(cl, base, words, globs, args, vars, home, next); d.Deny {
+		return cwd, d
+	}
+	next, d = checkValuePrograms(cl, seg, vars, home, next, depth)
+	if d.Deny || chdir {
+		return cwd, d
+	}
+	return next, allow()
 }
 
 // checkProgram checks what the program base does beyond the files it
@@ -683,13 +710,23 @@ func shellWordsFlags(s string) (words []string, globs, bare []bool) {
 // >out, <in, <<<text, <<EOF): the words its program is given. A file
 // descriptor written right before the operator goes with it.
 func dropRedirects(seg string) string {
-	var b, cur strings.Builder
+	var b strings.Builder
+	for _, w := range rawWords(seg) {
+		b.WriteString(w)
+		b.WriteByte(' ')
+	}
+	return b.String()
+}
+
+// rawWords are the words of dropRedirects, quotes and all.
+func rawWords(seg string) []string {
+	var words []string
+	var cur strings.Builder
 	var q rune
 	escaped, skip, quoted := false, false, false
 	end := func() {
 		if !skip && (cur.Len() > 0 || quoted) {
-			b.WriteString(cur.String())
-			b.WriteByte(' ')
+			words = append(words, cur.String())
 		}
 		cur.Reset()
 		skip, quoted = false, false
@@ -732,5 +769,5 @@ func dropRedirects(seg string) string {
 		}
 	}
 	end()
-	return b.String()
+	return words
 }

@@ -235,6 +235,39 @@ func TestGuardRunnerInAValueReadsItsScript(t *testing.T) {
 	}, false)
 }
 
+// A wrapper option the guard does not know is read both with and without a
+// value, a cluster's last letter may take the next word, and env -C and
+// sudo -D run the program in that folder (a lost one when it is not known).
+func TestGuardWrapperOptionsWithAValue(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`nice --adjustment 5 rm -rf ~`,
+		`sudo --user root rm -rf ~`,
+		`sudo -Eu root rm -rf ~`,
+		`sudo --us root rm -rf ~`,
+		`nice --foo 5 rm -rf ~`,
+	}, treeRefusal)
+	checkRefusedBy(t, home, repo, []string{
+		`env -C ~ rm -rf .ssh`,
+		`env --chdir ~ rm -rf .ssh`,
+		`env --chdir=$HOME rm -rf .ssh`,
+		`env -C$HOME rm -rf .ssh`,
+		`sudo -D ~ rm -rf .ssh`,
+		`sudo --chdir ~ rm -rf .ssh`,
+	}, treeRefusal)
+	checkLines(t, home, repo, []string{`env --ch ~ rm -rf .ssh`, `read d < /tmp/n; env -C "$d" rm -rf .ssh`}, true)
+	checkLines(t, home, repo, []string{
+		`nice --adjustment 5 make build`,
+		`nice --foo go test ./...`,
+		`env -C ./sub go test ./...`,
+		`env -C ~ ls`,
+		`timeout --foreground 30 go test ./...`,
+		`sudo --user root ls`,
+		`sudo -E go test ./...`,
+		`env -C ~ true; rm -rf ./build`,
+	}, false)
+}
+
 // The folder rule splits a value where the shell may: at the line's own
 // IFS, never at \v, \f, \r or a non-breaking space; and a quoted value
 // stays one word.
