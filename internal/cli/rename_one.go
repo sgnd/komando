@@ -321,8 +321,8 @@ func hostMvCmd() *cobra.Command {
 }
 
 func connMvCmd() *cobra.Command {
-	return mvCmd("conn", `  komando database postgres rename shop shop-prod
-  komando database postgres rename prod-db main-db --yes    # prod-db is protected`, renameConn)
+	return mvCmd("conn", `  komando conn rename shop shop-prod
+  komando conn rename prod-db main-db --yes    # prod-db is protected`, renameConn)
 }
 
 func vpnMvCmd() *cobra.Command {
