@@ -8,8 +8,8 @@ import (
 
 // A name that resolves to this computer is this computer: ip6-localhost
 // (in the default Debian /etc/hosts), localtest.me (public DNS) and the
-// like are refused as localhost is. A name the gate cannot resolve is
-// judged as written.
+// like are refused as localhost is. A name the gate cannot resolve counts
+// as here: the gate cannot tell (C655).
 func TestGateLocalAddrResolvesNames(t *testing.T) {
 	saved := gateLookup
 	t.Cleanup(func() { gateLookup = saved })
@@ -28,7 +28,7 @@ func TestGateLocalAddrResolvesNames(t *testing.T) {
 	}
 	for a, want := range map[string]bool{
 		"ip6-localhost": true, "ip6-localhost:8443": true, "localtest.me": true, "mixed.example": true,
-		"web.example": false, "nope.example": false, "203.0.113.5": false,
+		"nope.example": true, "web.example": false, "203.0.113.5": false,
 	} {
 		if got := gateLocalAddr(a); got != want {
 			t.Errorf("%q: %v, want %v", a, got, want)

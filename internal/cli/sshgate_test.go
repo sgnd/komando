@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -133,6 +135,16 @@ func gateInventory(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	// the names elsewhere resolve: a name the gate cannot resolve is refused (C655)
+	saved := gateLookup
+	t.Cleanup(func() { gateLookup = saved })
+	gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
+		switch strings.ToLower(strings.TrimSuffix(host, ".")) {
+		case "api.example.com", "minio.example.com", "ghcr.io", "db.example.com":
+			return []net.IP{net.ParseIP("203.0.113.20")}, nil
+		}
+		return saved(ctx, host)
 	}
 }
 
@@ -405,6 +417,8 @@ func TestGateLocalTargets(t *testing.T) {
 
 func TestGateLocalAddr(t *testing.T) {
 	me, _ := os.Hostname()
+	public := [][]net.IP{ips("203.0.113.20")}
+	gateStubDNS(t, map[string][][]net.IP{"db.example.com": public, "localhost.example.com": public, "web1": public})
 	for a, want := range map[string]bool{
 		"localhost": true, "LocalHost.": true, "x.localhost": true, "127.0.0.1": true, "127.9.9.9:22": true,
 		"[::1]:22": true, "::1": true, "0.0.0.0": true, "::": true, "::ffff:127.0.0.1": true, "127.1": true,
