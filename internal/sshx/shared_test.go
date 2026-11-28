@@ -2,6 +2,8 @@ package sshx
 
 import (
 	"context"
+	"errors"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -72,5 +74,27 @@ func TestChainServesOneOwner(t *testing.T) {
 	chains.Unlock()
 	if left != 0 {
 		t.Errorf("%d dial locks left after the dials", left)
+	}
+}
+
+// A path that starts on this computer dials with Options.Dial when it has
+// one (a run for an ssh-gate key: the gate's dialer), and with a plain
+// net.Dialer when it has none.
+func TestOpenFirstUsesOptionsDial(t *testing.T) {
+	var asked string
+	o := Options{Dial: func(_ context.Context, network, addr string) (net.Conn, error) {
+		asked = network + " " + addr
+		return nil, errors.New("stand-in")
+	}}
+	first, closer, err := openFirst(context.Background(), nil, o)
+	if err != nil || closer != nil {
+		t.Fatal(err, closer)
+	}
+	if _, err := first(context.Background(), "tcp", "web.example:22"); err == nil || asked != "tcp web.example:22" {
+		t.Errorf("dialed %q: %v", asked, err)
+	}
+	first, _, err = openFirst(context.Background(), nil, Options{ConnectTimeout: time.Second})
+	if err != nil || first == nil {
+		t.Fatal(err)
 	}
 }

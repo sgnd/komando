@@ -154,7 +154,9 @@ func sshOpts(cl *call, st *store.State) sshx.Options {
 	if p == "" {
 		p = st.Settings.HostKeyPolicy
 	}
-	return sshx.Options{ConnectTimeout: dur(cl.flags.connectTimeout, st.Settings.ConnectTimeout, 15*time.Second), HostKeyPolicy: p}
+	o := sshx.Options{ConnectTimeout: dur(cl.flags.connectTimeout, st.Settings.ConnectTimeout, 15*time.Second), HostKeyPolicy: p}
+	o.Dial = gateDialFor(cl, o.ConnectTimeout)
+	return o
 }
 
 func maxOutput(cl *call, st *store.State) int {

@@ -168,6 +168,9 @@ func (c *sharedChain) closeLocked() {
 // with, opened inside this process (its closer ends it).
 func openFirst(ctx context.Context, vpn *store.Vpn, o Options) (netx.Dialer, io.Closer, error) {
 	first := (&net.Dialer{Timeout: o.ConnectTimeout}).DialContext
+	if o.Dial != nil {
+		first = o.Dial
+	}
 	if vpn == nil {
 		return first, nil, nil
 	}
