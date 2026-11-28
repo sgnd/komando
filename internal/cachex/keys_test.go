@@ -28,6 +28,7 @@ type fakeRedis struct {
 	stalled  bool
 	gets     int    // GET/HGETALL/... commands: a key list never reads values
 	announce string // the node address CLUSTER hands back; "" is its own
+	master   string // the master address a SENTINEL hands back
 }
 
 func newFakeRedis(t *testing.T, keys map[string][2]string) *fakeRedis {
@@ -102,6 +103,13 @@ func (f *fakeRedis) serve(c net.Conn) {
 			io.WriteString(c, "-ERR unknown command 'HELLO'\r\n")
 		case "PING":
 			io.WriteString(c, "+PONG\r\n")
+		case "SENTINEL":
+			if len(args) > 1 && strings.EqualFold(args[1], "GET-MASTER-ADDR-BY-NAME") {
+				host, port, _ := net.SplitHostPort(f.master)
+				fmt.Fprintf(c, "*2\r\n%s%s", bulk(host), bulk(port))
+			} else {
+				io.WriteString(c, "*0\r\n")
+			}
 		case "CLUSTER":
 			node := f.announce
 			if node == "" {

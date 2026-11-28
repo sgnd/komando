@@ -84,54 +84,83 @@ func TestRedisDialerAddsTLS(t *testing.T) {
 	}
 }
 
-// A Cluster node the server hands back is dialed through the conn's
-// dialer, never straight: a key's run dials through the ssh-gate, which
-// refuses a node at this computer (C663; the e2e lab runs a real Cluster).
-func TestRedisClusterNodesUseTheDialer(t *testing.T) {
-	trap, err := net.Listen("tcp", "127.0.0.1:0")
+// redisTrap is a listener on this computer that a server's answer points
+// at, and a conn dialer that refuses it as the ssh-gate would.
+type redisTrap struct {
+	ln      net.Listener
+	reached atomic.Int32
+	mu      sync.Mutex
+	asked   []string
+}
+
+func newRedisTrap(t *testing.T) *redisTrap {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer trap.Close()
-	var reached atomic.Int32
+	r := &redisTrap{ln: ln}
+	t.Cleanup(func() { ln.Close() })
 	go func() {
 		for {
-			c, err := trap.Accept()
+			c, err := ln.Accept()
 			if err != nil {
 				return
 			}
-			reached.Add(1)
+			r.reached.Add(1)
 			c.Close()
 		}
 	}()
-	f := newFakeRedis(t, fakeKeys)
-	f.announce = trap.Addr().String()
-	var mu sync.Mutex
-	var asked []string
-	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
-		mu.Lock()
-		asked = append(asked, addr)
-		mu.Unlock()
-		if addr == trap.Addr().String() {
-			return nil, errors.New("refused: this computer")
-		}
-		return (&net.Dialer{}).DialContext(ctx, network, addr)
+	return r
+}
+
+func (r *redisTrap) dial(ctx context.Context, network, addr string) (net.Conn, error) {
+	r.mu.Lock()
+	r.asked = append(r.asked, addr)
+	r.mu.Unlock()
+	if addr == r.ln.Addr().String() {
+		return nil, errors.New("refused: this computer")
 	}
-	tg, err := driver.Parse("redis://" + f.ln.Addr().String() + "?cluster=1")
+	return (&net.Dialer{}).DialContext(ctx, network, addr)
+}
+
+// open opens the conn at url through the trap's dialer and lists keys,
+// then checks the handed-back address was asked of the dialer, never reached.
+func (r *redisTrap) open(t *testing.T, url string) {
+	t.Helper()
+	tg, err := driver.Parse(url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if s, err := OpenStore(ctx, tg, "", dial, 2*time.Second); err == nil {
+	if s, err := OpenStore(ctx, tg, "", r.dial, 2*time.Second); err == nil {
 		s.Keys(ctx, "*", 10)
 		s.Close()
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	if !slices.Contains(asked, trap.Addr().String()) || reached.Load() != 0 {
-		t.Errorf("the handed-back node: dialer asked %q, reached straight %d times", asked, reached.Load())
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !slices.Contains(r.asked, r.ln.Addr().String()) || r.reached.Load() != 0 {
+		t.Errorf("the handed-back address: dialer asked %q, reached straight %d times", r.asked, r.reached.Load())
 	}
+}
+
+// A Cluster node the server hands back is dialed through the conn's
+// dialer, never straight: a key's run dials through the ssh-gate, which
+// refuses a node at this computer (C663; the e2e lab runs a real Cluster).
+func TestRedisClusterNodesUseTheDialer(t *testing.T) {
+	trap := newRedisTrap(t)
+	f := newFakeRedis(t, fakeKeys)
+	f.announce = trap.ln.Addr().String()
+	trap.open(t, "redis://"+f.ln.Addr().String()+"?cluster=1")
+}
+
+// The master a Sentinel hands back is dialed through the conn's dialer too.
+func TestRedisSentinelMasterUsesTheDialer(t *testing.T) {
+	trap := newRedisTrap(t)
+	f := newFakeRedis(t, fakeKeys)
+	f.master = trap.ln.Addr().String()
+	trap.open(t, "redis://"+f.ln.Addr().String()+"?sentinel=mymaster")
 }
 
 // The live tests run against a Redis Cluster of two masters (password
