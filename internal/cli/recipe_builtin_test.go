@@ -1148,8 +1148,8 @@ var notBuiltSnippets = []string{
 	"cluster-status", "cluster-list", "cluster-events", "cluster-describe", "cluster-logs",
 }
 
-// The shaped built-in snippets komando has (13 host) and the 24 text
-// built-ins that stay saved-command recipes. The number is the contract
+// The shaped built-in snippets komando has (15: 13 host, 2 cluster, the
+// Helm reads helm-list and helm-release) and the 24 text built-ins that stay saved-command recipes. The number is the contract
 // with the apps and the docs: a snippet added or taken out changes this
 // test and the design in the same change.
 func TestShapedSnippetCounts(t *testing.T) {
@@ -1158,7 +1158,7 @@ func TestShapedSnippetCounts(t *testing.T) {
 		b, _ := builtinSnippets.Lookup(name)
 		byType[b.Type]++
 	}
-	want := map[string]int{"host": 13}
+	want := map[string]int{"host": 13, "cluster": 2}
 	if !maps.Equal(byType, want) {
 		t.Errorf("shaped snippets by type: %v, want %v; the design's other %d are not built: %v", byType, want, len(notBuiltSnippets), notBuiltSnippets)
 	}
