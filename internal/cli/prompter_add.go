@@ -87,13 +87,13 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 		return err
 	}
 	if rm := formRemoveCmd(cmds); code != 0 && reason != "" && rm != nil {
-		name := rm[2]
+		path, name := rm[0]+" "+rm[1], rm[3]
 		fmt.Fprintf(promptW(cl), "\n%s did not answer: %s\nIt stays in your list. What next:\n", name, reason)
 		for _, l := range [][2]string{
-			{"komando " + rm[0] + " edit " + name, "change how komando reaches it"},
+			{"komando " + path + " edit " + name, "change how komando reaches it"},
 			{"komando test " + name, "test it again"},
-			{"komando " + rm[0] + " rm " + name, "take it out of your list"}} {
-			fmt.Fprintf(promptW(cl), "  %-*s  %s\n", len("komando "+rm[0]+" edit "+name), l[0], l[1])
+			{"komando " + rm[0] + " " + rm[1] + " remove " + name, "take it out of your list"}} {
+			fmt.Fprintf(promptW(cl), "  %-*s  %s\n", len("komando "+path+" edit "+name), l[0], l[1])
 		}
 	}
 	return fillDone{code: code}

@@ -192,3 +192,22 @@ func TestKubeconfigFormProtectsWithTheTypePath(t *testing.T) {
 		t.Errorf("no edit built: %v", cmds)
 	}
 }
+
+// A failed add names the entry's own remove, as the form's add made it.
+func TestFormRemoveCmdFollowsTheAdd(t *testing.T) {
+	for _, c := range []struct{ add, want string }{
+		{"database postgres add app-db postgres://app@h/app", "database postgres remove app-db"},
+		{"storage s3 add media s3://b", "storage s3 remove media"},
+		{"host ssh add web1 root@10.0.0.5", "host ssh remove web1"},
+		{"host winrm add win1 winrm://u@10.0.0.9", "host winrm remove win1"},
+		{"vpn wireguard add office", "vpn wireguard remove office"},
+	} {
+		got := formRemoveCmd([][]string{strings.Fields(c.add), {"test", "x"}})
+		if strings.Join(got, " ") != c.want {
+			t.Errorf("%s: %q, want %q", c.add, strings.Join(got, " "), c.want)
+		}
+	}
+	if got := formRemoveCmd([][]string{{"import", "kubeconfig", "f"}, {"test", "x"}}); got != nil {
+		t.Errorf("an import has no remove: %v", got)
+	}
+}
