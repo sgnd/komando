@@ -32,7 +32,7 @@ type Key struct {
 // maxFile is the most a public key file holds.
 const maxFile = 16 << 10
 
-// minRSABits is the smallest RSA key komando accepts (key.go's rule).
+// minRSABits is the smallest RSA key komando accepts (credential_key.go's rule).
 const minRSABits = 3072
 
 // keyTypes are the key types a device key may have: no DSA, no

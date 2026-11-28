@@ -30,7 +30,7 @@ func TestClickHouseConnsCheckTLS(t *testing.T) {
 			t.Errorf("%s: %s, %v", name, url(name), d["warnings"])
 		}
 	}
-	mustRun(t, "host", "add", "jump", "deploy@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "jump", "deploy@10.0.0.3")
 	for name, raw := range map[string]string{
 		"c-plain": "clickhouse://app@ch.example.com/db?tls=false",
 		"c-local": "clickhouse://app@127.0.0.1/default",
@@ -65,8 +65,8 @@ func TestClickHouseConnsCheckTLS(t *testing.T) {
 		t.Errorf("weakTLS false: %v", w)
 	}
 	// what ClickHouse cannot do says so before connecting
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "c-local", "--to", t.TempDir()+"/c.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "c-local", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "clickhouse", "backup", "c-local")  // no backup leaf+"/c.sql")
+	wantCode(t, "USAGE", "database", "clickhouse", "restore", "c-local") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "c-local", "select 1", "--analyze")
 	wantCode(t, "NOT_SUPPORTED", "db", "kill", "c-local", "42", "--session")
 	wantCode(t, "USAGE", "conn", "add", "c-native", "clickhouse://app@ch.example.com:9000/db")

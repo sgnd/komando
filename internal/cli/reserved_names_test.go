@@ -15,7 +15,7 @@ import (
 func TestReservedCloudNames(t *testing.T) {
 	invHome(t)
 	for _, args := range [][]string{
-		{"host", "add", "aws", "u@127.0.0.1:1"},
+		{"host", "ssh", "add", "aws", "u@127.0.0.1:1"},
 		{"conn", "add", "gcp", "redis://127.0.0.1:1/0"},
 		{"conn", "add", "Azure", "redis://127.0.0.1:1/0"},
 		{"vpn", "socks", "add", "AWS", "--proxy-address", "127.0.0.1:1080"},

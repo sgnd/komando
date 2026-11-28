@@ -89,13 +89,13 @@ func TestCompletionHelpIsKomandos(t *testing.T) {
 }
 
 // A CONN is completed with the conns its command works with: `cache info`
-// offers caches, `db query` databases; groups, all and kind: stay.
+// offers caches, `database postgres query` databases; groups, all and kind: stay.
 func TestConnCompletionByFamily(t *testing.T) {
 	invHome(t)
 	for _, args := range [][]string{
 		{"conn", "add", "app-db", "postgres://app@10.0.0.5/app"},
 		{"conn", "add", "app-cache", "rediss://default@10.0.0.7:6379/0"},
-		{"group", "add", "prod", "app-db"},
+		{"group", "create", "prod", "app-db"},
 	} {
 		if _, e := invRun(t, args...); e != nil {
 			t.Fatalf("%v: %v", args, e)
@@ -105,7 +105,7 @@ func TestConnCompletionByFamily(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"db", "query", ""}, "@prod all app-db kind:"},
+		{[]string{"database", "postgres", "query", ""}, "@prod all app-db kind:"},
 		{[]string{"db", "schema", ""}, "@prod all app-db kind:"},
 		{[]string{"test", ""}, "@prod all app-cache app-db kind:"},
 	} {

@@ -103,10 +103,10 @@ func TestFormHintsNextMerge(t *testing.T) {
 func TestPersonHelp(t *testing.T) {
 	invHome(t)
 	h := personHelp()
-	if !strings.Contains(h, "Nothing added yet: komando host add") || strings.Index(h, "START") > strings.Index(h, "SERVERS") {
+	if !strings.Contains(h, "Nothing added yet: komando host ssh add") || strings.Index(h, "START") > strings.Index(h, "SERVERS") {
 		t.Errorf("%s", h)
 	}
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
 	if strings.Contains(personHelp(), "Nothing added yet") {
 		t.Error("an inventory with a server is called empty")
 	}
@@ -119,10 +119,10 @@ func TestPromptNext(t *testing.T) {
 	tcl.nextNow = nil
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	drawn := promptFake(t)
-	tcl.fillSeen = fillInfo{person: true, key: "db add", first: "app-db", prompted: true, line: []string{"db", "add", "app-db", "postgres://app@10.0.0.9/app"}}
+	tcl.fillSeen = fillInfo{person: true, key: "database postgres add", first: "app-db", prompted: true, line: []string{"database", "postgres", "add", "app-db", "postgres://app@10.0.0.9/app"}}
 	defer func() { tcl.fillSeen = fillInfo{} }()
 	promptNext(tcl)
-	for _, want := range []string{"Next time: komando db add app-db postgres://app@10.0.0.9/app", "Next: komando db info app-db · komando db query app-db"} {
+	for _, want := range []string{"Next time: komando database postgres add app-db postgres://app@10.0.0.9/app", "Next: komando database postgres test app-db · komando database postgres show app-db"} {
 		if !strings.Contains(drawn.String(), want) {
 			t.Errorf("%q not in:\n%s", want, drawn)
 		}
@@ -130,19 +130,17 @@ func TestPromptNext(t *testing.T) {
 	drawn.Reset()
 	tcl.fillSeen = fillInfo{person: true, key: "conn show", first: "app-db"}
 	promptNext(tcl)
-	if !strings.Contains(drawn.String(), "COMMANDS\n  komando db query app-db \"select 1\"") {
+	if !strings.Contains(drawn.String(), "COMMANDS\n  komando database postgres query app-db \"select 1\"") {
 		t.Errorf("show: %s", drawn)
 	}
 	// a sqlite conn gets its own list, a key its own, and both end there
 	mustRun(t, "conn", "add", "notes", "sqlite:///tmp/notes.db")
 	for _, c := range []struct{ key, first, want, not string }{
-		{"conn show", "notes", "komando db dump notes --to backup.sql", "db user list"},
+		{"conn show", "notes", "komando database sqlite backup notes --to backup.db", "db user list"},
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
-		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
-		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
-		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
-		{"tunnel show", "db-tunnel", "komando tunnel stop db-tunnel", "conn "},
-		{"recipe show", "health", "komando recipe run health TARGET", "conn "},
+		{"credential key show", "deploy", "komando credential key install deploy TARGET", "db "},
+		{"group remove", "old", "Next: komando group create old TARGET...", "group remove"},
+		{"snippet show", "health", "komando snippet exec health TARGET", "conn "},
 	} {
 		drawn.Reset()
 		tcl.fillSeen = fillInfo{person: true, key: c.key, first: c.first}
@@ -159,7 +157,7 @@ func TestPromptNext(t *testing.T) {
 		t.Errorf("vpn stop alone: %q", got)
 	}
 	drawn.Reset()
-	tcl.fillSeen = fillInfo{key: "db add", first: "app-db", prompted: true}
+	tcl.fillSeen = fillInfo{key: "database postgres add", first: "app-db", prompted: true}
 	promptNext(tcl)
 	if drawn.Len() > 0 {
 		t.Errorf("printed for someone who is not a person at a terminal: %s", drawn)
@@ -169,10 +167,12 @@ func TestPromptNext(t *testing.T) {
 // A person told there is nothing yet is given the add command to type,
 // never a menu that is gone.
 func TestAddHintForAPerson(t *testing.T) {
+	noAgent(t)
+	setCallerEnv(t, "CI", "") // in CI a terminal is no person: the hint would come from the other branch
 	saved := tcl.terminal
 	tcl.terminal = true
 	defer func() { tcl.terminal = saved }()
-	for family, want := range map[string]string{"db": "komando db add", "host": "komando host add", "vpn": "komando vpn KIND add"} {
+	for family, want := range map[string]string{"db": "komando database postgres add", "host": "komando host ssh add", "vpn": "komando vpn KIND add"} {
 		if h := addHint(tcl, family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
 			t.Errorf("%s: %q", family, h)
 		}
@@ -226,16 +226,6 @@ func TestNextOnlyOnStderr(t *testing.T) {
 			}
 		}
 	}
-	// a command that worked out its next lines puts them in the Next: line
-	invHome(t)
-	drawn := promptFake(t)
-	tcl.fillSeen = fillInfo{person: true, key: "job start", first: "web1"}
-	defer func() { tcl.fillSeen, tcl.nextNow = fillInfo{}, nil }()
-	jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}}.withNext(tcl)
-	promptNext(tcl)
-	if got := drawn.String(); got != "Next: komando job logs j1 --limit 20 · komando job wait j1 · komando job status j1\n" {
-		t.Errorf("job start: %q", got)
-	}
 }
 
 // S-9.4: every add, edit, rename and rm has a Next: list, from its formHint
@@ -261,13 +251,13 @@ func TestStandardNextPerVerb(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"host add":           "komando test web1",
-		"conn add":           "komando test web1",
-		"host rename":        "komando host show web2",
-		"key rename":         "komando key show web2",
-		"rename":             "komando list web2",
-		"host rm":            "komando host list",
-		"vpn wireguard edit": "komando vpn wireguard show web1",
+		"host ssh add":          "komando test web1",
+		"conn add":              "komando test web1",
+		"host ssh rename":       "komando host ssh show web2",
+		"credential key rename": "komando credential key show web2",
+		"rename":                "komando list web2",
+		"host ssh remove":       "komando host ssh list",
+		"vpn wireguard edit":    "komando vpn wireguard show web1",
 	} {
 		if got := nextLines(key, "web1", []string{"web1", "web2"}); len(got) == 0 || got[0] != want {
 			t.Errorf("%s: Next: %q, want %q first", key, got, want)

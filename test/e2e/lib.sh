@@ -38,7 +38,7 @@ sprov() {
   esac
 }
 # the audit log and the inventory as text, from the sealed store
-audit_text() { "$K" audit -n 0 -o json 2>/dev/null; }
+audit_text() { "$K" audit list -n 0 -o json 2>/dev/null; }
 inventory_text() { "$K" export -o json 2>/dev/null; }
 # this script is a script, even when an AI agent starts it; the agent
 # checks say so on purpose (and never open an approval window)
@@ -75,16 +75,27 @@ skipped() { echo "  SKIPPED: $1"; [ -z "${E2E_RESULTS:-}" ] || echo "$AREA $1" >
 has_service() { case " ${SERVICES[*]} " in *" $1 "*) return 0 ;; esac; return 1; }
 
 # jget '<python expression on d>' : evaluate against JSON on stdin
-# When the output is not the JSON the check expects (an error instead of data),
-# it prints that output, so a failure in CI says why.
+# A run in a session prints its ID as the first JSON line, then the result:
+# d is the whole input when it is one JSON value (a file), else the last
+# line. When the output is not the JSON the check expects (an error instead
+# of data), it prints that output, so a failure in CI says why.
 jget() { python3 -c "
 import json,sys
 raw=sys.stdin.read()
 try:
-    d=json.loads(raw); print($1)
+    try:
+        d=json.loads(raw)
+    except ValueError:
+        d=json.loads(raw.strip().splitlines()[-1])
+    print($1)
 except Exception as e:
     sys.stderr.write('jget: %s: %s; komando printed: %s\n' % (type(e).__name__, e, raw.strip()[:1500] or '(nothing)')); sys.exit(1)
 "; }
+
+# sess_id: the session ID, from the first JSON line of an exec's output on stdin
+sess_id() { python3 -c "import json,sys; print(json.loads(sys.stdin.readline())['session'])"; }
+# SDIR ID: the session's folder on the server, as fs stat takes it
+SDIR() { echo ".komando/sessions/$1"; }
 
 check() { # check "name" expected actual
   if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  ok   $1"
@@ -116,17 +127,17 @@ lab_down() {
 # bastion, direct, and target (protected, only reachable through bastion)
 setup_hosts() {
   echo "==> inventory & vault"
-  q sh -c 'printf %s agentpass | "$0" secret set agent-pass' "$K"
+  q sh -c 'printf %s agentpass | "$0" credential password add agent-pass' "$K"
   if has_service bastion; then
     wait_port "$E2E_SSH_BASTION"
-    q $K host add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --password-ref credential:agent-pass -g lab
+    q $K host ssh add bastion "agent@127.0.0.1:$E2E_SSH_BASTION" --credential agent-pass -g lab
   fi
   if has_service direct; then
     wait_port "$E2E_SSH_DIRECT"
-    q $K host add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref credential:agent-pass -g lab -t test
+    q $K host ssh add direct "agent@127.0.0.1:$E2E_SSH_DIRECT" --credential agent-pass -g lab -t test
   fi
   if has_service target; then
-    q $K host add target agent@target --via bastion --password-ref credential:agent-pass -g lab --protected
+    q $K host ssh add target agent@target --via bastion --credential agent-pass -g lab --protected
   fi
   sleep 1
 }
@@ -136,9 +147,9 @@ setup_hosts() {
 setup_data() {
   echo "==> conns through bastion (db, cache, storage)"
   for _ in $(seq 1 60); do DC ps --format '{{.Health}}' pg maria 2>/dev/null | grep -qv healthy || break; sleep 1; done
-  echo -n apppass | $K secret set pg-pass >/dev/null
-  echo -n shoppass | $K secret set maria-pass >/dev/null
-  echo -n redispass | $K secret set redis-pass >/dev/null
+  echo -n apppass | $K credential password add pg-pass >/dev/null
+  echo -n shoppass | $K credential password add maria-pass >/dev/null
+  echo -n redispass | $K credential password add redis-pass >/dev/null
   q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref credential:pg-pass
   q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref credential:maria-pass --protected
   q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref credential:redis-pass
@@ -152,14 +163,14 @@ setup_bucket() {
   G layout assign -z dc1 -c 1G "$NODE" >/dev/null && G layout apply --version 1 >/dev/null
   G bucket create backups >/dev/null && G key create komando > "$TMP/s3key" && G bucket allow --read --write --owner backups --key komando >/dev/null
   S3ID=$(awk '/Key ID/{print $3}' "$TMP/s3key")
-  awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K secret set s3-secret >/dev/null
+  awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K credential password add s3-secret >/dev/null
   q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref credential:s3-secret
 }
 
 # +maria_conn: the protected conn maria, for checks that only edit the
 # inventory (no MariaDB runs)
 setup_maria_conn() {
-  echo -n shoppass | $K secret set maria-pass >/dev/null
+  echo -n shoppass | $K credential password add maria-pass >/dev/null
   q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref credential:maria-pass --protected
 }
 
@@ -168,18 +179,18 @@ setup_maria_conn() {
 setup_vpns() {
   q $K vpn socks add lab --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
   q $K vpn system add corp --check 127.0.0.1:1
-  q $K host add target-lab agent@target --via lab --password-ref credential:agent-pass
+  q $K host ssh add target-lab agent@target --via lab --credential agent-pass
 }
 
 # +swarm: swarm1, a one-node Docker Swarm manager over SSH
 setup_swarm() {
   wait_port "$E2E_SSH_SWARM"
-  q $K host add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --password-ref credential:agent-pass
-  for _ in $(seq 1 60); do $K exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
+  q $K host ssh add swarm1 "agent@127.0.0.1:$E2E_SSH_SWARM" --credential agent-pass
+  for _ in $(seq 1 60); do $K host ssh exec swarm1 --read-only -- docker node ls >/dev/null 2>&1 && break; sleep 2; done
 }
 
 # +files_pass: the vault secret of the lab's file servers (user deploy)
-setup_files_pass() { echo -n deploypass | $K secret set files-pass >/dev/null; }
+setup_files_pass() { echo -n deploypass | $K credential password add files-pass >/dev/null; }
 
 # write_tools_yaml FILE: a busybox web server and its Service, for exec and
 # port-forward in Kubernetes

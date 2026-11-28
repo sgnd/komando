@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/auditlog"
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
@@ -90,14 +91,24 @@ func auditCell(s string) string {
 	return q[1 : len(q)-1]
 }
 
+// The audit leaves run today's audit commands (runBody).
+func init() {
+	handlers[capability.Key{Type: "audit", Verb: "list"}] = bodyHandler(auditListCmd)
+	handlers[capability.Key{Type: "audit", Verb: "check"}] = bodyHandler(auditVerifyCmd)
+	keep := keepNounEntries("audit")
+	moveType("audit")
+	keep()
+	cmdKeys["audit"] = safetyKey{typ: "audit"}
+	details["komando audit list"] = auditListLong
+}
+
+// auditCmd is the bare noun; its commands come from the table.
 func auditCmd() *cobra.Command {
-	var limit int
-	var target, command, since, until, actorName string
-	var failed bool
-	c := &cobra.Command{
-		Use:   "audit",
-		Short: "Show the audit log: who did what, where, and the result",
-		Long: `Every change komando makes, and every blocked attempt, is a sealed record in
+	return &cobra.Command{Use: "audit", Short: "The audit log: see what was done, check it was not changed"}
+}
+
+// auditListLong is the help text of audit list.
+const auditListLong = `Every change komando makes, and every blocked attempt, is a sealed record in
 ~/.komando/store.db: when, who (and which AI agent), the command, its
 targets and whether it worked. The newest entries come last.
 
@@ -105,14 +116,23 @@ targets and whether it worked. The newest entries come last.
 or a time (2026-11-07, '2026-11-07 14:30', 2026-11-07T14:30:00Z); a time
 without a zone is this computer's. --since keeps entries from that moment
 on, --until those before it. With either, every match is shown unless -n
-is given.`,
-		Example: `  komando audit                      # the last 50
-  komando audit -n 0 --target @prod  # everything about @prod
-  komando audit --command host. --failed
-  komando audit --since 2h           # everything in the last two hours
-  komando audit --since yesterday --until today --target @prod
-  komando audit --actor claude --since 7d        # what Claude Code did this week
-  komando audit verify               # was the log changed outside komando?`,
+is given.`
+
+// auditListCmd is today's audit, the body of the list leaf.
+func auditListCmd() *cobra.Command {
+	var limit int
+	var target, command, since, until, actorName string
+	var failed bool
+	c := &cobra.Command{
+		Use:   "list",
+		Short: "Show the audit log: who did what, where, and the result",
+		Example: `  komando audit list                      # the last 50
+  komando audit list -n 0 --target @prod  # everything about @prod
+  komando audit list --command host. --failed
+  komando audit list --since 2h           # everything in the last two hours
+  komando audit list --since yesterday --until today --target @prod
+  komando audit list --actor claude --since 7d        # what Claude Code did this week
+  komando audit check               # was the log changed outside komando?`,
 		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if limit < 0 {
@@ -147,7 +167,8 @@ is given.`,
 				if json.Unmarshal(b, &e) != nil {
 					return nil
 				}
-				delete(e, "prev") // the chain is for `audit verify`
+				delete(e, "prev") // the chain is for `audit check`
+				readOldEvent(e)
 				if flt.keep(e) {
 					all = append(all, e)
 				}
@@ -155,7 +176,7 @@ is given.`,
 			})
 			if errors.Is(err, sealdb.ErrTampered) {
 				// the records before the broken one are still shown
-				cl.out.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit verify`", len(all), err))
+				cl.out.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit check`", len(all), err))
 			} else if err != nil {
 				return err
 			}
@@ -169,11 +190,10 @@ is given.`,
 					given = append(given, "--"+f)
 				}
 			}
-			cl.out.Print("audit", auditList{Count: len(all), Entries: all, filters: given}, nil)
+			cl.out.Print("audit.list", auditList{Count: len(all), Entries: all, filters: given}, nil)
 			return nil
 		}),
 	}
-	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")
 	c.Flags().StringVar(&target, "target", "", "only entries for these servers or conns (a selector, like @prod)")
 	c.Flags().StringVar(&command, "command", "", "only commands or events that start with this (like exec, fs., secret.set), or a command ID (also of v0.17) with the same safety key")

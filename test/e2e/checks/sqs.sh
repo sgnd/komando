@@ -4,7 +4,7 @@
 # run first), messages go in, peek receives them with a visibility timeout
 # of 0 and takes none away, and purge and rm need --allow-dangerous.
 set +e
-echo -n test | $K secret set sqs-secret >/dev/null
+echo -n test | $K credential password add sqs-secret >/dev/null
 printf '[e2e-sqs]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/aws-sqs-credentials"
 SQSENV=(env AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-sqs-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true)
 q $K conn add sqs 'sqs://test@us-east-1?endpoint=http://moto:5000' --via bastion --password-ref credential:sqs-secret

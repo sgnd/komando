@@ -13,12 +13,12 @@ func TestDBQueryWriteOnProtectedAsks(t *testing.T) {
 	invHome(t)
 	path := filepath.Join(t.TempDir(), "app.db")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+path, "--protected")
-	mustRun(t, "db", "query", "lite", "--write", "--yes", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "--yes", "create table t (id int)")
 	for _, sql := range []string{"select 1", "select count(*) from t"} {
-		wantCode(t, "PROTECTED_TARGET", "db", "query", "lite", "--write", sql)
-		mustRun(t, "db", "query", "lite", sql) // without --write it only reads
+		wantCode(t, "PROTECTED_TARGET", "database", "sqlite", "query", "lite", "--write", sql)
+		mustRun(t, "database", "sqlite", "query", "lite", sql) // without --write it only reads
 	}
-	mustRun(t, "db", "query", "lite", "--write", "--yes", "select 1")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "--yes", "select 1")
 }
 
 // A dry run that the real run would block runs nothing: its rollback does
@@ -28,8 +28,8 @@ func TestDBQueryDryRunBlockedRunsNothing(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "app.db")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+path, "--protected")
 	mustRun(t, "conn", "add", "open", "sqlite://"+filepath.Join(t.TempDir(), "other.db"))
-	mustRun(t, "db", "query", "lite", "--write", "--yes", "create table t (id int)")
-	mustRun(t, "db", "query", "open", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "--yes", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "open", "--write", "create table t (id int)")
 	for _, c := range []struct {
 		conn, sql string
 		blocked   bool
@@ -39,7 +39,7 @@ func TestDBQueryDryRunBlockedRunsNothing(t *testing.T) {
 		{"open", "delete from t", true},            // destructive without --allow-dangerous
 		{"open", "insert into t values (1)", false},
 	} {
-		d := mustRun(t, "db", "query", c.conn, "--write", "--dry-run", c.sql)
+		d := mustRun(t, "database", "sqlite", "query", c.conn, "--write", "--dry-run", c.sql)
 		meta := d["_meta"].(map[string]any)
 		res := d["results"].([]any)[0].(map[string]any)
 		skipped, _ := res["skipped"].(string)

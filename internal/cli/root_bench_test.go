@@ -15,7 +15,7 @@ func BenchmarkNewRoot(b *testing.B) {
 // tree with the command of its line prepared. fake500 has 500 more leaves
 // of a type the line does not name, which must cost nothing.
 func BenchmarkNewRootFor(b *testing.B) {
-	for _, line := range [][]string{{"version"}, {"list"}, {"storage", "s3", "object", "list"}, {"db", "query"}} {
+	for _, line := range [][]string{{"version"}, {"list"}, {"storage", "s3", "object", "list"}, {"database", "postgres", "query"}} {
 		b.Run(line[0], func(b *testing.B) {
 			for b.Loop() {
 				newRootFor(tcl, line)

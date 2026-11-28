@@ -414,7 +414,7 @@ func loginsInput(logins map[string]string) io.Reader {
 
 // serveByStart is the hint of a tunnel serve that did not get its input
 // from tunnel start.
-const serveByStart = "start the tunnel with `komando tunnel start`: tunnel serve is its background process, not a command to run by hand"
+const serveByStart = "start the tunnel with `komando host ssh tunnel start`: tunnel serve is its background process, not a command to run by hand"
 
 // readLogins reads loginsInput's lines from in into the call; what follows
 // them (the vault passphrase) stays in in.

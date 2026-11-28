@@ -20,15 +20,15 @@ func personalDB(t *testing.T) {
 	mustRun(t, "conn", "add", "prod", "sqlite://"+filepath.Join(dir, "prod.db"), "--protected")
 	mustRun(t, "conn", "add", "dev", "sqlite://"+filepath.Join(dir, "dev.db"))
 	for _, conn := range []string{"prod", "dev"} {
-		mustRun(t, "db", "query", conn, "--write", "--yes", "create table users (id int, name text, email text, phone text, card text)")
-		mustRun(t, "db", "query", conn, "--write", "--yes", "insert into users values (1, 'Ada Lovelace', 'ada@example.com', '+44 20 7946 0958', '4111 1111 1111 1111')")
+		mustRun(t, "database", "sqlite", "query", conn, "--write", "--yes", "create table users (id int, name text, email text, phone text, card text)")
+		mustRun(t, "database", "sqlite", "query", conn, "--write", "--yes", "insert into users values (1, 'Ada Lovelace', 'ada@example.com', '+44 20 7946 0958', '4111 1111 1111 1111')")
 	}
 }
 
 // customer is the first row of `select * from users` on conn.
 func customer(t *testing.T, conn string) []any {
 	t.Helper()
-	d := mustRun(t, "db", "query", conn, "select * from users")
+	d := mustRun(t, "database", "sqlite", "query", conn, "select * from users")
 	return d["results"].([]any)[0].(map[string]any)["rows"].([]any)[0].([]any)
 }
 
@@ -82,7 +82,7 @@ func TestPersonalMaskColumns(t *testing.T) {
 	tcl.out.W = &buf
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
-	root.SetArgs([]string{"db", "query", "prod", "-o", "csv", "select email, card from users"})
+	root.SetArgs([]string{"database", "sqlite", "query", "prod", "-o", "csv", "select email, card from users"})
 	err := root.Execute()
 	tcl.out.W = saved
 	if err != nil || !strings.Contains(buf.String(), "[hidden: email],[hidden: card]") || strings.Contains(buf.String(), "ada@") {
@@ -93,8 +93,8 @@ func TestPersonalMaskColumns(t *testing.T) {
 func TestPersonalHiddenValueNotWritten(t *testing.T) {
 	personalDB(t)
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	wantCode(t, "HIDDEN_VALUE", "db", "query", "dev", "--write", "update users set email = '[hidden: email]' where id = 1")
-	wantCode(t, "HIDDEN_VALUE", "db", "query", "dev", "--write", "--arg", "[hidden: phone]", "update users set phone = ? where id = 1")
+	wantCode(t, "HIDDEN_VALUE", "database", "sqlite", "query", "dev", "--write", "update users set email = '[hidden: email]' where id = 1")
+	wantCode(t, "HIDDEN_VALUE", "database", "sqlite", "query", "dev", "--write", "--arg", "[hidden: phone]", "update users set phone = ? where id = 1")
 	os.Unsetenv("KOMANDO_AGENT")
 	resetApproval()
 	if got := strs(customer(t, "dev")); got[2] != "ada@example.com" || got[3] != "+44 20 7946 0958" {
@@ -104,9 +104,9 @@ func TestPersonalHiddenValueNotWritten(t *testing.T) {
 
 func TestPersonalOnlyForDataCommands(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "admin@web1.example.com", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "admin@web1.example.com", "--protected")
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	for _, args := range [][]string{{"host", "show", "web1"}, {"list"}} {
+	for _, args := range [][]string{{"host", "ssh", "show", "web1"}, {"list"}} {
 		b, _ := json.Marshal(mustRun(t, args...))
 		if strings.Contains(string(b), "[hidden") || !strings.Contains(string(b), "web1.example.com") {
 			t.Errorf("%v: komando's own inventory is never hidden: %s", args, b)

@@ -176,7 +176,7 @@ func sealContent(st *store.State, f exportFile, withKeys bool, res *exportResult
 		}
 		b, err := store.ReadPrivateKey(k)
 		if err != nil {
-			return c, out.Errf(out.ExitError, "KEY_FAILED", "check the key with `komando key show "+n+"`, or leave out --with-keys",
+			return c, out.Errf(out.ExitError, "KEY_FAILED", "check the key with `komando credential key show "+n+"`, or leave out --with-keys",
 				"could not read key %s: %v; nothing was written", n, errText(err))
 		}
 		var pme *ssh.PassphraseMissingError

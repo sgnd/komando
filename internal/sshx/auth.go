@@ -227,7 +227,7 @@ func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) 
 	}
 	if err != nil {
 		if explicit {
-			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path (`komando key list` shows the keys komando knows)", "cannot read key %s: %v", path, err)
+			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path (`komando credential key list` shows the keys komando knows)", "cannot read key %s: %v", path, err)
 		}
 		return nil, nil
 	}
@@ -395,18 +395,18 @@ func (lk *loginKeys) securityKeyNeeded(p string) *out.Error {
 func storePassphrase(st *store.State, h *store.Host, k lockedKey) string {
 	if k.keyName != "" {
 		sec := secretName(k.keyName, "pass")
-		return fmt.Sprintf("store its passphrase: `komando secret set %s`, then `komando key edit %s --passphrase-ref credential:%s`", sec, k.keyName, sec)
+		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, then `komando credential key edit %s --passphrase-credential %s`", sec, k.keyName, sec)
 	}
 	name, have := keychainKeyFor(st, h, k.path)
-	use := fmt.Sprintf("`komando host edit %s --key %s --unset identity`", h.Name, name)
+	use := fmt.Sprintf("`komando host ssh edit %s --key %s --unset identity`", h.Name, name)
 	if have != nil && have.PassphraseRef != "" {
 		return "use the keychain key " + name + ", which has its passphrase: " + use
 	}
 	sec := secretName(name, "pass")
 	if have != nil {
-		return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key edit %s --passphrase-ref credential:%s`, then %s", sec, name, sec, use)
+		return fmt.Sprintf("store its passphrase: `komando credential password add %s`, `komando credential key edit %s --passphrase-credential %s`, then %s", sec, name, sec, use)
 	}
-	return fmt.Sprintf("store its passphrase: `komando secret set %s`, `komando key add %s %s --passphrase-ref credential:%s`, then %s", sec, name, shellPath(k.path), sec, use)
+	return fmt.Sprintf("store its passphrase: `komando credential password add %s`, `komando credential key add %s %s --passphrase-credential %s`, then %s", sec, name, shellPath(k.path), sec, use)
 }
 
 // keychainKeyFor is the keychain key for the file at path: the one that
@@ -464,11 +464,11 @@ func loginWay(st *store.State, h *store.Host) string {
 	sec := secretName(h.Name, "pass")
 	switch {
 	case st.Hosts[h.Name] != nil:
-		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando host edit %s --password-ref credential:%s` (or --key KEY)", sec, h.Name, sec)
+		return fmt.Sprintf("save its password: `komando credential password add %s`, then `komando host ssh edit %s --credential %s` (or --key KEY)", sec, h.Name, sec)
 	case st.Conns[h.Name] != nil:
-		return fmt.Sprintf("save its password: `komando secret set %s`, then `komando conn edit %s --password-ref credential:%s`", sec, h.Name, sec)
+		return fmt.Sprintf("save its password: `komando credential password add %s`, then `komando conn edit %s --password-ref credential:%s`", sec, h.Name, sec)
 	}
-	return "save the server with `komando host add NAME " + h.Name + " --key KEY` (or --password-ref credential:NAME)"
+	return "save the server with `komando host ssh add NAME " + h.Name + " --key KEY` (or --credential NAME)"
 }
 
 // adhoc reports a server that is not in the inventory: a user@address
@@ -493,18 +493,18 @@ func authFailedCheck(st *store.State, h *store.Host) string {
 	name := h.Name
 	switch {
 	case h.AskLogin():
-		return fmt.Sprintf("check the user with `komando host show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
+		return fmt.Sprintf("check the user with `komando host ssh show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
 	case adhoc(st, h):
-		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
+		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host ssh add NAME " + name + " --key KEY` (or --credential) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
 		if sec, ok := strings.CutPrefix(h.PasswordRef, "credential:"); ok {
-			return fmt.Sprintf("check the user with `komando host show %s`; if the password changed, store the new one with `komando secret set %s`", name, sec)
+			return fmt.Sprintf("check the user with `komando host ssh show %s`; if the password changed, store the new one with `komando credential password add %s`", name, sec)
 		}
-		return fmt.Sprintf("check the user with `komando host show %s`, and the password that %s holds", name, h.PasswordRef)
+		return fmt.Sprintf("check the user with `komando host ssh show %s`, and the password that %s holds", name, h.PasswordRef)
 	case h.PasswordRef != "":
-		return fmt.Sprintf("check the user, key and password with `komando host show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
+		return fmt.Sprintf("check the user, key and password with `komando host ssh show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
 	}
-	return fmt.Sprintf("check the user and key with `komando host show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
+	return fmt.Sprintf("check the user and key with `komando host ssh show %s`; the server needs the key's public part in ~/.ssh/authorized_keys", name)
 }
 
 // secretName is a vault or keychain name for host: "web1-pass".
@@ -598,7 +598,7 @@ func secretUnresolved(h *store.Host, err error) *out.Error {
 		return out.Errf(out.ExitError, "VAULT_LOCKED", "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrKey):
-		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
+		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/store.key from a backup, or move the key back with `komando config vault keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrDecrypt):
 		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use)",

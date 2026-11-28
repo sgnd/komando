@@ -29,7 +29,7 @@ func readHidden(cl *call, label string) (string, error) {
 	}
 	v, err := readAnswer(cl, label, true)
 	if errors.Is(err, kitterm.ErrMoreLines) {
-		return "", out.Errf(out.ExitUsage, "USAGE", "for a key or a file, use `komando secret set NAME < FILE` or pipe it",
+		return "", out.Errf(out.ExitUsage, "USAGE", "for a key or a file, use `komando credential token add NAME < FILE` or pipe it",
 			"the value has more than one line, so nothing was stored")
 	}
 	if err != nil {

@@ -302,7 +302,7 @@ func pkgCmd() *cobra.Command {
 					// newline would split one name into two on the server
 					if !pkgNameRe.MatchString(p) || pkgFileRe.MatchString(p) {
 						if pkgFileRe.MatchString(p) {
-							return out.Usage("%q looks like a package file: pkg installs packages by name from the server's repositories; for a local file, copy it with `komando upload` and install it with `komando exec`", p)
+							return out.Usage("%q looks like a package file: pkg installs packages by name from the server's repositories; for a local file, copy it with `komando copy` and install it with `komando host ssh exec`", p)
 						}
 						return out.Usage("%q is not a package name: give exact names, no options or patterns", p)
 					}

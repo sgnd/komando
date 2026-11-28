@@ -45,7 +45,7 @@ func TestDangerousAsksAPerson(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
-			mustRun(t, "host", "add", "web1", "u@127.0.0.1:1") // nothing listens: the command fails after the question
+			mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1") // nothing listens: the command fails after the question
 			personTypes(t, "web1")
 			_, e := invRun(t, tc.args...)
 			if e == nil || e.Code != "POLICY_BLOCKED" || !tcl.sess.PersonSaidNo() {

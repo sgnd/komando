@@ -115,7 +115,7 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 	}
 	signer, _ := ssh.NewSignerFromKey(priv)
 	addr := keyOnlyServer(t, signer.PublicKey())
-	mustRun(t, "host", "add", "web1", "u@"+addr, "--identity", keyPath)
+	mustRun(t, "host", "ssh", "add", "web1", "u@"+addr, "--identity", keyPath)
 
 	scratchAgentWith(t, priv)
 	mustRun(t, "test", "web1")
@@ -134,8 +134,8 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 	for _, cmd := range []string{
 		"`ssh-add ~/.ssh/id_ed25519`",
 		// format 3 keeps the key file as the key credential id-ed25519
-		"`komando secret set id-ed25519-pass`",
-		"`komando key edit id-ed25519 --passphrase-ref credential:id-ed25519-pass`",
+		"`komando credential password add id-ed25519-pass`",
+		"`komando credential key edit id-ed25519 --passphrase-credential id-ed25519-pass`",
 	} {
 		if !strings.Contains(hint, cmd) {
 			t.Errorf("hint lacks %s: %s", cmd, hint)
@@ -144,8 +144,8 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 
 	// follow the hint (a value from --from-env instead of the hidden prompt)
 	t.Setenv("KOMANDO_TEST_KEY_PASS", pass)
-	mustRun(t, "secret", "set", "id-ed25519-pass", "--from-env", "KOMANDO_TEST_KEY_PASS")
-	mustRun(t, "key", "edit", "id-ed25519", "--passphrase-ref", "credential:id-ed25519-pass")
+	mustRun(t, "credential", "password", "add", "id-ed25519-pass", "--from-env", "KOMANDO_TEST_KEY_PASS")
+	mustRun(t, "credential", "key", "edit", "id-ed25519", "--passphrase-credential", "id-ed25519-pass")
 	t.Setenv("SSH_AUTH_SOCK", "")
 	mustRun(t, "test", "web1")
 }
@@ -186,13 +186,13 @@ func TestLoginCloudNamesReserved(t *testing.T) {
 	}
 	invHome(t)
 	for _, n := range []string{"aws", "GCP", "azure"} {
-		e := wantCode(t, "USAGE", "host", "add", n, "u@192.0.2.7")
+		e := wantCode(t, "USAGE", "host", "ssh", "add", n, "u@192.0.2.7")
 		if !strings.Contains(e.Message, "komando login") {
 			t.Errorf("%s: %+v", n, e)
 		}
 	}
-	mustRun(t, "host", "add", "aws-1", "u@192.0.2.7")
-	wantCode(t, "USAGE", "host", "mv", "aws-1", "aws")
+	mustRun(t, "host", "ssh", "add", "aws-1", "u@192.0.2.7")
+	wantCode(t, "USAGE", "host", "ssh", "rename", "aws-1", "aws")
 	f := filepath.Join(t.TempDir(), "h.json")
 	os.WriteFile(f, []byte(`{"format":"komando-export/1","hosts":[{"name":"azure","address":"192.0.2.8"},{"name":"b1","address":"192.0.2.9"}]}`), 0o600)
 	d, e := invRun(t, "import", "komando", f)
@@ -208,7 +208,7 @@ func TestLoginCloudNamesReserved(t *testing.T) {
 // as login's is; --all with names is refused, not read as --all.
 func TestLogoutArgs(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@192.0.2.7")
+	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.7")
 	if d := mustRun(t, "logout", "web1"); fmt.Sprint(d["not_logged_in"]) != "[web1]" {
 		t.Errorf("logout web1: %v", d)
 	}

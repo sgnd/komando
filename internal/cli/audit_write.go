@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -22,8 +23,23 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 // auditEvent adds a record of an event from auditEvents (host.key-pinned,
 // secret.set) under the leaf that runs.
 func auditEvent(cl *call, st *store.State, event string, hosts []string, remote string, ok bool, extra map[string]any) {
+	if !slices.Contains(auditEvents, event) { // a bug: the list is closed (rule R1, C625)
+		auditEventBug(event)
+		cl.out.Warn(fmt.Sprintf("%q is not an audit event, so the audit log recorded it as event_invalid", event))
+		withName := maps.Clone(extra)
+		if withName == nil {
+			withName = map[string]any{}
+		}
+		withName["event_invalid"] = event // the audit never fails open (audit A5)
+		auditRecord(cl, st, runningLeaf(cl), "", hosts, remote, ok, withName)
+		return
+	}
 	auditRecord(cl, st, runningLeaf(cl), event, hosts, remote, ok, extra)
 }
+
+// auditEventBug is told of an event outside the closed list: TestMain makes
+// it panic, so the bug is found under test, not in the field.
+var auditEventBug = func(string) {}
 
 // auditRecord is the one writer of the audit log (rule R1, audit_identity.go).
 func auditRecord(cl *call, st *store.State, command, event string, hosts []string, remote string, ok bool, extra map[string]any) {

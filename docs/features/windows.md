@@ -9,12 +9,12 @@ itself on a Windows computer, see [Install on Windows](install.md#install-on-win
 ## Add a Windows server
 
 ```bash
-komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
+komando host ssh add win1 Administrator@10.0.0.9 --os windows --ask-password
 komando test win1                                   # can komando log in? is it an administrator?
 komando facts win1                                  # Windows version, support, updates, ports
 ```
 
-Typed alone at your terminal, `komando host add` asks for each part,
+Typed alone at your terminal, `komando host ssh add` asks for each part,
 including what the server runs and, for Windows, whether komando reaches it
 over OpenSSH or WinRM.
 
@@ -37,8 +37,8 @@ servers: a key (`--key`), a password (`--ask-password` or
 `--password-ref`), `--via` a bastion, `--protected`.
 
 ```bash
-komando host add win3 deploy@corp.local@10.0.0.10 --os windows --key deploy --via bastion
-komando host edit win3 --os windows        # a server you added before
+komando host ssh add win3 deploy@corp.local@10.0.0.10 --os windows --key deploy --via bastion
+komando host ssh edit win3 --os windows        # a server you added before
 ```
 
 A domain user is written `user@domain`, for example
@@ -51,16 +51,16 @@ Give the address as `winrm://USER@HOST` and a password. komando uses HTTPS
 never sends the password itself.
 
 ```bash
-komando host add win2 winrm://Administrator@10.0.0.9 --ask-password
-komando host add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref credential:win3-pass --via bastion
-komando host edit win2 --address 'winrm://10.0.0.9?ca=credential:corp-ca'   # the server's certificate is from your own CA
+komando host winrm add win2 winrm://Administrator@10.0.0.9 --ask-password
+komando host winrm add win3 'winrm://deploy@corp.local@win3.corp.local' --credential win3-pass --via bastion
+komando host winrm edit win2 --address 'winrm://10.0.0.9?ca=credential:corp-ca'   # the server's certificate is from your own CA
 ```
 
 Options go after `?`, joined with `&`:
 
 | Option | Means |
 |--------|-------|
-| `ca=credential:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
+| `ca=credential:NAME` | the certificate comes from your own CA: store its PEM with `komando credential token add NAME < ca.crt` (the check stays on) |
 | `auth=basic` | Basic login (local accounts only) instead of NTLM; over plain HTTP (`tls=off`) it is refused (`WINRM_INSECURE`) |
 | `tls=skip-verify` | do not check the certificate (komando warns: anyone in between can pose as the server) |
 | `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |
@@ -68,14 +68,14 @@ Options go after `?`, joined with `&`:
 
 `auth=basic`, `tls=skip-verify` and `tls=off` give up a protection of the
 password or of the server check, so an AI agent that sets one (with `host
-add`, `host edit --address` or `import`) needs your yes in komando's
+add`, `host ssh edit --address` or `import`) needs your yes in komando's
 window (`SAFETY_SETTING` without it). A server that has the setting
 already asks nothing again.
 
 `--via` works: the connection goes through the bastion or VPN. WinRM
-carries commands only, so `shell`, tunnels, `host trust`, `login` and
+carries commands only, so `shell`, tunnels, `host ssh trust`, `login` and
 `host ssh-command` need OpenSSH. To switch a server back to SSH:
-`komando host edit win2 --unset transport`. Use NTLM with a domain user,
+`komando host winrm edit win2 --unset transport`. Use NTLM with a domain user,
 over HTTPS (see [Limits](#limits) for what WinRM does not do).
 
 On the server, `winrm quickconfig -transport:https` (as an administrator)
@@ -88,7 +88,7 @@ To pick only Windows servers, or everything else, use `os:windows` and
 
 ```bash
 komando facts os:windows
-komando exec 'all,!os:windows' --read-only -- uptime
+komando host ssh exec 'all,!os:windows' --read-only -- uptime
 ```
 
 ## Run PowerShell
@@ -97,12 +97,12 @@ On a Windows server, `exec` and `exec --script` run PowerShell (Windows
 PowerShell, `powershell.exe`, which every Windows Server has).
 
 ```bash
-komando exec win1 --read-only -- 'Get-Service | Where-Object Status -eq Running'
+komando host ssh exec win1 --read-only -- 'Get-Service | Where-Object Status -eq Running'
 ```
 
 ```bash
-komando exec win1 -e APP_ENV=prod -C 'C:\app' -- '.\migrate.exe'
-komando exec win1 --script ./deploy.ps1 --arg staging  # --arg values go to param( ) or $args
+komando host ssh exec win1 -e APP_ENV=prod -C 'C:\app' -- '.\migrate.exe'
+komando host ssh exec win1 --script ./deploy.ps1 --arg staging  # --arg values go to param( ) or $args
 ```
 
 - The exit code works as in sh: `exit 3` gives 3, and a failed last command
@@ -167,10 +167,10 @@ What it accepts:
   and `ForEach-Object { $_.Name }`.
 
 ```bash
-komando exec win1 --read-only -- 'Get-Process | Sort-Object CPU -Descending | Select-Object -First 5'
-komando exec win1 --read-only -- 'Get-Content C:\app\web.config -Tail 50'
-komando exec win1 --read-only -- 'Get-WinEvent -LogName System -MaxEvents 20 | Format-List'
-komando exec win1 --read-only -- 'Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion'
+komando host ssh exec win1 --read-only -- 'Get-Process | Sort-Object CPU -Descending | Select-Object -First 5'
+komando host ssh exec win1 --read-only -- 'Get-Content C:\app\web.config -Tail 50'
+komando host ssh exec win1 --read-only -- 'Get-WinEvent -LogName System -MaxEvents 20 | Format-List'
+komando host ssh exec win1 --read-only -- 'Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion'
 ```
 
 What it refuses (`READ_ONLY_VIOLATION`, with the reason): any `$`
@@ -201,8 +201,8 @@ komando fs list win1 'C:\inetpub\logs' -r --limit 200
 komando fs stat win1 'C:\app\web.config' --sha256
 komando fs cat win1 'C:\app\app.log' --tail 50
 komando fs write win1 'C:\app\web.config' --from ./web.config --backup --if-changed
-komando upload os:windows ./tool.exe 'C:\tools\'
-komando download win1 'C:\app\app.log' --to ./logs/
+komando copy ./tool.exe 'os:windows:C:\tools\'
+komando copy 'win1:C:\app\app.log' ./logs/
 ```
 
 - `fs list` leaves out hidden files unless `--all`.
@@ -211,9 +211,9 @@ komando download win1 'C:\app\app.log' --to ./logs/
   `--append`, `--if-changed`, `--no-follow` and `--validate` work.
   `--validate` takes PowerShell, with `%s` for the new file, and runs in a
   PowerShell of its own: `--validate 'Test-Json (Get-Content %s -Raw)'`.
-  To undo, copy the `.bak` back with `komando exec win1 -- Copy-Item ...`;
+  To undo, copy the `.bak` back with `komando host ssh exec win1 -- Copy-Item ...`;
   `fs restore` does not work on Windows yet.
-- `upload`, `download` and `cp` copy single files. Folders (`-r`), `--sudo`,
+- `copy` copies single files. Folders (`-r`), `--sudo`,
   `--mode` and `--owner` do not work on Windows yet.
 
 ## Services
@@ -233,11 +233,11 @@ lists services that should start automatically but stopped with an error.
 
 | Works | Not yet |
 |-------|--------------------------------------|
-| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `recipe run`, `reboot` |
-| `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
-| `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
+| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `snippet exec`, `reboot` |
+| `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `copy --sync` |
+| `copy` (single files) | exec sessions (a run on Windows has none), `copy -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
-| `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |
+| `host ssh trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host ssh trust` over WinRM |
 
 A command that is not there yet stops with `NOT_SUPPORTED` before anything
 runs; `fs restore` stops with a usage error (`USAGE`) that names
@@ -254,10 +254,10 @@ runs; `fs restore` stops with a usage error (`USAGE`) that names
 - WinRM logs in with a password only: `--key`, `--identity` and
   `--proxy-command` are refused. Use `--via` to go through a bastion.
 - `fs write --backup` keeps a backup, but `fs restore` does not work on
-  Windows: copy the backup back with `komando exec SERVER -- Copy-Item ...`.
+  Windows: copy the backup back with `komando host ssh exec SERVER -- Copy-Item ...`.
 - Kerberos, CredSSP, client certificates and WinRM's own message encryption
   over plain HTTP are not supported.
-- WinRM carries commands only: `shell`, tunnels, `host trust`, `login` and
+- WinRM carries commands only: `shell`, tunnels, `host ssh trust`, `login` and
   `host ssh-command` need OpenSSH.
 - Windows has no sudo: `--sudo` and `--pty` are refused.
 - A target that picks Windows and other servers at once is refused for
@@ -269,14 +269,14 @@ runs; `fs restore` stops with a usage error (`USAGE`) that names
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `NOT_SUPPORTED` | the command does not work on Windows servers yet | run PowerShell with `komando exec SERVER -- ...`, or leave them out: `TARGET,!os:windows` |
+| `NOT_SUPPORTED` | the command does not work on Windows servers yet | run PowerShell with `komando host ssh exec SERVER -- ...`, or leave them out: `TARGET,!os:windows` |
 | `MIXED_OS` | the target picks Windows and other servers | run it twice, with `TARGET,os:windows` and `TARGET,!os:windows` |
 | `READ_ONLY_VIOLATION` | the PowerShell is not in the small part `--read-only` accepts | drop `--read-only`; a protected server then asks first |
 | `POWERSHELL_FAILED` | komando could log in but PowerShell did not answer | check that `powershell.exe` is on the login user's PATH |
 | `WINRM_TLS` | the server's WinRM certificate is not trusted | from your company's CA: add `?ca=credential:NAME` to the address |
 | `WINRM_INSECURE` | Basic login over plain HTTP would send the password unencrypted | use HTTPS, or NTLM (leave `auth=basic` out) |
 | `AUTH_FAILED` over WinRM | wrong user or password, or the user may not use WinRM | check them; Basic login works for local accounts only, and the user must be an administrator or in Remote Management Users |
-| `USAGE` from `fs restore` | `fs restore` does not work on Windows | `komando exec SERVER -- Copy-Item ...` |
+| `USAGE` from `fs restore` | `fs restore` does not work on Windows | `komando host ssh exec SERVER -- Copy-Item ...` |
 
 - **`pending updates unknown`** in `facts`: Windows does not let many remote
   logins search Windows Update. The last installed update is still shown.

@@ -31,8 +31,8 @@ func field(t *testing.T, list any, key string) []string {
 
 func TestListSortsAllKindsByName(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "zeta", "u@10.0.0.1", "-g", "g")
-	mustRun(t, "host", "add", "mid", "u@10.0.0.2", "-g", "g")
+	mustRun(t, "host", "ssh", "add", "zeta", "u@10.0.0.1", "-g", "g")
+	mustRun(t, "host", "ssh", "add", "mid", "u@10.0.0.2", "-g", "g")
 	mustRun(t, "conn", "add", "alpha", "rediss://10.0.0.3:6379", "-g", "g")
 	for _, args := range [][]string{{"list"}, {"list", "@g"}, {"list", "zeta,alpha,mid"}} {
 		d := mustRun(t, args...)
@@ -40,7 +40,7 @@ func TestListSortsAllKindsByName(t *testing.T) {
 			t.Errorf("%v: %s, want alpha,mid,zeta", args, got)
 		}
 	}
-	if got := strings.Join(field(t, mustRun(t, "host", "list")["targets"], "name"), ","); got != "mid,zeta" {
+	if got := strings.Join(field(t, mustRun(t, "host", "ssh", "list")["targets"], "name"), ","); got != "mid,zeta" {
 		t.Errorf("host list: %s", got)
 	}
 }
@@ -48,9 +48,9 @@ func TestListSortsAllKindsByName(t *testing.T) {
 func TestTestResultsSortByName(t *testing.T) {
 	invHome(t)
 	port := strconv.Itoa(closedPort(t))
-	mustRun(t, "host", "add", "zeta", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "ssh", "add", "zeta", "u@127.0.0.1:"+port)
 	mustRun(t, "conn", "add", "alpha", "redis://127.0.0.1:"+port)
-	mustRun(t, "host", "add", "mid", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "ssh", "add", "mid", "u@127.0.0.1:"+port)
 	env, _, _ := runWait(t, "test", "all")
 	var got []string
 	for _, r := range env.Data.Results {
@@ -74,9 +74,9 @@ func TestGroupListTextSortsGroupsAndTagsTogether(t *testing.T) {
 
 func TestRecipeListSortsSavedAmongBuiltins(t *testing.T) {
 	invHome(t)
-	mustRun(t, "recipe", "add", "zzz-mine", "uptime", "--read-only")
-	mustRun(t, "recipe", "add", "aaa-mine", "uptime", "--read-only")
-	got := field(t, mustRun(t, "recipe", "list")["recipes"], "name")
+	mustRun(t, "snippet", "create", "zzz-mine", "uptime", "--read-only")
+	mustRun(t, "snippet", "create", "aaa-mine", "uptime", "--read-only")
+	got := field(t, mustRun(t, "snippet", "list")["recipes"], "name")
 	if !sort.StringsAreSorted(got) || got[0] != "aaa-mine" || got[len(got)-1] != "zzz-mine" {
 		t.Errorf("recipes: %v", got)
 	}

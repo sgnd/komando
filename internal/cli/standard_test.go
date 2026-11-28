@@ -70,13 +70,13 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
-		"fs", "pkg", "docker", "db", "cache", "queue", "storage", "cluster", "registry",
+		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "config",
+		"fs", "pkg", "docker", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
-		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "status",
+		"list", "test", "logs", "copy", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
-		"audit", "doctor", "schema", "guide", "update", "version", "completion", "ssh-gate",
+		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "ssh-gate",
 	}
 	var got []string
 	for _, c := range root.Commands() {
@@ -131,10 +131,10 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
-		"tunnel": {"tunnels"}, "fs": {"files"}, "pkg": {"package", "packages"},
+		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"},
+		"fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
-		"db":     {"dbs", "database", "databases"}, "cache": {"caches"}, "queue": {"queues"},
+		"db":     {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
 	} {
 		want := findCmd(t, root, noun)
@@ -151,7 +151,7 @@ var (
 	verbTable = []string{"list", "show", "add", "edit", "rename", "rm", "test", "cp", "check",
 		"describe", "get", "info", "status", "logs", "history", "events", "create", "set",
 		"start", "stop", "restart", "reload", "enable", "disable", "kill", "wait", "purge", "prune",
-		"exec", "run", "query", "shell", "upload", "download", "sync", "dump", "restore", "up", "down",
+		"exec", "run", "query", "shell", "backup", "restore", "up", "down",
 		"login", "logout", "install", "uninstall", "update", "upgrade",
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
 		"remove", "raw", "copy", "delete", "read", "move", "link"} // the v2.7 verbs join as their type moves (step C)
@@ -160,8 +160,8 @@ var (
 		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
 		"cluster kubernetes tunnel start",
-		"key gen", "key deploy", "host trust", "host ssh-command",
-		"ssh-gate line", "conn kinds", "audit verify", "config approval-code", "secret keychain", "secret passphrase"}
+		"credential key create", "credential key install", "host trust", "host ssh-command",
+		"ssh-gate line", "conn kinds", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
 
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.
@@ -247,7 +247,7 @@ var useWords = []string{"TARGET", "SERVER", "CONN", "NAME", "GROUP", "USER", "JO
 	// an item of the command's own kind
 	"MODE", "PID", "SQL", "TABLE", "TOPIC", "UNIT", "PACKAGE", "RELEASE", "REPLICAS", "SECTION", "SOURCE",
 	"VERSION", "KIND", "OLD", "NEW", "VALUE", "TEXT", "PATTERN", "PREFIX", "REGEX", "PUBLIC_KEY", "SRC", "DST",
-	"DEST", "CONTAINER", "REPO", "LOCAL", "REMOTE", "SPEC", "SCHEDULE", "REF", "SRC_CONN", "DST_CONN", "TYPE"}
+	"DEST", "DESTINATION", "CONTAINER", "REPO", "LOCAL", "REMOTE", "SPEC", "SCHEDULE", "REF", "SRC_CONN", "DST_CONN", "TYPE"}
 
 var useToken = regexp.MustCompile(`[A-Z][A-Z_]*(/[A-Z]+)?`)
 
@@ -278,7 +278,7 @@ func TestStandardUseGrammar(t *testing.T) {
 		}
 	}
 	allowCheck(t, "S-4.2", got, nil)
-	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "JOB", "TUNNEL"} {
+	for _, w := range []string{"TARGET", "SERVER", "CONN", "GROUP", "TUNNEL"} {
 		if p, _ := formArgPick(w); p == "" {
 			t.Errorf("S-4.2: %s has no picker", w)
 		}
@@ -309,7 +309,7 @@ func TestStandardRequiredInUse(t *testing.T) {
 
 // requiredByCode are flags a command requires with its own check (a USAGE
 // error that says how), not cobra's.
-var requiredByCode = []string{"db restore --from", "db user add --password-ref", "db user passwd --password-ref",
+var requiredByCode = []string{"database postgres restore --from", "database mysql restore --from", "db user add --password-ref", "db user passwd --password-ref",
 	"fs replace --old", "fs replace --new"}
 
 // S-5.1, S-5.6: one type per flag name, except the S-5.1 exceptions.
@@ -489,7 +489,7 @@ func TestStandardLong(t *testing.T) {
 
 // sampleNames are S-6.8's sample names, and selectors that pick them.
 var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db", "prod-redis", "prod-kafka",
-	"prod-rabbit", "prod-nats", "prod-sqs", "prod-pubsub", "backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
+	"prod-rabbit", "prod-nats", "prod-sqs", "prod-pubsub", "shop-mysql", "shop-maria", "sales-mssql", "erp-oracle", "local", "prod-mongo", "events-ch", "analytics", "bq", "backups", "ghcr", "harbor", "prod-k8s", "swarm1", "office", "alice", "app", "all"}
 
 // S-6.6..S-6.9: example counts, a dry-run line per change command,
 // approval lines after their dry run and marked, sample names, English.
@@ -594,6 +594,8 @@ func TestStandardReferences(t *testing.T) {
 	root := newRoot(tcl)
 	got := map[string]string{}
 	check := func(where, ref string) {
+		// KIND after database is the provider word, filled from the conn (fillHint)
+		ref = strings.Replace(ref, "database KIND", "database postgres", 1)
 		words := shellWords(strings.ReplaceAll(ref, "\n", " "))
 		if len(words) == 0 {
 			return
@@ -649,16 +651,14 @@ func TestStandardReferences(t *testing.T) {
 func TestStandardJourneys(t *testing.T) {
 	root := newRoot(tcl)
 	for kind, verbs := range map[string][]string{
-		"host":          {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"conn":          {"add", "test", "show", "list", "edit", "rename", "rm"},
-		"vpn wireguard": {"add", "test", "show", "list", "edit", "rename", "remove"},
-		"key":           {"gen", "add", "show", "list", "edit", "rename", "rm"},
-		"secret":        {"set", "add", "check", "show", "get", "list", "rename", "rm"},
-		"group":         {"add", "show", "list", "rename", "rm"},
-		"recipe":        {"add", "show", "list", "rm"},
-		"policy":        {"deny", "add", "check", "list", "rm"},
-		"job":           {"start", "status", "show", "list", "kill", "stop", "rm"},
-		"tunnel":        {"start", "show", "list", "stop"},
+		"host ssh":        {"add", "test", "show", "list", "edit", "rename", "remove"},
+		"conn":            {"add", "test", "show", "list", "edit", "rename", "rm"},
+		"vpn wireguard":   {"add", "test", "show", "list", "edit", "rename", "remove"},
+		"secret":          {"check", "cp"},
+		"group":           {"create", "show", "list", "rename", "remove"},
+		"snippet":         {"create", "show", "list", "remove"},
+		"policy":          {"create", "check", "list", "remove"},
+		"host ssh tunnel": {"start", "list", "stop"},
 	} {
 		noun := findCmd(t, root, strings.Fields(kind)...)
 		for _, v := range verbs {

@@ -25,16 +25,16 @@ func TestGateWords(t *testing.T) {
 	ok := map[string][]string{
 		"komando list":      {"komando", "list"},
 		"  komando\tlist  ": {"komando", "list"},
-		"komando exec web --read-only -- 'echo a; echo b'": {"komando", "exec", "web", "--read-only", "--", "echo a; echo b"},
-		`komando exec web -- "a b" c`:                      {"komando", "exec", "web", "--", "a b", "c"},
-		`komando list web-* ~ db-?`:                        {"komando", "list", "web-*", "~", "db-?"}, // nothing is expanded
-		`komando x "a\"b\\c\$d" 'e\f'`:                     {"komando", "x", `a"b\c$d`, `e\f`},
-		`komando a\ b \;`:                                  {"komando", "a b", ";"},
-		`komando '' "" x`:                                  {"komando", "", "", "x"},
-		"komando 'line one\nline two'":                     {"komando", "line one\nline two"},
-		"komando list\\\n web":                             {"komando", "list", "web"},
-		`komando a'b'"c"d`:                                 {"komando", "abcd"},
-		`komando x#y`:                                      {"komando", "x#y"},
+		"komando host ssh exec web --read-only -- 'echo a; echo b'": {"komando", "host", "ssh", "exec", "web", "--read-only", "--", "echo a; echo b"},
+		`komando host ssh exec web -- "a b" c`:                      {"komando", "host", "ssh", "exec", "web", "--", "a b", "c"},
+		`komando list web-* ~ db-?`:                                 {"komando", "list", "web-*", "~", "db-?"}, // nothing is expanded
+		`komando x "a\"b\\c\$d" 'e\f'`:                              {"komando", "x", `a"b\c$d`, `e\f`},
+		`komando a\ b \;`:                                           {"komando", "a b", ";"},
+		`komando '' "" x`:                                           {"komando", "", "", "x"},
+		"komando 'line one\nline two'":                              {"komando", "line one\nline two"},
+		"komando list\\\n web":                                      {"komando", "list", "web"},
+		`komando a'b'"c"d`:                                          {"komando", "abcd"},
+		`komando x#y`:                                               {"komando", "x#y"},
 	}
 	for in, want := range ok {
 		got, err := gateWords(in)
@@ -151,8 +151,8 @@ func gateInventory(t *testing.T) {
 func TestGateCheck(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
-	mustRun(t, "recipe", "add", "my-clean", "rm -rf /tmp/cache")
+	mustRun(t, "snippet", "create", "my-df", "df -h", "--read-only")
+	mustRun(t, "snippet", "create", "my-clean", "rm -rf /tmp/cache")
 	setGate(tcl, true, gateYes) // the gate's own flags come back after it read the key's
 	defer func() { setGate(tcl, false, gateYes) }()
 	const R = "SSH_GATE_REFUSED"
@@ -162,18 +162,18 @@ func TestGateCheck(t *testing.T) {
 	}{
 		{"list", "", ""},
 		{"", "", ""}, // `komando` alone: first steps
-		{"host list -o json", "", ""},
-		{"secret get db --reveal", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret get db --reveal=true", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret get db --reveal=false", "", ""},
-		{"--reveal secret get db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // a global flag before the command
+		{"host ssh list -o json", "", ""},
+		{"credential password show db --reveal", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"credential password show db --reveal=true", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"credential password show db --reveal=false", "", ""},
+		{"--reveal credential password show db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // a global flag before the command
 		{"-o json --allow-dangerous fs rm web /tmp/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"exec web --allow-dangerous -- rm -rf /tmp/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"exec web --read-only -- echo --reveal --allow-dangerous", "", ""}, // words for the server
-		{"shell web", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"db shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"host ssh exec web --allow-dangerous -- rm -rf /tmp/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"host ssh exec web --read-only -- echo --reveal --allow-dangerous", "", ""}, // words for the server
+		{"host ssh shell web", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"database postgres shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster kubernetes shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"config vault passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config approval-code", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -182,15 +182,18 @@ func TestGateCheck(t *testing.T) {
 		{"guide guard", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"__complete exec ''", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"host add x u@10.0.0.9", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret set db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"cp web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
-		{"cp web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
-		{"exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
-		{"exec web --read-only -- uptime", "", ""},
+		{"credential password add db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
+		{"copy web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web --read-only -- uptime", "", ""},
+		{"host ssh exec web --read-only --attach a1b2 --stop", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web --read-only --attach a1b2 --remove", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web --read-only --attach a1b2", "", ""},
 		{"docker exec web app ls", "", "SSH_GATE_READ_ONLY"},
 		{"docker exec web app --read-only ls", "", ""},
-		{"db query pg 'select 1'", "", ""},
-		{"db query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
+		{"database postgres query pg 'select 1'", "", ""},
+		{"database postgres query pg --write 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"db explain pg --analyze 'delete from t'", "", "SSH_GATE_READ_ONLY"},
 		{"cache redis raw c --write SET a b", "", "SSH_GATE_READ_ONLY"},
 		{"cluster kubernetes raw k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
@@ -198,38 +201,33 @@ func TestGateCheck(t *testing.T) {
 		{"pkg security web --refresh", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgrade web --security", "", "SSH_GATE_READ_ONLY"},
 		{"pkg security web", "", ""},
-		{"recipe run my-df web", "", ""},
-		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run drop-caches web", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run disk web", "", ""},
-		{"secret rm db --help", "", ""},                             // help only
-		{"db", "", ""},                                              // a group: prints its help
+		{"snippet exec my-df web", "", ""},
+		{"snippet exec my-clean web", "", "SSH_GATE_READ_ONLY"},
+		{"snippet exec drop-caches web", "", "SSH_GATE_READ_ONLY"},
+		{"snippet exec disk web", "", ""},
+		{"credential password remove db --help", "", ""}, // help only
+		{"db", "", ""}, // a group: prints its help
 		{"no-such-command", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // names no command: as for a person (cut PR B1)
 		{"completion bash", "", ""},
-		{"exec web --read-only --dry-run -- uptime", "", ""},
-		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
-		{"exec web --script ./check.sh", R, "SSH_GATE_READ_ONLY"},       // no key reads a file on the komando computer
-		{"exec web --script ./check.sh --read-only", R, R},
-		{"exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
-		{"exec web --script - --read-only", "", ""},
-		{"job start web --read-only -- du -sh /var", "", ""},
-		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
+		{"host ssh exec web --read-only --dry-run -- uptime", "", ""},
+		{"host ssh remove x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
+		{"host ssh exec web --script ./check.sh", R, "SSH_GATE_READ_ONLY"},      // no key reads a file on the komando computer
+		{"host ssh exec web --script ./check.sh --read-only", R, R},
+		{"host ssh exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
+		{"host ssh exec web --script - --read-only", "", ""},
 		{"cluster kubernetes exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
 		{"cluster kubernetes exec k8s pod/x --read-only -- ls", "", ""},
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
-		{"cp web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"download web /etc/hosts --to -", "", ""}, // a stream to the key's own stdout saves nothing here
-		{"download s3 backups/db.gz --to -", "", ""},
-		{"download web /etc/hosts --to=-", "", ""},
-		{"download web /etc/hosts --to ./-", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"upload web - /tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
-		{"storage upload s3 - backups/db.gz", "", "SSH_GATE_READ_ONLY"},
-		{"cp - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"},
-		{"sync - web:/tmp/app", "SSH_GATE_REFUSED", "SSH_GATE_READ_ONLY"},   // to sync, - is a folder here
-		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"},                   // cp is a change kind: read-only keys use download --to -
-		{"sync web:/var/log/app -", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
-		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy web:/etc/hosts .", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy web:/etc/hosts -", "", ""}, // a stream to the key's own stdout saves nothing here
+		{"copy s3:backups/db.gz -", "", ""},
+		{"copy web:/etc/hosts ./-", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"copy - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
+		{"copy - s3:backups/db.gz", "", "SSH_GATE_READ_ONLY"},
+		{"copy - web:/tmp/app --sync", "SSH_GATE_REFUSED", "SSH_GATE_READ_ONLY"},   // to sync, - is a folder here
+		{"copy web:/var/log/app - --sync", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
+		{"database postgres backup pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage s3 object link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object create s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
 		{"storage s3 object move s3 a.txt b.txt", "", "SSH_GATE_READ_ONLY"},
@@ -237,43 +235,43 @@ func TestGateCheck(t *testing.T) {
 		{"cluster kubernetes tunnel start k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
-		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
-		{"cp web:/tmp/rc .bashrc", R, R},
-		{"cp ./app.tar.gz web:/tmp/app.tar.gz", R, "SSH_GATE_READ_ONLY"},
-		{"sync ./site web:/var/www/site", R, "SSH_GATE_READ_ONLY"},
-		{"sync web:/var/log/app ./logs", R, R},
-		{"storage download s3 a.txt --to .profile", R, R},
-		{"storage download s3 a.txt --to -", "", ""},
+		{"copy web:/home/u/.ssh/id_ed25519.pub .ssh/authorized_keys --overwrite", R, R},
+		{"copy web:/tmp/rc .bashrc", R, R},
+		{"copy ./app.tar.gz web:/tmp/app.tar.gz", R, "SSH_GATE_READ_ONLY"},
+		{"copy ./site web:/var/www/site --sync", R, "SSH_GATE_READ_ONLY"},
+		{"copy web:/var/log/app ./logs --sync", R, R},
+		{"copy s3:a.txt .profile", R, R},
+		{"copy s3:a.txt -", "", ""},
 		{"export --to x.json", R, R},
 		{"export", "", ""},
 		{"conn add pg postgres://u@db/x", R, R},
 		{"conn rm pg", R, R},
-		{"host edit web --port 2222", R, R},
-		{"host mv web web2", R, R},
+		{"host ssh edit web --port 2222", R, R},
+		{"host ssh rename web web2", R, R},
 		{"import komando x.json", R, R},
-		{"host trust web", R, R},
+		{"host ssh trust web", R, R},
 		{"import", R, R},
 		{"vpn openvpn add office --config x.ovpn", R, R},
 		{"vpn openvpn edit office --notes x", R, R},
 		{"vpn openvpn start office", "", "SSH_GATE_READ_ONLY"},
-		{"group add web prod", R, R},
+		{"group create web prod", R, R},
 		{"rename --starts-with a b", R, R},
 		{"config set audit off", R, R},
-		{"policy deny 'x'", R, R},
-		{"policy rm x", R, R},
+		{"policy create 'x'", R, R},
+		{"policy remove x", R, R},
 		{"status --short", "", ""},
-		{"secret rm db", R, R},
-		{"secret keychain", R, R},
-		{"key gen k", R, R},
-		{"key add k ./id", R, R},
-		{"key rm k", R, R},
-		{"recipe add x 'id'", R, R},
-		{"recipe rm my-df", R, R},
-		{"guide install", R, R},
-		{"guide uninstall", R, R},
-		{"tunnel start web -L 8080:localhost:80", R, R},
-		{"exec web --dry-run -- systemctl restart nginx", "", "SSH_GATE_READ_ONLY"},
-		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
+		{"credential password remove db", R, R},
+		{"config vault keychain", R, R},
+		{"credential key create k", R, R},
+		{"credential key add k ./id", R, R},
+		{"credential key remove k", R, R},
+		{"snippet create x 'id'", R, R},
+		{"snippet remove my-df", R, R},
+		{"agent skill install", R, R},
+		{"agent skill uninstall", R, R},
+		{"host ssh tunnel start web -L 8080:localhost:80", R, R},
+		{"host ssh exec web --dry-run -- systemctl restart nginx", "", "SSH_GATE_READ_ONLY"},
+		{"snippet exec my-clean web", "", "SSH_GATE_READ_ONLY"},
 		{"logs web --unit nginx", "", ""},
 		{"update", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 	}
@@ -290,6 +288,41 @@ func TestGateCheck(t *testing.T) {
 	}
 }
 
+// A read-only key runs a snippet only when the filled-in command reads, so
+// the gate reads the blanks as the person typed them: a value with a comma
+// or a double quote is one value, and blanks it cannot read are refused.
+func TestGateSnippetBlanksAreReadAsTyped(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	// stored as a read-only snippet whose blank sits in a verb position;
+	// with no --var it reads (the default), so only the values decide
+	err := store.Update(store.Save(), func(st *store.State) error {
+		st.Snippets["dk"] = &store.Snippet{Name: "dk", Command: "docker {{sub=ps}} ps", ReadOnly: true}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	setGate(tcl, true, gateYes)
+	defer func() { setGate(tcl, false, gateYes) }()
+	const RO = "SSH_GATE_READ_ONLY"
+	for line, want := range map[string]string{
+		"snippet exec dk web --var sub=ps":     "",
+		"snippet exec dk web --var sub=a,b":    RO, // one value, "a,b": no read
+		`snippet exec dk web --var 'sub="rm'`:  RO, // a quote does not drop the blank
+		`snippet exec dk web --var 'sub=a,"b'`: RO,
+		"snippet exec dk web --var sub":        RO, // no NAME=VALUE: the blanks could not be read
+	} {
+		if got := gateAnswer(t, line, true); got != want {
+			t.Errorf("%q, read-only key: %q, want %q", line, got, want)
+		}
+	}
+	words, _ := gateWords("snippet exec dk web --var sub")
+	if _, _, e := gateCheck(words, gateKey{readOnly: true, network: true}); e == nil || !strings.Contains(e.Message, "the blanks could not be read") {
+		t.Errorf("refusal: %+v", e)
+	}
+}
+
 // A command on a target that is this computer runs here: exec on localhost
 // is a shell, logs --file and fs cat read any file here, a sqlite conn is a
 // file here (VACUUM INTO writes any file), a database, cache or cluster at
@@ -300,75 +333,74 @@ func TestGateLocalTargets(t *testing.T) {
 	t.Chdir(t.TempDir())
 	const R = "SSH_GATE_REFUSED"
 	for line, want := range map[string]string{
-		`db query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`: R,
-		`db query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:               R,
-		"db restore appdb --from x.sql":                                        R,
-		"db explain appdb --analyze 'select 1'":                                R,
-		"db user add appdb x --password-ref credential:x":                      R,
-		"db query appdb 'select 1'":                                            R, // a read of a file here
-		"db query pg --write 'delete from t'":                                  "",
-		`db query pglocal --write "COPY t TO PROGRAM 'sh'"`:                    R,
-		"db query pgbehind --write 'delete from t'":                            "", // 127.0.0.1 of bastion
-		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":       R,
-		"cache redis raw c --write SET a b":                                    "",
-		"cluster kubernetes raw k8slocal --write -- delete pod x":              R,
-		"storage upload sftplocal x.txt .ssh/authorized_keys":                  R,
-		"storage sftp object create sftplocal x":                               R, // the storage changes meet the local-target rule too
-		"storage sftp object move sftplocal a.txt b.txt":                       R,
-		"storage sftp object move sftplocal a.txt --mode 0600":                 R,
-		"registry oci image delete reglocal app:1":                             R,
-		"registry oci image copy reg:app:1 reglocal:app:1":                     R,
-		"registry oci image copy reg:app:1 reg:app:2":                          "",
-		"exec me -- id":                                                      R,
-		"exec me --read-only -- uptime":                                      R, // a shell here all the same
-		"exec lh -- id":                                                      R,
-		"exec v6 -- id":                                                      R,
-		"exec short -- id":                                                   R,
-		"exec any -- id":                                                     R,
-		"exec named -- id":                                                   R,
-		"exec u@127.0.0.1 -- id":                                             R, // ad hoc, not in the inventory
-		"exec 'u@[::1]:22' -- id":                                            R,
-		"exec u@192.0.2.10 -- id":                                            R, // ad hoc: could be this computer's own address
-		"exec 192.0.2.10:22 -- id":                                           R,
-		"exec u@127.0.0.1.nip.io -- id":                                      R,
-		"cp ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":                   R,
-		"logs u@192.0.2.10 --file /var/log/x":                                R, // reads too
-		"exec web,me -- id":                                                  R,
-		"exec @nothing -- id":                                                R, // cannot tell where: refused
-		"exec behind -- id":                                                  "",
-		"exec loop -- id":                                                    R, // 127.0.0.1 of a server that is this one
-		"exec vpnd -- id":                                                    R, // through a VPN: may be this computer
-		"exec web -- id":                                                     "",
-		"fs write me /home/u/.bashrc":                                        R,
-		"fs restore me /home/u/.bashrc":                                      R,
-		"fs restore web /etc/nginx/nginx.conf":                               "", // the undo of fs replace --backup
-		"docker raw me -- run -v /:/h x":                                     R,
-		"cp ./id.pub me:/home/u/.ssh/x":                                      R,
-		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                           R, // reads a file here
-		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                      R,
-		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                       R,
-		"cp web:/tmp/k web:/tmp/k2":                                          "",
-		"download me /home/u/.ssh/id_ed25519 --to -":                         R, // a stream reads here too
-		"storage download sftplocal .ssh/id_ed25519 --to -":                  R,
-		"cp ./id_ed25519 -":                                                  R, // SRC on this computer, whatever DST is
-		"cp me:/home/u/.ssh/id_ed25519 -":                                    R,
-		"sync ./site web:/var/www":                                           R, // reads files here
-		"recipe run disk me":                                                 R, // runs its command here
-		"recipe run disk web":                                                "",
-		"db query pghostparam --write 'select 1'":                            R, // pgx dials ?host=
-		"db query pghostaddr --write 'select 1'":                             R,
-		"db query pgsocket --write 'select 1'":                               R, // a socket here
-		"db query pglist --write 'select 1'":                                 R, // any host of the list
-		"db query pghostparam 'select 1'":                                    R, // pg_read_file reads here
-		"db query mongolist --write '{}'":                                    R,
-		"key deploy k me":                                                    R,
-		"key deploy k web":                                                   "",
-		"key deploy k web --set-default":                                     R, // komando's own setup
-		"vpn openvpn start office":                                           "",
-		"cluster kubernetes raw k8s --write -- cp ns/pod:/x LOCAL":           R,
-		"cluster kubernetes raw k8s --write -- cp ns/pod:/x ./x":             R,
-		"cluster kubernetes raw k8s --write -- cp -n ns pod:/x /home/u/.ssh": R,
-		"cluster kubernetes raw k8s --write -- cp ./x ns/pod:/x":             R, // reads files here
+		`database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`:  R,
+		`database sqlite query appdb --write "ATTACH '/home/u/.bashrc' AS x"`:                R,
+		"database postgres restore pg --from x.sql":                                          R, // reads a file here
+		"db explain appdb --analyze 'select 1'":                                              R,
+		"db user add appdb x --password-ref credential:x":                                    R,
+		"database sqlite query appdb 'select 1'":                                             R, // a read of a file here
+		"database postgres query pg --write 'delete from t'":                                 "",
+		`database postgres query pglocal --write "COPY t TO PROGRAM 'sh'"`:                   R,
+		"database postgres query pgbehind --write 'delete from t'":                           "", // 127.0.0.1 of bastion
+		"cache redis raw redislocal --write CONFIG SET dir /home/u/.ssh":                     R,
+		"cache redis raw c --write SET a b":                                                  "",
+		"cluster kubernetes raw k8slocal --write -- delete pod x":                            R,
+		"copy x.txt sftplocal:.ssh/authorized_keys":                                          R,
+		"storage sftp object create sftplocal x":                                             R, // the storage changes meet the local-target rule too
+		"storage sftp object move sftplocal a.txt b.txt":                                     R,
+		"storage sftp object move sftplocal a.txt --mode 0600":                               R,
+		"registry oci image delete reglocal app:1":                                           R,
+		"registry oci image copy reg:app:1 reglocal:app:1":                                   R,
+		"registry oci image copy reg:app:1 reg:app:2":                                        "",
+		"host ssh exec me -- id":                                                             R,
+		"host ssh exec me --read-only -- uptime":                                             R, // a shell here all the same
+		"host ssh exec lh -- id":                                                             R,
+		"host ssh exec v6 -- id":                                                             R,
+		"host ssh exec short -- id":                                                          R,
+		"host ssh exec any -- id":                                                            R,
+		"host ssh exec named -- id":                                                          R,
+		"host ssh exec u@127.0.0.1 -- id":                                                    R, // ad hoc, not in the inventory
+		"host ssh exec 'u@[::1]:22' -- id":                                                   R,
+		"host ssh exec u@192.0.2.10 -- id":                                                   R, // ad hoc: could be this computer's own address
+		"host ssh exec 192.0.2.10:22 -- id":                                                  R,
+		"host ssh exec u@127.0.0.1.nip.io -- id":                                             R,
+		"copy ./k u@192.0.2.10:/home/u/.ssh/authorized_keys":                                 R,
+		"logs u@192.0.2.10 --file /var/log/x":                                                R, // reads too
+		"host ssh exec web,me -- id":                                                         R,
+		"host ssh exec @nothing -- id":                                                       R, // cannot tell where: refused
+		"host ssh exec behind -- id":                                                         "",
+		"host ssh exec loop -- id":                                                           R, // 127.0.0.1 of a server that is this one
+		"host ssh exec vpnd -- id":                                                           R, // through a VPN: may be this computer
+		"host ssh exec web -- id":                                                            "",
+		"fs write me /home/u/.bashrc":                                                        R,
+		"fs restore me /home/u/.bashrc":                                                      R,
+		"fs restore web /etc/nginx/nginx.conf":                                               "", // the undo of fs replace --backup
+		"docker raw me -- run -v /:/h x":                                                     R,
+		"copy ./id.pub me:/home/u/.ssh/x":                                                    R,
+		"copy me:/home/u/.ssh/id_ed25519 web:/tmp/k":                                         R, // reads a file here
+		"copy web:/tmp/k me:/home/u/.ssh/authorized_keys":                                    R,
+		"copy web:/tmp/k sftplocal:.ssh/authorized_keys":                                     R,
+		"copy web:/tmp/k web:/tmp/k2":                                                        "",
+		"copy me:/home/u/.ssh/id_ed25519 -":                                                  R, // a stream reads here too
+		"copy sftplocal:.ssh/id_ed25519 -":                                                   R,
+		"copy ./id_ed25519 -":                                                                R, // SRC on this computer, whatever DST is
+		"copy ./site web:/var/www --sync":                                                    R, // reads files here
+		"snippet exec disk me":                                                               R, // runs its command here
+		"snippet exec disk web":                                                              "",
+		"database postgres query pghostparam --write 'select 1'":                             R, // pgx dials ?host=
+		"database postgres query pghostaddr --write 'select 1'":                              R,
+		"database postgres query pgsocket --write 'select 1'":                                R, // a socket here
+		"database postgres query pglist --write 'select 1'":                                  R, // any host of the list
+		"database postgres query pghostparam 'select 1'":                                     R, // pg_read_file reads here
+		"database mongodb query mongolist --write '{}'":                                      R,
+		"credential key install k me":                                                        R,
+		"credential key install k web":                                                       "",
+		"credential key install k web --set-default":                                         R, // komando's own setup
+		"vpn openvpn start office":                                                           "",
+		"cluster kubernetes raw k8s --write -- cp ns/pod:/x LOCAL":                           R,
+		"cluster kubernetes raw k8s --write -- cp ns/pod:/x ./x":                             R,
+		"cluster kubernetes raw k8s --write -- cp -n ns pod:/x /home/u/.ssh":                 R,
+		"cluster kubernetes raw k8s --write -- cp ./x ns/pod:/x":                             R, // reads files here
 		"cluster kubernetes raw k8s --write -- cp ns/pod:/tmp/k x:/../.ssh/authorized_keys2": R, // a local path to kctl
 		"cluster kubernetes raw k8s --write -- cp ns/pod:/x other/pod:/y":                    R,
 		"cluster kubernetes raw k8s -- get pods":                                             "",
@@ -380,16 +412,15 @@ func TestGateLocalTargets(t *testing.T) {
 	// exec and the like run a shell here for a read-only key too: its
 	// --read-only check is a denylist, not a sandbox
 	for line, want := range map[string]string{
-		"exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":                 R,
-		"exec me --read-only -- 'nc -e /bin/sh h 1'":                        R,
-		"exec lh --script ./check.sh --read-only":                           R,
-		"job start v6 --read-only -- du -sh /var":                           R,
+		"host ssh exec u@127.0.0.1 --read-only -- 'socat - EXEC:id'":        R,
+		"host ssh exec me --read-only -- 'nc -e /bin/sh h 1'":               R,
+		"host ssh exec lh --script ./check.sh --read-only":                  R,
 		"docker exec me app --read-only ls":                                 R,
 		"cluster kubernetes exec k8slocal pod/x --read-only -- ls":          R,
-		"recipe run disk me":                                                R,
-		"exec web --read-only -- uptime":                                    "",
-		"exec me -- id":                                                     "SSH_GATE_READ_ONLY", // not a read: refused before the place
-		"db query pglocal 'select 1'":                                       R,                    // pg_read_file reads here
+		"snippet exec disk me":                                              R,
+		"host ssh exec web --read-only -- uptime":                           "",
+		"host ssh exec me -- id":                                            "SSH_GATE_READ_ONLY", // not a read: refused before the place
+		"database postgres query pglocal 'select 1'":                        R,                    // pg_read_file reads here
 		"logs me --file /home/u/.ssh/id_ed25519 --grep '^[A-Za-z0-9+/=]+$'": R,
 		"fs cat me /home/u/.ssh/id_ed25519":                                 R,
 		"fs ls me /home/u/.ssh":                                             R,
@@ -406,11 +437,11 @@ func TestGateLocalTargets(t *testing.T) {
 		}
 	}
 	// the attack, through the gate as sshd runs it: nothing runs, the audit says why
-	ran, _, e := gateRun(t, `komando db query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`, "--name", "phone")
+	ran, _, e := gateRun(t, `komando database sqlite query appdb --write "VACUUM INTO '/home/u/.ssh/authorized_keys2'"`, "--name", "phone")
 	if ran != nil || e == nil || e.Code != R || !strings.Contains(e.Message, "appdb is a file on this computer") {
 		t.Errorf("VACUUM INTO: ran %q, error %+v", ran, e)
 	}
-	if a := lastAudit(t); a["blocked"] != R || a["runs"] != "db.query" {
+	if a := lastAudit(t); a["blocked"] != R || a["runs"] != "database.sqlite.query" {
 		t.Errorf("audit %v", a)
 	}
 }
@@ -505,9 +536,8 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir) // sshd runs the gate in the account's home
 	for _, line := range []string{
-		"komando download web /tmp/k.pub --to .ssh/authorized_keys --overwrite",
-		"komando cp web:/tmp/k.pub .ssh/authorized_keys --overwrite",
-		"komando host add me u@127.0.0.1",
+		"komando copy web:/tmp/k.pub .ssh/authorized_keys --overwrite",
+		"komando host ssh add me u@127.0.0.1",
 		"komando config set audit off --yes",
 		"komando update",
 	} {
@@ -540,13 +570,13 @@ func TestSSHGateAuditAlways(t *testing.T) {
 	}
 }
 
-// What a key sent comes out escaped in `komando audit`: a line break or a
+// What a key sent comes out escaped in `komando audit list`: a line break or a
 // terminal escape in a quoted argument cannot add or hide rows.
 func TestSSHGateAuditText(t *testing.T) {
 	invHome(t)
 	gateRun(t, "komando list 'x\n2026-01-01 00:00:00  alice  host.rm  web  ok\r\x1b[2K'", "--name", "phone")
-	gateRun(t, "komando exec web --read-only -- 'a\n\x1b[1Ab'", "--name", "phone")
-	d := mustRun(t, "audit")
+	gateRun(t, "komando host ssh exec web --read-only -- 'a\n\x1b[1Ab'", "--name", "phone")
+	d := mustRun(t, "audit", "list")
 	var entries []map[string]any
 	for _, e := range d["entries"].([]any) {
 		entries = append(entries, e.(map[string]any))
@@ -614,11 +644,11 @@ func TestSSHGateRuns(t *testing.T) {
 func TestSSHGateRefuses(t *testing.T) {
 	invHome(t)
 	for line, code := range map[string]string{
-		"komando secret get db --reveal": "SSH_GATE_REFUSED",
-		"sh -c id":                       "SSH_GATE_REFUSED",
-		"":                               "SSH_GATE_REFUSED",
-		"komando list; id":               "SSH_GATE_SYNTAX",
-		"komando exec web -- reboot":     "SSH_GATE_READ_ONLY",
+		"komando credential password show db --reveal": "SSH_GATE_REFUSED",
+		"sh -c id":                            "SSH_GATE_REFUSED",
+		"":                                    "SSH_GATE_REFUSED",
+		"komando list; id":                    "SSH_GATE_SYNTAX",
+		"komando host ssh exec web -- reboot": "SSH_GATE_READ_ONLY",
 	} {
 		ran, _, e := gateRun(t, line, "--name", "phone-read", "--read-only")
 		if ran != nil || e == nil || e.Code != code {
@@ -646,7 +676,7 @@ func TestSSHGateNoShellWithoutFlag(t *testing.T) {
 	t.Cleanup(func() { tcl.terminal = saved })
 	tcl.terminal = true
 	for _, args := range [][]string{{"--name", "full"}, {"--name", "read", "--read-only"}} {
-		for _, line := range []string{"komando shell web", "komando ssh web", "komando db shell pg", "komando cluster kubernetes shell k8s pod/x"} {
+		for _, line := range []string{"komando host ssh shell web", "komando database postgres shell pg", "komando cluster kubernetes shell k8s pod/x"} {
 			ran, _, e := gateRun(t, line, args...)
 			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "needs a person at a terminal on this computer") {
 				t.Errorf("%v %q: ran %q, error %+v", args, line, ran, e)
@@ -793,17 +823,16 @@ func TestSSHGateBareAtATerminal(t *testing.T) {
 	}
 }
 
-// A synonym (cluster info, group show, tunnel show, recipe show) gets the
-// gate's answer of the command it names, for a full key and a read-only
-// one: it carries that command's ID, so it is not refused as plumbing
-// (review F12).
+// A synonym (an alias, a plural noun) gets the gate's answer of the command
+// it names, for a full key and a read-only one (review F12).
 func TestGateSynonyms(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
 	for syn, now := range map[string]string{
-		"group show web": "group list web",
-		"tunnel show t1": "tunnel list",
-		"recipe show r1": "recipe list",
+		"fs ls web /tmp":      "fs list web /tmp",
+		"servers ssh ls":      "host ssh list",
+		"host ssh rm web":     "host ssh remove web",
+		"files rm web /tmp/x": "fs rm web /tmp/x",
 	} {
 		for _, ro := range []bool{false, true} {
 			if got, want := gateAnswer(t, syn, ro), gateAnswer(t, now, ro); got != want {

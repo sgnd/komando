@@ -30,12 +30,12 @@ func TestExecuteRunsBegin(t *testing.T) {
 	})
 
 	t.Run("a command the person answered does not answer the next one", func(t *testing.T) {
-		mustRun(t, "host", "add", "web1", "u@127.0.0.1:1", "--protected")
+		mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1", "--protected")
 		setCallerEnv(t, "KOMANDO_AGENT", "1")
 		asks := 0
 		tcl.ask = func(string) (allowed, shown bool) { asks++; return true, true }
 		t.Cleanup(func() { tcl.ask = nil })
-		if code := executeArgs([]string{"host", "rm", "web1", "--yes"}); code != 0 {
+		if code := executeArgs([]string{"host", "ssh", "remove", "web1", "--yes"}); code != 0 {
 			t.Fatalf("host rm web1: exit %d", code)
 		}
 		if asks != 1 || !tcl.sess.Allowed() {

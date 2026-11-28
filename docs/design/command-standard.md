@@ -51,7 +51,7 @@ One more line for every review:
 [schema: every leaf path has 2 or 3 words, except the top-level set in S-1.4]
 
 **S-1.2** The noun's own item comes first, then TARGET:
-`key deploy NAME TARGET`, `recipe run NAME TARGET`, `group add GROUP TARGET...`.
+`credential key install NAME TARGET`, `snippet exec NAME TARGET`, `group create GROUP TARGET...`.
 Commands without an item start with TARGET: `svc restart TARGET UNIT...`.
 [review]
 
@@ -66,7 +66,7 @@ nouns]
 | Kind | Top-level commands |
 |---|---|
 | Nouns | every noun in S-2.1 |
-| Shortcuts | `list`, `test`, `exec`, `shell`, `logs`, `cp`, `upload`, `download`, `sync`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
+| Shortcuts | `list`, `test`, `logs`, `copy`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
 | About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `ssh-gate` |
 
 **S-1.4a** Frozen forever: `ssh-gate` and its flags `--name`,
@@ -88,8 +88,7 @@ changes the ID with the name, in the same change.
 `commandName` returns it. The success envelope, the error envelope, the
 audit log, `audit --command`, `commandKinds`, the gate tables
 (`gateOnServers`, `gateReadForm`), `personalCmds`, `localReads`,
-`leavesHome` and the masking checks are all keyed by it. A wrapper
-command (S-1.8) carries the ID of the command it runs.
+`leavesHome` and the masking checks are all keyed by it.
 [code: every key in every name-keyed table resolves to a command ID; the
 error and success envelope of a command carry the same ID]
 
@@ -98,9 +97,9 @@ print nothing: `ls` for `list`, `rm` words (`remove`, `delete`, `del`),
 plural nouns, `server` and `database`, and the ones the tables below name.
 Help, examples and docs use only the primary name. [code]
 
-**S-1.8** A synonym that needs its own argument shape, or lives under
-another parent, is a thin hidden wrapper command with its own `Args`,
-carrying the ID of the command it runs (S-1.6). [review]
+**S-1.8** A synonym has the argument shape and the parent of the command
+it names: no hidden wrapper commands. A name that needs another shape or
+parent is a command of its own, with its own ID. [review]
 
 ## 2. Nouns
 
@@ -119,7 +118,6 @@ uses for a noun (S-2.3) always resolves as that noun.
 | `key` | an SSH key komando knows | keys |
 | `recipe` | a saved command | recipes |
 | `policy` | your own block rules | policies |
-| `job` | a long command running on a server | jobs |
 | `tunnel` | a port forward komando keeps running | tunnels, pf |
 | `config` | komando settings | |
 | `fs` | files on servers | files |
@@ -160,7 +158,6 @@ tool-word list S-3.3]
 | `rename` | rename an item and every reference to it | mv | git branch -m |
 | `rm` | take an item out of komando (the real thing is not touched) | remove, delete, del | git rm, docker rm |
 | `test` | can komando reach it and log in | ping | ansible ping |
-| `cp` | copy to a new name or place | copy | cp |
 | `check` | compare against a rule, change nothing | | terraform validate |
 
 ### Verbs inside a target
@@ -171,13 +168,13 @@ tool-word list S-3.3]
 | `describe` | everything about one object | | kubectl describe |
 | `get` | the raw value of one item | | kubectl get, redis GET |
 | `info` | a summary of the target: version, role, size | | redis INFO, docker info |
-| `status` | state of something that runs (unit, job, rollout, release, VPN session) | | systemctl status |
+| `status` | state of something that runs (unit, rollout, release, VPN session) | | systemctl status |
 | `logs`, `history`, `events` | what happened | | kubectl logs/events, helm history |
 | `create` | make a new thing on the target | | kubectl create, gh |
 | `set` | write one value | | redis SET, gh secret set |
 | `rm` | delete a thing on the target (needs `--allow-dangerous`) | remove, delete, del | kubectl delete |
 | `start`, `stop`, `restart`, `reload`, `enable`, `disable` | change the run state of an existing thing (a service, a VPN session) | | systemctl, docker, wg-quick, tailscale |
-| `kill` | signal something running now | stop (on job) | kill, docker kill |
+| `kill` | signal something running now | | kill, docker kill |
 | `wait` | wait until it ends | | kubectl wait |
 | `purge` | empty it but keep it | | rabbitmqctl purge_queue |
 | `prune` | delete old things by a rule | | docker prune |
@@ -186,12 +183,13 @@ tool-word list S-3.3]
 
 | Verb | Meaning | Follows |
 |---|---|---|
-| `exec` | a shell command on servers (aliases run, x) | docker exec, kubectl exec |
+| `exec` | a shell command on servers (`host ssh exec`) | docker exec, kubectl exec |
 | `run` | the area's own raw command (`cache redis raw`, `cluster kubernetes raw`) or a saved recipe | redis-cli, kubectl |
 | `query` | SQL or MongoDB | psql -c |
-| `shell` | an interactive session, person only (aliases ssh, connect) | |
-| `upload`, `download` | move files (put, get on storage) | aws s3 cp, gh release download |
-| `sync`, `dump`, `restore` | copy trees, back up and load | rsync, pg_dump |
+| `shell` | an interactive session, person only (`host ssh shell`) | |
+| `copy` | files between this computer, servers and file storage; `--sync` sends only what changed | cp, scp, rsync, aws s3 cp |
+| `dump`, `restore` | back up and load | pg_dump |
+| `up`, `down` | a VPN session | wg-quick, tailscale |
 | `login`, `logout` | a kept login | gh auth, docker login |
 | `install`, `uninstall` | put files in, take them out | helm, apt |
 | `update` | refresh an index (`pkg update`); komando itself at top level | apt update |
@@ -212,8 +210,8 @@ own tool, is allowed when this list names it:
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster forward`, `net dns/http/ports/check`,
-`key gen/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
-`audit verify`, `config approval-code`, `secret keychain/passphrase`.
+`credential key create/install`, `host ssh trust`, `host ssh-command`, `ssh-gate line`, `conn kinds`,
+`audit check`, `config approval-code`, `config vault keychain/passphrase`.
 [schema: allow-list]
 
 **S-3.4** In a family noun (`db`, `cache`, `queue`, `storage`, `cluster`,
@@ -249,7 +247,7 @@ words; the completion and picker map has one entry per word]
 | `NAME` | one item of the command's own noun (or a new name in `add`; a cron entry's name in `cron`) | that noun |
 | `GROUP` | an inventory group | groups |
 | `USER` | an account (Linux or database) | none |
-| `JOB`, `TUNNEL`, `RULE` (policy), `SETTING` (config) | that item | jobs, tunnels, none |
+| `TUNNEL`, `RULE` (policy), `SETTING` (config) | that item | tunnels, none |
 | `KEY` | a cache key only | none |
 | `OBJECT` | a storage object | none |
 | `CONSUMER` | a queue consumer group | none |
@@ -262,18 +260,18 @@ words; the completion and picker map has one entry per word]
 | `-- ARGS...` | arguments for a fixed program | none |
 
 **S-4.3** A required flag is shown in the usage line with an UPPERCASE value
-(`db restore CONN --from FILE`); optional flags never are. A choice of flags
-is in parentheses: `tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
+(`database KIND restore NAME --from FILE`); optional flags never are. A choice of flags
+is in parentheses: `host ssh tunnel start TARGET (-L SPEC | -R SPEC | -D SPEC)`.
 [schema: required flag ⇔ present in Use]
 
-**S-4.4** Passthrough commands: `exec`, `job start`, `docker exec`,
+**S-4.4** Passthrough commands: `host ssh exec`, `docker exec`,
 `docker compose`, `docker raw`, `cluster kubernetes exec`, `cluster kubernetes shell`,
 `cluster kubernetes raw`, `cache redis raw` (every command whose Use has `-- COMMAND...` or
 `-- ARGS...`). komando flags are read anywhere before `--`
 (`exec @web -P 20 --read-only -- df -h`). Any word after the fixed positionals (TARGET, CONTAINER,
 `POD|TYPE/NAME`, CONN) must come after `--`. Without `--`, such a word is a
 USAGE error (exit 2) with the hint
-``put -- before the command: `komando exec web1 -- apt-get install -y nginx` ``.
+``put -- before the command: `komando host ssh exec web1 -- apt-get install -y nginx` ``.
 So `-y` in `apt-get install -y nginx` can never be read as `--yes`, and a
 trailing `--dry-run`, `-P 1` or `--fail-fast` is never read by komando
 while the words around it go to the server. `kubectl exec` has
@@ -281,7 +279,7 @@ the same rule. [code: one shared PreRunE helper using `ArgsLenAtDash`;
 TestStandardPassthrough walks the tree and checks every command with
 `COMMAND...`/`ARGS...` in Use has it, and runs both failing forms]
 
-**S-4.5** One quoted string (`cron set`, `recipe add`, `policy check`) is
+**S-4.5** One quoted string (`cron set`, `snippet create`, `policy check`) is
 written `COMMAND` without `--`, and Long says "one quoted string". [review]
 
 **S-4.6** A missing argument is asked for only at a terminal. The prompt
@@ -298,16 +296,16 @@ group has one type; meanings checked by usage-text template where one exists]
 | Flag | Short | Type | Meaning | Default and units |
 |---|---|---|---|---|
 | `--limit` | `-n` (not in cluster, not on storage rm) | int | the most items, rows or log lines to show (last ones for logs). Never a safety cap. Says in its usage text whether it counts per target or in total | each command keeps its current default; a `--limit` added where there was none defaults to 0 = no limit. 0 = no limit wherever the text says so |
-| `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); *exception*: on `job status`/`job wait`, `--tail` = also show the last N lines of output (0 = none) | 0 = all on fs/storage cat; job status 20, job wait 30 |
+| `--head`, `--tail` | | int | first or last N lines of one file or log (`fs cat`, `storage cat`); | 0 = all |
 | `--max-<noun>` | | bytes or int | a safety cap: the run is refused above it (`--max-remove`, `--max-bytes`, `--max-output`) | stated per flag |
-| `--timeout` | | duration | how long this command may run per target (global). *exception*: `job wait --timeout` is local, total across servers, default 10m, ends with WAIT_TIMEOUT | setting, 5m |
+| `--timeout` | | duration | how long this command may run per target (global). | setting, 5m |
 | `--wait` | | duration | wait for the result up to this long; the global `--timeout` still applies and whichever ends first stops the run.  | 0 = do not wait |
 | `--idle` | | duration | stop after this long with nothing new | stated per flag |
 | `--interval`, `--expires`, `--ttl`, `--older-than`, `--warn` | | duration | a span | per flag; "0 = never" or "> 0" in the usage text |
 | `--since`, `--until` | | when | a point in time | `30m`, `7d`, `today`, `yesterday`, `2026-11-07 14:30`, RFC3339 |
-| `--from` | | string | a local input file, the pair of `--to` (`db restore`, `fs write`, `queue PROVIDER message create`) | `-` = stdin |
+| `--from` | | string | a local input file, the pair of `--to` (`database KIND restore`, `fs write`, `queue PROVIDER message create`) | `-` = stdin |
 | `--to` | | string | a local output file | `-` = stdout |
-| `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`docker compose`, `db query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
+| `--file` | `-f` (not on log streamers) | string | a manifest or input file a tool reads (`docker compose`, `database KIND query`); *exception*: `logs --file PATH` is a log file on the server | `-` = stdin where the tool allows it |
 | `--content` | | string | inline file content (`fs write`) | |
 | `--config` | | tool word | *exception*: `queue PROVIDER topic create --config KEY=VALUE` (kafka-topics), `vpn KIND add --config FILE` (OpenVPN, WireGuard) | |
 | `--key` | | string | *exception*: `queue PROVIDER message create --key` is the message key (Kafka); elsewhere an SSH key file | |
@@ -321,7 +319,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--sudo-user` | | string | run it as this user with `sudo -u` | |
 | `--no-sudo` | | bool | do not use sudo (system commands that default to sudo) | off |
 | `--overwrite` | | bool | replace what is there | false |
-| `--new` | | bool | *exception*: `secret set --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
+| `--new` | | bool | *exception*: `credential password add --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
 | `--backup` | | bool | keep the previous version as PATH.bak | false |
 | `--recursive` | `-r` | bool | include everything under a folder | false |
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
@@ -335,7 +333,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--container` | `-c` | string | a container name | |
 | `--dir` | `-C` | string | the working folder | |
 | `--revision` | | int | a release or rollout revision | 0 = previous |
-| `--progress` | | bool | with `-o json`, progress as one JSON object per line on stderr (`upload`, `download`, `cp`, `sync`, `storage upload/download`); text mode keeps its own progress line | false |
+| `--progress` | | bool | with `-o json`, progress as one JSON object per line on stderr (`copy`); text mode keeps its own progress line | false |
 
 **S-5.2** Durations use one komando type (`Type() == "duration"`): Go units
 and `Nd` days. A bare integer is accepted only as `0`; every other span
@@ -413,7 +411,7 @@ tree, compare every shorthand with this table]
 | `-v` | `--version` | root only | |
 | `-a` | `--all` | read commands only (docker ps, fs ls, user list, db activity, guide); `docker prune -a` kept (docker's own) | ls, docker ps |
 | `-A` | `--all-namespaces` | cluster | kubectl |
-| `-c` | `--container` | any --container; `--cmd` only on exec and job start | kubectl |
+| `-c` | `--container` | any --container; `--cmd` only on exec | kubectl |
 | `-C` | `--dir` | any --dir; `--comment` only on key gen | git, make |
 | `-e` | `--env` | any --env | docker |
 | `-f` | `--follow` on log streamers; `--file` elsewhere | | tail, kubectl apply |
@@ -440,10 +438,10 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 
 **S-5.17** An unknown command word gets help in this order:
 (1) a curated table of foreign words, each mapped to a full command for
-`error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
+`error.hint`: `server` (alias), `delete`/`remove` → `komando host ssh remove NAME`
 (or the noun in the next word), `get` → `komando list`,
 `ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster kubernetes raw NAME -- ...`,
-`psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
+`psql`/`mysql` → `komando database KIND query NAME`, `apt`/`yum` → `komando pkg`,
 `systemctl` → `komando svc`; (2) edit distance 1 for words of 4 letters or
 fewer, 2 otherwise, at most 2 suggestions; (3) the hint names a command only
 when there is exactly one suggestion. [code: TestAgentGolden rows for
@@ -498,8 +496,8 @@ command's Use words. [code]
 
 **S-6.11** Top-level help groups: Start, Servers, Data, Platform,
 Inventory, Access, Overview, Setup. Start lists commands, not nouns:
-`host add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
-`guide install`. Inventory: host, conn, group, import, export, rename.
+`host ssh add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
+`agent skill install`. Inventory: host, conn, group, import, export, rename.
 There is no `help` command and there are no help topics: `komando COMMAND
 --help` is the help. [review]
 
@@ -523,14 +521,14 @@ row; TestAgentGolden has a row per gated command and flag combination]
 | T3s safety | weakens komando's own checks: audit off, removing a deny rule, downgrade, keychain or passphrase off, open bind, sending a secret, unprotecting a server, conn or VPN, clearing a VPN's `--mfa` | `--yes`, exit 6 SAFETY_SETTING / OPEN_BIND / SECRET_DESTINATION | `This turns off a komando safety check: <what>. Continue? [y/N]` |
 | T4 person only | approval-code setup, typing a secret, `--reveal`, accepting an old copy, two-factor and VPN login, replacing a pinned host key | no flag; NEEDS_PERSON and friends, hint names the command a person runs | the command itself |
 
-A bulk action has its own confirm: `group rm GROUP`
+A bulk action has its own confirm: `group remove GROUP`
 on a group of more than 3 members still needs `--yes` from an agent
 (CONFIRM_REQUIRED).
 
 **S-7.3** The typed answer is the name of what goes away or stops: one
 item with a name of 60 characters or less → that name; several items or a
 long name → the count, labelled (`Type 37 (objects under daily/ in backups)`);
-the whole target (reboot, db restore, sync --delete, exec hits) → the target
+the whole target (reboot, database restore, sync --delete, exec hits) → the target
 name. Never the bare word "yes". [code: PTY test per T3 command]
 
 **S-7.4** One question per command. A prompted command that reaches a T3
@@ -560,9 +558,9 @@ release note. [schema + rule table]
 **S-7.9** "Blocked by …" is used only for a custom deny rule or a policy or
 classifier hit, never for a command's own built-in tier. [code]
 
-**S-7.10** A command for a person at a terminal (`shell`, `db shell`,
-`cluster kubernetes shell`, `secret passphrase` ...) never runs for an AI agent or an
-ssh-gate key. One exception: `komando shell SERVER` for a `--shell-access`
+**S-7.10** A command for a person at a terminal (`host ssh shell`, `database KIND shell`,
+`cluster kubernetes shell`, `config vault passphrase` ...) never runs for an AI agent or an
+ssh-gate key. One exception: `komando host ssh shell SERVER` for a `--shell-access`
 key, which ssh-gate opens in its own process after its checks; no
 environment variable or terminal lets another komando process do the same.
 That shell asks nothing: what a person would be asked (a protected server)
@@ -683,14 +681,13 @@ here as "none". [schema: for each kind, each verb resolves]
 | group | add | test @GROUP | show | list | add/rm members | rename | rm (no TARGET) | export |
 | recipe | add | none | show | list | add --overwrite | none | rm | export |
 | policy rule | deny (alias add) | check | none | list | none | none | rm | export |
-| job | start | none | status (alias show) | list | none | none | kill (alias stop), rm | none |
 | tunnel | start | none | show | list | none | none | stop | none |
 
 **S-10.2** Flags match across kinds: `vpn KIND add` and `vpn KIND edit` take the same
 `--label`, `--protected`, `--unset` as host and conn; `rm` and `edit` take
 `NAME|TARGET...` alike. `--unset` may not name `mfa` or `protected`;
 `--protected=false` and clearing `--mfa` are T3s (S-7.2); a multi-target
-`vpn KIND remove` follows the `host rm` tier. [schema; code: parity test with host]
+`vpn KIND remove` follows the `host ssh remove` tier. [schema; code: parity test with host]
 
 **S-10.3** A family `rm` given only a conn name, at a terminal, says what it
 deletes and how to take the conn out of komando instead, before any

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -12,15 +13,16 @@ import (
 func TestUnknownCommandWords(t *testing.T) {
 	root := newRoot(tcl)
 	for word, want := range map[string]string{
-		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster kubernetes raw NAME -- ...", "psql": "db query CONN",
-		"mysql": "db query CONN", "apt": "pkg", "yum": "pkg", "systemctl": "exec SERVER -- systemctl",
+		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster kubernetes raw NAME -- ...", "psql": "database postgres query NAME",
+		"mysql": "database mysql query NAME", "apt": "pkg", "yum": "pkg", "systemctl": "host ssh exec SERVER -- systemctl",
+		"exec": "host ssh exec SERVER -- ...",
 	} {
 		e := unknownCommandErr(tcl, root, word, nil)
 		if e.Suggestion != want || e.Hint != "run `komando "+want+"` instead" || e.Code != "USAGE" {
 			t.Errorf("%s: %+v", word, e)
 		}
 	}
-	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host rm web1" {
+	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host ssh remove web1" {
 		t.Errorf("delete web1: %+v", e)
 	}
 	if e := unknownCommandErr(tcl, root, "delete", []string{"conn", "pg"}); e.Suggestion != "conn rm pg" {
@@ -48,22 +50,47 @@ func TestUnknownCommandWords(t *testing.T) {
 }
 
 // TestSwappedLine: the suggested word replaces the wrong one, also inside
-// a list or after =, never after --.
+// a list or after =, never after --; the words after -- are not repeated
+// (they may hold a password: audit A1).
 func TestSwappedLine(t *testing.T) {
 	for _, c := range []struct {
 		args        []string
 		wrong, want string
 	}{
-		{[]string{"exce", "web1", "--", "uptime"}, "exce", "komando exec web1 -- uptime"},
-		{[]string{"exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando exec web1 --via bast,web1"},
-		{[]string{"exec", "--limt=5", "web1"}, "--limt", "komando exec --limit=5 web1"},
+		{[]string{"host", "ssh", "exce", "web1", "--", "mysql", "-pS3cret"}, "exce", "komando host ssh exec web1 -- …"},
+		{[]string{"host", "ssh", "exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando host ssh exec web1 --via bast,web1"},
+		{[]string{"host", "ssh", "exec", "--limt=5", "web1"}, "--limt", "komando host ssh exec --limit=5 web1"},
+		// T4: a leaf that reads a secret's value: no argument is repeated (the
+		// value may come first)
+		{[]string{"-o", "json", "credentail", "password", "add", "db-pass", "hunter22"}, "credentail", "komando -o json credential password add NAME"},
+		{[]string{"credential", "password", "ad", "hunter22", "db-pass"}, "ad", "komando credential password add NAME"},
 	} {
-		right := map[string]string{"exce": "exec", "wbe1": "web1", "--limt": "--limit"}[c.wrong]
+		right := map[string]string{"exce": "exec", "wbe1": "web1", "--limt": "--limit", "credentail": "credential", "ad": "add"}[c.wrong]
 		if got, ok := swappedLine(c.args, c.wrong, right); !ok || got != c.want {
 			t.Errorf("%v: %q", c.args, got)
 		}
 	}
-	if _, ok := swappedLine([]string{"exec", "web1", "--", "exce"}, "exce", "exec"); ok {
+	if _, ok := swappedLine([]string{"host", "ssh", "exec", "web1", "--", "exce"}, "exce", "exec"); ok {
 		t.Error("a word after -- was swapped")
+	}
+}
+
+// Every command a foreign word suggests exists: its words (up to the first
+// placeholder, flag or "...") walk down the command tree to one command.
+// A command that is renamed or removed fails here, not in a person's shell.
+func TestForeignWordsSuggestRunnableCommands(t *testing.T) {
+	root := newRoot(tcl)
+	for word, sug := range foreignWords {
+		var path []string
+		for _, w := range strings.Fields(sug) {
+			if w == "--" || w == "..." || strings.HasPrefix(w, "-") || w != strings.ToLower(w) {
+				break
+			}
+			path = append(path, w)
+		}
+		c, rest, err := root.Find(path)
+		if err != nil || c == root || len(rest) != 0 || !(c.Runnable() || c.HasSubCommands()) {
+			t.Errorf("%s suggests %q, which is no komando command (found %q, left over %v, %v)", word, sug, c.CommandPath(), rest, err)
+		}
 	}
 }

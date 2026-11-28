@@ -103,6 +103,71 @@ func migrateCaller() store.MigrateCall {
 	return migrateCallFor(cl)
 }
 
+// The store's calls for rule R3 (C606), replaced in tests.
+var (
+	oldJobs    = store.OldJobs
+	endOldJobs = store.EndOldJobs
+)
+
+// doctorOldJobs is rule R3 (C606): before the move, a person is shown each
+// v0.17 job record with no end and marks them ended, all at once or one
+// by one; the move refuses while one is left. A caller the move refuses
+// is asked nothing.
+func doctorOldJobs(cl *call, ctx context.Context) error {
+	c := migrateCallFor(cl)
+	if c.Way == store.MigrateRefuse {
+		return nil
+	}
+	jobs, err := oldJobs(ctx)
+	if err != nil || len(jobs) == 0 {
+		return err
+	}
+	all := make([]string, len(jobs))
+	for i, j := range jobs {
+		all[i] = j.ID
+	}
+	list := oldJobsText(jobs)
+	var ids []string
+	switch c.Way {
+	case store.MigrateTerminal:
+		fmt.Fprint(cl.out.Err, list)
+		if confirmYes(cl, fmt.Sprintf("Mark all %d ended?", len(jobs))) {
+			ids = all
+			break
+		}
+		for _, j := range jobs {
+			if confirmYes(cl, "Mark job "+j.ID+" on "+j.Host+" ended?") {
+				ids = append(ids, j.ID)
+			}
+		}
+	case store.MigrateWindow:
+		if allowed, shown := cl.askPerson(strings.ReplaceAll(strings.TrimSpace(list), "\n", " ") + " Mark all of them ended?"); allowed && shown {
+			ids = all
+		}
+	}
+	if len(ids) == 0 {
+		return nil // the move then stops and names them
+	}
+	return endOldJobs(ctx, ids, actor(cl))
+}
+
+// oldJobsText lists the records: never the command's arguments, which may
+// hold secret values.
+func oldJobsText(jobs []store.OldJob) string {
+	var b strings.Builder
+	b.WriteString("v0.17 jobs komando has not seen end (this version cannot read or stop them; the move waits until each is marked ended).\n" +
+		"komando cannot see whether one still runs on its server: look there first, by the server and the command below.\n")
+	for _, j := range jobs {
+		started := "unknown"
+		if !j.Started.IsZero() {
+			started = j.Started.UTC().Format("2006-01-02 15:04") + " UTC"
+		}
+		// the name is what was typed: a control character comes out escaped
+		fmt.Fprintf(&b, "  %s  on %s  %s  started %s\n", auditCell(j.ID), auditCell(j.Host), auditCell(j.Name), started)
+	}
+	return b.String()
+}
+
 // migrationPreview is doctor --dry-run on a store that has not moved to
 // format 3 yet: what the move would do, in counts, read without writing.
 type migrationPreview struct{ store.MigrationPreview }

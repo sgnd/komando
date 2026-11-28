@@ -67,7 +67,7 @@ type connFlags struct {
 func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
-	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando secret set NAME)")
+	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: credential:NAME (saved with komando credential password add NAME)")
 	fl.StringVar(&f.login, "login", "", loginFlagUsage)
 	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(connLoginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
@@ -120,7 +120,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 		return err
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
-		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref credential:NAME",
+		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando credential password add NAME` and pass --password-ref credential:NAME",
 			"--password-ref takes a reference, not the password itself")
 	}
 	return inventory.CheckLabels(c.Groups, c.Tags, c.Labels)
@@ -134,7 +134,7 @@ func connCmd() *cobra.Command {
 		Long: `A conn is a database, cache, message queue, file storage, cluster or registry
 komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
 lists them). Passwords never go in the URL: store them with
-` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
+` + "`komando credential password add`" + ` and pass --password-ref. Use --via HOST when the
 conn is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
@@ -621,7 +621,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
 	if steps := inventory.ViaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
-		hint = "the address is resolved on " + last + "; check it from there with `komando exec " + last + " -- nc -z HOST PORT`"
+		hint = "the address is resolved on " + last + "; check it from there with `komando host ssh exec " + last + " -- nc -z HOST PORT`"
 		if st, err := loadState(); err == nil {
 			if _, isVpn := st.Vpns[last]; isVpn {
 				hint = "the address is reached through VPN " + last + "; check the VPN with `komando test " + last + "` and the address in the conn URL"
@@ -654,7 +654,7 @@ func kindExample(raw string, err error) error {
 // same command, under the word a person looks for first. Typed alone at a
 // terminal, each opens the guided form for that kind only.
 var connAddKinds = map[string]struct{ what, form, example string }{
-	"db":       {"database", "Database", "komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
+	"db":       {"database", "Database", "komando database postgres add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
 	"cache":    {"cache", "Cache", "komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue kafka add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage s3 add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
@@ -669,7 +669,7 @@ func addKindFits(family, raw, passwordRef string) error {
 	t, err := driver.Parse(normConnURL(strings.TrimSpace(raw)))
 	if err != nil {
 		if family == "cluster" && strings.HasPrefix(raw, "ssh://") {
-			return out.Errf(out.ExitUsage, "USAGE", "add it with `komando host add NAME user@address`; cluster commands then take its name",
+			return out.Errf(out.ExitUsage, "USAGE", "add it with `komando host ssh add NAME user@address`; cluster commands then take its name",
 				"a Docker Swarm is reached through its manager server, which is a server, not a conn")
 		}
 		return nil // conn add says what is wrong with it
@@ -679,7 +679,7 @@ func addKindFits(family, raw, passwordRef string) error {
 			"%s is a %s URL, not one for `komando %s add`", raw, t.Kind.Name, family)
 	}
 	if slices.Contains(connKindNeeds(family, t.Kind), "password-ref") && passwordRef == "" {
-		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando secret set NAME` and pass --credential NAME",
+		return out.Errf(out.ExitUsage, "USAGE", "bring the cluster in with `komando import kubeconfig FILE` (one conn per context), or store the kubeconfig with `komando credential password add NAME` and pass --credential NAME",
 			"a Kubernetes conn logs in with a whole kubeconfig, which %s alone does not give", raw)
 	}
 	return nil

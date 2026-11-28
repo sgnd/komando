@@ -200,7 +200,7 @@ func cachePasswordQ(ask, help, def string, advanced bool) formQ {
 // cacheSecretQ asks which saved secret holds the password.
 func cacheSecretQ(advanced bool) formQ {
 	return formWhen(formQ{key: "secret", label: "Saved password", ask: "Which saved secret holds the password?",
-		advanced: advanced, free: true, help: "A name from komando secret list, or credential:NAME.",
+		advanced: advanced, free: true, help: "A name from komando credential list, or credential:NAME.",
 		choices: cacheSecretRows, check: cacheSecretProblem},
 		func(a formAnswers) bool { return a["password"] == "secret" })
 }
@@ -210,7 +210,7 @@ func cacheSecretQ(advanced bool) formQ {
 func cacheCAQ() formQ {
 	return formWhen(formMore(formQ{key: "ca", label: "CA certificate", optional: true, free: true,
 		ask:     "Which saved CA certificate should komando trust?",
-		help:    "Only for a certificate from your own CA. Save it first: komando secret set NAME < ca.crt. Empty for none.",
+		help:    "Only for a certificate from your own CA. Save it first: komando credential token add NAME < ca.crt. Empty for none.",
 		choices: cacheSecretRows, check: cacheCAProblem}), cacheTLS)
 }
 
@@ -223,17 +223,17 @@ func cacheSecretRows(*store.State, formAnswers) []pickRow {
 }
 
 func cacheSecretProblem(_ *store.State, _ formAnswers, v string) string {
-	return formSavedSecretProblem(v, "pick a name from komando secret list, or type credential:NAME; never the secret itself")
+	return formSavedSecretProblem(v, "pick a name from komando credential list, or type credential:NAME; never the secret itself")
 }
 
 // cacheCAProblem is cacheSecretProblem for a CA certificate
 // (?ca=credential:NAME).
 func cacheCAProblem(_ *store.State, _ formAnswers, v string) string {
-	return formSavedSecretProblem(v, "pick a name from komando secret list, or type credential:NAME; save it first with komando secret set NAME < ca.crt")
+	return formSavedSecretProblem(v, "pick a name from komando credential list, or type credential:NAME; save it first with komando credential token add NAME < ca.crt")
 }
 
 // formSavedSecretProblem checks the answer to "which saved secret": a name
-// komando secret list has, or credential:NAME. A command keeps it as a
+// komando credential list has, or credential:NAME. A command keeps it as a
 // credential, which never names an outside store. Anything else may be the
 // token itself, pasted: it is refused with msg, which never repeats it.
 func formSavedSecretProblem(v, msg string) string {

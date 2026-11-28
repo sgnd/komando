@@ -15,20 +15,20 @@ import (
 
 // On a sealed home the audit log lives in the store: listed and verified
 // as before, unreadable in the file, and a record removed outside komando
-// stops audit verify at its number.
+// stops audit check at its number.
 func TestSealedAudit(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "audited-web", "deploy@10.0.0.1")
-	mustRun(t, "host", "edit", "audited-web", "--add-tag", "x")
-	mustRun(t, "host", "edit", "audited-web", "--add-tag", "y")
+	mustRun(t, "host", "ssh", "add", "audited-web", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "edit", "audited-web", "--add-tag", "x")
+	mustRun(t, "host", "ssh", "edit", "audited-web", "--add-tag", "y")
 	if _, err := os.Stat(store.Path("audit.jsonl")); !os.IsNotExist(err) {
 		t.Fatal("audit.jsonl written on a sealed home")
 	}
-	l := mustRun(t, "audit", "-n", "0", "--command", "host.")
+	l := mustRun(t, "audit", "list", "-n", "0", "--command", "host.")
 	if l["count"].(float64) < 3 {
 		t.Fatalf("audit list: %v", l)
 	}
-	v := mustRun(t, "audit", "verify")
+	v := mustRun(t, "audit", "check")
 	if v["ok"] != true || v["entries"].(float64) < 3 {
 		t.Fatalf("verify: %v", v)
 	}
@@ -46,24 +46,24 @@ func TestSealedAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, e := invRun(t, "audit", "verify")
+	_, e := invRun(t, "audit", "check")
 	if e == nil || e.Code != "AUDIT_TAMPERED" || !strings.Contains(e.Message, "line 2") {
 		t.Fatalf("tampered: %+v", e)
 	}
 	// the list still shows the records before the broken one, and says so
-	d := mustRun(t, "audit", "-n", "0")
+	d := mustRun(t, "audit", "list", "-n", "0")
 	if d["count"].(float64) != 1 {
 		t.Fatalf("records before the break: %v", d)
 	}
 }
 
-// Without a filter, `komando audit` reads only the newest records.
+// Without a filter, `komando audit list` reads only the newest records.
 func TestAuditListNewest(t *testing.T) {
 	invHome(t)
 	for i := range 12 {
 		audit(tcl, nil, fmt.Sprintf("test.c%02d", i), nil, "", true, nil)
 	}
-	d := mustRun(t, "audit", "-n", "3")
+	d := mustRun(t, "audit", "list", "-n", "3")
 	es := d["entries"].([]any)
 	if len(es) != 3 || es[2].(map[string]any)["command"] != "test.c11" || es[0].(map[string]any)["command"] != "test.c09" {
 		t.Fatalf("newest 3: %v", es)
@@ -78,7 +78,7 @@ func TestAuditListNewest(t *testing.T) {
 func TestAuditUnwritable(t *testing.T) {
 	unixOnly(t, "files made read-only with chmod 0400/0500")
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1")
 	db := store.Path(store.StoreFile)
 	if err := os.Chmod(db, 0o400); err != nil {
 		t.Fatal(err)
@@ -87,8 +87,8 @@ func TestAuditUnwritable(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root writes any file")
 	}
-	wantCode(t, "AUDIT_UNAVAILABLE", "host", "add", "db", "u@10.0.0.2")
-	mustRun(t, "host", "list") // reads still run
+	wantCode(t, "AUDIT_UNAVAILABLE", "host", "ssh", "add", "db", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "list") // reads still run
 	// a folder where no store can be made: the record fails to write
 	ro := t.TempDir()
 	os.Chmod(ro, 0o500)

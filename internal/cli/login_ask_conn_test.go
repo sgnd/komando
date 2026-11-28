@@ -135,7 +135,7 @@ func TestConnLoginAskFlag(t *testing.T) {
 		}
 	}
 	// edit: a stored password ends login ask; ask lets go of the stored one
-	mustRun(t, "secret", "set", "db2-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "db2-pass", "--from-env", "PW")
 	mustRun(t, "conn", "edit", "db2", "--password-ref", "credential:db2-pass")
 	d = mustRun(t, "conn", "edit", "db2", "--login", "ask")
 	if d["login"] != "ask" || d["password_ref"] != nil || asJSON(d["secrets_unused"]) != `["db2-pass"]` {
@@ -210,7 +210,7 @@ func TestConnLoginAskNeedsPerson(t *testing.T) {
 func TestConnLoginAskDestinationNeedsPerson(t *testing.T) {
 	invHome(t)
 	t.Setenv("PW", "x")
-	mustRun(t, "host", "add", "bastion", "u@10.0.0.5")
+	mustRun(t, "host", "ssh", "add", "bastion", "u@10.0.0.5")
 	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--login", "ask")
 	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", savedRef(t, "db2-pw", "x"))
 	mustRun(t, "conn", "add", "db3", "postgres://app@10.0.0.7/app", "--login", "ask", "--via", "bastion")
@@ -220,7 +220,7 @@ func TestConnLoginAskDestinationNeedsPerson(t *testing.T) {
 		{"conn", "edit", "db1", "--url", "postgres://app@203.0.113.66/app"},
 		{"conn", "edit", "db1", "--via", "bastion"},
 		{"conn", "edit", "db2", "--login", "ask"},
-		{"host", "edit", "bastion", "--address", "203.0.113.66"},
+		{"host", "ssh", "edit", "bastion", "--address", "203.0.113.66"},
 	} {
 		if e := wantCode(t, "NEEDS_PERSON", args...); !strings.Contains(e.Hint, "in their own terminal") || strings.Contains(e.Hint, "--yes") {
 			t.Errorf("%v: %+v", args, e)

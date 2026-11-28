@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -43,8 +44,21 @@ func TestDoctorConnHygiene(t *testing.T) {
 			t.Errorf("%s warned: %s", name, got[name])
 		}
 	}
-	if !strings.Contains(got["conn:dev-minio"], "`komando secret cp prd-minio NEW` and `komando conn edit dev-minio --password-ref credential:NEW`") {
-		t.Errorf("dev-minio hint: %s", got["conn:dev-minio"])
+	// the way out names commands of this version (chief, 2026-11-28, with
+	// rule R7): a credential of its own, then the conn's own edit
+	hint := got["conn:dev-minio"]
+	if !strings.Contains(hint, "`komando credential password add NAME`, then `komando ") || strings.Contains(hint, "secret cp") || strings.Contains(hint, "password-ref") {
+		t.Fatalf("dev-minio hint: %s", hint)
+	}
+	_, edit, _ := strings.Cut(hint, "then `komando ")
+	edit, _, _ = strings.Cut(edit, "`")
+	words := strings.Fields(edit)
+	if len(words) < 3 || !slices.Equal(words[len(words)-3:], []string{"dev-minio", "--credential", "NAME"}) {
+		t.Fatalf("dev-minio edit line %q", edit)
+	}
+	cmd, _, err := newRoot(tcl).Find(words[:len(words)-3])
+	if err != nil || cmd.Name() != "edit" || cmd.Flags().Lookup("credential") == nil {
+		t.Errorf("%q names no edit with --credential: %v", edit, err)
 	}
 }
 
@@ -52,8 +66,8 @@ func TestDoctorConnHygiene(t *testing.T) {
 // taking one instead of a bare "not found".
 func TestShowSelectorHint(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "acme")
-	e := wantCode(t, "TARGET_NOT_FOUND", "host", "show", "@acme")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--group", "acme")
+	e := wantCode(t, "TARGET_NOT_FOUND", "host", "ssh", "show", "@acme")
 	if !strings.Contains(e.Hint, "takes one host name") || !strings.Contains(e.Hint, "`komando list @acme`") {
 		t.Errorf("hint: %s", e.Hint)
 	}
@@ -62,7 +76,7 @@ func TestShowSelectorHint(t *testing.T) {
 		t.Errorf("glob hint: %s", e.Hint)
 	}
 	// a plain typo gets a suggestion (S-8.8)
-	e = wantCode(t, "TARGET_NOT_FOUND", "host", "show", "web2")
+	e = wantCode(t, "TARGET_NOT_FOUND", "host", "ssh", "show", "web2")
 	if e.Suggestion != "web1" || !strings.Contains(e.Hint, "web1") {
 		t.Errorf("typo: %+v", e)
 	}

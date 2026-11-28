@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -98,10 +99,10 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		switch {
 		case r == "":
 		case !vault.ValidRef(r):
-			fail(name, flag+" holds plain text instead of a reference: store it with `komando secret set NAME` and use credential:NAME")
+			fail(name, flag+" holds plain text instead of a reference: store it with `komando credential password add NAME` and use credential:NAME")
 		case strings.HasPrefix(r, "credential:") && !secrets[strings.TrimPrefix(r, "credential:")]:
 			// no fix: secret set asks for the value
-			warn(name, flag+" names a secret that is not in the vault: `komando secret set NAME`") // never the name: it may be a password
+			warn(name, flag+" names a secret that is not in the vault: `komando credential password add NAME`") // never the name: it may be a password
 		}
 	}
 	for _, h := range st.SortedHosts() {
@@ -155,7 +156,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		}
 		ref(name, "passphrase_ref", k.PassphraseRef)
 		if b := rsaBits(k.PublicKey); b > 0 && b < minRSABits {
-			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando key gen` (ed25519)", b))
+			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando credential key create` (ed25519)", b))
 		}
 	}
 	return cs
@@ -186,8 +187,8 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 	for _, c := range st.SortedConns() {
 		name := "conn:" + c.Name
 		if n, ok := strings.CutPrefix(c.PasswordRef, "credential:"); ok && !c.Protected && len(prot[n]) > 0 {
-			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own with `komando secret cp %s NEW` and `komando conn edit %s --password-ref credential:NEW`",
-				c.PasswordRef, strings.Join(prot[n], ", "), n, c.Name))
+			warn(name, fmt.Sprintf("is not protected but shares %s with protected %s: that password is used here without a person's yes, and changing it there breaks this conn; give it its own: %s",
+				c.PasswordRef, strings.Join(prot[n], ", "), ownCredentialFix(c)))
 		}
 		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
 		if first, ok := same[key]; ok {
@@ -201,6 +202,16 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: `komando conn edit "+argQ(c.Name)+" --protected`", fix...)
 		}
 	}
+}
+
+// ownCredentialFix is how conn c gets a credential of its own: a new one,
+// then its type's edit (rule R7: a hint names commands of this version).
+func ownCredentialFix(c *store.Conn) string {
+	t, err := driver.Parse(c.URL)
+	if err != nil {
+		return "`komando credential password add NAME`, then pass --credential NAME to its edit"
+	}
+	return "`komando credential password add NAME`, then `" + entryPath(t.Kind) + " edit " + argQ(c.Name) + " --credential NAME`"
 }
 
 func doctorCmd() *cobra.Command {
@@ -223,6 +234,10 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 					return err
 				}
 			}
+			// before the store opens, which moves it: v0.17 jobs with no end (R3)
+			if err := doctorOldJobs(cl, cmd.Context()); err != nil {
+				return toErr(err)
+			}
 			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}
 			add := func(name string, ok bool, detail string, fix ...string) {
@@ -240,7 +255,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			hostDetail := countOf(len(st.Hosts), "server")
 			if len(st.Hosts) == 0 {
-				hostDetail = "none yet; add with `komando host add` or `komando import ssh-config`"
+				hostDetail = "none yet; add with `komando host ssh add` or `komando import ssh-config`"
 			}
 			add("hosts", len(st.Hosts) > 0, hostDetail)
 			add("keys", true, countOf(len(st.Keys), "SSH key"))
@@ -256,13 +271,13 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			add("platform", true, runtime.GOOS+"/"+runtime.GOARCH)
 			// AI agents: the skill komando installs, and whether it is this
-			// version's (an update needs `guide install` again)
+			// version's (an update needs `agent skill install` again)
 			installed, stale := skillStatus()
 			switch {
 			case len(installed) == 0:
-				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando", komandoFix("guide", "install")...)
+				add("agent_skill", false, "no AI agent has komando's skill yet: `komando agent skill install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando", komandoFix("agent", "skill", "install")...)
 			case len(stale) > 0:
-				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands", komandoFix("guide", "install")...)
+				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando agent skill install` again, so your AI agents use this version's commands", komandoFix("agent", "skill", "install")...)
 			default:
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}
@@ -324,9 +339,9 @@ func agentGuardChecks(installed []string, add func(name string, ok bool, detail 
 	if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
 		switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
 		case !found:
-			add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it", komandoFix("guide", "install")...)
+			add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando agent skill install` adds it", komandoFix("agent", "skill", "install")...)
 		case problem != "":
-			add("agent_guard", false, "komando's guard in Claude Code needs fixing: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
+			add("agent_guard", false, "komando's guard in Claude Code needs fixing: "+problem+"; `komando agent skill install` sets it up again", komandoFix("agent", "skill", "install")...)
 		default:
 			add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
 		}
@@ -334,7 +349,7 @@ func agentGuardChecks(installed []string, add func(name string, ok bool, detail 
 	if home, err := os.UserHomeDir(); err == nil {
 		for _, h := range agentHooks {
 			if found, problem := claudeGuard(filepath.Join(home, h.dir, h.file)); found && problem != "" {
-				add("agent_guard_"+h.name, false, "komando's guard for "+h.name+" needs fixing: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
+				add("agent_guard_"+h.name, false, "komando's guard for "+h.name+" needs fixing: "+problem+"; `komando agent skill install` sets it up again", komandoFix("agent", "skill", "install")...)
 			}
 		}
 	}

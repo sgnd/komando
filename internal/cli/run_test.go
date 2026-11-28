@@ -210,7 +210,7 @@ func TestExecDataText(t *testing.T) {
 	d := execData{Results: []execHostResult{
 		{Host: "web1", OK: true, RunResult: &sshx.RunResult{Stdout: "out1\n", Stderr: "warn1\n"}},
 		{Host: "web2", RunResult: &sshx.RunResult{ExitCode: 3, Stdout: "out2"}},
-		{Host: "web3", Error: &out.Error{Code: "CONNECTION_REFUSED", Message: "web3: refused", Hint: "check that sshd runs on the server and listens on this port: komando host show web3"}},
+		{Host: "web3", Error: &out.Error{Code: "CONNECTION_REFUSED", Message: "web3: refused", Hint: "check that sshd runs on the server and listens on this port: komando host ssh show web3"}},
 	}}
 	got := d.TextFor(realRun())
 	for _, want := range []string{"=== web1 [ok, exit 0]\nout1\n[stderr] warn1\n", "=== web2 [failed: exit 3]\nout2\n", "=== web3 [failed: connection refused]\n  Error: web3: refused (code CONNECTION_REFUSED)\n  Hint: check that sshd runs"} {
@@ -451,25 +451,5 @@ func TestSyncSkipsFolderMarkers(t *testing.T) {
 	}
 	if body, _ := os.ReadFile(filepath.Join(dst, "a.txt")); string(body) != "data:tree/a.txt" {
 		t.Errorf("a.txt = %q", body)
-	}
-}
-
-func TestJobWaitRetriesOnlyBrokenConnections(t *testing.T) {
-	for err, want := range map[error]bool{
-		nil:                    false,
-		errors.New("ssh: EOF"): true,
-		errors.New("read tcp 1.2.3.4:22: connection reset by peer"): true,
-		out.Errf(out.ExitConnect, "CONNECT_TIMEOUT", "", "x"):       true,
-		out.Errf(out.ExitConnect, "AUTH_FAILED", "", "x"):           false,
-		out.Errf(out.ExitConnect, "NO_AUTH", "", "x"):               false,
-		out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", "", "x"):      false,
-		out.Errf(out.ExitNotFound, "JOB_NOT_FOUND", "", "x"):        false,
-		// seen when sessions are cut at random moments
-		errors.New("ssh: unexpected packet in response to channel open: <nil>"): true,
-		out.Errf(out.ExitConnect, "CONNECTION_LOST", "", "x"):                   true,
-	} {
-		if transient(err) != want {
-			t.Errorf("transient(%v) = %v", err, !want)
-		}
 	}
 }

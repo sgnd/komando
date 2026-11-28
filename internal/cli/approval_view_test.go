@@ -298,9 +298,9 @@ func TestMacPanelHangingIndent(t *testing.T) {
 
 // The text of a view is the window's text from before it had parts.
 func TestApprovalViewText(t *testing.T) {
-	v := approvalView{Agent: "Claude Code", Head: "wants to change web", Targets: []string{"web"}, Line: "komando exec web -- id",
+	v := approvalView{Agent: "Claude Code", Head: "wants to change web", Targets: []string{"web"}, Line: "komando host ssh exec web -- id",
 		Reasons: []string{"a change on protected host web"}, Flags: []string{"--yes"}}
-	want := "Claude Code wants to change web:\n\nkomando exec web -- id\n\nAllow this once?\n\nWhy komando asks: a change on protected host web\n--yes skips one of komando's safety stops (" + flagMeaning["--yes"] + ")."
+	want := "Claude Code wants to change web:\n\nkomando host ssh exec web -- id\n\nAllow this once?\n\nWhy komando asks: a change on protected host web\n--yes skips one of komando's safety stops (" + flagMeaning["--yes"] + ")."
 	if got := v.text(); got != want {
 		t.Errorf("text:\n%s\nwant:\n%s", got, want)
 	}
@@ -313,14 +313,14 @@ func TestApprovalViewText(t *testing.T) {
 // a script body and the 4-line screenshot sample. KOMANDO_GOLDEN_UPDATE=1 records it again.
 
 func TestApprovalWindowGolden(t *testing.T) {
-	long := "komando exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 12) + "true"
+	long := "komando host ssh exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 12) + "true"
 	views := []approvalView{
 		testView("Claude Code", []string{"--yes"}, "", []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected)"},
 			"komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\\nb:\\n  c: 2' --yes", ""),
 		testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[rm-system-dir] deletes a system folder recursively", protWhy([]string{"web-1.example.test"})}, long, ""),
-		testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
+		testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando host ssh exec db-2.example.test --script ./deploy.sh --yes",
 			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n"),
-		testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host rm web-1.example.test --yes", ""),
+		testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host ssh remove web-1.example.test --yes", ""),
 		shotView(), // the 4-line deploy.sh: every line shows, no "more lines" hint
 	}
 	windowGolden(t, "approval_window.txt", views)
@@ -389,7 +389,7 @@ func TestAppleScriptArgs(t *testing.T) {
 func TestApprovalViewDedupes(t *testing.T) {
 	why := []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected), web-2.example.test",
 		"it runs on web-2.example.test, db-1.example.test", "[rm-system-dir] deletes a system folder recursively"}
-	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando exec web -- id", "")
+	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando host ssh exec web -- id", "")
 	v.Agent = "Codex"
 	want := "Asked by Codex\nTargets: web-1.example.test, web-2.example.test, db-1.example.test\nStatus: Protected\n" +
 		"Risk: Deletes a system folder recursively (rm -rf)\nSkips: the dangerous-command check\n\nCommand: id"
@@ -431,7 +431,7 @@ func TestApprovalScriptWhole(t *testing.T) {
 	if bad != "" {
 		t.Fatalf("%d lines refused: %s", bodyMaxLines, bad)
 	}
-	v := testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test --script ./a.sh", text)
+	v := testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando host ssh exec web-1.example.test --script ./a.sh", text)
 	shown := v.details()
 	for i := 1; i <= bodyMaxLines; i++ {
 		if !strings.Contains(shown, fmt.Sprintf("echo step %d\n", i)) && !strings.HasSuffix(shown, fmt.Sprintf("echo step %d", i)) {
@@ -489,11 +489,11 @@ func TestWinLayoutFit(t *testing.T) {
 // value never), and no Options line when only covered flags are given.
 func TestApprovalOptions(t *testing.T) {
 	for _, tc := range []struct{ name, line, want string }{
-		{"user and env", "komando exec web-1.example.test --user deploy --env TOKEN=abc --env=MODE=x --yes -- uptime", "Options: --user deploy, --env TOKEN, --env MODE\nCommand: uptime"},
-		{"yes only", "komando exec web-1.example.test --yes -- uptime", "Command: uptime"},
-		{"via, timeout, sudo", "komando exec web-1.example.test --via bastion --timeout 30s --sudo --allow-dangerous -- id", "Options: --via bastion, --timeout 30s, --sudo\nCommand: id"},
+		{"user and env", "komando host ssh exec web-1.example.test --user deploy --env TOKEN=abc --env=MODE=x --yes -- uptime", "Options: --user deploy, --env TOKEN, --env MODE\nCommand: uptime"},
+		{"yes only", "komando host ssh exec web-1.example.test --yes -- uptime", "Command: uptime"},
+		{"via, timeout, sudo", "komando host ssh exec web-1.example.test --via bastion --timeout 30s --sudo --allow-dangerous -- id", "Options: --via bastion, --timeout 30s, --sudo\nCommand: id"},
 		{"no --", "komando fs write web-1.example.test /etc/a --content x --yes", "Command: komando fs write web-1.example.test /etc/a --content x --yes"},
-		{"script", "komando exec web-1.example.test --script ./a.sh --user deploy --yes", "Options: --user deploy"},
+		{"script", "komando host ssh exec web-1.example.test --script ./a.sh --user deploy --yes", "Options: --user deploy"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			v := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, tc.line, "")
@@ -510,11 +510,11 @@ func TestApprovalOptions(t *testing.T) {
 			}
 		})
 	}
-	sudo := testView("Codex", nil, "", []string{"it runs on web-1.example.test", "sudo runs the command as root"}, "komando exec web-1.example.test --sudo -- id", "")
+	sudo := testView("Codex", nil, "", []string{"it runs on web-1.example.test", "sudo runs the command as root"}, "komando host ssh exec web-1.example.test --sudo -- id", "")
 	if sudo.shown() != "Command: id" {
 		t.Errorf("--sudo repeated next to its Risk line: %q", sudo.shown())
 	}
-	prot := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test (protected)"}, "komando exec web-1.example.test --yes -- id", "")
+	prot := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test (protected)"}, "komando host ssh exec web-1.example.test --yes -- id", "")
 	if strings.Contains(prot.details(), "Skips") {
 		t.Errorf("Skips with only --yes on a protected target:\n%s", prot.details())
 	}

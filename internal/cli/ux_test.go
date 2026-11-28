@@ -3,10 +3,13 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"io/fs"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // usageFor runs komando the way Execute does and returns the usage error
@@ -34,9 +37,9 @@ func usageFor(t *testing.T, args ...string) *out.Error {
 func TestTypoSuggestions(t *testing.T) {
 	saved := tcl.args
 	t.Cleanup(func() { tcl.args = saved })
-	tcl.args = []string{"komando", "exce", "web1"}
-	e := usageFor(t, "exce", "web1")
-	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "run it again with exec: `komando exec web1`" || e.Suggestion != "exec" {
+	tcl.args = []string{"komando", "host", "ssh", "exce", "web1"}
+	e := usageFor(t, "host", "ssh", "exce", "web1")
+	if e.Message != `unknown command "exce" for "komando host ssh"; did you mean exec?` || e.Hint != "run it again with exec: `komando host ssh exec web1`" || e.Suggestion != "exec" {
 		t.Errorf("command typo: %q / %q", e.Message, e.Hint)
 	}
 	tcl.args = saved
@@ -45,18 +48,33 @@ func TestTypoSuggestions(t *testing.T) {
 	}
 	// add alone points at the add commands, which ask step by step; the
 	// first-run menu has no Add something row to send a person to
-	if e := usageFor(t, "add"); strings.Contains(e.Message, "did you mean") || !strings.Contains(e.Hint, "komando host add") ||
+	if e := usageFor(t, "add"); strings.Contains(e.Message, "did you mean") || !strings.Contains(e.Hint, "komando host ssh add") ||
 		!strings.Contains(e.Hint, "step by step") || strings.Contains(e.Hint, "Add something") || e.Code != "USAGE" {
 		t.Errorf("add: %q / %q", e.Message, e.Hint)
 	}
 	if e := usageFor(t, "zzzz"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense: %q", e.Message)
 	}
-	if e := usageFor(t, "exec", "--tiemout", "3s", "web1", "--", "uptime"); !strings.HasSuffix(e.Message, "did you mean --timeout?") {
+	if e := usageFor(t, "host", "ssh", "exec", "--tiemout", "3s", "web1", "--", "uptime"); !strings.HasSuffix(e.Message, "did you mean --timeout?") {
 		t.Errorf("flag typo: %q", e.Message)
 	}
-	if e := usageFor(t, "exec", "--xyzabc", "web1"); strings.Contains(e.Message, "did you mean") {
+	if e := usageFor(t, "host", "ssh", "exec", "--xyzabc", "web1"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense flag: %q", e.Message)
+	}
+}
+
+// A typo under a group fails before the start checks: it opens no store,
+// so a store that does not open cannot hide the suggestion.
+func TestGroupTypoOpensNoStore(t *testing.T) {
+	invHome(t)
+	saved := tcl.args
+	t.Cleanup(func() { tcl.args = saved })
+	tcl.args = []string{"komando", "host", "ssh", "exce", "web1"}
+	if e := usageFor(t, "host", "ssh", "exce", "web1"); e.Suggestion != "exec" {
+		t.Errorf("typo: %q", e.Message)
+	}
+	if _, err := os.Stat(store.DBPath()); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a typo opened the store: %v", err)
 	}
 }
 
@@ -88,5 +106,35 @@ func TestCountWords(t *testing.T) {
 		if c.got != c.want {
 			t.Errorf("%q, want %q", c.got, c.want)
 		}
+	}
+}
+
+// A typo under a group fails before the pre-run sets the stored secrets
+// and the agent mask (audit A1): its answer repeats no word after -- and
+// hides a stored value, for a person and for an AI agent.
+func TestGroupTypoAnswerHidesSecrets(t *testing.T) {
+	for _, who := range []string{"person", "agent"} {
+		t.Run(who, func(t *testing.T) {
+			invHome(t)
+			t.Setenv("PW", "Zq7-vault-value-91")
+			mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
+			if who == "agent" {
+				setCallerEnv(t, "CLAUDECODE", "1")
+			}
+			tcl.out.SetSecrets(nil) // as a new process starts: the add above loaded them
+			var code int
+			got := captureOutput(t, func() error {
+				code = executeArgs([]string{"host", "ssh", "exce", "web1", "Zq7-vault-value-91", "--", "mysql", "-pAfter-dash-91"})
+				return nil
+			})
+			if code != 2 || !strings.Contains(got, "did you mean exec") {
+				t.Fatalf("exit %d:\n%s", code, got)
+			}
+			for _, v := range []string{"Zq7-vault-value-91", "After-dash-91"} {
+				if strings.Contains(got, v) {
+					t.Errorf("the typo's answer shows %q:\n%s", v, got)
+				}
+			}
+		})
 	}
 }

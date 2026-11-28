@@ -395,7 +395,7 @@ func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 		r.Secrets = append(r.Secrets, name)
 	}
 	if plan.NoPassword[c] {
-		note := c.Name + ": set its password with `komando secret set " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref credential:" + c.Name + "-pass`"
+		note := c.Name + ": set its password with `komando credential password add " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref credential:" + c.Name + "-pass`"
 		r.NotFound, r.aboutAdded = append(r.NotFound, note), append(r.aboutAdded, note)
 	}
 }

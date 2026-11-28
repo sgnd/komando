@@ -11,7 +11,7 @@ import (
 
 // On a sealed home the audit log is the store's audit table: each record is
 // sealed and bound to its number, so an edited, moved or removed record
-// stops `audit verify` at that number, and no one reads it from the file.
+// stops `audit check` at that number, and no one reads it from the file.
 // The chain's "prev" field is not needed there.
 
 func Append(rec map[string]any) ([]byte, error) {

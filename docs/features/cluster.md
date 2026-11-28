@@ -67,7 +67,7 @@ How the login works:
 - Once a person imported (or allowed) a kubeconfig, agents use the conn
   without asking. If the kubeconfig in the vault changes to another program
   or anything in its cluster block (the server, its CA, `tls-server-name`,
-  `proxy-url`, `insecure-skip-tls-verify`; `secret set`), or reads its
+  `proxy-url`, `insecure-skip-tls-verify`; `credential password add`), or reads its
   token from a local file (`tokenFile`), every agent command asks again,
   reads included, until a person imports it again. This holds for the EKS
   and GKE logins too.
@@ -83,7 +83,7 @@ name it with `cluster kubernetes add` (the same as `conn add`, but it refuses a 
 that is not a cluster):
 
 ```bash
-komando secret set prod-kubeconfig < prod.kubeconfig
+komando credential token add prod-kubeconfig < prod.kubeconfig
 komando cluster kubernetes add prod-k8s k8s://api.cluster.example:6443 --credential prod-kubeconfig
 ```
 
@@ -93,8 +93,8 @@ A Swarm is reached through a manager server: add the manager as a server
 and give it the tag `swarm`:
 
 ```bash
-komando host add swarm1 admin@10.0.0.10 --tag swarm
-komando host edit swarm1 --add-tag swarm     # a manager already in your list
+komando host ssh add swarm1 admin@10.0.0.10 --tag swarm
+komando host ssh edit swarm1 --add-tag swarm     # a manager already in your list
 ```
 
 `komando cluster swarm raw swarm1 -- ...` runs a docker command on that
@@ -106,7 +106,7 @@ Swarm entry that the stored-data move gives (row C483).
 
 ```bash
 komando conn rm prod-k8s                 # komando forgets it; the cluster is not touched
-komando secret rm prod-kubeconfig        # its kubeconfig, once nothing uses it
+komando credential password remove prod-kubeconfig        # its kubeconfig, once nothing uses it
 ```
 
 `conn rm` lists the vault secrets nothing uses any more
@@ -259,7 +259,7 @@ is kubectl's namespace flag.
 - `cp POD:SRC DST` writes only inside DST, never into a `.git` folder, and
   skips links and devices, like kubectl cp. It brings at most 512 MiB
   (`FILE_TOO_LARGE`): komando checks every name before it writes any, so
-  it holds the copy in memory. For an AI agent it copies as `download`
+  it holds the copy in memory. For an AI agent it copies as `copy`
   does: a file that is a secret by its name (`.env`, a private key) is
   refused (`SENSITIVE_FILE`; when SRC itself is named so, before komando
   reads the pod), a text file is written with its secret
@@ -304,7 +304,7 @@ is kubectl's namespace flag.
 | `K8S_FORBIDDEN` (exit 4) | the kubeconfig's user may not do this (Helm: list Secrets) | give the user the right, or name one namespace with `--namespace` |
 | `K8S_INVALID` (exit 2) | the cluster refused the request or the file as written | read the cluster's words in the message; fix the YAML or the `-l` selector |
 | `K8S_POD_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster kubernetes raw prod-k8s -- get pods -n shop` |
-| `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando exec swarm1 --read-only -- docker node ls` shows whether it is one |
+| `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando host ssh exec swarm1 --read-only -- docker node ls` shows whether it is one |
 | `ROLLOUT_FAILED` (exit 5), `ROLLOUT_TIMEOUT` (exit 7) | the new version did not come up | `komando cluster kubernetes raw prod-k8s -- describe deployment/api -n shop`, then `-- rollout undo` |
 | `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `cluster kubernetes raw ... --write -- set image` or `patch` |
 | `NEEDS_TERMINAL` (exit 2) | `cluster kubernetes shell` needs a person | agents and scripts use `cluster kubernetes exec` |

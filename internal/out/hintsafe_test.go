@@ -12,7 +12,7 @@ func TestTextHintIsRedactedAndSafe(t *testing.T) {
 	var buf bytes.Buffer
 	p := &Printer{Format: "text", Mask: true, W: &bytes.Buffer{}, Err: &buf,
 		Secrets: func() map[string]string { return map[string]string{"DB_PASS": "Vault-Value-123"} }}
-	hint := "run: komando exec web -- 'mysql --password=hunter2abcdef Vault-Value-123' '\x1b]52;c;ZXZpbA==\a' '\x1b[8mhidden\x1b[0m' 'cover\rup'"
+	hint := "run: komando host ssh exec web -- 'mysql --password=hunter2abcdef Vault-Value-123' '\x1b]52;c;ZXZpbA==\a' '\x1b[8mhidden\x1b[0m' 'cover\rup'"
 	for name, run := range map[string]func(){
 		"fail": func() { p.Fail("exec", &Error{Code: "POLICY_BLOCKED", Message: "m", Hint: hint, Exit: ExitPolicy}) },
 		"soft": func() { p.Print("exec", nil, &Error{Code: "PARTIAL", Message: "m", Hint: hint}) },

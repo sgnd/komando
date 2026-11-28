@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -214,7 +216,21 @@ type kvArray struct {
 	set  bool
 }
 
-func (v *kvArray) String() string { return "[" + strings.Join(*v.p, ",") + "]" }
+// String writes the values as pflag does for a string array (CSV inside
+// brackets), because GetStringArray reads that text back: a value with a
+// comma or a double quote comes back as the one value it is.
+func (v *kvArray) String() string {
+	if len(*v.p) == 0 {
+		return "[]"
+	}
+	var b strings.Builder
+	w := csv.NewWriter(&b)
+	if err := w.Write(*v.p); err != nil {
+		return "[]" // a value csv cannot write (a NUL byte): GetSlice still has it
+	}
+	w.Flush()
+	return "[" + strings.TrimSuffix(b.String(), "\n") + "]"
+}
 
 func (v *kvArray) Type() string { return "stringArray" }
 
@@ -264,7 +280,7 @@ func (v *kvArray) Replace(s []string) error {
 	}
 	return nil
 }
-func (v *kvArray) GetSlice() []string { return *v.p }
+func (v *kvArray) GetSlice() []string { return slices.Clone(*v.p) }
 
 // kvVar adds a KEY=VALUE flag.
 func kvVar(fs *pflag.FlagSet, p *[]string, name, short, usage string) {

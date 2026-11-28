@@ -132,17 +132,17 @@ func TestAgentSafetySettingThroughCommand(t *testing.T) {
 		defer func() { tcl.out.W = saved }()
 		return root.Execute()
 	}
-	if err := run("policy", "deny", "kubectl apply"); err != nil {
+	if err := run("policy", "create", "kubectl apply"); err != nil {
 		t.Fatal(err)
 	}
 	asAgent(t, false, true)
-	err := run("policy", "rm", "kubectl apply", "--yes")
+	err := run("policy", "remove", "kubectl apply", "--yes")
 	var oe *out.Error
 	if !errors.As(err, &oe) || oe.Code != "SAFETY_SETTING" {
 		t.Fatalf("denied in the window: %v", err)
 	}
 	n := asAgent(t, true, true)
-	if err := run("policy", "rm", "kubectl apply", "--yes"); err != nil || *n != 1 {
+	if err := run("policy", "remove", "kubectl apply", "--yes"); err != nil || *n != 1 {
 		t.Fatalf("allowed in the window: %v (windows %d)", err, *n)
 	}
 }
@@ -159,20 +159,20 @@ func TestAgentOutputIsMasked(t *testing.T) {
 		defer func() { tcl.out.W = saved }()
 		return root.Execute()
 	}
-	if err := run("secret", "list"); err != nil || tcl.out.Mask {
+	if err := run("credential", "list"); err != nil || tcl.out.Mask {
 		t.Fatalf("a script sees what the server sent (err %v)", err)
 	}
 	n := asAgent(t, false, true)
-	if err := run("secret", "list"); err != nil || !tcl.out.Mask || *n != 0 {
+	if err := run("credential", "list"); err != nil || !tcl.out.Mask || *n != 0 {
 		t.Fatalf("an agent sees [hidden] (err %v, windows %d)", err, *n)
 	}
 	n = asAgent(t, true, true)
-	if err := run("secret", "list", "--reveal"); err != nil || tcl.out.Mask || *n != 1 {
+	if err := run("credential", "list", "--reveal"); err != nil || tcl.out.Mask || *n != 1 {
 		t.Fatalf("--reveal, allowed by the person (err %v, windows %d)", err, *n)
 	}
 	// --dry-run never stands in for the person's yes: a dry run reads too
 	n = asAgent(t, true, true)
-	if err := run("secret", "list", "--dry-run", "--reveal"); err != nil || !tcl.out.Mask || *n != 0 {
+	if err := run("credential", "list", "--dry-run", "--reveal"); err != nil || !tcl.out.Mask || *n != 0 {
 		t.Fatalf("--dry-run --reveal unmasked output (err %v, windows %d)", err, *n)
 	}
 	if b := tcl.out.Blocked(); b == nil || b.Code != "REVEAL_NEEDS_PERSON" {
@@ -180,7 +180,7 @@ func TestAgentOutputIsMasked(t *testing.T) {
 	}
 	// secret get --reveal stays for a person at a terminal: no window
 	n = asAgent(t, true, true)
-	err := run("secret", "get", "nope", "--reveal")
+	err := run("credential", "password", "show", "nope", "--reveal")
 	if *n != 0 || !tcl.out.Mask {
 		t.Fatalf("secret get --reveal opened a window (err %v)", err)
 	}
@@ -260,7 +260,7 @@ func TestGuard(t *testing.T) {
 		{"Bash", map[string]any{"command": "cat /proc/1/environ"}, true},
 		// allowed: komando itself, ordinary work, names without reading
 		{"Bash", map[string]any{"command": "komando fs cat web1 /srv/app/.env"}, false},
-		{"Bash", map[string]any{"command": "komando exec web1 'cat /etc/shadow' --read-only"}, false},
+		{"Bash", map[string]any{"command": "komando host ssh exec web1 'cat /etc/shadow' --read-only"}, false},
 		{"Bash", map[string]any{"command": "set -euo pipefail; go test ./..."}, false},
 		{"Bash", map[string]any{"command": "echo .env >> .gitignore"}, false},
 		{"Bash", map[string]any{"command": "git commit -m 'load .env on start'"}, false},

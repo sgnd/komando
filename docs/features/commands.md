@@ -6,14 +6,14 @@ commands you use often. [All docs](README.md)
 ## Run a command
 
 ```bash
-komando exec web1 -- uptime
+komando host ssh exec web1 -- uptime
 ```
 
 ```text
  10:42:01 up 34 days,  2:11,  1 user,  load average: 0.12, 0.08, 0.05
 ```
 
-Typed alone at your terminal, `komando exec` asks for the server (from your
+Typed alone at your terminal, `komando host ssh exec` asks for the server (from your
 list), then the command.
 
 Everything after `--` is the command. It runs through the server's login
@@ -22,16 +22,16 @@ is refused, because `--dry-run` there would be part of the command and the
 command would really run. When the command on the server takes such a flag
 itself (`apt-get upgrade --dry-run`), give it as one string with `-c`.
 
-The `--` is required: `komando exec web1 apt-get install -y nginx` is a
+The `--` is required: `komando host ssh exec web1 apt-get install -y nginx` is a
 usage error (exit 2) and runs nothing, because komando would read `-y` as
 its own `--yes`. The same holds for every command that hands words to
-another program: `job start`, `docker exec`, `docker compose`, `docker raw`,
+another program: `docker exec`, `docker compose`, `docker raw`,
 `cluster kubernetes exec`, `cluster kubernetes shell`, `cluster kubernetes raw` and `cache redis raw`.
 
 ```bash
-komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
-komando exec tag:prod --sudo -- systemctl is-active nginx
-komando exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando db query
+komando host ssh exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
+komando host ssh exec tag:prod --sudo -- systemctl is-active nginx
+komando host ssh exec db1 --read-only -- 'df -h /var/lib/postgresql'   # SQL itself: komando database postgres query
 ```
 
 | Flag | What it does |
@@ -89,8 +89,8 @@ hurt). First look, with a read-only command: its log file, `ps`,
 or the change it should have made:
 
 ```bash
-komando exec web2 --read-only -- 'tail -20 /var/log/unattended-upgrades/unattended-upgrades.log'
-komando exec web2 --read-only -- 'ps -ef | grep -v grep | grep apt'
+komando host ssh exec web2 --read-only -- 'tail -20 /var/log/unattended-upgrades/unattended-upgrades.log'
+komando host ssh exec web2 --read-only -- 'ps -ef | grep -v grep | grep apt'
 ```
 
 If the server stops answering (a VPN that went away without a word),
@@ -106,9 +106,9 @@ This is different from:
 | the command ran and failed | `COMMAND_FAILED` (per server: its `exit_code`) | 5 |
 | the command ran longer than `--timeout` (komando stopped it) | `TIMEOUT` | 7 |
 
-For long tasks, or any task over a shaky link, use a [job](#long-tasks-jobs)
-instead: it keeps running on the server, keeps its output and exit code
-there, and `job wait` connects again by itself after a drop.
+On one Linux or Unix server a [session](#long-tasks-sessions) keeps running
+on the server, keeps its output and exit code there, and `--attach ID` reads
+on after a drop.
 
 ### Protected servers and `--read-only`
 
@@ -147,7 +147,7 @@ subcommand it has not heard of, `kubectl --kubeconfig` and other client
 settings, `sudo -E`, unquoted braces (`{a,b}`), `${x@P}` and other
 expansions bash evaluates, `let`, `printf -v`, `test -v`, `set -x`,
 `psql` and `mysql` (nothing holds them to a read-only transaction; use
-`komando db query`, which is), and setting a variable with an upper-case
+`komando database KIND query`, which is), and setting a variable with an upper-case
 name (`PATH`, `PS4`, `TAR_OPTIONS`, `KUBECONFIG` ...: programs read such
 names as settings or code) by `NAME=`, `export`, `read`, `for` or `-e`.
 Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
@@ -221,12 +221,12 @@ Help shows one name per command. Plurals and the words people often type
 
 ## Run a local script
 
-`komando exec TARGET --script FILE` sends a script file from this computer
+`komando host ssh exec TARGET --script FILE` sends a script file from this computer
 to the servers and runs it. Nothing is left on the server's disk.
 
 ```bash
-komando exec @web --script ./deploy.sh --arg v1.2.3 --sudo
-komando exec db1 --script ./backup.py --interpreter python3
+komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+komando host ssh exec db1 --script ./backup.py --interpreter python3
 ```
 
 The interpreter comes from the script's `#!` line, or from `--interpreter`
@@ -238,72 +238,62 @@ options is the interpreter, with its arguments. A script that holds a value
 komando hid (`[hidden]`) is refused (`HIDDEN_VALUE`), as is such a file
 given to `exec --stdin-file`.
 
-## Long tasks (jobs)
+## Long tasks (sessions)
 
-Anything slow (backups, upgrades, builds) should run as a *job*. A job keeps
-running on the server even if you disconnect, and `job start` returns at
-once with a job ID per server.
-
-```bash
-komando job start web1 -- 'tar czf /backup/www.tgz /var/www'
-```
-
-```text
-ID                     HOST  PID    STATE
-j1108-193010-9f8e7d6c  web1  48213  started
-```
-
-Typed alone, `komando job start` asks for the server, then the command.
+On one Linux or Unix server (no `--pty`), `exec` runs the command in a
+*session* on the server. A session keeps running if you disconnect, and keeps
+its output and exit code there. `exec` prints the session ID first (the first
+JSON line), waits `--wait` (default 1 minute) and returns the output and the
+exit code. When the run goes on, it exits 7 (`SESSION_WAIT_TIMEOUT`) with
+`next_from`, the byte to read on from.
 
 ```bash
-komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
-komando job start @web --script ./migrate.sh --arg v2   # a script from this computer
-komando job start db1 --sudo-user postgres --stdin-file ./fix.sql -- 'psql app'   # as another user, with input
-komando job start web1 --timeout 2h -- ./reindex.sh   # stopped if it runs longer than 2 hours
-komando job status JOB               # running, exited or lost; exit code; last lines
-komando job logs JOB                 # output so far
-komando job wait JOB --timeout 30m   # wait until it ends
-komando job wait JOB1 JOB2        # wait for several (one per server)
-komando job kill JOB                 # stop it (TERM; --signal KILL for a hard stop)
-komando job list                        # every job; --refresh asks the servers
-komando job rm JOB                   # forget it and delete its remote logs
+komando host ssh exec web1 -- 'tar czf /backup/www.tgz /var/www'
+komando host ssh exec web1 --sudo --wait 10m -- 'apt-get update && apt-get -y upgrade'
+komando host ssh exec db1 --script ./migrate.sh --arg v2           # a script from this computer
+komando host ssh exec db1 --sudo-user postgres --stdin-file ./fix.sql -- 'psql app'
+komando host ssh exec web1 --log-max 100MiB -- ./noisy.sh          # the server keeps at most this much output
+komando host ssh exec web1 --attach ID                             # read the rest, wait --wait for the end
+komando host ssh exec web1 --attach ID --offset 4096               # only what is new: next_from of the last read
+komando host ssh exec web1 --attach ID1,ID2                        # several sessions on the same server
+komando host ssh exec web1 --attach ID --stop                      # stop it (TERM; --signal KILL for a hard stop)
+komando host ssh exec web1 --attach ID --remove                    # delete a finished session's folder
 ```
 
 Good to know:
 
-- `job logs --offset N` reads only what is new: pass back the `next_offset`
-  from the previous call. `-n/--limit N` gives the last lines instead.
-- `job wait` waits up to `--timeout` (default 10m). When the time is up, the
-  job keeps running and komando exits 7 (`WAIT_TIMEOUT`). Otherwise the exit
-  code follows the job's. If the connection drops while it waits, it
-  connects again and keeps waiting.
-- `job wait` with several IDs waits for all of them and gives one result per
-  job (`data.jobs`) and a summary; the exit code is the worst one.
-- `job start --script FILE` runs a script from this computer as the job,
-  with `--arg` and `--interpreter` as in `exec --script`. Its copy waits in
-  the job's private folder and is removed the moment it is sent to the
-  interpreter.
-- `job start --stdin-file FILE` gives the command FILE as its input (`-`
-  for komando's own stdin), and `--sudo-user USER` runs it as USER with
-  `sudo -u`, as in `exec`. The job's `--env` values and its input go to the
-  command through a pipe, so a command run as another user gets them too.
-- `job start --timeout 2h` stops the job after 2 hours, as `job kill`
-  does; `job status` then says `killed` with `timed_out: true`, and
-  `job wait` names the timeout. Without `--timeout` a job has no time
-  limit. (`job start` has no `--pty`: a job runs without a terminal.)
-- When `exec` times out or loses its connection, its hint is the
-  `komando job start ...` line that runs the same thing as a job.
-- `job start --sudo` uses the server's `--sudo-ref` password when it has
-  one. The password is sent as input (never on a command line) and waits
-  in a private file only the job's user can read. The job first asks sudo
-  whether it needs a password: when it does not, the file is deleted
-  unread; when it does, sudo reads it before the command starts. Either
-  way the command can never read it.
-- `job kill` on a job that already ended does nothing. A job started with
-  `--sudo` needs `job kill --sudo`.
-- `job rm` refuses a running job: kill it first, or add `--kill`.
-  `--keep-remote` keeps the log folder on the server.
-- `job list --target @web` shows only jobs on those servers.
+- `--attach` works on one server, the one the exec that started the session
+  named.
+- A session that ended and was read to its end is removed by the one who
+  started it; the others are swept after 7 days.
+- `--stop` and `--remove` are changes: a protected server asks first, and a
+  read-only key may not use them, nor `--read-only` (`USAGE`). `--stop` works only from the computer that
+  started the run (`SESSION_RECORD_MISSING` elsewhere); a run started with
+  `--sudo` is stopped through sudo as the same user. `--remove` refuses a
+  running session (`SESSION_BUSY`): stop it first.
+- A stopped run keeps its output up to the stop, and `--attach ID` says it
+  was stopped and with which signal. `--signal KILL` gives the run no
+  ending: output the server still held can be lost. `--signal` takes TERM
+  or KILL: a run in a session ignores INT and QUIT (it runs in the
+  background) and HUP (nohup). A run that traps or ignores TERM and is
+  still running 5 seconds after the stop gives `SESSION_STILL_BUSY`:
+  stop it with `--signal KILL`.
+- The session merges stdout and stderr into one output: a single-server
+  `exec` result has no separate stderr.
+- `--sudo` uses the server's `--sudo-credential` password when it has one. The
+  password is sent as input (never on a command line) and waits in a private
+  file only the session's user can read. The run first asks sudo whether it
+  needs a password: when it does not, the file is deleted unread; when it
+  does, sudo reads it before the command starts. Either way the command can
+  never read it.
+- The session's folder is `~/.komando/sessions/ID` on the server, owned by
+  the login user (folder 0700, files 0600). A folder that is a link, or that
+  others can write, is refused (`SESSION_FOLDER_DENIED`).
+- A run on several servers (`@web`), with `--pty`, or on a Windows server is
+  not in a session: it ends with the connection. Run it once per server, or
+  without `--pty`, to get one.
+- When the connection drops (`CONNECTION_LOST`), a run in a session goes on:
+  read it with `--attach ID`, never run it again.
 
 ## Recipes (ready-made and saved commands)
 
@@ -312,13 +302,13 @@ A recipe is a saved command. komando comes with ready-made ones
 can save your own next to them.
 
 ```bash
-komando recipe list                                   # built-in and saved
-komando recipe list --category saved                  # only your own
-komando recipe add restart-app 'systemctl restart {{app}}' --needs-sudo
-komando recipe add disk-of 'df -h {{path=/}}' --read-only --desc 'Disk use of a path'
-komando recipe run restart-app @web --var app=shop
-komando recipe run disk-of web1 --var path=/srv
-komando recipe rm disk-of
+komando snippet list                                  # built-in and saved
+komando snippet list --category saved                 # only your own
+komando snippet create restart-app 'systemctl restart {{app}}' --needs-sudo
+komando snippet create disk-of 'df -h {{path=/}}' --read-only --desc 'Disk use of a path'
+komando snippet exec restart-app @web --var app=shop
+komando snippet exec disk-of web1 --var path=/srv
+komando snippet remove disk-of
 ```
 
 - `{{app}}` is a blank you fill in with `--var app=...`. `{{path=/}}` has a
@@ -334,7 +324,7 @@ komando recipe rm disk-of
   your own with `--overwrite`.
 - A `--var` the recipe has no blank for is refused (`UNKNOWN_VAR`), so a typo
   never runs the recipe with its default.
-- `recipe run --no-sudo` skips sudo even when the recipe asks for it.
+- `snippet exec --no-sudo` skips sudo even when the recipe asks for it.
 
 ## At your terminal: komando asks for what is missing
 
@@ -353,7 +343,7 @@ Next time: komando logs web1
 ```
 
 - It asks only what the command needs: missing arguments, required flags,
-  and the few values a command is useless without (the SQL of `db query`,
+  and the few values a command is useless without (the SQL of `database KIND query`,
   the command of `exec`). Labels are the real names: `CONN (database):`,
   `TARGET:`, `--old:`. `?` explains the question; Enter takes the default
   in brackets.
@@ -367,7 +357,7 @@ Next time: komando logs web1
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
   usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
-- `komando host add` (or `conn add`, `vpn KIND add`, `db add`, `cache redis add`,
+- `komando host ssh add` (or `conn add`, `vpn KIND add`, `database KIND add`, `cache redis add`,
   `queue kafka add`, `storage s3 add`, `cluster kubernetes add`, `registry oci add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
   parts of the URL, the user, the port, how you log in, and whether it is
@@ -382,8 +372,8 @@ Next time: komando logs web1
   next, on one line on stderr with at most three commands (`Next: komando
   db info prod-db`). Every add, edit, rename and rm has one. Nothing "next"
   is printed on stdout; scripts and agents read `data.next`. `komando host
-  show web1` (`conn show`, `vpn KIND show`, `group list GROUP`, `key show`,
-  `job status`, `secret show`, `config get`) ends with the commands for
+  show web1` (`conn show`, `vpn KIND show`, `group list GROUP`, `credential key show`,
+  `credential password show`, `config get`) ends with the commands for
   that item.
 
 `komando` alone shows the commands by group, START first. A command typed
@@ -394,21 +384,21 @@ output: they get the usual `USAGE` error that names what is missing.
 ## Interactive shell (for people)
 
 ```bash
-komando shell web1             # log in, with a status line first
-komando shell web1 --dry-run   # shows the server, address, user and --via path; connects nothing
+komando host ssh shell web1             # log in, with a status line first
+komando host ssh shell web1 --dry-run   # shows the server, address, user and --via path; connects nothing
 ```
 
 `shell` logs you in to the server, through its `--via` path (VPN and
 bastions) when it has one. Inside a shell you can type anything, so on a
-protected server komando asks `[y/N]` first, as `db shell` does on a
+protected server komando asks `[y/N]` first, as `database KIND shell` does on a
 protected conn. A shell needs a person at a terminal: agents and scripts
-get `NEEDS_TERMINAL` and use `exec` or `job` instead.
+get `NEEDS_TERMINAL` and use `exec` instead.
 
 ### Where am I? (status lines)
 
 When you type a command yourself, komando prints one line saying where you
 are working, before it connects. It does this for the commands you stay
-inside: `shell`, `db shell`, `cluster kubernetes shell`, `cluster kubernetes tunnel start`,
+inside: `shell`, `database KIND shell`, `cluster kubernetes shell`, `cluster kubernetes tunnel start`,
 `logs --follow` and `cluster kubernetes raw -- logs -f`.
 
 ```text
@@ -427,7 +417,7 @@ komando: following logs on web1, web2 (Ctrl-C stops)
   (errors, hints, warnings) in ASCII: `+` for ✓, `x` for ✗, `*` for ●, `->`
   for →, `-` for ·. A result (a file, a row, a log line) is always shown as
   it is.
-- When a `shell` or `db shell` ends, one more line says how:
+- When a `shell` or `database KIND shell` ends, one more line says how:
   `komando: left web1 (exit 0, 12m)` or
   `komando: connection to web1 lost after 3m`.
 - When a command connects a VPN by itself, komando says that the VPN stays
@@ -440,7 +430,7 @@ scripts and pipes never get them, and the JSON output does not change.
 
 Some things keep running after the command that started them: a VPN (from
 `vpn KIND start`, or connected by a command), a server login kept by
-`komando login`, a tunnel, or a job on a server. `komando status` lists
+`komando login`, a tunnel, or an exec session on a server. `komando status` lists
 them all:
 
 ```bash
@@ -453,17 +443,18 @@ vpn     office                 used 3m ago, closes in 26m if unused             
 login   web1                   kept for 7h more (`komando logout web1` ends it)   1h
 aws     dev,ops                SSO login, kept for 3h more (`komando logout aws --profile dev` ends it)   1h
 tunnel  t1108-195255-ab12cd34  127.0.0.1:5433 → prod-db                            2h
-job     j1108-193010-9f8e7d6c  web1: tar czf /backup/www.tgz /var/www             15m
-jobs run on their servers: `komando job list --refresh` shows which still run
+exec    mfrggzdfmztwq2lknnwg23tpobyxe43uovwgy3tjnrswy5dxnzsxs  web1: tar czf /backup/www.tgz /var/www             15m
+exec sessions run on their servers: `komando host ssh exec TARGET --attach ID` shows how one ended or reads on
 ```
 
 With nothing running it says
-`nothing running: no VPN sessions, server logins, tunnels or jobs`.
+`nothing running: no VPN sessions, server logins, tunnels or exec sessions`.
 
 - It contacts nothing, so it is quick and works offline.
-- A job stays on the list until `komando job rm`. Whether it still runs is
-  known only on its server, which `komando job list --refresh` asks.
-- Agents get the same as JSON (`vpns`, `logins`, `tunnels`, `jobs`).
+- An exec session stays on the list until `komando host ssh exec TARGET --attach ID
+  --remove` (or a read to its end by the one who started it) removes it.
+  Whether it still runs is known only on its server, which `--attach ID` asks.
+- Agents get the same as JSON (`vpns`, `logins`, `tunnels`, `exec_sessions`).
 - An idle VPN closes after `vpn_idle` (see [Settings](settings.md)).
 
 ### Show it in your shell prompt
@@ -505,7 +496,7 @@ crashed a moment ago can still show until the next komando command.
 - The `--` before a command's words is required for every command that
   hands words to another program; komando's own flags go before it.
 - Output longer than `--max-output` (256 KiB per stream) is cut.
-- `--timeout` is per server (default 5m); a job is the way past it.
+- `--timeout` is per server (default 5m); a session is the way past it (it goes on after `--wait`).
 - `--read-only` runs only commands komando knows only read, on every
   target; script arguments (`--arg`, words after `bash -s --`)
   are refused under it.
@@ -516,8 +507,8 @@ crashed a moment ago can still show until the next komando command.
 - `shell` and the questions for missing arguments need a person at a
   terminal: nothing is asked of an AI agent, a script, a pipe, a CI job
   (`CI` set), a dumb terminal (`TERM=dumb`) or JSON output.
-- `komando status` lists jobs from komando's own records; only
-  `job list --refresh` asks the servers.
+- `komando status` lists exec sessions from komando's own records; only
+  `host ssh exec TARGET --attach ID` asks the server.
 
 ## Troubleshooting
 
@@ -525,14 +516,14 @@ crashed a moment ago can still show until the next komando command.
 |------------|---------------|------------|
 | `USAGE` | an argument is missing, or the command's words were not after `--` (exit 2) | read the example in the error; put the command after `--` |
 | `COMMAND_FAILED` | the command ran and failed on a server (exit 5) | read that server's output and `exit_code` |
-| `CONNECTION_LOST` | the link broke; the command may still run, or may have finished (exit 4) | look first with a read-only command; use a job over a shaky link |
+| `CONNECTION_LOST` | the link broke; the command may still run, or may have finished (exit 4) | look first with a read-only command; a run in a session goes on: `host ssh exec --attach ID` reads it |
 | `CONNECT_TIMEOUT` | the server did not answer within `--connect-timeout` (exit 7) | check the address and the `--via` path |
-| `TIMEOUT` | the command ran longer than `--timeout`; komando stopped it (exit 7) | raise `--timeout`, or run it as a job |
+| `TIMEOUT` | the command ran longer than `--timeout`; komando stopped it (exit 7) | raise `--timeout`, or run it in a session (it goes on after `--wait`) |
 | `READ_ONLY_VIOLATION` | `--read-only`, but the command changes something or komando cannot follow it (exit 6) | drop `--read-only`; a protected server then asks first |
 | `HIDDEN_VALUE` | a script or `--stdin-file` holds a value komando hid (`[hidden]`) | put `credential:NAME` in `-e` instead |
-| `WAIT_TIMEOUT` | `job wait` ran out of time; the job still runs (exit 7) | `komando job wait JOB` again, or `komando job logs JOB --limit 50` |
-| `JOB_RUNNING` | `job rm` on a running job | `komando job kill JOB` first, or add `--kill` |
-| `JOB_NOT_FOUND` | no job with that ID | see them with `komando job list` |
+| `SESSION_WAIT_TIMEOUT` | the run in a session is still going after `--wait` (exit 7) | `komando host ssh exec TARGET --attach ID --offset N` reads on |
+| `SESSION_BUSY` | `--remove` on a running session | `--attach ID --stop` first |
+| `SESSION_NOT_FOUND` | no session with that ID | the ID is the first JSON line of the exec; `komando audit` shows it |
 | `OPTION_LIKE_VAR` | a recipe `--var` value starts with `-` | write a path like that as `./-name` |
-| `UNKNOWN_VAR` | the recipe has no blank of that name | check its blanks with `komando recipe list` |
-| `NEEDS_TERMINAL` | `shell` without a person at a terminal | use `komando exec` or `komando job start` |
+| `UNKNOWN_VAR` | the recipe has no blank of that name | check its blanks with `komando snippet list` |
+| `NEEDS_TERMINAL` | `shell` without a person at a terminal | use `komando host ssh exec` |

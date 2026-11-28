@@ -30,7 +30,7 @@ func TestMacDeviceOwner(t *testing.T) {
 		resetAccessibilityTrust()
 		resetApproval()
 	})
-	tcl.args = []string{"komando", "host", "rm", "web-1.example.test", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "remove", "web-1.example.test", "--yes"}
 	desktopOS, askOnScreen = "darwin", askMacWindow
 	resetAccessibilityTrust()
 	var seen approvalView
@@ -208,7 +208,7 @@ func TestMacAXTrustedOwnerCheck(t *testing.T) {
 		resetOwnerCheck()
 		resetApproval()
 	})
-	tcl.args = []string{"komando", "host", "rm", "web-1.example.test", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "remove", "web-1.example.test", "--yes"}
 	desktopOS, askOnScreen = "darwin", askMacWindow
 	startedFrom = func(*call) string { return "" }
 	axTrustOutput = func(context.Context) ([]byte, error) { return []byte("true\n"), nil }

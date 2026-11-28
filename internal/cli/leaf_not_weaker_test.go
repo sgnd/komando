@@ -2,6 +2,7 @@ package cli
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/capability"
@@ -16,13 +17,16 @@ import (
 // notWeakerExceptions are "leaf key | today ID" pairs with the reason the
 // leaf may stay below today's highest row.
 var notWeakerExceptions = map[string]string{
-	"host winrm add | host.add":  proxyOnlySSH,
-	"host telnet add | host.add": proxyOnlySSH,
-	"host serial add | host.add": proxyOnlySSH,
+	"host winrm add | host.winrm.add": proxyOnlySSH,
+	// today's host add is safety only with --proxy-command (risk_tiers_pinned:
+	// "host ssh add ... --proxy-command nc"); hostSettings gives it to ssh alone
+	"host winrm add | host.add":  proxyOnlySSH + " (host winrm add takes no --proxy-command, --key, --identity or --sudo-credential)",
+	"host telnet add | host.add": proxyOnlySSH + " (not built: state New, no options of its own yet)",
+	"host serial add | host.add": proxyOnlySSH + " (not built: state New, no options of its own yet)",
 }
 
-// proxyOnlySSH: host.add's rows are about --proxy-command, an OpenSSH
-// ProxyCommand (host.go); only host ssh add takes it, and keeps the rows.
+// proxyOnlySSH: the rows of today's host add are about --proxy-command, an
+// OpenSSH ProxyCommand; only host ssh add takes it, and keeps the rows.
 const proxyOnlySSH = "the rows are about --proxy-command, which carries only an SSH connection; this provider has no such option"
 
 func TestTierScalesMatch(t *testing.T) {
@@ -84,8 +88,13 @@ func leafTier(k capability.Key) capability.Tier {
 
 func exceptionUsed(pair string) bool {
 	for _, l := range capability.All() {
-		for _, id := range slices.Concat(l.Today, l.Carries) {
-			if l.Key.String()+" | "+id == pair && int(leafTier(l.Key)) < int(todayTier(cmdKeys[id])) {
+		for _, id := range slices.Concat(l.Today, l.Carries, []string{strings.Join(l.Key.Path(), ".")}) {
+			key, ok := cmdKeys[id]
+			if !ok { // moved: today's key, as TestLeafFloorNotWeaker reads it
+				k := capability.TodayKeys()[id]
+				key = safetyKey{k.Type, k.Area, k.Verb}
+			}
+			if l.Key.String()+" | "+id == pair && int(leafTier(l.Key)) < int(todayTier(key)) {
 				return true
 			}
 		}

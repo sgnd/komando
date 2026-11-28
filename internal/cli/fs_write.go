@@ -229,7 +229,7 @@ func sudoBackupScript(qtmp string, now time.Time) string {
 }
 
 func backupFailed(p, stderr string) error {
-	return out.Errf(out.ExitRemote, "BACKUP_FAILED", "check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup",
+	return out.Errf(out.ExitRemote, "BACKUP_FAILED", "check free space with `komando host ssh exec TARGET --read-only -- df -h`, or run without --backup",
 		"could not make a backup of %s: %s; the file was not changed", p, strings.TrimSpace(stderr))
 }
 
@@ -386,7 +386,7 @@ func fsWriteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			h, err := oneServer(cl, st, args[0], "to put one file on many servers use `komando upload "+args[0]+" FILE PATH`")
+			h, err := oneServer(cl, st, args[0], "to put one file on many servers use `komando copy FILE "+args[0]+":PATH`")
 			if err != nil {
 				return err
 			} else if h.Windows() {

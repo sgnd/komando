@@ -46,7 +46,7 @@ check "registry oci image prune deleted v2 and kept the rest" "['keepme', 'v1', 
 q $K conn add regtls 'registry://e2e@registry.lab.test' --via bastion
 check "registry: a private CA is refused by default" REGISTRY_TLS "$($K registry oci image list regtls | jget 'd["error"]["code"]' || true)"
 check "registry: the refusal points at ca= first" True "$($K registry oci image list regtls | jget '"?ca=credential:NAME" in d["error"]["hint"]' || true)"
-docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T regtls cat /certs/ca.crt | $K secret set regtls-ca >/dev/null
+docker compose -p "$PROJECT" -f "$E2E/compose.yml" exec -T regtls cat /certs/ca.crt | $K credential token add regtls-ca >/dev/null
 q $K conn edit regtls --url 'registry://e2e@registry.lab.test?ca=credential:regtls-ca'
 check "registry: ?ca=credential:NAME trusts the private CA (name looked up on bastion)" True "$($K registry oci image list regtls | jget 'd["ok"]')"
 check "registry: conn test logs in with ca=" login "$($K conn test regtls | jget 'd["data"]["results"][0]["detail"]["check"]')"

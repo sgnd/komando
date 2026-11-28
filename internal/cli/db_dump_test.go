@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/pflag"
+
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -30,7 +33,7 @@ func testPGArchive(t *testing.T) string {
 // runs it itself, and the file is checked first, also in a dry run.
 func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "bastion", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "bastion", "deploy@10.0.0.1")
 	mustRun(t, "conn", "add", "pg", "postgres://app@10.0.0.2/app", "--via", "bastion")
 	mustRun(t, "conn", "add", "my", "mysql://app@10.0.0.3:3306/app", "--via", "bastion")
 	dir := t.TempDir()
@@ -42,8 +45,8 @@ func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 		return p
 	}
 	plain := write("ok.sql", "CREATE TABLE t (id int);\n")
-	for _, conn := range []string{"pg", "my"} {
-		d := mustRun(t, "db", "restore", conn, "--from", plain, "--dry-run")
+	for conn, kind := range map[string]string{"pg": "postgres", "my": "mysql"} {
+		d := mustRun(t, "database", kind, "restore", conn, "--from", plain, "--dry-run")
 		if tool, _ := d["tool"].([]any); len(tool) != 1 || tool[0] != "komando" {
 			t.Errorf("%s: plain SQL restore uses %v, want komando", conn, d["tool"])
 		}
@@ -53,21 +56,21 @@ func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	}
 	// what the SQL does beyond writing data is named in the stop
 	program := write("program.sql", "CREATE TABLE t (id int);\nCOPY t FROM PROGRAM 'id';\n")
-	d := mustRun(t, "db", "restore", "pg", "--from", program, "--dry-run")
+	d := mustRun(t, "database", "postgres", "restore", "pg", "--from", program, "--dry-run")
 	blocked := fmt.Sprint(d["_meta"].(map[string]any)["would_be_blocked"])
 	if !strings.Contains(blocked, "db-restore,sql-program") || !strings.Contains(blocked, "(line 2)") {
 		t.Errorf("COPY ... PROGRAM: would_be_blocked %s, want db-restore,sql-program with its line", blocked)
 	}
 	hidden := write("bad.sql", "SELECT E'\\'';\n\\! touch /tmp/pwned\nSELECT 1;\n")
-	if _, e := invRun(t, "db", "restore", "pg", "--from", hidden, "--dry-run"); e == nil || e.Code != "UNSAFE_BACKUP" {
+	if _, e := invRun(t, "database", "postgres", "restore", "pg", "--from", hidden, "--dry-run"); e == nil || e.Code != "UNSAFE_BACKUP" {
 		t.Errorf("hidden \\! after an E-string: want UNSAFE_BACKUP, got %v", e)
 	}
 	connect := write("all.sql", "CREATE DATABASE app;\n\\connect app\nSELECT 1;\n")
-	if _, e := invRun(t, "db", "restore", "pg", "--from", connect, "--dry-run"); e == nil || e.Code != "RESTORE_UNSUPPORTED" {
+	if _, e := invRun(t, "database", "postgres", "restore", "pg", "--from", connect, "--dry-run"); e == nil || e.Code != "RESTORE_UNSUPPORTED" {
 		t.Errorf("\\connect: want RESTORE_UNSUPPORTED, got %v", e)
 	}
 	archive := write("a.dump", testPGArchive(t))
-	d = mustRun(t, "db", "restore", "pg", "--from", archive, "--dry-run")
+	d = mustRun(t, "database", "postgres", "restore", "pg", "--from", archive, "--dry-run")
 	if tool, _ := d["tool"].([]any); len(tool) == 0 || tool[0] != "pg_restore" {
 		t.Errorf("archive restore uses %v, want pg_restore", d["tool"])
 	}
@@ -79,7 +82,7 @@ func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	grant := "GRANT SELECT ON TABLE public.t TO helper;"
 	evil := "COPY public.t TO PROGRAM 'id';" + strings.Repeat(" ", len(grant)-len("COPY public.t TO PROGRAM 'id';"))
 	tampered := write("evil.dump", strings.Replace(string(real), grant, evil, 1))
-	d = mustRun(t, "db", "restore", "pg", "--from", tampered, "--dry-run")
+	d = mustRun(t, "database", "postgres", "restore", "pg", "--from", tampered, "--dry-run")
 	if blocked := fmt.Sprint(d["_meta"].(map[string]any)["would_be_blocked"]); !strings.Contains(blocked, "sql-program") {
 		t.Errorf("COPY ... PROGRAM inside an archive: would_be_blocked %s, want sql-program", blocked)
 	}
@@ -88,7 +91,7 @@ func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	zw := gzip.NewWriter(&gz)
 	zw.Write(real)
 	zw.Close()
-	if _, e := invRun(t, "db", "restore", "pg", "--from", write("a.dump.gz", gz.String()), "--dry-run"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "archive") {
+	if _, e := invRun(t, "database", "postgres", "restore", "pg", "--from", write("a.dump.gz", gz.String()), "--dry-run"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "archive") {
 		t.Errorf("a gzipped archive: %+v", e)
 	}
 }
@@ -111,11 +114,11 @@ func TestDumpTableIsNotAnOption(t *testing.T) {
 	}
 	invHome(t)
 	mustRun(t, "conn", "add", "my", "mysql://app@10.0.0.3:3306/app")
-	if _, e := invRun(t, "db", "dump", "my", "--to", filepath.Join(t.TempDir(), "x.sql"), "--table=--result-file=/tmp/x", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := invRun(t, "database", "mysql", "backup", "my", "--to", filepath.Join(t.TempDir(), "x.sql"), "--table=--result-file=/tmp/x", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("db dump --table=--result-file: want a usage error, got %v", e)
 	}
 	mustRun(t, "conn", "add", "dash", "mysql://app@10.0.0.3:3306/--result-file=x")
-	if _, e := invRun(t, "db", "dump", "dash", "--to", filepath.Join(t.TempDir(), "y.sql"), "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := invRun(t, "database", "mysql", "backup", "dash", "--to", filepath.Join(t.TempDir(), "y.sql"), "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("database name starting with -: want a usage error, got %v", e)
 	}
 }
@@ -136,10 +139,10 @@ func TestDumpOnHost(t *testing.T) {
 	}
 
 	// no server to run pg_dump on: custom is refused, with --on in the hint
-	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--dry-run"); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
+	if _, e := run("database", "postgres", "backup", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--dry-run"); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
 		t.Fatalf("custom without a server: %+v", e)
 	}
-	d, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--run-on", "dev", "--dry-run")
+	d, e := run("database", "postgres", "backup", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--run-on", "dev", "--dry-run")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -151,13 +154,13 @@ func TestDumpOnHost(t *testing.T) {
 		t.Error("a dry run connected to the server")
 	}
 	// only inventory servers: the password goes there
-	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "b.dump"), "--format", "custom", "--run-on", "deploy@127.0.0.1", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := run("database", "postgres", "backup", "pg", "--to", filepath.Join(dir, "b.dump"), "--format", "custom", "--run-on", "deploy@127.0.0.1", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("ad-hoc --on: want a usage error, got %+v", e)
 	}
-	if _, e := run("db", "dump", "lite", "--to", filepath.Join(dir, "c.db"), "--run-on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := run("database", "sqlite", "backup", "lite", "--to", filepath.Join(dir, "c.db"), "--run-on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("sqlite --on: want a usage error, got %+v", e)
 	}
-	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "d.sql"), "--run-on", "dev", "--table=--file=/tmp/x", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := run("database", "postgres", "backup", "pg", "--to", filepath.Join(dir, "d.sql"), "--run-on", "dev", "--table=--file=/tmp/x", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("--table option: want a usage error, got %+v", e)
 	}
 
@@ -165,7 +168,7 @@ func TestDumpOnHost(t *testing.T) {
 	arch := testPGArchive(t)
 	srv.reply(arch)
 	to := filepath.Join(dir, "prod.dump")
-	if _, e = run("db", "dump", "pg", "--to", to, "--format", "custom", "--run-on", "dev"); e != nil {
+	if _, e = run("database", "postgres", "backup", "pg", "--to", to, "--format", "custom", "--run-on", "dev"); e != nil {
 		t.Fatal(e)
 	}
 	if b, _ := os.ReadFile(to); string(b) != arch {
@@ -191,7 +194,7 @@ func TestDumpOnHost(t *testing.T) {
 	}
 
 	// restore: an archive goes to pg_restore on --on, behind the same gate
-	d, e = run("db", "restore", "pg", "--from", to, "--run-on", "dev", "--dry-run")
+	d, e = run("database", "postgres", "restore", "pg", "--from", to, "--run-on", "dev", "--dry-run")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -201,14 +204,14 @@ func TestDumpOnHost(t *testing.T) {
 	if blocked := fmt.Sprint(d["_meta"].(map[string]any)["would_be_blocked"]); !strings.Contains(blocked, "db-restore") {
 		t.Errorf("restore: would_be_blocked %s", blocked)
 	}
-	if _, e = run("db", "restore", "pg", "--from", to, "--run-on", "dev"); e == nil || e.Code != "POLICY_BLOCKED" {
+	if _, e = run("database", "postgres", "restore", "pg", "--from", to, "--run-on", "dev"); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("restore without --allow-dangerous: %+v", e)
 	}
-	if _, e = run("db", "restore", "pg", "--from", to); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
+	if _, e = run("database", "postgres", "restore", "pg", "--from", to); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
 		t.Errorf("archive restore without a server: %+v", e)
 	}
 	srv.reply()
-	if _, e = run("db", "restore", "pg", "--from", to, "--run-on", "dev", "--allow-dangerous"); e != nil {
+	if _, e = run("database", "postgres", "restore", "pg", "--from", to, "--run-on", "dev", "--allow-dangerous"); e != nil {
 		t.Fatal(e)
 	}
 	ex = srv.take()
@@ -221,7 +224,7 @@ func TestDumpOnHost(t *testing.T) {
 	// plain SQL is never sent to psql: --on does not apply
 	plain := filepath.Join(dir, "p.sql")
 	_ = os.WriteFile(plain, []byte("SELECT 1;\n"), 0o600)
-	if _, e = run("db", "restore", "pg", "--from", plain, "--run-on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e = run("database", "postgres", "restore", "pg", "--from", plain, "--run-on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("plain SQL with --on: want a usage error, got %+v", e)
 	}
 }
@@ -241,7 +244,7 @@ func TestToolScriptLowPriority(t *testing.T) {
 // and a custom archive komando cannot read is refused, not approved unread.
 func TestRestoreOtherPGArchives(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "dev", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "dev", "deploy@10.0.0.1")
 	mustRun(t, "conn", "add", "pg", "postgres://app@10.0.0.2/app")
 	dir := t.TempDir()
 	var tb bytes.Buffer
@@ -272,9 +275,89 @@ func TestRestoreOtherPGArchives(t *testing.T) {
 		{generic, "USAGE", "is a tar file"},
 		{bad, "BAD_FILE", "cannot read this pg_dump archive"},
 	} {
-		_, e := invRun(t, "db", "restore", "pg", "--from", c.from, "--run-on", "dev", "--dry-run")
+		_, e := invRun(t, "database", "postgres", "restore", "pg", "--from", c.from, "--run-on", "dev", "--dry-run")
 		if e == nil || e.Code != c.code || !strings.Contains(e.Message, c.want) {
 			t.Errorf("%s: want %s %q, got %+v", filepath.Base(c.from), c.code, c.want, e)
 		}
+	}
+}
+
+// The database leaves run today's db query, dump, restore and shell
+// (databaseBodies): each option a leaf names is a flag of its body, with
+// the default the body has, and each flag of a body is an option of the
+// leaf of at least one provider, so the cut loses no flag.
+func TestDatabaseBodyDefaultsMatchTable(t *testing.T) {
+	named := map[string]map[string]bool{} // verb -> options some provider's leaf names
+	leaves := 0
+	for _, l := range capability.All() {
+		body := databaseBodies[l.Verb]
+		if l.Type != "database" || l.State != capability.Built || body == nil {
+			continue
+		}
+		leaves++
+		b := body()
+		if named[l.Verb] == nil {
+			named[l.Verb] = map[string]bool{}
+		}
+		for _, o := range l.Options {
+			named[l.Verb][o.Name] = true
+			f := b.Flags().Lookup(o.Name)
+			switch {
+			case f == nil:
+				t.Errorf("%s: --%s is not a flag of the body", l.Key, o.Name)
+			case o.Default != "" && f.DefValue != o.Default:
+				t.Errorf("%s: --%s defaults to %q in the table, %q in the body", l.Key, o.Name, o.Default, f.DefValue)
+			case o.Short != f.Shorthand:
+				t.Errorf("%s: --%s is -%s in the table, -%s in the body", l.Key, o.Name, o.Short, f.Shorthand)
+			}
+		}
+	}
+	if leaves != 22 { // 9 query, 3 backup, 2 restore, 8 shell
+		t.Fatalf("%d database leaves with a body, want 22", leaves)
+	}
+	for verb, body := range databaseBodies {
+		body().Flags().VisitAll(func(f *pflag.Flag) {
+			if !named[verb][f.Name] {
+				t.Errorf("database KIND %s: no leaf has --%s of today's body", verb, f.Name)
+			}
+		})
+	}
+}
+
+// A selector given to a database path picks one database, and one of
+// another provider is refused with the path that fits it, as a name is:
+// a group holding it, and label:k=v.
+func TestDatabaseSelectorWrongKind(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "my", "mysql://app@10.0.0.3:3306/app", "--label", "env=shop")
+	mustRun(t, "group", "create", "g", "my")
+	cases := 0
+	for _, sel := range []string{"my", "@g", "label:env=shop"} {
+		for _, verb := range [][]string{
+			{"query", "select 1"},
+			{"backup", "--to", filepath.Join(t.TempDir(), "x.sql")},
+			{"restore", "--from", filepath.Join(t.TempDir(), "x.sql")},
+			{"shell"},
+		} {
+			args := append([]string{"database", "postgres", verb[0], sel}, verb[1:]...)
+			if e := wantCode(t, "WRONG_KIND", args...); e != nil && !strings.Contains(e.Hint, "komando database mysql "+verb[0]) {
+				t.Errorf("%v: hint %q", args, e.Hint)
+			}
+			cases++
+		}
+	}
+	if cases != 12 {
+		t.Fatalf("%d cases, want 12", cases)
+	}
+}
+
+// A database whose provider has no such verb (MongoDB has no shell) is no
+// WRONG_KIND: the body refuses it with the way to do it.
+func TestDatabaseVerbTheProviderLacks(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "mg", "mongodb://10.0.0.9:27017/app")
+	personAnswers(t, "")
+	if e := wantCode(t, "NOT_SUPPORTED", "database", "postgres", "shell", "mg"); !strings.Contains(e.Hint, "komando database mongodb query") {
+		t.Errorf("hint %q", e.Hint)
 	}
 }

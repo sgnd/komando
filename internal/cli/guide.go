@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -28,7 +29,7 @@ func (t textBlob) Text() string { return string(t) }
 
 // guideTopics name the numbered sections of guide.md for `komando guide
 // TOPIC`, in their order there.
-var guideTopics = []string{"orient", "targets", "read", "change", "data", "jobs", "guardrails", "errors", "output"}
+var guideTopics = []string{"orient", "targets", "read", "change", "data", "sessions", "guardrails", "errors", "output"}
 
 // guideRules opens `komando guide` at a terminal; the full text is --all.
 const guideRules = `komando guide: the rules for AI agents
@@ -44,7 +45,7 @@ const guideRules = `komando guide: the rules for AI agents
 Set KOMANDO_AGENT=1 in the agent's environment if komando does not know
 your agent (it knows Claude Code, Codex, Cursor and Gemini CLI).
 
-One part:    komando guide TOPIC  (` + "orient, targets, read, change, data, jobs, guardrails, errors, output" + `)
+One part:    komando guide TOPIC  (` + "orient, targets, read, change, data, sessions, guardrails, errors, output" + `)
 Everything:  komando guide --all
 `
 
@@ -99,7 +100,7 @@ part. Piped (as an agent reads it), it prints the whole playbook as JSON.`,
 		}),
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "print the whole playbook")
-	c.AddCommand(guideInstallCmd(), guideUninstallCmd(), guideGuardCmd())
+	c.AddCommand(guideGuardCmd())
 	return c
 }
 
@@ -147,12 +148,27 @@ type skillFile struct {
 	Note   string `json:"note,omitempty"`
 }
 
-func guideInstallCmd() *cobra.Command {
-	var project, noGuard bool
-	c := &cobra.Command{
-		Use:   "install",
-		Short: "Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI",
-		Long: `Teaches Claude Code, Codex, Cursor and Gemini CLI to use komando safely.
+// The agent skill leaves run today's agent skill install and uninstall (runBody).
+// guide guard, the hook the install writes, stays where the hooks already
+// point (gaps.md, deferred).
+func init() {
+	handlers[capability.Key{Type: "agent", Area: "skill", Verb: "install"}] = bodyHandler(guideInstallCmd)
+	handlers[capability.Key{Type: "agent", Area: "skill", Verb: "uninstall"}] = bodyHandler(guideUninstallCmd)
+	moveType("agent")
+	cmdKeys["agent"] = safetyKey{typ: "agent"}
+	providerIDs["guide"] = true // the playbook shares the agent noun's key until cut step D removes it
+	groupShorts["agent skill"] = "The komando skill and guard in your AI agents: install, uninstall"
+	details["komando agent skill install"] = skillInstallLong
+	details["komando agent skill uninstall"] = skillUninstallLong
+}
+
+// agentCmd is the bare noun; its commands come from the table.
+func agentCmd() *cobra.Command {
+	return &cobra.Command{Use: "agent", Short: "AI agents: the komando skill and the guard that protects secrets"}
+}
+
+// skillInstallLong is the help text of agent skill install.
+const skillInstallLong = `Teaches Claude Code, Codex, Cursor and Gemini CLI to use komando safely.
 Then restart the agent. In Codex, also approve the guard once in /hooks.
 
 It adds the komando skill (komando/SKILL.md) to the folders AI agents read
@@ -169,10 +185,16 @@ CLI (.gemini/settings.json, v0.26+) and Codex (.codex/hooks.json; approve it
 once in /hooks) where their folders exist. Skip it with --no-guard.
 
 Safe to run again, for example after an update: a changed file is kept as
-.bak. ` + "`komando guide uninstall`" + ` takes the skill and the guard out again.`,
-		Example: `  komando guide install             # for every project on this computer
-  komando guide install --project   # only for the folder you are in
-  komando guide install --dry-run   # show where it would go`,
+.bak. ` + "`komando agent skill uninstall`" + ` takes the skill and the guard out again.`
+
+func guideInstallCmd() *cobra.Command {
+	var project, noGuard bool
+	c := &cobra.Command{
+		Use:   "install",
+		Short: "Add the komando skill to Claude Code, Codex, Cursor, Gemini CLI",
+		Example: `  komando agent skill install             # for every project on this computer
+  komando agent skill install --project   # only for the folder you are in
+  komando agent skill install --dry-run   # show where it would go`,
 		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			base, err := os.UserHomeDir()
@@ -231,9 +253,9 @@ Safe to run again, for example after an update: a changed file is kept as
 				}
 			}
 			if changed > 0 && !cl.dryRun() {
-				audit(cl, nil, "guide.install", nil, "", true, map[string]any{"files": changed})
+				audit(cl, nil, "agent.skill.install", nil, "", true, map[string]any{"files": changed})
 			}
-			cl.out.Print("guide.install", skillResult{Files: files}, nil)
+			cl.out.Print("agent.skill.install", skillResult{Files: files}, nil)
 			return nil
 		}),
 	}
@@ -250,11 +272,11 @@ func hookProgram(project bool) (prog, note string, err error) {
 	if !filepath.IsAbs(prog) {
 		// a bare name is found through PATH, where an AI agent could put a
 		// program of its own before komando
-		return "", "", out.Errf(out.ExitNotFound, "GUARD_PATH_MISSING", "run komando by its full path, such as `/usr/local/bin/komando guide install`; without a guard: `komando guide install --no-guard`",
+		return "", "", out.Errf(out.ExitNotFound, "GUARD_PATH_MISSING", "run komando by its full path, such as `/usr/local/bin/komando agent skill install`; without a guard: `komando agent skill install --no-guard`",
 			"komando cannot tell where its own program is, so it writes no guard hook")
 	}
 	if project {
-		note = "it calls komando at " + prog + ", a path on this computer only; run komando guide install --project again on each computer"
+		note = "it calls komando at " + prog + ", a path on this computer only; run komando agent skill install --project again on each computer"
 	}
 	return prog, note, nil
 }
@@ -358,7 +380,7 @@ func noLinksUnder(base string, paths ...string) error {
 	return nil
 }
 
-// projectFiles are the files `guide install --project` and `guide
+// projectFiles are the files `agent skill install --project` and `guide
 // uninstall --project` may read, write or remove in base (removeSkill
 // takes SKILL.md.bak away too).
 func projectFiles(base string) []string {
@@ -379,7 +401,7 @@ var schemaEnv = map[string]string{
 	"KOMANDO_HOME":       "state directory (default ~/.komando)",
 	"KOMANDO_OUTPUT":     "default output format json|text",
 	"KOMANDO_ACTOR":      "name recorded in the audit log (for example claude-agent)",
-	"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or store.key where there is none; komando secret passphrase sets or changes it)",
+	"KOMANDO_VAULT_PASS": "vault passphrase (optional; otherwise the key is in the OS keychain, or store.key where there is none; komando config vault passphrase sets or changes it)",
 	"KOMANDO_KEYCHAIN":   "off: komando uses no keychain, and a new vault keeps its key in store.key (CI, containers)",
 }
 
@@ -461,35 +483,14 @@ func schemaPath(args []string) []string {
 }
 
 // schemaFind is the command `komando schema` describes for args: a path,
-// an alias (fs ls), a command ID (secret.show, db.user.show) or a hidden
-// synonym, each resolved to the visible command it runs (S-9.8). nil when
-// there is none.
+// an alias (fs ls) or a command ID (secret.show, db.user.show) (S-9.8).
+// nil when there is none.
 func schemaFind(root *cobra.Command, args []string) *cobra.Command {
 	found, rest, err := root.Find(args)
 	if err != nil || found == root || len(rest) > 0 {
 		found = byCmdID(root, strings.Join(args, "."))
 	}
-	for i := 0; found != nil && found.Hidden && i < 3; i++ {
-		now := found.Annotations[synonymNote]
-		if now == "" {
-			return found // komando's own background command: walk() leaves it out
-		}
-		found = schemaFind(root, pathWords(now))
-	}
 	return found
-}
-
-// pathWords are the command words at the start of a usage such as
-// "exec TARGET --script FILE": up to the first argument or flag.
-func pathWords(usage string) []string {
-	var w []string
-	for _, f := range strings.Fields(usage) {
-		if strings.HasPrefix(f, "-") || strings.ToLower(f) != f {
-			break
-		}
-		w = append(w, f)
-	}
-	return w
 }
 
 // byCmdID is the visible command with ID id, or nil.

@@ -22,7 +22,7 @@ func TestInteractiveGate(t *testing.T) {
 		ci, term, format            string
 		args                        []string
 	}
-	ok := in{on: true, terminal: true, stdout: true, term: "xterm-256color", format: "text", args: []string{"host", "exec"}}
+	ok := in{on: true, terminal: true, stdout: true, term: "xterm-256color", format: "text", args: []string{"host", "ssh", "exec"}}
 	if !screenGate(ok.on, ok.terminal, ok.stdout, ok.agent, ok.ci, ok.term, ok.format, ok.args) {
 		t.Fatal("a person at a terminal with the switch on gets no screen")
 	}

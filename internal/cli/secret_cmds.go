@@ -3,7 +3,6 @@ package cli
 import (
 	"crypto/subtle"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -19,12 +18,8 @@ import (
 // The secret subcommands that read or store one value: set, get, check,
 // list and rm (secret.go has the group, mv and cp).
 
-// secretSetCmd is `secret set`.
-func secretSetCmd() *cobra.Command {
-	set := &cobra.Command{
-		Use:   "set NAME",
-		Short: "Store a secret, typed hidden or from a variable or a pipe",
-		Long: `Saves or replaces a password. Replacing one that a production server or
+// secretSetCmd is `credential password add`.
+const secretAddLong = `Saves or replaces a password or a token. Replacing one that a production server or
 database uses asks first: it changes how komando logs in there. With --new
 it only saves a new one: when NAME is in the vault already it stops with
 SECRET_EXISTS and leaves the stored value alone.
@@ -32,9 +27,15 @@ SECRET_EXISTS and leaves the stored value alone.
 A value from a pipe loses the line breaks at its end (echo and pbpaste add
 one). Spaces are kept, since a password can hold them; komando warns when the
 value starts or ends with one, so a stray space copied with a password is
-noticed. At the terminal, paste or type the value after the prompt appears.`,
-		Example: "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass\n  komando secret set api-token --new --from-env TOKEN   # never replaces one",
-		Args:    cobra.RangeArgs(1, 2),
+noticed. At the terminal, paste or type the value after the prompt appears.`
+
+func secretSetCmd() *cobra.Command {
+	set := &cobra.Command{
+		Use:     "set NAME",
+		Short:   "Store a secret, typed hidden or from a variable or a pipe",
+		Long:    secretAddLong,
+		Example: "  komando credential password add web1-pass          # type or paste it after the prompt, nothing is shown\n  komando credential password add db-pass --from-env DB_PASS\n  pbpaste | komando credential password add vpn-pass\n  komando credential token add api-token --new --from-env TOKEN   # never replaces one",
+		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := inventory.ValidName("secret", args[0]); err != nil {
 				return err
@@ -43,13 +44,6 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 				return err
 			}
 			isNew, _ := cmd.Flags().GetBool("new")
-			if len(args) == 2 {
-				// A value on the command line lands in shell history and in
-				// `ps` for every user on the machine.
-				return out.Errf(out.ExitUsage, "SECRET_IN_ARGS",
-					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", args[0]),
-					"refusing a secret value on the command line: it would be saved in shell history")
-			}
 			// a name that is taken fails before anyone types the value; the
 			// write below checks again, in the same step, for a komando
 			// that stores it meanwhile
@@ -118,28 +112,30 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 	return set
 }
 
-// secretSetExists is `secret set NAME --new` when NAME is stored already.
+// secretSetExists is `credential password add NAME --new` when NAME is stored already.
 func secretSetExists(name string) error {
 	return out.Errf(out.ExitConflict, "SECRET_EXISTS",
-		"to replace it, run `komando secret set "+name+"` without --new; or pick another name",
+		"to replace it, run `komando credential password add "+name+"` without --new; or pick another name",
 		"secret %q already exists", name)
 }
 
-// secretGetCmd is `secret show` (`secret get` is a plain synonym); the
+// secretGetCmd is `credential password show` (`credential password show` is a plain synonym); the
 // agent mask line keys on its ID, secret.show.
+const secretShowLong = `Says whether the secret exists and what uses it, without its value. A person
+at a terminal can add --reveal to print it; from a program without a terminal
+(the Komando Mac app), komando first asks the person in its own window. AI
+agents never get the value (they reference it as credential:NAME instead). A warning says when the value
+starts or ends with a space, tab or line break, a common cause of a failing
+login; 'komando secret check NAME' lets a person compare it.`
+
 func secretGetCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:     "show NAME",
 		Aliases: []string{"get"},
 		Short:   "Show that a secret exists, its value hidden",
-		Long: `Says whether the secret exists and what uses it, without its value. A person
-at a terminal can add --reveal to print it; from a program without a terminal
-(the Komando Mac app), komando first asks the person in its own window. AI
-agents never get the value (they reference it as credential:NAME instead). A warning says when the value
-starts or ends with a space, tab or line break, a common cause of a failing
-login; 'komando secret check NAME' lets a person compare it.`,
-		Example: `  komando secret show db-pass
-  komando secret show db-pass --reveal | pbcopy   # a person, at a terminal`,
+		Long:    secretShowLong,
+		Example: `  komando credential password show db-pass
+  komando credential password show db-pass --reveal | pbcopy   # a person, at a terminal`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			v, err := vault.Get(args[0])
@@ -190,11 +186,16 @@ shows either value.
 Only a person can run it: for an AI agent, a yes/no answer about a value it
 picks would be a way to guess the secret one try at a time.`,
 		Example: "  komando secret check vpn-pass            # type or paste it after the prompt\n  pbpaste | komando secret check vpn-pass",
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := secretValueInArgs("secret.check", args); err != nil {
+				return err
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if cl.isAgent() {
 				return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando secret show "+args[0]+"` says whether the value starts or ends with a space",
+					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando credential password show "+args[0]+"` says whether the value starts or ends with a space",
 					"only a person can check a secret's value: for an AI agent it would be a way to guess it")
 			}
 			stored, err := vault.Get(args[0])
@@ -218,7 +219,7 @@ picks would be a way to guess the secret one try at a time.`,
 			res["difference"] = secretDiff(stored, given)
 			cl.out.Print("secret.check", res, &out.Error{Code: "SECRET_MISMATCH", Exit: out.ExitError,
 				Message: "the value is not the one stored in " + args[0],
-				Hint:    "if the stored one is wrong, store the right one with `komando secret set " + args[0] + "`"})
+				Hint:    "if the stored one is wrong, store the right one with `komando credential password add " + args[0] + "`"})
 			return exitCode(out.ExitError)
 		}),
 	}
@@ -226,7 +227,7 @@ picks would be a way to guess the secret one try at a time.`,
 	return check
 }
 
-// secretListCmd is `secret list`.
+// secretListCmd is `credential list`.
 func secretListCmd() *cobra.Command {
 	var limit int
 	list := &cobra.Command{
@@ -255,13 +256,13 @@ func secretListCmd() *cobra.Command {
 	return list
 }
 
-// secretRmCmd is `secret rm`.
+// secretRmCmd is `credential password remove`.
 func secretRmCmd() *cobra.Command {
 	rm := &cobra.Command{
 		Use:   "rm NAME...",
 		Short: "Delete secrets for good",
-		Example: `  komando secret rm old-pass
-  komando secret rm a-pass b-pass --dry-run`,
+		Example: `  komando credential password remove old-pass
+  komando credential password remove a-pass b-pass --dry-run`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()

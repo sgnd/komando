@@ -122,8 +122,8 @@ var tierRows = concat2(
 		{Today: true, Key: Key{Type: "registry", Area: "image", Verb: "delete"}, Tier: Dangerous, What: "deletes the images"},
 		{Today: true, Key: Key{Type: "registry", Area: "image", Verb: "prune"}, Tier: Dangerous, What: "deletes the images"},
 		{Today: true, Key: Key{Type: "database", Verb: "restore"}, Tier: Dangerous, What: "replaces what is in the database now"},
-		{Key: own("credential", "password", "remove"), Tier: Dangerous, What: "deletes the saved password"},
-		{Key: own("credential", "token", "remove"), Tier: Dangerous, What: "deletes the saved token"},
+		{Today: true, Key: own("credential", "password", "remove"), Tier: Dangerous, What: "deletes the saved password"},
+		{Today: true, Key: own("credential", "token", "remove"), Tier: Dangerous, What: "deletes the saved token"},
 		{Today: true, Key: own("credential", "key", "remove"), Tier: Dangerous, When: Cond{Flags: []string{"delete-file"}}, What: "deletes the private key komando keeps"},
 		{Key: top("copy"), Tier: Dangerous, When: Cond{Flags: []string{"sync", "delete"}}, What: "deletes the files in the destination that the source does not have"},
 
@@ -210,8 +210,8 @@ func protectionOffRows() []TierRow {
 // under the type's key: host and vpn kept theirs, and a type moved under
 // its providers (cache redis edit) gets it when it moves, so its edit keeps
 // the protection-off row that today's conn edit has (C564). Today's conn
-// edit keeps its own row.
-var editTypesToday = []string{"host", "vpn", "cache", "registry", "queue", "storage", "cluster"}
+// edit keeps its own row. database moved under its providers in C482.
+var editTypesToday = []string{"host", "vpn", "cache", "registry", "queue", "storage", "cluster", "database"}
 
 func concat2(parts ...[]TierRow) []TierRow {
 	var out []TierRow

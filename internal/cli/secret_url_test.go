@@ -22,20 +22,20 @@ func TestSecretRefInConnURL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := mustRun(t, "secret", "list")
+	d := mustRun(t, "credential", "list")
 	row := d["secrets"].([]any)[0].(map[string]any)
 	if u := row["used_by"].([]any); len(u) != 1 || u[0] != "conn reg" {
 		t.Errorf("secret list used_by: %v", row)
 	}
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "reg-ca")
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "reg-ca", "--dry-run")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "reg-ca")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "reg-ca", "--dry-run")
 
 	exp := mustRun(t, "export")
 	if n := exp["secrets_needed"].([]any); len(n) != 1 || n[0] != "reg-ca" {
 		t.Errorf("export secrets_needed: %v", n)
 	}
 
-	d = mustRun(t, "secret", "mv", "reg-ca", "registry-ca", "--dry-run")
+	d = mustRun(t, "credential", "password", "rename", "reg-ca", "registry-ca", "--dry-run")
 	if u := d["would_update"].([]any); len(u) != 1 || u[0] != "conn reg" {
 		t.Errorf("mv dry run: %v", d)
 	}
@@ -44,7 +44,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 		t.Fatalf("the dry run changed the URL: %s", st.Conns["reg"].URL)
 	}
 
-	d = mustRun(t, "secret", "mv", "reg-ca", "registry-ca")
+	d = mustRun(t, "credential", "password", "rename", "reg-ca", "registry-ca")
 	if u := d["updated"].([]any); len(u) != 1 || u[0] != "conn reg" {
 		t.Errorf("mv: %v", d)
 	}

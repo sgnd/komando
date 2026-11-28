@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/out"
@@ -210,7 +211,7 @@ func TestEveryHandlerHasLeaf(t *testing.T) {
 		if !built[k] {
 			t.Errorf("handler for %s: no built leaf has that key", k)
 		}
-		if !slices.Contains(movedTypes, k.Type) {
+		if !slices.Contains(movedTypes, k.Type) && !(k.Type == "" && slices.Contains(movedTop, k.Verb)) {
 			t.Errorf("handler for %s: its type is not in movedTypes", k)
 		}
 	}
@@ -329,14 +330,25 @@ func TestTodayIDsStayUntilCarried(t *testing.T) {
 			t.Errorf("ID %s is in the tree %d times", id, n)
 		}
 	}
-	for _, id := range strings.Fields(string(b)) {
+	today := strings.Fields(string(b))
+	left := func(id string) bool {
+		if ids[id] > 0 || slices.Contains(removedIDs, id) { // step D took it out of the tree on purpose (root_removed.go)
+			return false
+		}
 		waiting, named := carried[id]
-		if ids[id] == 0 && slices.Contains(removedIDs, id) {
-			continue // step D took it out of the tree on purpose (root_removed.go)
+		return !named || waiting
+	}
+	for _, id := range today {
+		if !left(id) {
+			continue
 		}
-		if ids[id] == 0 && (!named || waiting) {
-			t.Errorf("%s left the tree, but no leaf does it yet", id)
+		// a group's fate is its children's: it may leave once none of them waits
+		under := func(c string) bool { return strings.HasPrefix(c, id+".") }
+		if slices.Contains(capability.Groups(), id) && slices.ContainsFunc(today, under) &&
+			!slices.ContainsFunc(today, func(c string) bool { return under(c) && left(c) }) {
+			continue
 		}
+		t.Errorf("%s left the tree, but no leaf does it yet", id)
 	}
 }
 
@@ -594,6 +606,19 @@ func tablesAtStart(f func()) {
 	f()
 }
 
+// carriesEntry is whether got, what a leaf has in a table, holds the entry v
+// of a command it carries as joinEntry joins them: v itself, a table that
+// asks nothing, the first of two reasons, or a list with all of v's flags.
+func carriesEntry(got, v any) bool {
+	switch {
+	case sameEntry(got, v), noCheck(v), isString(got) && isString(v):
+		return true
+	case isStrings(got) && isStrings(v):
+		return !slices.ContainsFunc(v.([]string), func(f string) bool { return !slices.Contains(got.([]string), f) })
+	}
+	return false
+}
+
 // When a type moves, each of its built leaves carries every entry that the
 // IDs it names (Today and Carries) had in the tables keyed by command ID,
 // whichever provider it is; the providers of one key carry the same
@@ -612,10 +637,12 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 			}
 		}
 	}
+	inTree := map[string]bool{}
+	walk(newRoot(tcl), func(c *cobra.Command) { inTree[cmdID(c)] = true })
 	gone := map[string]bool{}
 	byKey := map[string]map[string]string{} // a key's entries, by the leaf that has them
 	for _, l := range capability.All() {
-		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) {
+		if l.State != capability.Built || !slices.Contains(movedTypes, l.Type) && !(l.Type == "" && slices.Contains(movedTop, l.Verb)) {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
@@ -626,21 +653,38 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 				if !ok {
 					continue
 				}
-				if got, ok := tb.get(id); !ok || !sameEntry(got, v) && !noCheck(v) {
+				if _, needs := gateNetwork[id]; needs && tb.name == "gateNoNetwork" {
+					continue // a leaf that needs a network (host ssh exec) is in no gateNoNetwork
+				}
+				if got, ok := tb.get(id); !ok || !carriesEntry(got, v) {
 					t.Errorf("%s: %s does not carry the entry of %s", tb.name, id, old)
 				}
 			}
 			has = append(has, tb.name+"="+entryText(tb.get(id)))
 		}
-		key := fmt.Sprint(safetyKey{l.Type, l.Area, l.Verb})
+		key := fmt.Sprint(safetyKey{l.Type, l.Area, l.Verb}, " carrying ", l.Carries)
 		if byKey[key] == nil {
 			byKey[key] = map[string]string{}
 		}
 		byKey[key][id] = strings.Join(has, " ")
-		for _, old := range l.Today {
+		olds := l.Today
+		if l.Type == "" {
+			olds = slices.Concat(l.Today, l.Carries) // a moved top-level leaf retires what it carries
+		}
+		for _, old := range olds {
 			if !stays[old] {
 				gone[old] = true
 			}
+		}
+		for _, old := range l.Carries { // a carried command left once the tree no longer has it
+			if !stays[old] && !inTree[old] {
+				gone[old] = true
+			}
+		}
+	}
+	for _, g := range capability.Groups() { // a group whose commands all left
+		if !inTree[g] && slices.ContainsFunc(slices.Collect(maps.Keys(gone)), func(id string) bool { return strings.HasPrefix(id, g+".") }) {
+			gone[g] = true
 		}
 	}
 	for key, leaves := range byKey {
@@ -656,6 +700,9 @@ func TestMovedLeavesCarryTheirTables(t *testing.T) {
 		}
 	}
 	for _, old := range slices.Sorted(maps.Keys(gone)) {
+		if inTree[old] {
+			continue // a noun (audit) keeps the ID of the command that moved under it
+		}
 		if _, ok := cmdKeys[old]; ok {
 			t.Errorf("cmdKeys still has %s, which no command has", old)
 		}
@@ -695,6 +742,13 @@ func TestMoveGivesEveryProviderTheOldEntries(t *testing.T) {
 		for _, l := range leaves {
 			id := strings.Join(l.Key.Path(), ".")
 			for _, tb := range idTables() {
+				if _, needs := gateNetwork[id]; needs && tb.name == "gateNoNetwork" {
+					// C6: a leaf that needs a network (host ssh exec) is in no gateNoNetwork
+					if got, ok := tb.get(id); ok {
+						t.Errorf("%s: %s needs a network and has %s", tb.name, id, entryText(got, ok))
+					}
+					continue
+				}
 				if got, ok := tb.get(id); !ok || !sameEntry(got, want[tb.name]) {
 					t.Errorf("%s: %s has %s, probetype.run had %s", tb.name, id, entryText(got, ok), entryText(want[tb.name], true))
 				}
@@ -773,11 +827,29 @@ func moveJoinsTwoOldEntries(t *testing.T) {
 		if len(have) < 2 {
 			continue // every entry of the table is the same: nothing can disagree
 		}
-		if _, _, stop := join(tb, have[0], have[1]); stop == nil {
+		got, ok, stop := join(tb, have[0], have[1])
+		switch {
+		case isString(have[0]) && isString(have[1]):
+			// C6 (joinEntry): two reasons say the same thing; the leaf's own stays
+			if stop != nil || !ok || !sameEntry(got, have[0]) {
+				t.Errorf("%s: two reasons gave %s (stop %v), want the Today one %s", tb.name, entryText(got, ok), stop, entryText(have[0], true))
+			}
+		case isStrings(have[0]) && isStrings(have[1]):
+			// C6 (joinEntry): two lists of flags join
+			want := slices.Compact(slices.Sorted(slices.Values(slices.Concat(have[0].([]string), have[1].([]string)))))
+			if stop != nil || !ok || !sameEntry(got, want) {
+				t.Errorf("%s: two lists gave %s (stop %v), want %v", tb.name, entryText(got, ok), stop, want)
+			}
+		case stop == nil:
 			t.Errorf("%s: two different entries did not stop the move", tb.name)
 		}
 	}
 }
+
+// relaxedNewReads are leaves with no Today ID that a read key without
+// --network keeps: show reads what its list reads, and today's group show
+// and snippet show are hidden wrappers of the list commands (C8 review).
+var relaxedNewReads = map[string]bool{"group.show": true, "snippet.show": true}
 
 // relaxedEntryOK says whether leaf l may hold an entry in table name that is
 // the relaxed state (a local read, a command with no network): one of its
@@ -785,6 +857,9 @@ func moveJoinsTwoOldEntries(t *testing.T) {
 // (localReads) the leaf says LocalRead. had says whether an old ID had one.
 func relaxedEntryOK(name string, l capability.Leaf, had func(old string) bool) bool {
 	if slices.ContainsFunc(l.Today, had) {
+		return true
+	}
+	if name == "gateNoNetwork" && relaxedNewReads[strings.Join(l.Key.Path(), ".")] {
 		return true
 	}
 	if len(l.Today) == 0 && len(l.Carries) > 0 && !slices.ContainsFunc(l.Carries, func(old string) bool { return !had(old) }) {
@@ -879,18 +954,40 @@ func TestTierRunsNeverShrink(t *testing.T) {
 			t.Errorf("row %q has %d runs fewer than when the builder came: runs never go down", row, -n)
 		}
 	}
-	// a registered leaf has the runs of its today IDs on its new path
+	// a registered leaf has the runs of its today IDs on its new path, for
+	// each row the table has for that path (a row of one provider, such as
+	// host ssh add --proxy-command, is not run on another provider's leaf)
+	need := tierNeeded()
 	for _, l := range tableLeaves() {
 		if handlers[l.Key] == nil {
 			continue
 		}
 		id := strings.Join(l.Key.Path(), ".")
 		for _, r := range before {
+			if _, ok := need[r.row+" | "+id]; !ok {
+				continue
+			}
 			if slices.Contains(l.Today, r.id) && !slices.ContainsFunc(tierRuns, func(n tierRun) bool { return n.id == id && n.row == r.row }) &&
 				tierUnreached[r.row+" | "+id] == "" {
 				t.Errorf("%s moved to %s: its run %q is not on the new path", r.id, id, r.row)
 			}
 		}
+	}
+}
+
+// A provider's list typed with no argument at all reaches its body with an
+// empty argument list, not a nil one, and lists the conns of that provider
+// only (bodyArgv, C482 M2).
+func TestDatabaseProviderListWithNoArguments(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "pg1", "postgres://app@10.0.0.9/app")
+	mustRun(t, "conn", "add", "my1", "mysql://app@10.0.0.10/app")
+	d := mustRun(t, "database", "postgres", "list")
+	if n, _ := d["count"].(float64); n != 1 {
+		t.Errorf("database postgres list shows the PostgreSQL conns only: %v", d)
+	}
+	if !strings.Contains(fmt.Sprint(d), "pg1") || strings.Contains(fmt.Sprint(d), "my1") {
+		t.Errorf("database postgres list: %v", d)
 	}
 }
 
@@ -948,5 +1045,134 @@ func TestBodyDefaultsMatchTable(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no option checked")
+	}
+}
+
+// The gate, risk, policy and guard code sees the table's leaf, not the body
+// command. A flag the table builds with a type of its own (a KEY=VALUE flag,
+// a list, a number) must not be read back through the string getters, which
+// re-parse the flag's text: read a repeatable flag through pflag.SliceValue
+// and refuse when it cannot be read. A source check: the files may call a
+// string getter only on a table option that is a plain string.
+func TestGateRiskPolicyGuardReadNoBuiltFlagAsText(t *testing.T) {
+	plain := map[string]bool{} // option names the table builds as a plain string
+	built := map[string]bool{} // option names built with another type somewhere
+	for _, l := range capability.All() {
+		for _, o := range l.Options {
+			if o.Repeat || o.Pairs || o.List || o.Kind == capability.Bool || o.Kind == capability.Int ||
+				o.Kind == capability.Duration || o.Kind == capability.Bytes {
+				built[o.Name] = true
+			} else {
+				plain[o.Name] = true
+			}
+		}
+	}
+	call := regexp.MustCompile(`\.Get(StringArray|StringSlice|StringToString|StringToInt64|StringToInt|String)\(([^)]*)\)`)
+	valueString := regexp.MustCompile(`\.Value\.String\(\)`) // also Lookup("x").Value.String()
+	// Value.String() is exact for a plain string flag and for the fallback of
+	// a flag already tried as a SliceValue: these uses, by file, are checked
+	// below (gateLocalFlags names plain string flags) or just above the call
+	valueStringUses := map[string]int{"risk.go": 1, "sshgate_localread.go": 1, "sshgate_network.go": 2}
+	var files []string
+	for _, pat := range []string{"sshgate*.go", "risk*.go", "policy*.go", "guard*.go", "gate*.go",
+		"common.go", "flag_*.go", "kinds.go"} {
+		m, err := filepath.Glob(pat)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, m...)
+	}
+	checked := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checked++
+		if n := len(valueString.FindAllString(string(src), -1)); n != valueStringUses[f] {
+			t.Errorf("%s: %d reads of Flag.Value.String(), want %d: it is the flag's text, which a list or KEY=VALUE flag writes with brackets and quotes; read those through pflag.SliceValue (and add a file here only for a plain string flag)", f, n, valueStringUses[f])
+		}
+		for _, m := range call.FindAllStringSubmatch(string(src), -1) {
+			getter, arg := m[1], strings.TrimSpace(m[2])
+			name, quoted := strings.CutPrefix(arg, `"`)
+			name, closed := strings.CutSuffix(name, `"`)
+			switch {
+			case !quoted || !closed:
+				t.Errorf("%s: Get%s(%s): name the flag with a string literal, so this check can see its type", f, getter, arg)
+			case getter != "String" || built[name] && !plain[name]:
+				t.Errorf("%s: Get%s(%q) re-reads the text of a flag the table builds: use Flag.Value.(pflag.SliceValue) and refuse when it cannot be read", f, getter, name)
+			}
+		}
+	}
+	if checked < 15 {
+		t.Errorf("only %d files checked: the file patterns match nothing", checked)
+	}
+	// the flags gateLocalRead reads as text are plain string flags in the tree
+	seen := map[string]bool{}
+	for _, c := range allCommands(newRoot(tcl)) {
+		for _, name := range gateLocalFlags[cmdID(c)] {
+			f := c.Flags().Lookup(name)
+			if f == nil {
+				continue
+			}
+			if _, slice := f.Value.(pflag.SliceValue); slice || f.Value.Type() != "string" {
+				t.Errorf("%s --%s: gateLocalRead reads it as text, so it must be a plain string flag", cmdID(c), name)
+			}
+			seen[cmdID(c)+" --"+name] = true
+		}
+	}
+	if len(seen) < 5 {
+		t.Errorf("only %d flags of gateLocalFlags found in the tree: %v", len(seen), seen)
+	}
+}
+
+// The bare nouns of cut step C8 have the safety key of their type, set
+// where each noun is made, whatever order the files' init functions run in.
+func TestC8NounsHaveTheirOwnKey(t *testing.T) {
+	for _, noun := range []string{"snippet", "group", "policy", "audit", "agent"} {
+		if got := cmdKeys[noun]; got != (safetyKey{typ: noun}) {
+			t.Errorf("cmdKeys[%q] = %+v, want the key of type %s", noun, got, noun)
+		}
+	}
+	if _, ok := cmdKeys["recipe"]; ok {
+		t.Error(`cmdKeys["recipe"] is still there: the noun is snippet`)
+	}
+}
+
+// An option that works only with a bool option needs it TRUE: --sync=false
+// --delete is refused by the table, before any window can ask a person.
+func TestCheckOptionsNeedsATrueBool(t *testing.T) {
+	l := capability.Leaf{Options: []capability.Option{
+		{Name: "sync", Kind: capability.Bool},
+		{Name: "delete", Kind: capability.Bool, Needs: []string{"sync"}},
+		{Name: "exclude", Kind: capability.String, Needs: []string{"sync"}},
+	}}
+	typed := func(names ...string) func(string) bool {
+		return func(n string) bool { return slices.Contains(names, n) }
+	}
+	input := func(sync bool, changed ...string) leafInput {
+		yes, no, s := sync, false, ""
+		return leafInput{
+			vals:    map[string]any{"sync": &yes, "delete": &no, "exclude": &s},
+			changed: typed(changed...),
+		}
+	}
+	for _, c := range []struct {
+		name string
+		in   leafInput
+		ok   bool
+	}{
+		{"--sync --delete", input(true, "sync", "delete"), true},
+		{"--sync=false --delete", input(false, "sync", "delete"), false},
+		{"--delete alone", input(false, "delete"), false},
+		{"--sync=false --exclude", input(false, "sync", "exclude"), false},
+		{"--sync --exclude", input(true, "sync", "exclude"), true},
+	} {
+		if err := checkOptions(l, c.in); (err == nil) != c.ok {
+			t.Errorf("%s: %v, want ok=%v", c.name, err, c.ok)
+		}
 	}
 }

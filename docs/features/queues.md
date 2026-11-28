@@ -32,7 +32,7 @@ defaults to 9092). One is enough: komando asks it for the others. The user
 is for the SASL login and its password goes in the vault, never in the URL:
 
 ```bash
-komando secret set kafka-pass
+komando credential password add kafka-pass
 komando queue kafka add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --credential kafka-pass
 komando queue kafka add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=credential:kafka-ca&sasl=plain' --ask-password
 komando queue kafka add staging-kafka kafka://broker1.internal:9092 --via web1          # no TLS, through an SSH server
@@ -41,7 +41,7 @@ komando queue kafka add staging-kafka kafka://broker1.internal:9092 --via web1  
 | Option | What it does |
 |---|---|
 | `tls=true` | TLS; the brokers' certificates are checked against your computer's CAs |
-| `ca=credential:NAME` | also trust your own CA (a company CA, a cloud's own); store it with `komando secret set NAME < ca.pem` |
+| `ca=credential:NAME` | also trust your own CA (a company CA, a cloud's own); store it with `komando credential token add NAME < ca.pem` |
 | `tls=skip-verify` | TLS without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `sasl=plain`, `sasl=scram-sha-256`, `sasl=scram-sha-512` | how to log in; needs a user in the URL |
 | `insecure=1` | accept a connection without TLS that crosses the network |
@@ -196,7 +196,7 @@ would delete 212 messages from orders-retry (3 partitions); the topic stays
 ### Add a RabbitMQ server
 
 ```bash
-komando secret set rabbit-pass
+komando credential password add rabbit-pass
 komando queue rabbitmq add prod-rabbit 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --credential rabbit-pass
 komando queue rabbitmq add staging-rabbit 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --credential rabbit-pass
 komando queue rabbitmq info prod-rabbit                       # version, cluster, nodes, totals
@@ -218,7 +218,7 @@ komando queue rabbitmq message list prod-rabbit emails                # the firs
 | Option | What it does |
 |---|---|
 | `management=PORT` | also use the management HTTP API on this port of the same host (HTTPS for `amqps://`), for `topic list`, the nodes and the totals in `info`, and the details in `topic show` |
-| `ca=credential:NAME` | `amqps://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
+| `ca=credential:NAME` | `amqps://`: also trust your own CA (`komando credential token add NAME < ca.pem`) |
 | `tls=skip-verify` | `amqps://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `amqp://` across the network without TLS |
 
@@ -287,10 +287,10 @@ komando queue rabbitmq topic delete prod-rabbit emails
 ### Add a NATS server
 
 ```bash
-komando secret set nats-pass
+komando credential password add nats-pass
 komando queue nats add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --credential nats-pass
 komando queue nats add staging-nats nats://nats.internal:4222 --via web1 --credential nats-pass
-komando secret set ngs-creds < user.creds
+komando credential token add ngs-creds < user.creds
 komando queue nats add ngs-nats 'tls://connect.ngs.global?creds=credential:ngs-creds'
 komando queue nats info prod-nats                     # version, server, the account's streams and limits
 komando queue nats topic list prod-nats                       # streams: subjects, messages, size, consumers
@@ -310,7 +310,7 @@ komando queue nats message list prod-nats ORDERS              # the newest 10 me
   - a user in the URL and `--credential`: user and password;
   - `--credential` without a user: the password is sent as a token;
   - `?creds=credential:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
-    Cloud) that you keep in the vault with `komando secret set NAME < user.creds`;
+    Cloud) that you keep in the vault with `komando credential token add NAME < user.creds`;
   - none of these: no login.
 - `komando test prod-nats` logs in and shows the server's version.
 
@@ -318,7 +318,7 @@ komando queue nats message list prod-nats ORDERS              # the newest 10 me
 |---|---|
 | `creds=credential:NAME` | log in with the `.creds` file kept in the vault |
 | `domain=NAME` | the JetStream domain, for a leaf node with its own JetStream |
-| `ca=credential:NAME` | `tls://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
+| `ca=credential:NAME` | `tls://`: also trust your own CA (`komando credential token add NAME < ca.pem`) |
 | `tls=skip-verify` | `tls://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `nats://` across the network without TLS |
 
@@ -393,7 +393,7 @@ same way as for S3 buckets and ECR registries, and needs no aws CLI:
 komando queue sqs add prod-sqs sqs://eu-west-1 --option aws_profile=prod   # a profile in ~/.aws (SSO, a role, keys)
 komando login aws --profile prod              # a person renews an SSO login when it runs out
 komando queue sqs add staging-sqs sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
-komando secret set sqs-secret                  # or: keys of an IAM user
+komando credential password add sqs-secret                  # or: keys of an IAM user
 komando queue sqs add ops-sqs sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --credential sqs-secret
 komando queue sqs info prod-sqs                         # region, account, how many queues
 komando queue sqs topic list prod-sqs                           # queues: waiting, in flight, delayed, dead-letter queue
@@ -478,7 +478,7 @@ same way as for gs:// buckets and needs no gcloud or Google SDK:
 
 ```bash
 komando queue pubsub add prod-pubsub pubsub://my-project      # gcloud's login (application default credentials)
-komando secret set pubsub-key < key.json      # or: a service account key
+komando credential token add pubsub-key < key.json      # or: a service account key
 komando queue pubsub add staging-pubsub pubsub://my-project --credential pubsub-key
 komando queue pubsub add local-pubsub 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
 komando queue pubsub info prod-pubsub                         # how many topics and subscriptions

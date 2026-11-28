@@ -6,7 +6,7 @@ import (
 )
 
 // auditPinnedKey records a host key komando trusted the first time it
-// reached the server, so it can be checked later (`komando audit`). The
+// reached the server, so it can be checked later (`komando audit list`). The
 // command's output reports it too (sshx.HostKeyPinned, call_hooks.go).
 func auditPinnedKey(cl *call, k sshx.NewHostKey) {
 	st, err := store.Load()

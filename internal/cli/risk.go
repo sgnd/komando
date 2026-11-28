@@ -133,8 +133,28 @@ func givesValue(name string) func([]string) bool {
 	}
 }
 
-// protectionOff: --protected=false (an edit that turns protection off).
-func protectionOff(w []string) bool { return slices.Contains(w, "--protected=false") }
+// protectionOff: an edit that turns protection off, in every spelling: the
+// gate rates what the command does after parsing, not how it is written.
+// That is --protected with a false word (--protected=false, =0, =F ...) and
+// --unset naming protected (--unset protected, --unset=protected, or
+// protected in a list: --unset notes,protected).
+func protectionOff(w []string) bool {
+	for i, s := range w {
+		if v, ok := strings.CutPrefix(s, "--protected="); ok && slices.Contains(falseWords, v) {
+			return true
+		}
+		if v, ok := strings.CutPrefix(s, "--unset="); ok && unsetsProtected(v) {
+			return true
+		}
+		if s == "--unset" && i+1 < len(w) && unsetsProtected(w[i+1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// unsetsProtected: the value of --unset (a comma list) names protected.
+func unsetsProtected(v string) bool { return slices.Contains(strings.Split(v, ","), "protected") }
 
 // riskRows is the table, keyed by (type, area, verb). Rows for one key are
 // read in order; the highest tier that applies wins. It is built from
@@ -169,6 +189,8 @@ func condWhen(c capability.Cond) (func([]string) bool, string) {
 		return anyWord(c.Words...), strings.Join(c.Words, " ")
 	case c.Not && len(c.Flags) == 1:
 		return func(w []string) bool { return !givesFlag(c.Flags[0])(w) }, "without " + flags[0]
+	case c.Value == "false" && len(c.Flags) == 1 && c.Flags[0] == "protected":
+		return protectionOff, "with --protected=false or --unset protected"
 	case c.Value != "" && len(c.Flags) == 1:
 		return anyWord(flags[0] + "=" + c.Value), "with " + flags[0] + "=" + c.Value
 	case len(c.Flags) > 0:
@@ -351,6 +373,14 @@ func lineWords(line []string) (c *cobra.Command, words, pos []string) {
 	}
 	words = slices.Clone(pos)
 	c.Flags().Visit(func(f *pflag.Flag) {
+		// a repeatable flag gives one word per value as typed: its text
+		// joins the values with commas, which a value may hold too
+		if sv, ok := f.Value.(pflag.SliceValue); ok && len(sv.GetSlice()) > 0 {
+			for _, v := range sv.GetSlice() {
+				words = append(words, "--"+f.Name+"="+v)
+			}
+			return
+		}
 		words = append(words, "--"+f.Name+"="+f.Value.String())
 	})
 	if after != nil {

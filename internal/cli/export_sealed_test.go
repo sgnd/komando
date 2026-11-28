@@ -45,10 +45,18 @@ func sealLab(t *testing.T) {
 	invHome(t)
 	setSecret(t, "web1-pass", "s3cret value")
 	setSecret(t, "shop-pass", "db s3cret")
-	mustRun(t, "key", "gen", "deploy")
+	mustRun(t, "credential", "key", "create", "deploy")
 	// a key and a sudo password: a server logs in with one credential (format 3)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--sudo-ref", "credential:web1-pass", "--key", "deploy")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.6", "--password-ref", "credential:missing-pass")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5", "--sudo-credential", "web1-pass", "--key", "deploy")
+	// a server whose credential is not saved, as an import can leave one: the
+	// table refuses such a name (rule R2), so the record is written directly
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.6")
+	if err := store.Update(store.Save(), func(s *store.State) error {
+		s.Hosts["web2"].PasswordRef = "credential:missing-pass"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	mustRun(t, "conn", "add", "shop", "postgres://app@db.example.com/shop", "--password-ref", "credential:shop-pass")
 }
 

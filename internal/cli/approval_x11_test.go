@@ -19,7 +19,7 @@ func TestX11ApprovalNeedsCode(t *testing.T) {
 	t.Setenv("SSH_TTY", "")
 	saved, savedOS, savedAsk := tcl.args, desktopOS, askOnScreen
 	t.Cleanup(func() { tcl.args, desktopOS, askOnScreen = saved, savedOS, savedAsk; resetApproval() })
-	tcl.args = []string{"komando", "host", "rm", "web1", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "remove", "web1", "--yes"}
 	clicked := 0
 	askOnScreen = func(*call, string) (bool, bool) { clicked++; return true, true }
 

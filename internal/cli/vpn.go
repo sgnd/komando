@@ -38,8 +38,8 @@ connects it, using the login you saved. The word after vpn is the kind:
 
   komando vpn wireguard add office --config ~/Downloads/office.conf
   komando vpn globalprotect add client-x --portal vpn.client.com --user alice --credential client-x --mfa
-  komando host add app admin@10.0.0.5 --via office,bastion
-  komando exec app -- uptime
+  komando host ssh add app admin@10.0.0.5 --via office,bastion
+  komando host ssh exec app -- uptime
 
 VPNs with --mfa need a person: run ` + "`komando vpn KIND start NAME`" + ` once and later
 commands (and agents) reuse that session. komando never answers MFA.
@@ -256,7 +256,7 @@ step.`,
 	f.StringVar(&remoteID, "remote-id", "", "IKEv2: the server's identity, if not its --server name")
 	f.StringVar(&ca, "ca", "", "IKEv2: the CA certificate (PEM) that signed the server's certificate, if not a public one")
 	f.StringVar(&user, "user", "", "user name for the VPN login")
-	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): credential:NAME (saved with komando secret set NAME)")
+	f.StringVar(&passwordRef, "password-ref", "", "where the password is (Tailscale: the auth key): credential:NAME (saved with komando credential password add NAME)")
 	askPasswordFlag(c, &askPw)
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as credential:NAME-psk and used as --psk-ref")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
@@ -334,7 +334,7 @@ func vpnAskPasswordRef(cmd *cobra.Command, name, kind string, askPw bool, ref *s
 		return out.Usage("use --ask-password or --credential, not both")
 	}
 	if !vpnTakes(kind, "ask-password") {
-		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --credential %s-authkey)", kind, name, name)
+		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando credential password add %s-authkey`, then --credential %s-authkey)", kind, name, name)
 	}
 	*ref = "credential:" + name + "-pass"
 	return nil

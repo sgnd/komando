@@ -63,7 +63,7 @@ func checkVpnSecrets(cl *call, s *store.State, name string, secrets map[string]s
 			used = " (used by " + strings.Join(users, ", ") + ")"
 		}
 		return out.Errf(out.ExitConflict, "SECRET_EXISTS",
-			fmt.Sprintf("nothing was saved; pick another VPN name, or move that secret away first: `komando secret rename %s NEW` (what uses it follows), or `komando secret rm %s` if an earlier VPN named %s left it", n, n, name),
+			fmt.Sprintf("nothing was saved; pick another VPN name, or move that secret away first: `komando credential password rename %s NEW` (what uses it follows), or `komando credential password remove %s` if an earlier VPN named %s left it", n, n, name),
 			"vault secret %q already exists%s; VPN %s would store its %s there and replace it", n, used, name, vpnSecretWhat(n))
 	}
 	return nil

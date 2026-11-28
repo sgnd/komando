@@ -114,7 +114,7 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
   service account key in the vault:
 
   ```bash
-  komando secret set gcs-key < key.json
+  komando credential token add gcs-key < key.json
   komando conn add media gs://my-bucket/site --password-ref credential:gcs-key
   ```
 
@@ -125,7 +125,7 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
   managed identity.
 
   ```bash
-  komando secret set blob-key
+  komando credential password add blob-key
   komando conn add files azblob://mystorageacct@uploads --password-ref credential:blob-key
   ```
 

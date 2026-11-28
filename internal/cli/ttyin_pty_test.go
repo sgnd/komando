@@ -205,8 +205,8 @@ func sameLine(screen, q, s string) bool {
 func TestPTYCtrlCAtYesNo(t *testing.T) {
 	for _, key := range []string{"\x03", "\x04"} { // Ctrl-C, Ctrl-D
 		invHome(t)
-		mustRun(t, "host", "add", "web", "u@10.0.0.1", "--protected")
-		p := startPTY(t, "host", "rm", "web")
+		mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1", "--protected")
+		p := startPTY(t, "host", "ssh", "remove", "web")
 		p.answer("[y/N] ", key)
 		if code := p.exit(); code != out.ExitPolicy {
 			t.Errorf("%q: exit %d, want %d; the screen:\n%s", key, code, out.ExitPolicy, p.shown())
@@ -219,13 +219,13 @@ func TestPTYCtrlCAtYesNo(t *testing.T) {
 		if echo, _ := p.leftTerminal(); !echo {
 			t.Errorf("%q: echo stayed off", key)
 		}
-		mustRun(t, "host", "show", "web") // still there
+		mustRun(t, "host", "ssh", "show", "web") // still there
 	}
 }
 
 func TestPTYCtrlCAtHiddenPrompt(t *testing.T) {
 	invHome(t)
-	p := startPTY(t, "secret", "set", "s1")
+	p := startPTY(t, "credential", "password", "add", "s1")
 	p.answer("(it stays hidden): ", "half-typed")
 	time.Sleep(100 * time.Millisecond)
 	p.master.WriteString("\x03")
@@ -250,13 +250,13 @@ func TestPTYCtrlCAtHiddenPrompt(t *testing.T) {
 
 func TestPTYMultiLinePaste(t *testing.T) {
 	invHome(t)
-	p := startPTY(t, "secret", "set", "s1")
+	p := startPTY(t, "credential", "password", "add", "s1")
 	// a copied key: the last line often comes without a line break
 	p.answer("(it stays hidden): ", "-----BEGIN KEY-----\nline-two\nline-three\n-----END KEY-----")
 	if code := p.exit(); code != out.ExitUsage {
 		t.Errorf("exit %d, want %d; the screen:\n%s", code, out.ExitUsage, p.shown())
 	}
-	p.waitFor("secret set NAME < FILE")
+	p.waitFor("credential token add NAME < FILE")
 	screen := p.shown()
 	if !strings.Contains(screen, "the value has more than one line, so nothing was stored") {
 		t.Errorf("the screen:\n%s", screen)
@@ -277,7 +277,7 @@ func TestPTYMultiLinePaste(t *testing.T) {
 func TestPTYOneLinePaste(t *testing.T) {
 	for _, typed := range []string{"s3cret\r", "s3cret\n\n", "\x1b[200~s3cret\n\x1b[201~"} {
 		invHome(t)
-		p := startPTY(t, "secret", "set", "s1")
+		p := startPTY(t, "credential", "password", "add", "s1")
 		p.answer("(it stays hidden): ", typed)
 		if code := p.exit(); code != 0 {
 			t.Errorf("%q: exit %d; the screen:\n%s", typed, code, p.shown())

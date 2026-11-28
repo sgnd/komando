@@ -117,7 +117,7 @@ func shotRunner(t *testing.T) {
 func shotView() approvalView {
 	return testView("Claude Code", []string{"--allow-dangerous", "--yes"}, "",
 		[]string{"it runs on web-1.example.test (protected)", protWhy([]string{"web-1.example.test"}), "[rm-system-dir] deletes a system folder recursively"},
-		"komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes",
+		"komando host ssh exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes",
 		"It also sends the script ./deploy.sh (98 bytes, 4 lines, SHA-256 9f2c), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n"+
 			"  3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz -C /srv/app && systemctl start app\n  4  echo done\n")
 }
@@ -137,7 +137,7 @@ type shotCase struct {
 var shotCases = []shotCase{
 	{"short", func() approvalView {
 		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
-			"komando exec web-1.example.test --yes -- systemctl restart app", "")
+			"komando host ssh exec web-1.example.test --yes -- systemctl restart app", "")
 	}},
 	{"script", func() approvalView {
 		var body strings.Builder
@@ -150,25 +150,25 @@ var shotCases = []shotCase{
 			fmt.Fprintf(&body, "  %2d  %s\n", i+1, l)
 		}
 		return testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
-			"komando exec web-1.example.test --script ./migrate.sh --yes", body.String())
+			"komando host ssh exec web-1.example.test --script ./migrate.sh --yes", body.String())
 	}},
 	{"sudo", func() approvalView {
 		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test", "sudo runs the command as root"},
-			"komando exec web-1.example.test --sudo --yes -- apt-get install -y nginx", "")
+			"komando host ssh exec web-1.example.test --sudo --yes -- apt-get install -y nginx", "")
 	}},
 	{"hosts", func() approvalView {
 		hosts := []string{"web-1.example.test", "web-2.example.test", "db-2.example.test", "203.0.113.10"}
 		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on " + strings.Join(hosts, ", "), protWhy(hosts[2:3])},
-			"komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx", "")
+			"komando host ssh exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx", "")
 	}},
 	{"destructive", func() approvalView {
 		return testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on db-2.example.test (protected)", protWhy([]string{"db-2.example.test"}),
 			"[rm-system-dir,db-drop] deletes a system folder recursively; drops a database"},
-			"komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql -d app -c 'DROP DATABASE app'", "")
+			"komando host ssh exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql -d app -c 'DROP DATABASE app'", "")
 	}},
 	{"db-query", func() approvalView {
 		return testView("Claude Code", []string{"--allow-dangerous"}, "", []string{"it runs on db-2.example.test", "--write lets the query change data"},
-			"komando db query db-2.example.test --write --allow-dangerous -- \"UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'\"", "")
+			"komando database postgres query db-2.example.test --write --allow-dangerous -- \"UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'\"", "")
 	}},
 	{"long-lines", func() approvalView {
 		// 13 lines of 300 base64 characters: the window must stay on the
@@ -179,7 +179,7 @@ var shotCases = []shotCase{
 		}
 		lines = append(lines, "EOF")
 		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
-			"komando exec web-1.example.test --script ./blob.sh --yes", shotScript("./blob.sh", "77c0", lines))
+			"komando host ssh exec web-1.example.test --script ./blob.sh --yes", shotScript("./blob.sh", "77c0", lines))
 	}},
 	{"tall-script", func() approvalView {
 		// 40 lines, the most a window shows: all of it, by scrolling
@@ -189,11 +189,11 @@ var shotCases = []shotCase{
 		}
 		lines[0] = "# LINEONEMARK"
 		return testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
-			"komando exec web-1.example.test --script ./steps.sh --yes", shotScript("./steps.sh", "c3d4", lines))
+			"komando host ssh exec web-1.example.test --script ./steps.sh --yes", shotScript("./steps.sh", "c3d4", lines))
 	}},
 	{"indonesian", func() approvalView {
 		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test", "pengguna minta: hapus cache lama sebelum rilis"},
-			"komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama", "")
+			"komando host ssh exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama", "")
 	}},
 }
 

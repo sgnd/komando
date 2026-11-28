@@ -34,7 +34,7 @@ func svcResult(rr *sshx.RunResult) ([]map[string]any, *out.Error) {
 		}
 	}
 	if len(missing) > 0 {
-		return units, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando exec TARGET -- systemctl list-units`",
+		return units, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando host ssh exec TARGET -- systemctl list-units`",
 			"no unit named %s", strings.Join(missing, " or "))
 	}
 	return units, nil

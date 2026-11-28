@@ -57,10 +57,10 @@ At your terminal it lists the commands by what they work on:
 ```text
 komando: one safe command line for servers, databases, caches, queues, storage, clusters and VPNs
 
-Nothing added yet: komando host add  or  komando import ssh-config
+Nothing added yet: komando host ssh add  or  komando import ssh-config
 
-START        host add · conn add · import ssh-config · list · test TARGET · guide install
-SERVERS      exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell
+START        host ssh add · conn add · import ssh-config · list · test TARGET · agent skill install
+SERVERS      logs  facts  fs  svc  docker  pkg  cron  user  reboot
 DATA         db  cache  queue  storage
 ...
 ```
@@ -71,7 +71,7 @@ brings them in.
 ### 2. Add a server
 
 ```bash
-komando host add
+komando host ssh add
 ```
 
 Typed alone, it asks one question per line: a name, the address, the user,
@@ -80,7 +80,7 @@ default in brackets, `?` explains the question. Then it shows the full
 command it made, and asks before it runs:
 
 ```text
-$ komando host add web1 ubuntu@203.0.113.10 --protected
+$ komando host ssh add web1 ubuntu@203.0.113.10 --protected
 Run it? [y/N, d = --dry-run first]: y
 ```
 
@@ -93,7 +93,7 @@ Next time you can type that line yourself. A production server is
 komando test web1                 # can komando reach it and log in?
 komando facts web1                # what is this server?
 komando logs web1 --unit nginx    # read a service's logs
-komando exec web1 -- uptime       # run any command (words for the server go after --)
+komando host ssh exec web1 -- uptime       # run any command (words for the server go after --)
 ```
 
 Leave out an argument and komando asks for it, with a numbered list of
@@ -102,7 +102,7 @@ your servers.
 ### 4. Give it to your AI agent
 
 ```bash
-komando guide install
+komando agent skill install
 ```
 
 This teaches Claude Code, Codex, Cursor and Gemini CLI to use komando, for
@@ -119,8 +119,8 @@ you a window to allow it once. The agent never sees your passwords.
 | See and check everything at once | `list`, `test`, `status` |
 | Keep your list of servers and how to log in | `host`, `group`, `key`, `secret`, `login` |
 | Bring in what you already have, or move to another computer | `import`, `export` |
-| Run commands on one or many servers | `exec`, `job`, `shell` |
-| Read, edit and copy files | `fs`, `upload`, `download`, `cp`, `sync` |
+| Run commands on one or many servers | `host ssh exec` (long tasks run in sessions), `host ssh shell` |
+| Read, edit and copy files | `fs`, `copy` |
 | Check health | `facts`, `recipe` |
 | Services, logs, Docker, packages, users, schedules, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | Test the network, reach private servers | `net`, `tunnel`, `--via` |
@@ -145,7 +145,7 @@ Help for one command: `komando <command> --help`.
 - Database queries and cache commands only read unless you add `--write`.
 - `--dry-run` shows what would happen and changes nothing.
 - If a server's identity (host key) changes, komando will not connect.
-- Everything is recorded: `komando audit`.
+- Everything is recorded: `komando audit list`.
 
 More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
 

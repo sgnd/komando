@@ -176,7 +176,7 @@ func openForMove(ctx context.Context, o migrate3Opts, shown *shownWindow) (d *se
 	// 6. the audit chain (Audit M3)
 	if err := d.View(ctx, checkChain); err != nil {
 		return nil, nil, nil, nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-			"a person finds out what changed the audit log, then runs `komando audit verify` and `komando doctor`",
+			"a person finds out what changed the audit log, then runs `komando audit check` and `komando doctor`",
 			"the audit log of %s is broken (%v), so the store does not move to a new format; nothing was changed", Path(StoreFile), err)
 	}
 	if err := migrateStepDone(6); err != nil {
@@ -231,6 +231,9 @@ func writeMove(ctx context.Context, o migrate3Opts, d *sealdb.DB, master []byte,
 					"%s changed after the move was planned; nothing was changed", Path(StoreFile))
 			}
 			if err := writeFormat3(tx, p, snap, vc, entry); err != nil {
+				return err
+			}
+			if err := auditMarkedJobs(tx, o, carried); err != nil {
 				return err
 			}
 			// Q7: the runtime records that outlive the migration go into
@@ -376,11 +379,19 @@ func noLiveProcesses(rt *Runtime, alive func(int, string) bool) error {
 	}
 	for _, n := range slices.Sorted(maps.Keys(rt.Tunnels)) {
 		if tn := rt.Tunnels[n]; alive(tn.PID, tn.ProcStart) {
-			running = append(running, fmt.Sprintf("tunnel %s (stop it: komando tunnel stop %s)", n, n))
+			running = append(running, fmt.Sprintf("tunnel %s (stop it: komando host ssh tunnel stop %s)", n, n))
 		}
 	}
-	// jobs and exec sessions run on servers: their records are carried
-	// into the new store (carriedRuntime), never a reason to stop
+	// rule R3 (C606): v0.18 has no job commands and no exec session takes a
+	// v0.17 job ID, so a job record not seen ending stops the move; doctor
+	// marks it ended first (EndOldJobs)
+	for _, n := range slices.Sorted(maps.Keys(rt.Jobs)) {
+		if j := rt.Jobs[n]; j.Ended == "" {
+			running = append(running, fmt.Sprintf("job %s on %s (`komando doctor` offers to mark it ended)", n, j.Host))
+		}
+	}
+	// exec sessions run on servers: their records are carried into the
+	// new store (carriedRuntime), never a reason to stop
 	if len(running) > 0 {
 		return out.Errf(out.ExitConflict, "STORE_IN_USE", "end each one as listed, then run `komando doctor` again",
 			"%s is to move to a new format, and komando still runs: %s", Path(StoreFile), strings.Join(running, "; "))

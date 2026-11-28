@@ -15,7 +15,7 @@ import (
 func TestImportOverwriteSkipsProtectedConn(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "r1", "redis://127.0.0.1:6379/0", "--protected")
-	mustRun(t, "host", "add", "w1", "u@10.0.0.1", "--protected")
+	mustRun(t, "host", "ssh", "add", "w1", "u@10.0.0.1", "--protected")
 	mustRun(t, "conn", "add", "p1", "postgres://u@127.0.0.1/app")
 	file := writeTemp(t, "exp.json", `{"format":"komando-export/1",
 		"hosts":[{"name":"w1","address":"10.0.0.9","user":"u"}],
@@ -62,16 +62,16 @@ func TestShellQuote(t *testing.T) {
 // round of edits clears them all.
 func TestHostRmInUseNamesEveryUser(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "b1", "u@10.0.0.1")
-	mustRun(t, "host", "add", "h1", "u@10.0.0.2", "--via", "b1")
+	mustRun(t, "host", "ssh", "add", "b1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "h1", "u@10.0.0.2", "--via", "b1")
 	mustRun(t, "conn", "add", "c1", "redis://10.0.0.3:6379/0", "--via", "b1")
-	e := wantCode(t, "HOST_IN_USE", "host", "rm", "b1")
+	e := wantCode(t, "HOST_IN_USE", "host", "ssh", "remove", "b1")
 	for _, want := range []string{"server h1", "conn c1"} {
 		if !strings.Contains(e.Message, want) {
 			t.Errorf("message %q lacks %q", e.Message, want)
 		}
 	}
-	for _, want := range []string{"komando host edit h1 --unset via", "komando conn edit c1 --unset via"} {
+	for _, want := range []string{"komando host ssh edit h1 --unset via", "komando conn edit c1 --unset via"} {
 		if !strings.Contains(e.Hint, want) {
 			t.Errorf("hint %q lacks %q", e.Hint, want)
 		}
@@ -82,17 +82,17 @@ func TestHostRmInUseNamesEveryUser(t *testing.T) {
 // what happened in words, not as raw fields.
 func TestKeyRmInUseAndText(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "k1")
-	mustRun(t, "host", "add", "a", "u@10.0.0.1", "--key", "k1")
-	mustRun(t, "host", "add", "b", "u@10.0.0.2", "--key", "k1")
-	e := wantCode(t, "KEY_IN_USE", "key", "rm", "k1")
-	if !strings.Contains(e.Message, "a and b") || !strings.Contains(e.Hint, "host edit a b --key OTHER") {
+	mustRun(t, "credential", "key", "create", "k1")
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1", "--key", "k1")
+	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2", "--key", "k1")
+	e := wantCode(t, "KEY_IN_USE", "credential", "key", "remove", "k1")
+	if !strings.Contains(e.Message, "a and b") || !strings.Contains(e.Hint, "host ssh edit a b --key OTHER") {
 		t.Errorf("want both servers named: %s / %s", e.Message, e.Hint)
 	}
-	mustRun(t, "host", "edit", "a", "b", "--unset", "key")
-	wantCode(t, "POLICY_BLOCKED", "key", "rm", "k1", "--delete-file") // its files have no copy (OD-7)
+	mustRun(t, "host", "ssh", "edit", "a", "b", "--unset", "key")
+	wantCode(t, "POLICY_BLOCKED", "credential", "key", "remove", "k1", "--delete-file") // its files have no copy (OD-7)
 	personTypes(t, "k1")
-	txt := coreText(t, "key", "rm", "k1", "--delete-file")
+	txt := coreText(t, "credential", "key", "remove", "k1", "--delete-file")
 	if !strings.Contains(txt, "removed key k1") || strings.Contains(txt, "file_deleted") {
 		t.Errorf("text: %q", txt)
 	}
@@ -169,16 +169,16 @@ func TestImportAppliesConnTLSDefault(t *testing.T) {
 	}
 }
 
-// group add and group rm take several targets, like host rm and host edit.
+// group create and group remove take several targets, like host rm and host edit.
 func TestGroupAddRmSeveralTargets(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a", "u@10.0.0.1")
-	mustRun(t, "host", "add", "b", "u@10.0.0.2")
-	mustRun(t, "group", "add", "web", "a", "b")
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2")
+	mustRun(t, "group", "create", "web", "a", "b")
 	if d := mustRun(t, "list", "@web"); d["count"] != float64(2) {
 		t.Errorf("@web: %v", d)
 	}
-	mustRun(t, "group", "rm", "web", "a", "b")
+	mustRun(t, "group", "remove", "web", "a", "b")
 	wantCode(t, "TARGET_EMPTY", "list", "@web")
 }
 
@@ -186,8 +186,8 @@ func TestGroupAddRmSeveralTargets(t *testing.T) {
 // ssh-command prints: it is refused, and one saved before is never printed.
 func TestHostAddressNeverAnOption(t *testing.T) {
 	invHome(t)
-	wantCode(t, "USAGE", "host", "add", "e1", "u@-oProxyCommand=x")
-	wantCode(t, "USAGE", "host", "add", "e2", "--address=-oProxyCommand=x")
+	wantCode(t, "USAGE", "host", "ssh", "add", "e1", "u@-oProxyCommand=x")
+	wantCode(t, "USAGE", "host", "ssh", "add", "e2", "--address=-oProxyCommand=x")
 	st := &store.State{Hosts: map[string]*store.Host{"old": {Name: "old", Address: "-oproxycommand=x"}}}
 	if _, err := sshCommandFor(tcl, st, st.Hosts["old"]); err == nil || !strings.Contains(err.Error(), "option") {
 		t.Errorf("want a refusal, got %v", err)
@@ -198,8 +198,8 @@ func TestHostAddressNeverAnOption(t *testing.T) {
 // sealed: path as a "key file".
 func TestExportSealedKey(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "k1")
-	mustRun(t, "host", "add", "a", "u@10.0.0.1", "--key", "k1")
+	mustRun(t, "credential", "key", "create", "k1")
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1", "--key", "k1")
 	d := mustRun(t, "export", "--to", filepath.Join(t.TempDir(), "e.json"))
 	if fmt.Sprint(d["keys_sealed"]) != "[k1]" || d["key_files"] != nil {
 		t.Errorf("keys_sealed %v key_files %v", d["keys_sealed"], d["key_files"])

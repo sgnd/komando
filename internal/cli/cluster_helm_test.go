@@ -87,7 +87,7 @@ func helmLabDeny(t *testing.T, ctxName string, deny func(*http.Request) int, sec
 	return srv.URL
 }
 
-// helmResult runs a helm snippet through `recipe run` and returns its result.
+// helmResult runs a helm snippet through `snippet exec` and returns its result.
 func helmResult(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	t.Helper()
 	raw, e := snippetData(t, args...)

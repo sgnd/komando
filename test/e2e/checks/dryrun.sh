@@ -18,17 +18,17 @@ check "fs chmod --dry-run" True "$(dry fs chmod direct 600 "/tmp/$D.keep")"
 check "fs mv --dry-run" True "$(dry fs mv direct "/tmp/$D.keep" "/tmp/$D.moved")"
 check "fs rm --dry-run" True "$(dry fs rm direct "/tmp/$D.keep")"
 echo hi >"$TMP/$D.src"
-check "cp --dry-run" True "$(dry cp "$TMP/$D.src" "direct:/tmp/$D.cp")"
+check "cp --dry-run" True "$(dry copy "$TMP/$D.src" "direct:/tmp/$D.cp")"
 check "nothing written on the server" "keep 644 no no no no" \
   "$(nat direct sh -c "cat /tmp/$D.keep; echo; stat -c %a /tmp/$D.keep; for f in /tmp/$D.txt /tmp/$D.dir /tmp/$D.moved /tmp/$D.cp; do [ -e \$f ] && echo yes || echo no; done" | tr '\n' ' ' | sed 's/ *$//')"
-check "download --dry-run writes nothing here" "True no" "$(dry download direct "/tmp/$D.keep" --to "$TMP/$D.down") $([ -e "$TMP/$D.down" ] && echo yes || echo no)"
-check "exec --dry-run runs nothing" "True no" "$(dry exec direct -- touch "/tmp/$D.exec") $(nat direct sh -c "[ -e /tmp/$D.exec ] && echo yes || echo no")"
+check "download --dry-run writes nothing here" "True no" "$(dry copy "direct:/tmp/$D.keep" "$TMP/$D.down") $([ -e "$TMP/$D.down" ] && echo yes || echo no)"
+check "host ssh exec --dry-run runs nothing" "True no" "$(dry host ssh exec direct -- touch "/tmp/$D.exec") $(nat direct sh -c "[ -e /tmp/$D.exec ] && echo yes || echo no")"
 
 # databases, caches, storage
-check "db query --write --dry-run rolls back" "True 0" \
-  "$(dry db query pg --write "create table $D (id int)") $(nat pg psql -U app -d app -At -c "select count(*) from information_schema.tables where table_name = '$D'")"
+check "database postgres query --write --dry-run rolls back" "True 0" \
+  "$(dry database postgres query pg --write "create table $D (id int)") $(nat pg psql -U app -d app -At -c "select count(*) from information_schema.tables where table_name = '$D'")"
 echo data >"$TMP/$D.obj"
-check "storage upload --dry-run" "True no" "$(dry storage upload files-sftp "$TMP/$D.obj" "$D.obj") $(nat sftp sh -c "[ -e /home/deploy/uploads/$D.obj ] && echo yes || echo no")"
+check "storage upload --dry-run" "True no" "$(dry copy "$TMP/$D.obj" "files-sftp:$D.obj") $(nat sftp sh -c "[ -e /home/deploy/uploads/$D.obj ] && echo yes || echo no")"
 
 # packages
 check "pkg install --dry-run" "True no" "$(dry pkg install direct sl) $(nat direct sh -c "dpkg -s sl >/dev/null 2>&1 && echo yes || echo no")"
@@ -43,16 +43,16 @@ if in_area data; then
 # inventory and settings (komando's own files)
 # what komando keeps, read through komando: store.db's bytes change with
 # every audit record, and a dry run is recorded too (with dry_run: true)
-snap() { { $K export -o json 2>/dev/null | jget 'json.dumps({k: v for k, v in d["data"].items()}, sort_keys=True)'; $K secret list 2>/dev/null | jget 'json.dumps(sorted((s["name"], s.get("updated_at")) for s in d["data"]["secrets"]))'; $K config show 2>/dev/null | jget 'json.dumps(d["data"]["settings"], sort_keys=True)'; cat "$KOMANDO_HOME/runtime.json" 2>/dev/null || true; } | shasum | cut -d' ' -f1; }
+snap() { { $K export -o json 2>/dev/null | jget 'json.dumps({k: v for k, v in d["data"].items()}, sort_keys=True)'; $K credential list 2>/dev/null | jget 'json.dumps(sorted((s["name"], s.get("updated_at")) for s in d["data"]["secrets"]))'; $K config show 2>/dev/null | jget 'json.dumps(d["data"]["settings"], sort_keys=True)'; cat "$KOMANDO_HOME/runtime.json" 2>/dev/null || true; } | shasum | cut -d' ' -f1; }
 before=$(snap)
-dry host add "$D" agent@127.0.0.1 >/dev/null
+dry host ssh add "$D" agent@127.0.0.1 >/dev/null
 dry conn add "$D" "postgres://app@127.0.0.1/app" >/dev/null
-dry group add "$D" direct >/dev/null
+dry group create "$D" direct >/dev/null
 dry config set parallel 3 >/dev/null
-dry policy deny "$D" >/dev/null
-dry recipe add "$D" 'echo hi' >/dev/null
-printf 'v' | $K secret set "$D" --dry-run >/dev/null
+dry policy create "$D" >/dev/null
+dry snippet create "$D" 'echo hi' >/dev/null
+printf 'v' | $K credential password add "$D" --dry-run >/dev/null
 check "inventory, vault, settings and runtime unchanged by dry runs" "$before" "$(snap)"
 
-q $K exec direct --allow-dangerous -- "rm -f /tmp/$D.keep"
+q $K host ssh exec direct --allow-dangerous -- "rm -f /tmp/$D.keep"
 fi

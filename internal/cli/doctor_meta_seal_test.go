@@ -16,7 +16,7 @@ import (
 func olderStore(t *testing.T) {
 	t.Helper()
 	sealdb.SealNewStores = false
-	mustRun(t, "host", "add", "web1", "--address", "10.0.0.5", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "10.0.0.5", "--user", "u")
 	sealdb.SealNewStores = true
 	store.Close()
 }
@@ -79,7 +79,7 @@ func TestMetaSealCarryOverByAPerson(t *testing.T) {
 // naming doctor --reseal-meta, which only a person runs (C08).
 func TestMetaTamperedNeedsAPerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "--address", "10.0.0.5", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "10.0.0.5", "--user", "u")
 	store.Close()
 	db, err := sql.Open("sqlite", "file:"+store.DBPath())
 	if err != nil {
@@ -139,7 +139,7 @@ func TestMetaTamperedNeedsAPerson(t *testing.T) {
 // store does not open with it, and doctor says so (C08).
 func TestDoctorReportsOnlyAnOpenedStore(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "--address", "10.0.0.5", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "10.0.0.5", "--user", "u")
 	store.Close()
 	db, err := sql.Open("sqlite", "file:"+store.DBPath())
 	if err != nil {

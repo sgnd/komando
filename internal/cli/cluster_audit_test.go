@@ -103,7 +103,7 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	if _, e := invRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Fatalf("run: %+v", e)
 	}
-	d := mustRun(t, "audit", "--failed")
+	d := mustRun(t, "audit", "list", "--failed")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
 		t.Errorf("the broken write is not in the audit log: %s", b)
 	}
@@ -129,7 +129,7 @@ func TestClusterRunTimedOutWriteIsAudited(t *testing.T) {
 	if _, e := invRun(t, "--timeout", "500ms", "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
 		t.Fatalf("run: %+v", e)
 	}
-	d := mustRun(t, "audit", "--failed")
+	d := mustRun(t, "audit", "list", "--failed")
 	if b, _ := json.Marshal(d); !strings.Contains(string(b), "kubectl create configmap x") {
 		t.Errorf("the timed out write is not in the audit log: %s", b)
 	}
@@ -237,7 +237,7 @@ func TestClusterAddKind(t *testing.T) {
 	wantCode(t, "USAGE", "cluster", "kubernetes", "add", "k1", "k8s://127.0.0.1:6451")
 	wantCode(t, "WRONG_KIND", "cluster", "kubernetes", "add", "r1", "registry://ghcr.io")
 	wantCode(t, "WRONG_KIND", "registry", "oci", "add", "k3", "k8s://1.2.3.4")
-	if e := wantCode(t, "USAGE", "cluster", "kubernetes", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host add") {
+	if e := wantCode(t, "USAGE", "cluster", "kubernetes", "add", "sw1", "ssh://deploy@10.0.0.9"); !strings.Contains(e.Hint, "host ssh add") {
 		t.Errorf("swarm: %+v", e)
 	}
 	saveSecrets(t, "k2-kubeconfig")
@@ -250,7 +250,7 @@ func TestClusterAddKind(t *testing.T) {
 func TestClusterSwarmRawManager(t *testing.T) {
 	invHome(t)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
-	mustRun(t, "host", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
+	mustRun(t, "host", "ssh", "add", "sw1", "deploy@192.0.2.21", "--tag", "swarm")
 	e := wantCode(t, "WRONG_KIND", "cluster", "swarm", "raw", "prod", "--", "service", "ls")
 	if !strings.Contains(e.Hint, "komando cluster kubernetes raw prod") {
 		t.Errorf("WRONG_KIND hint: %q", e.Hint)

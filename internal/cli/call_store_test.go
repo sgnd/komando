@@ -89,10 +89,10 @@ func TestDryRunBesideARealChange(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		realCode, realOut = run(engine.Call{Terminal: true}, "host", "add", "real", "u@10.0.0.1", "--ask-password")
+		realCode, realOut = run(engine.Call{Terminal: true}, "host", "ssh", "add", "real", "u@10.0.0.1", "--ask-password")
 	}()
 	waitClosed(t, asking, "the real call's password question")
-	if code, o := run(engine.Call{}, "host", "add", "dry", "u@10.0.0.2", "--dry-run"); code != 0 {
+	if code, o := run(engine.Call{}, "host", "ssh", "add", "dry", "u@10.0.0.2", "--dry-run"); code != 0 {
 		t.Fatalf("the dry run: exit %d: %s", code, o)
 	}
 	close(typed)
@@ -109,13 +109,13 @@ func TestDryRunBesideARealChange(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			if code, o := run(engine.Call{}, "host", "add", fmt.Sprintf("dry%d", i), fmt.Sprintf("u@10.0.1.%d", i+1), "--dry-run"); code != 0 {
+			if code, o := run(engine.Call{}, "host", "ssh", "add", fmt.Sprintf("dry%d", i), fmt.Sprintf("u@10.0.1.%d", i+1), "--dry-run"); code != 0 {
 				errs <- fmt.Errorf("dry run %d: exit %d: %s", i, code, o)
 			}
 		}()
 		go func() {
 			defer wg.Done()
-			if code, o := run(engine.Call{}, "host", "add", fmt.Sprintf("real%d", i), fmt.Sprintf("u@10.0.2.%d", i+1)); code != 0 {
+			if code, o := run(engine.Call{}, "host", "ssh", "add", fmt.Sprintf("real%d", i), fmt.Sprintf("u@10.0.2.%d", i+1)); code != 0 {
 				errs <- fmt.Errorf("real change %d: exit %d: %s", i, code, o)
 			}
 		}()
@@ -287,7 +287,7 @@ func TestDryRunNeverMakesMissingStore(t *testing.T) {
 				return code, o.String()
 			}
 
-			run("host", "add", "web2", "u@10.0.0.6", "--dry-run")
+			run("host", "ssh", "add", "web2", "u@10.0.0.6", "--dry-run")
 			run("list", "--dry-run")
 			if _, err := os.Stat(store.DBPath()); !os.IsNotExist(err) {
 				t.Fatalf("a dry run made a store: %v", err)

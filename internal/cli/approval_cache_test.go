@@ -29,7 +29,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
 	setGate(tcl, true, gateYes, gateAllowDangerous, gateReveal)
-	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes", "--allow-dangerous", "--reveal"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--script", "./deploy.sh", "--yes", "--allow-dangerous", "--reveal"}
 
 	resetApproval()
 	if !tcl.revealOK() || len(texts) != 1 { // as the root command does before the command runs
@@ -76,7 +76,7 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	resetApproval()
 	texts = nil
 	setGate(tcl, false, gateReveal)
-	tcl.args = []string{"komando", "exec", "web", "--yes", "--allow-dangerous", "--", "rm", "-rf", "/srv/app"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--yes", "--allow-dangerous", "--", "rm", "-rf", "/srv/app"}
 	if err := Guard(tcl, st, hosts, "rm -rf /srv/app", true); err != nil || len(texts) != 1 {
 		t.Errorf("destructive on a protected server asks once: %v, %d windows", err, len(texts))
 	}
@@ -91,14 +91,14 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 // names both.
 func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.9", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.9", "--protected")
 	if err := vault.Set(store.Save(), "web-pw", "old-value"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "edit", "web", "--password-ref", "credential:web-pw", "--yes")
+	mustRun(t, "host", "ssh", "edit", "web", "--credential", "web-pw", "--yes")
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
-	mustRun(t, "secret", "set", "web-pw", "--from-env", "V", "--yes", "--reveal")
+	mustRun(t, "credential", "password", "add", "web-pw", "--from-env", "V", "--yes", "--reveal")
 	if len(*texts) != 2 || !strings.Contains((*texts)[1], "--yes skips") {
 		t.Errorf("the --yes check gets its own window: %q", *texts)
 	}
@@ -108,7 +108,7 @@ func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"), "--protected")
 	*texts = nil
 	resetApproval()
-	mustRun(t, "db", "query", "lite", "--write", "--yes", "--allow-dangerous", "drop table if exists t")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "--yes", "--allow-dangerous", "drop table if exists t")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "protected conn lite") {
 		t.Errorf("one window that names the protected conn: %q", *texts)
 	}

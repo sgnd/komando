@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// Showing a secret value again (`secret show --reveal`, `key show
+// Showing a secret value again (`credential password show --reveal`, `credential key show
 // --reveal`) is for a person only (docs/design/principles.md):
 //   - an AI agent, or a key through ssh-gate, never gets the value, not
 //     even with the person's yes: it references credential:NAME instead;
@@ -27,13 +27,21 @@ import (
 
 // revealNever are the commands whose --reveal an AI agent never gets: the
 // root's masking does not ask the person for them.
-var revealNever = map[string]bool{"secret.show": true, "key.show": true, "db.dump": true}
+var revealNever = map[string]bool{"credential.password.show": true, "credential.token.show": true, "credential.key.show": true,
+	"database.postgres.backup": true, "database.mysql.backup": true, "database.sqlite.backup": true}
+
+// valueShow are the commands that show a saved password or token.
+var valueShow = map[string]bool{"credential.password.show": true, "credential.token.show": true}
 
 // revealGate says how the person allowed showing what (for example
 // credential:db-pass): "terminal" or "window". It is "" in a dry run, which
 // shows no value and asks nobody. cmdName and field name the audit line
-// of a refusal (secret.show, "secret": NAME).
+// of a refusal (credential.password.show, "secret": NAME); a leaf that runs the body
+// names it by its own ID.
 func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
+	if cl.out.As != "" {
+		cmdName = cl.out.As
+	}
 	refuse := func(e *out.Error) (string, error) {
 		audit(cl, nil, cmdName, nil, "", false, map[string]any{field: name, "blocked": e.Code, "message": e.Message})
 		return "", e
@@ -72,17 +80,19 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	return refuse(e)
 }
 
-// needsHuman is REVEAL_NEEDS_TERMINAL for cmdName (secret.show, key.show) and
-// name: for an AI agent, or where no window could ask (noScreen).
+// needsHuman is REVEAL_NEEDS_TERMINAL for cmdName (credential.password.show,
+// credential.key.show) and name: for an AI agent, or where no window could
+// ask (noScreen).
 func needsHuman(cmdName, name string, noScreen bool) *out.Error {
+	path := strings.ReplaceAll(cmdName, ".", " ")
+	run := "`komando " + path + " " + name + " --reveal`"
 	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_TERMINAL",
-		"ask a person to run `komando secret show "+name+" --reveal` in a terminal; to use the secret in a command, reference it (credential:"+name+") instead",
+		"ask a person to run `komando "+path+" "+name+" --reveal` in a terminal; to use the secret in a command, reference it (credential:"+name+") instead",
 		"--reveal only works for a person at a terminal")
-	run := "`komando " + strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal`"
 	switch {
 	case noScreen:
 		e.Hint = "komando could not ask in a window here (no screen, or a Linux or BSD desktop without the approval code); run " + run + " in a terminal"
-	case cmdName != "secret.show":
+	case !valueShow[cmdName]:
 		e.Hint = "ask a person to run " + run + " in a terminal; an AI agent never gets a private key"
 	}
 	return e
@@ -177,6 +187,10 @@ var startedFrom = func(cl *call) string {
 // revealAudit records a value shown to a person: what, how they allowed
 // it, and who started komando. Never the value.
 func revealAudit(cl *call, cmdName, field, name, via string) {
+	if as := cl.out.As; as != "" { // a leaf runs the body: credential.password.show records credential.password.reveal
+		cl.out.As = strings.TrimSuffix(as, ".show") + ".reveal"
+		defer func() { cl.out.As = as }()
+	}
 	rec := map[string]any{field: name, "via": via}
 	if from := startedFrom(cl); from != "" {
 		rec["started_from"] = from

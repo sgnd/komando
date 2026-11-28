@@ -44,7 +44,11 @@ func valueRows(tx *sealdb.Tx) ([]valueRow, map[string]*entry, error) {
 			return sealdb.ErrTampered
 		}
 		rows = append(rows, r)
-		entries[r.name] = &entry{Nonce: v.Nonce, Data: v.Data, UpdatedAt: at, id: r.id}
+		e := &entry{Nonce: v.Nonce, Data: v.Data, UpdatedAt: at, id: r.id}
+		if r.cred != nil {
+			e.kind = r.cred.Kind
+		}
+		entries[r.name] = e
 		return nil
 	}
 	creds, err := tx.List(store.KindCredential)

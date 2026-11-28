@@ -92,12 +92,12 @@ func formBuild(st *store.State, sp formSpec, a formAnswers) [][]string {
 }
 
 // formDry is the command Try it first runs: the first one that is not a
-// secret set (which would ask for the secret), with --dry-run before any
+// credential password add (which would ask for the secret), with --dry-run before any
 // --, where it is still a flag and not a word of the remote command.
 func formDry(cmds [][]string) []string {
 	c := cmds[0]
 	for _, x := range cmds {
-		if len(x) < 2 || x[0] != "secret" || x[1] != "set" {
+		if !slices.Equal(x[:min(len(x), 3)], []string{"credential", "password", "add"}) {
 			c = x
 			break
 		}

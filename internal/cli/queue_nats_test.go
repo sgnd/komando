@@ -18,7 +18,7 @@ func TestQueueNatsConn(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "n", "nats://nats.example.com")
 	mustRun(t, "conn", "add", "n", "tls://app@n1.example.com,n2.example.com:4223")
-	mustRun(t, "host", "add", "office", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "n-via", "nats://nats.internal", "--via", "office")
 	mustRun(t, "conn", "add", "n-plain", "nats://nats.example.com:4222?insecure=1")
 	if got := plainConn(&store.Conn{Name: "n-plain", URL: "nats://nats.example.com:4222?insecure=1&domain=hub"}); !strings.Contains(got, "tls://nats.example.com:4222?domain=hub") {

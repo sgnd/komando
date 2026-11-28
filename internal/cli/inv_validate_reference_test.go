@@ -20,9 +20,9 @@ func TestOldReferenceSpellingRefused(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"host password", []string{"host", "add", "web1", "u@10.0.0.5", "--password-ref", "secret:web1-pass"}},
-		{"host env", []string{"host", "add", "web1", "u@10.0.0.5", "--env", "PG=secret:web1-pass"}},
-		{"secret run env", append([]string{"secret", "run", "--env", "PG=secret:web1-pass"}, childArgs()...)},
+		{"conn password", []string{"conn", "add", "web1", "postgres://app@10.0.0.5/shop", "--password-ref", "secret:web1-pass"}},
+		{"host env", []string{"host", "ssh", "add", "web1", "u@10.0.0.5", "--env", "PG=secret:web1-pass"}},
+		{"credential run env", append([]string{"credential", "run", "--env", "PG=secret:web1-pass"}, childArgs()...)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
@@ -30,7 +30,7 @@ func TestOldReferenceSpellingRefused(t *testing.T) {
 			if !strings.Contains(e.Hint, "credential:web1-pass") {
 				t.Fatalf("hint %q does not name credential:web1-pass", e.Hint)
 			}
-			if d := mustRun(t, "host", "list"); strings.Contains(strings.ToLower(jsonOf(d)), "web1") {
+			if d := mustRun(t, "list"); strings.Contains(strings.ToLower(jsonOf(d)), "web1") {
 				t.Fatalf("the host was saved: %s", jsonOf(d))
 			}
 		})
@@ -45,21 +45,37 @@ func TestOutsideStoreOnCredentialFlagRefused(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"host password", []string{"host", "add", "web1", "u@10.0.0.5", "--password-ref", "env:WEB_PW", "--dry-run"}},
-		{"host sudo", []string{"host", "add", "web1", "u@10.0.0.5", "--sudo-ref", "file:/tmp/pw", "--dry-run"}},
+		{"service env", []string{"conn", "add", "web1-db", "postgres://app@10.0.0.5/shop", "--password-ref", "env:WEB_PW", "--dry-run"}},
+		{"service file", []string{"conn", "add", "web1-db", "postgres://app@10.0.0.5/shop", "--password-ref", "file:/tmp/pw", "--dry-run"}},
 		{"service password", []string{"conn", "add", "web1-db", "postgres://app@10.0.0.5/shop", "--password-ref", "op://ops/db/password", "--dry-run"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
 			e := wantCode(t, "REFERENCE_UNSUPPORTED", tc.args...)
 			// condition 2 of C547: the fix in one line
-			if e.Hint != "save the secret as a credential with `komando secret set NAME`, then use credential:NAME" {
+			if e.Hint != "save the secret as a credential with `komando credential password add NAME`, then use credential:NAME" {
 				t.Fatalf("hint %q is not the one-line fix", e.Hint)
 			}
 		})
 	}
 	if err := checkPassphraseRef("env:KEY_PASS"); err == nil || !strings.Contains(err.Error(), "outside store") {
 		t.Fatalf("--passphrase-ref env:KEY_PASS: %v", err)
+	}
+}
+
+// A server's credential options are the table's (rule R2): an outside store
+// is refused with USAGE before anything is planned, naming the way to save
+// one, and the value is not repeated.
+func TestOutsideStoreOnServerCredentialRefused(t *testing.T) {
+	for _, args := range [][]string{
+		{"host", "ssh", "add", "web1", "u@10.0.0.5", "--credential", "env:WEB_PW", "--dry-run"},
+		{"host", "ssh", "add", "web1", "u@10.0.0.5", "--sudo-credential", "file:/tmp/pw", "--dry-run"},
+	} {
+		invHome(t)
+		e := wantCode(t, "USAGE", args...)
+		if !strings.Contains(e.Hint, "komando credential password add NAME") || strings.Contains(e.Message+e.Hint, args[6]) {
+			t.Errorf("%v: %+v", args, e)
+		}
 	}
 }
 
@@ -159,7 +175,7 @@ func TestCredentialWordNotSavedRefused(t *testing.T) {
 		t.Errorf("the warning for a missing secret: %q", w)
 	}
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--password-ref", "credential:"+word)
+	mustRun(t, "conn", "add", "web1-db", "postgres://app@10.0.0.5/shop", "--password-ref", "credential:"+word)
 	if d, _ := invRun(t, "doctor"); !strings.Contains(fmtAny(d), "not in the vault") || strings.Contains(fmtAny(d), word) {
 		t.Errorf("doctor on a missing secret: %v", d)
 	}
@@ -211,25 +227,24 @@ func TestCredentialRefRefusesWhenTheVaultCannotBeRead(t *testing.T) {
 	}
 }
 
-// Host and credential key still take today's reference flags until the
-// cut moves them: a typed password stops with USAGE and is repeated
-// nowhere.
+// A server's and a key's credential options take a saved secret's name
+// (rule R2): a typed password stops with USAGE and is repeated nowhere.
 func TestTypedPasswordOnHostAndKeyRefused(t *testing.T) {
 	const word = "Hunter2x"
 	invHome(t)
 	noAgent(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5")
-	mustRun(t, "key", "gen", "k")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5")
+	mustRun(t, "credential", "key", "create", "k")
 	var stderr bytes.Buffer
 	saved := tcl.out.Err
 	tcl.out.Err = &stderr
 	t.Cleanup(func() { tcl.out.Err = saved })
 	for _, args := range [][]string{
-		{"host", "add", "web2", "u@10.0.0.6", "--password-ref", word},
-		{"host", "add", "web2", "u@10.0.0.6", "--sudo-ref", word},
-		{"host", "edit", "web1", "--password-ref", word},
-		{"host", "edit", "web1", "--sudo-ref", word},
-		{"key", "edit", "k", "--passphrase-ref", word},
+		{"host", "ssh", "add", "web2", "u@10.0.0.6", "--credential", word},
+		{"host", "ssh", "add", "web2", "u@10.0.0.6", "--sudo-credential", word},
+		{"host", "ssh", "edit", "web1", "--credential", word},
+		{"host", "ssh", "edit", "web1", "--sudo-credential", word},
+		{"credential", "key", "edit", "k", "--passphrase-credential", word},
 	} {
 		e := wantCode(t, "USAGE", args...)
 		if seen := fmt.Sprintf("%+v %s", *e, stderr.String()); strings.Contains(seen, word) {
@@ -239,7 +254,7 @@ func TestTypedPasswordOnHostAndKeyRefused(t *testing.T) {
 	if strings.Contains(auditText(t), word) {
 		t.Errorf("the word is in the audit log")
 	}
-	for _, show := range [][]string{{"host", "show", "web1"}, {"key", "show", "k"}} {
+	for _, show := range [][]string{{"host", "ssh", "show", "web1"}, {"credential", "key", "show", "k"}} {
 		if d := mustRun(t, show...); strings.Contains(fmtAny(d), word) {
 			t.Errorf("the word is in the entry: %v", d)
 		}

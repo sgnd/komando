@@ -272,7 +272,7 @@ func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
 		t.Errorf("dry run: %v", d)
 	}
 	wantCode(t, "VPN_LOGIN_REQUIRED", "vpn", "anyconnect", "start", "client-x")
-	a := mustRun(t, "audit", "--command", "vpn.anyconnect.start")
+	a := mustRun(t, "audit", "list", "--command", "vpn.anyconnect.start")
 	var real []map[string]any
 	for _, e := range a["entries"].([]any) {
 		if m := e.(map[string]any); m["dry_run"] == false {
@@ -329,7 +329,7 @@ func TestVpnEditFlags(t *testing.T) {
 // errors too.
 func TestAliasEnvelopeName(t *testing.T) {
 	root := newRoot(tcl)
-	for path, want := range map[string]string{"host list": "list", "vpn wireguard add": "vpn.wireguard.add"} {
+	for path, want := range map[string]string{"host ssh list": "host.ssh.list", "vpn wireguard add": "vpn.wireguard.add"} {
 		c, _, err := root.Find(strings.Fields(path))
 		if err != nil {
 			t.Fatal(err)
@@ -412,8 +412,8 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "add", "app", "u@10.0.0.5", "--via", "client-x")
-	mustRun(t, "host", "add", "web", "u@10.0.0.6", "--via", "office")
+	mustRun(t, "host", "ssh", "add", "app", "u@10.0.0.5", "--via", "client-x")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.6", "--via", "office")
 	d := mustRun(t, "vpn", "anyconnect", "stop", "client-x", "--dry-run")
 	aff, _ := d["affects"].([]any)
 	if len(aff) != 1 {

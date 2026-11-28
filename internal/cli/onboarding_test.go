@@ -17,16 +17,16 @@ import (
 func TestAskPassword(t *testing.T) {
 	invHome(t)
 	// a script: no terminal
-	e := wantCode(t, "NEEDS_PERSON", "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
+	e := wantCode(t, "NEEDS_PERSON", "host", "ssh", "add", "vps1", "root@10.0.0.20", "--ask-password")
 	if e.Exit != out.ExitPolicy {
 		t.Errorf("a password nobody can type here: exit %d, want 6 (C79)", e.Exit)
 	}
-	if !strings.Contains(e.Hint, "komando secret set vps1-pass") {
+	if !strings.Contains(e.Hint, "komando credential password add vps1-pass") {
 		t.Errorf("script hint: %q", e.Hint)
 	}
 	// an agent
 	asAgent(t, false, false)
-	e = wantCode(t, "NEEDS_PERSON", "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
+	e = wantCode(t, "NEEDS_PERSON", "host", "ssh", "add", "vps1", "root@10.0.0.20", "--ask-password")
 	if !strings.Contains(e.Hint, "ask the user to run `komando") || !strings.Contains(e.Hint, "never ask for a password in the chat") { // the command line is tcl.args
 		t.Errorf("agent hint: %q", e.Hint)
 	}
@@ -44,31 +44,31 @@ func TestAskPassword(t *testing.T) {
 		}
 		return "Typed-Pass-1", nil
 	}
-	d := mustRun(t, "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
+	d := mustRun(t, "host", "ssh", "add", "vps1", "root@10.0.0.20", "--ask-password")
 	if d["password_ref"] != "credential:vps1-pass" || d["next"] != "komando test vps1" || asked != 1 {
 		t.Errorf("host add --ask-password: %v (asked %d)", d, asked)
 	}
 	if v, err := vault.Get("vps1-pass"); err != nil || v != "Typed-Pass-1" {
 		t.Errorf("vault: %q %v", v, err)
 	}
-	wantCode(t, "USAGE", "host", "edit", "vps1", "--ask-password", "--password-ref", "credential:x")
+	wantCode(t, "USAGE", "host", "ssh", "edit", "vps1", "--ask-password", "--credential", "x")
 	// a new password for the same server replaces its own secret
 	readPassword = func(*call, string) (string, error) { return "Typed-Pass-2", nil }
-	mustRun(t, "host", "edit", "vps1", "--ask-password")
+	mustRun(t, "host", "ssh", "edit", "vps1", "--ask-password")
 	if v, _ := vault.Get("vps1-pass"); v != "Typed-Pass-2" {
 		t.Errorf("edit did not store the new password: %q", v)
 	}
 	// a secret of that name that another server uses is never replaced
-	mustRun(t, "host", "add", "other", "root@10.0.0.21", "--password-ref", "credential:web9-pass")
 	setSecret(t, "web9-pass", "keep-me")
-	if e := wantCode(t, "SECRET_EXISTS", "host", "add", "web9", "root@10.0.0.22", "--ask-password"); !strings.Contains(e.Message, "host other") {
+	mustRun(t, "host", "ssh", "add", "other", "root@10.0.0.21", "--credential", "web9-pass")
+	if e := wantCode(t, "SECRET_EXISTS", "host", "ssh", "add", "web9", "root@10.0.0.22", "--ask-password"); !strings.Contains(e.Message, "host other") {
 		t.Errorf("collision: %+v", e)
 	}
 	if v, _ := vault.Get("web9-pass"); v != "keep-me" {
 		t.Error("the other server's secret was replaced")
 	}
 	// a failed add takes back the secret it made
-	if _, e := invRun(t, "host", "add", "web8", "root@10.0.0.30", "--ask-password", "--via", "no-such-bastion"); e == nil {
+	if _, e := invRun(t, "host", "ssh", "add", "web8", "root@10.0.0.30", "--ask-password", "--via", "no-such-bastion"); e == nil {
 		t.Fatal("an unknown --via: the add must fail")
 	}
 	if _, err := vault.Get("web8-pass"); err == nil {
@@ -82,7 +82,7 @@ func TestAskPassword(t *testing.T) {
 	// a dry run asks nothing and stores nothing
 	asked = 0
 	readPassword = func(*call, string) (string, error) { asked++; return "x", nil }
-	mustRun(t, "host", "add", "dry1", "root@10.0.0.40", "--ask-password", "--dry-run")
+	mustRun(t, "host", "ssh", "add", "dry1", "root@10.0.0.40", "--ask-password", "--dry-run")
 	if _, err := vault.Get("dry1-pass"); err == nil || asked != 0 {
 		t.Errorf("dry run asked %d times or stored the secret", asked)
 	}
@@ -92,11 +92,11 @@ func TestAskPassword(t *testing.T) {
 // made, and add says what to run next.
 func TestAddWarnsAndSaysNext(t *testing.T) {
 	invHome(t)
-	d := mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "credential:web1-pas")
-	if !strings.Contains(fmtAny(d["warnings"]), "a secret it names is not in the vault yet: store it with `komando secret set NAME`") || strings.Contains(fmtAny(d["warnings"]), "web1-pas") {
-		t.Errorf("host add: %v", d)
+	// a server's credential names a saved secret (rule R2): refused, the value not repeated
+	if e := wantCode(t, "USAGE", "host", "ssh", "add", "web1", "u@10.0.0.1", "--credential", "web1-pas"); strings.Contains(e.Message+e.Hint, "web1-pas") {
+		t.Errorf("host add repeats the value: %+v", e)
 	}
-	d = mustRun(t, "conn", "edit", mustConn(t), "--password-ref", "credential:db-pas")
+	d := mustRun(t, "conn", "edit", mustConn(t), "--password-ref", "credential:db-pas")
 	if !strings.Contains(fmtAny(d["warnings"]), "a secret it names is not in the vault yet") || strings.Contains(fmtAny(d["warnings"]), "db-pas") {
 		t.Errorf("conn edit: %v", d)
 	}
@@ -104,7 +104,7 @@ func TestAddWarnsAndSaysNext(t *testing.T) {
 	if strings.Contains(text, "next") || !strings.HasPrefix(text, "added web1\n") {
 		t.Errorf("text names the next command on stdout (it is data.next and the Next: line on stderr): %q", text)
 	}
-	if d := mustRun(t, "host", "add", "web2", "u@10.0.0.2"); d["next"] != "komando test web2" {
+	if d := mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2"); d["next"] != "komando test web2" {
 		t.Errorf("data.next: %v", d["next"])
 	}
 }
@@ -117,7 +117,7 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 	setSecret(t, "shared-pass", "y")
 	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass")
 	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.6/app", "--password-ref", "credential:shared-pass")
-	mustRun(t, "host", "add", "web1", "app@10.0.0.1", "--password-ref", "credential:shared-pass") // the same login user (format 3)
+	mustRun(t, "host", "ssh", "add", "web1", "app@10.0.0.1", "--credential", "shared-pass") // the same login user (format 3)
 	d := mustRun(t, "conn", "rm", "db1", "db2")
 	if fmtAny(d["secrets_unused"]) != "[db-pass]" {
 		t.Errorf("only db-pass is left unused: %v", d)
@@ -125,7 +125,7 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 	if _, err := vault.Get("db-pass"); err != nil {
 		t.Error("komando removed the secret by itself")
 	}
-	if s := (rmResult{Removed: []string{"db1"}, SecretsUnused: []string{"db-pass"}}).Text(); !strings.Contains(s, "removed db1\ndb-pass is no longer used: `komando secret rm db-pass`") {
+	if s := (rmResult{Removed: []string{"db1"}, SecretsUnused: []string{"db-pass"}}).Text(); !strings.Contains(s, "removed db1\ndb-pass is no longer used: `komando credential password remove db-pass`") {
 		t.Errorf("text: %q", s)
 	}
 }
@@ -136,7 +136,7 @@ func TestChangeTextInWords(t *testing.T) {
 	for got, want := range map[string]string{
 		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.denied(tcl).TextFor(realRun()):                           "added the deny rule b as " + policy.CustomID("b") + " (2 custom rules now)\n",
 		policyChange{Custom: []string{"a"}, Removed: "b"}.TextFor(realRun()):                                                           "removed the deny rule b (1 custom rule left)\n",
-		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                          "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando secret set NAME`)\n",
+		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                          "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando credential password add NAME`)\n",
 		renderedText(t, map[string]any{"name": "app-db-pass", "action": "stored", "replaced": false, "ref": "credential:app-db-pass"}): "stored app-db-pass\n  ref: credential:app-db-pass\n",
 	} {
 		if got != want {

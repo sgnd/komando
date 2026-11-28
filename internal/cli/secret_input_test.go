@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -29,9 +30,9 @@ func TestAgentInputWithVaultValueAnsweredAsAnyOther(t *testing.T) {
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, pair := range [][2][]string{
-		{{"host", "show", v}, {"host", "show", "Tr0ub4dor-wrong-77"}},
-		{{"secret", "show", v}, {"secret", "show", "Tr0ub4dor-wrong-77"}},
-		{{"secret", "show", v, "--dry-run"}, {"secret", "show", "Tr0ub4dor-wrong-77", "--dry-run"}},
+		{{"host", "ssh", "show", v}, {"host", "ssh", "show", "Tr0ub4dor-wrong-77"}},
+		{{"credential", "password", "show", v}, {"credential", "password", "show", "Tr0ub4dor-wrong-77"}},
+		{{"credential", "password", "show", v, "--dry-run"}, {"credential", "password", "show", "Tr0ub4dor-wrong-77", "--dry-run"}},
 	} {
 		_, hit := invRun(t, pair[0]...)
 		_, miss := invRun(t, pair[1]...)
@@ -44,8 +45,55 @@ func TestAgentInputWithVaultValueAnsweredAsAnyOther(t *testing.T) {
 	}
 	// the person sees the guessing in the audit log
 	noAgent(t)
-	d := mustRun(t, "audit", "--limit", "20")
+	d := mustRun(t, "audit", "list", "--limit", "20")
 	if got := fmt.Sprint(d); strings.Count(got, "secret_value_in_input") < 3 || strings.Contains(got, v) {
 		t.Errorf("audit log: %s", got)
+	}
+}
+
+// C654: a value typed after a secret's name is refused as SECRET_IN_ARGS,
+// with the shell-history warning, before the count of the arguments, on
+// every leaf that reads a secret's value; nothing is saved. One row per
+// leaf: secretValueLeaves lists them.
+func TestSecretValueInArgsRefusedFirst(t *testing.T) {
+	for _, tc := range []struct{ id, hint string }{
+		{"credential.password.add", "--from-env"},
+		{"credential.token.add", "--from-env"},
+		{"secret.check", "type it"},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			invHome(t)
+			if tc.id == "secret.check" {
+				t.Setenv("PW", "s3cret-value-1")
+				mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
+			}
+			words := strings.Split(tc.id, ".")
+			again := "run `komando " + strings.Join(words, " ") + " NAME` and type it (hidden)"
+			// T4: the value given first is never repeated either
+			for _, rest := range [][]string{{"db-pass", "hunter22-typed"}, {"hunter22-typed", "db-pass"}} {
+				e := wantCode(t, "SECRET_IN_ARGS", append(slices.Clone(words), rest...)...)
+				if !strings.Contains(e.Message, "shell history") || !strings.Contains(e.Hint, tc.hint) || !strings.HasPrefix(e.Hint, again) || strings.Contains(e.Message+e.Hint, "hunter22") {
+					t.Errorf("%v: %+v", rest, e)
+				}
+			}
+			// T4: a typo in the group word: the line in the hint ends after the name
+			typo := append([]string{"credentail"}, words[1:]...)
+			if tc.id == "secret.check" {
+				typo = []string{"secrt", "check"}
+			}
+			if e := wantCode(t, "USAGE", append(typo, "db-pass", "hunter22-typed")...); strings.Contains(e.Message+e.Hint, "hunter22") {
+				t.Errorf("typo line: %+v", e)
+			}
+			if tc.id != "secret.check" {
+				if _, err := vault.Get("db-pass"); err == nil {
+					t.Error("a value on the command line was saved")
+				}
+			}
+		})
+	}
+	for id := range secretValueLeaves {
+		if !slices.Contains([]string{"credential.password.add", "credential.token.add", "secret.check"}, id) {
+			t.Errorf("%s reads a secret's value but has no row here", id)
+		}
 	}
 }

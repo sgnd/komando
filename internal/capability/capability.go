@@ -32,7 +32,7 @@ func (k Key) Path() []string {
 	if !slices.Contains(targetTypes, k.Type) {
 		words = []string{k.Type, k.Area, k.Provider, k.Verb}
 	}
-	var p []string
+	p := make([]string, 0, len(words))
 	for _, w := range words {
 		if w != "" {
 			p = append(p, w)

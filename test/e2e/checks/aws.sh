@@ -15,14 +15,14 @@ printf '#!/bin/sh\nexit 0\n' > "$TMP/fakeaws/session-manager-plugin"
 chmod +x "$TMP/fakeaws/aws" "$TMP/fakeaws/session-manager-plugin"
 AWSK() { PATH="$TMP/fakeaws:$PATH" $K "$@"; }
 
-q $K host add t-ssm agent@i-0abc123def --ssm --password-ref credential:agent-pass
+q $K host ssh add t-ssm agent@i-0abc123def --ssm --credential agent-pass
 check "SSM: login and run a command through aws ssm start-session" direct \
-  "$(AWSK exec t-ssm --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+  "$(AWSK host ssh exec t-ssm --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "SSM: files over the same path" True "$(AWSK fs ls t-ssm /tmp | jget 'd["ok"]')"
 check "SSM: without the aws CLI, komando's own client says what it needs" SSM_FAILED \
   "$(env PATH=/usr/bin:/bin AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true AWS_ACCESS_KEY_ID= AWS_PROFILE= \
-     $K exec t-ssm --read-only -- true | jget 'd["error"]["code"] if "error" in d else d["data"]["results"][0]["error"]["code"]' || true)"
-q $K host rm t-ssm
+     $K host ssh exec t-ssm --read-only -- true | jget 'd["error"]["code"] if "error" in d else d["data"]["results"][0]["error"]["code"]' || true)"
+q $K host ssh remove t-ssm
 
 # an SSO profile with no valid login: a person logs in again
 cat >"$TMP/aws-sso-config" <<'EOF'
@@ -86,8 +86,8 @@ printf '[e2e-ec2]\naws_access_key_id = test\naws_secret_access_key = test\n' > "
 EC2ENV=(env AWS_CONFIG_FILE="$TMP/aws-ec2-config" AWS_SHARED_CREDENTIALS_FILE="$TMP/credentials" AWS_EC2_METADATA_DISABLED=true AWS_PROFILE=)
 check "import aws-ec2 --dry-run finds the instance" True "$("${EC2ENV[@]}" $K import aws-ec2 "$TMP/aws-ec2-config" --dry-run | jget '"e2e-ec2" in json.dumps(d["data"])')"
 q "${EC2ENV[@]}" $K import aws-ec2 "$TMP/aws-ec2-config"
-check "import aws-ec2 groups it by region" True "$($K host show e2e-ec2 | jget '"us-east-1" in d["data"]["groups"] and d["data"]["labels"]["aws-instance"].startswith("i-")')"
-q $K host rm e2e-ec2
+check "import aws-ec2 groups it by region" True "$($K host ssh show e2e-ec2 | jget '"us-east-1" in d["data"]["groups"] and d["data"]["labels"]["aws-instance"].startswith("i-")')"
+q $K host ssh remove e2e-ec2
 rm -f "$TMP/credentials"
 
 # storage s3 object list/rm --all-versions in a bucket with versioning (moto)

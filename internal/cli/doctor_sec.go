@@ -104,7 +104,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 		case err != nil:
 			add("audit_chain", false, false, err.Error())
 		case !r.OK:
-			add("audit_chain", false, false, "the audit log was changed outside komando at line "+strconv.Itoa(r.FirstBroken)+" (komando audit verify)")
+			add("audit_chain", false, false, "the audit log was changed outside komando at line "+strconv.Itoa(r.FirstBroken)+" (komando audit check)")
 		default:
 			add("audit_chain", true, false, strconv.Itoa(r.Entries)+" entries, chain intact")
 		}
@@ -155,13 +155,13 @@ func weakVpn(v *store.Vpn) string {
 func sealedStoreCheck(add func(name string, ok, warn bool, detail string, fix ...string), s vault.Strength) {
 	switch {
 	case s.Mode == "keyfile":
-		add("vault", false, true, "everything is sealed in "+store.StoreFile+", but its key is a file next to it (store.key): anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or use a passphrase of 15+ characters with `komando secret passphrase`")
+		add("vault", false, true, "everything is sealed in "+store.StoreFile+", but its key is a file next to it (store.key): anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando config vault keychain`, or use a passphrase of 15+ characters with `komando config vault passphrase`")
 	case s.Mode == "keychain":
 		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), the key in the OS keychain")
 	case s.Mode == "passphrase" && vault.Passphrase() == "":
 		add("vault", false, true, "the store has a passphrase, but KOMANDO_VAULT_PASS is not set here, so komando cannot open it")
 	case s.ShortPass:
-		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
+		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando config vault passphrase`")
 	default:
 		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), passphrase with scrypt N=2^17")
 	}
@@ -176,7 +176,7 @@ func oldCopyCheck(add func(name string, ok, warn bool, detail string, fix ...str
 	case err != nil:
 		add("old_copy", false, true, err.Error())
 	case !guarded:
-		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando secret keychain`)")
+		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando config vault keychain`)")
 	case old && have == 0 && !storeFileThere():
 		add("old_copy", false, false, store.StoreFile+" is missing, though the keychain remembers its change "+strconv.FormatUint(kept, 10)+": put it back from a backup, or run `komando doctor --accept-old-copy` to start an empty store on purpose")
 	case old && kept == 0:
@@ -193,7 +193,7 @@ func oldCopyCheck(add func(name string, ok, warn bool, detail string, fix ...str
 func vaultKeyChecks(add func(name string, ok, warn bool, detail string, fix ...string)) {
 	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
 		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
-			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
+			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando config vault passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
 		}
 	}
 }
@@ -209,7 +209,7 @@ func plainConn(c *store.Conn) string {
 	if t.Kind.Name == "registry" && t.TLS == "skip-verify" {
 		// flagged with --via too: the tunnel ends at the server on the
 		// path, and the registry is often further away (a public address)
-		return "encrypted, but the registry's certificate is not checked: store its CA with `komando secret set NAME < ca.crt` and use ?ca=credential:NAME instead of ?tls=skip-verify"
+		return "encrypted, but the registry's certificate is not checked: store its CA with `komando credential token add NAME < ca.crt` and use ?ca=credential:NAME instead of ?tls=skip-verify"
 	}
 	if !overNetwork(c, t) {
 		return ""
@@ -409,7 +409,7 @@ func commonSecretsCheck(add func(name string, ok, warn bool, detail string, fix 
 		}
 	}
 	if len(names) > 0 {
-		add("common_secrets", false, true, "secrets "+strings.Join(names, ", ")+": these values are common words: komando hides those words everywhere in its output, and they are easy to guess; use longer values or add digits or symbols (`komando secret set NAME`)")
+		add("common_secrets", false, true, "secrets "+strings.Join(names, ", ")+": these values are common words: komando hides those words everywhere in its output, and they are easy to guess; use longer values or add digits or symbols (`komando credential password add NAME`)")
 	}
 }
 

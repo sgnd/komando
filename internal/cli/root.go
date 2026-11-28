@@ -64,7 +64,7 @@ func pickTableOutput(cmd *cobra.Command) error {
 	cl.flags.table = ""
 	if (cl.flags.output == "csv" || cl.flags.output == "tsv") && cmd.Flags().Changed("output") {
 		if cmd.Annotations[tableOutput] == "" {
-			return out.Usage("-o %s works with db query only; here use -o json or -o text", cl.flags.output)
+			return out.Usage("-o %s works with database KIND query only; here use -o json or -o text", cl.flags.output)
 		}
 		cl.flags.table, cl.flags.output = cl.flags.output, "text"
 	}
@@ -165,6 +165,9 @@ func execute(cl *call, ctx context.Context, args []string) int {
 	if cmd != nil && streamsToStdout(cl, cmd) {
 		cl.out.W = cl.out.Stderr() // stdout is the file's: what komando says goes to stderr
 	}
+	if !cl.preRan {
+		hideBeforeStart(cl, cmd)
+	}
 	return cl.out.Fail(name, err)
 }
 
@@ -192,10 +195,14 @@ func firstArg(cmd *cobra.Command) string {
 	return ""
 }
 
-// topCommand is the command family cmd belongs to ("db" for db query).
+// topCommand is the command family cmd belongs to ("db" for db query and
+// for database postgres query).
 func topCommand(cmd *cobra.Command) string {
 	for cmd.HasParent() && cmd.Parent().HasParent() {
 		cmd = cmd.Parent()
+	}
+	if slices.Contains(movedTypes, cmd.Name()) {
+		return familyOfType(cmd.Name())
 	}
 	return cmd.Name()
 }
@@ -221,6 +228,14 @@ func outputFlag(cl *call) string {
 	return "auto"
 }
 
+// storesLater is row C624: outside secret stores come after v0.18.0 as
+// `credential store` (C332); the noun and --store and --item say so.
+func storesLater() *out.Error {
+	e := out.Usage("outside stores are not in this version; they come as credential store")
+	e.Hint = "save the value in komando: `komando credential password add NAME`"
+	return e
+}
+
 // usageErr turns cobra's argument errors ("accepts 2 arg(s), received 1")
 // into what people know from other tools: what is wrong and the usage line.
 func usageErr(cl *call, cmd *cobra.Command, err error) error {
@@ -244,9 +259,12 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 		}
 		return e
 	} else if ok {
+		if name == "store" && cmd.CommandPath() == "komando credential" {
+			return storesLater()
+		}
 		if name == "add" && !cmd.HasParent() {
 			e.Message = fmt.Sprintf("unknown command %q", name)
-			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
+			e.Hint = "add a server with `komando host ssh add`, a database with `komando database postgres add` (or mysql, sqlite ...) or a VPN with `komando vpn KIND add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
 		var rest []string
@@ -283,6 +301,9 @@ func usageErr(cl *call, cmd *cobra.Command, err error) error {
 		return e
 	}
 	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
+		if n, _, _ := strings.Cut(strings.TrimLeft(flag, "-"), "="); (n == "store" || n == "item") && strings.HasPrefix(cmd.CommandPath(), "komando credential ") {
+			return storesLater()
+		}
 		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
 			e.Message += "; did you mean --" + s + "?"
 			// a safety override is never handed out as a line to run
@@ -387,7 +408,7 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true,
+	"tunnel.list": true, "status": true,
 	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
 }
 
@@ -426,7 +447,7 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 // change it cannot record.
 // startMask: AI agents see passwords, keys and tokens as [hidden]; people
 // and scripts see what the server sent (vault values are hidden for all).
-// `secret show --reveal` and `key show --reveal` are for people only
+// `credential password show --reveal` and `credential key show --reveal` are for people only
 // (secret_reveal.go): an agent is never asked and always sees [hidden]. A
 // dry run never approves --reveal.
 func startMask(cl *call, cmd *cobra.Command) {
@@ -471,10 +492,7 @@ func newRootFor(cl *call, line []string) *cobra.Command {
 // and every command in it runs in cl (callOf). What the last command in cl
 // recorded is forgotten.
 func treeOf(cl *call) *cobra.Command {
-	cl.out.Reset()
-	cl.flags = globalFlags{} // the flags below bind to it with their defaults
-	cl.askedAbout, cl.blockAudited, cl.interrupted = nil, false, false
-	cl.personalCmd, cl.fsSudoRetry = false, "retry with --sudo"
+	cl.forgetLastCommand()
 	root := &cobra.Command{
 		Use:           "komando",
 		Short:         "One safe CLI for servers, databases, caches, storage, clusters",
@@ -484,6 +502,7 @@ func treeOf(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			cl.preRan = true
 			dropHelpCommand(cmd) // for the shell's completion request
 			if err := notPrepared(cmd); err != nil {
 				return err
@@ -498,7 +517,7 @@ func treeOf(cl *call) *cobra.Command {
 				if !cmd.Flags().Changed("output") && cl.getenv("KOMANDO_OUTPUT") != "" {
 					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", cl.getenv("KOMANDO_OUTPUT"))
 				}
-				return out.Usage("--output takes auto, json or text (db query also takes csv and tsv)")
+				return out.Usage("--output takes auto, json or text (database KIND query also takes csv and tsv)")
 			}
 			switch {
 			case cl.flags.parallel < 0:
@@ -541,7 +560,7 @@ func treeOf(cl *call) *cobra.Command {
 	root.SetErr(cl.out.Err)
 	root.SetIn(cl.stdin)
 	pf := root.PersistentFlags()
-	pf.StringVarP(&cl.flags.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
+	pf.StringVarP(&cl.flags.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); database KIND\nquery also takes csv and tsv")
 	pf.BoolVar(&cl.flags.pretty, "pretty", false, "indent JSON output")
 	// the gate flags: cobra keeps what was typed, and only the gate reads
 	// it (newGate), when the command starts
@@ -571,22 +590,16 @@ func treeOf(cl *call) *cobra.Command {
 	return root
 }
 
-// helpCommandName is the hidden help command cobra needs: not a word a person types.
-const helpCommandName = "__help"
+// helpGroups is the heading of `komando --help` that a type's own
+// top-level group goes under, when today's tree has no command of that
+// name (mountTable sets it).
+var helpGroups = map[string]string{}
 
-// dropHelpCommand takes the hidden help command out of the root when cmd is
-// the shell's completion request: cobra completes its help command even when
-// it is hidden, and the shell must not offer it.
-func dropHelpCommand(cmd *cobra.Command) {
-	if n := cmd.Name(); n != cobra.ShellCompRequestCmd && n != cobra.ShellCompNoDescRequestCmd {
-		return
-	}
-	for _, c := range cmd.Root().Commands() {
-		if c.Name() == helpCommandName {
-			cmd.Root().RemoveCommand(c)
-		}
-	}
-}
+// topGroups is the help group of each top-level leaf the table mounts.
+var topGroups = map[string]string{"copy": "servers"}
+
+// movedTop are the top-level leaves (by verb) that moveTop has moved.
+var movedTop []string
 
 // addCommands adds komando's commands to root under the groups of
 // `komando` alone (personHelp), so --help reads the same.
@@ -606,14 +619,14 @@ func addCommands(cl *call, root *cobra.Command) {
 			root.AddCommand(c)
 		}
 	}
-	add("servers", execCmd(), logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		jobCmd(), dockerCmd(), pkgCmd(), shellCmd(), recipeCmd())
+	add("servers", logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+		dockerCmd(), pkgCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
+	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
-	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
+	add("setup", policyCmd(), guideCmd(), agentCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 
@@ -645,13 +658,13 @@ const rootLong = `komando is one safe command line for
 for people and AI agents alike.
 
 Start:
-  komando host add NAME USER@ADDRESS   add a server
+  komando host ssh add NAME ADDRESS   add a server
   komando conn add NAME URL            add a database, cache, queue, storage,
                                        cluster or registry
   komando import ssh-config            bring in the servers you already have
   komando list                         see everything komando knows about
   komando test TARGET                  check that it answers and lets you in
-  komando guide install                let your AI agent use komando safely
+  komando agent skill install                let your AI agent use komando safely
 
 Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
 label:key=value, kind:KIND (host, db, cache, storage, postgres, ...),
@@ -691,15 +704,15 @@ func personHelp() string {
 	var b strings.Builder
 	b.WriteString("komando: one safe command line for " + tagline + "\n\n")
 	if st, err := loadState(); err == nil && len(st.Hosts) == 0 && len(st.Conns) == 0 && len(st.Vpns) == 0 {
-		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
+		b.WriteString("Nothing added yet: komando host ssh add  or  komando import ssh-config\n\n")
 	}
 	for _, g := range [][2]string{
-		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
-		{"SERVERS", "exec  logs  fs  job  docker  pkg  shell"},
+		{"START", "host ssh add · conn add · import ssh-config · list · test TARGET · agent skill install"},
+		{"SERVERS", "logs  fs  docker  pkg"},
 		{"DATA", "db  cache  queue  storage"},
 		{"PLATFORM", "cluster  registry"},
 		{"INVENTORY", "host  conn  group  import  export  rename"},
-		{"ACCESS", "vpn  login  secret  key  tunnel"},
+		{"ACCESS", "vpn  login  credential"},
 		{"OVERVIEW", "status  audit  list  test  doctor"},
 		{"SETUP", "config  policy  guide  schema  completion"},
 	} {
@@ -707,9 +720,9 @@ func personHelp() string {
 	}
 	b.WriteString(`
 EXAMPLES
-  $ komando host add web1 deploy@10.0.0.5
+  $ komando host ssh add web1 deploy@10.0.0.5
   $ komando logs web1 --unit nginx --since 30m
-  $ komando db query prod-db "select now()"
+  $ komando database postgres query prod-db "select now()"
   $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
 
 Leave out an argument at a terminal and komando asks for it.
@@ -728,7 +741,7 @@ const firstSteps = `komando: one safe command line for ` + tagline + `.
 First steps:
   komando import ssh-config        bring in the servers you already have
   komando list                     see everything komando knows about
-  komando exec web1 -- uptime      run a command on a server
+  komando host ssh exec web1 -- uptime      run a command on a server
 
 More:
   komando --help                   every command

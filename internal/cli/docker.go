@@ -223,7 +223,7 @@ func dockerErr(msg string, code int) *out.Error {
 	case msg == "":
 		msg = "docker exited " + strconv.Itoa(code)
 	}
-	return out.Errf(out.ExitRemote, "DOCKER_ERROR", "check that Docker runs there: `komando exec TARGET --read-only -- docker info`", "%s", msg)
+	return out.Errf(out.ExitRemote, "DOCKER_ERROR", "check that Docker runs there: `komando host ssh exec TARGET --read-only -- docker info`", "%s", msg)
 }
 
 func firstLine(s string) string {
@@ -764,7 +764,7 @@ func dockerRows(command string, sortBy ...string) func(snippet.Output, snippet.F
 }
 
 // dockerSnippetExit is dockerExit for the snippet that replaces `komando
-// command`: recipe run has no --sudo, so no access to docker's socket
+// command`: snippet exec has no --sudo, so no access to docker's socket
 // points to the command, which asks as it does today. It never steers to
 // the docker group: access to its socket is root on that server (Audit
 // A-455-1).

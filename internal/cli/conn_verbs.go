@@ -35,3 +35,14 @@ func inventoryVerbHint(group *cobra.Command, verb string) string {
 	}
 	return ""
 }
+
+// entryCompletion completes the NAME of a provider's leaf (database
+// postgres query NAME) with the conns of family; later arguments are files.
+func entryCompletion(family string) cobra.CompletionFunc {
+	return func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+		return connsOfFamily(completionNames("CONN"), family), cobra.ShellCompDirectiveNoFileComp
+	}
+}

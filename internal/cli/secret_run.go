@@ -26,12 +26,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-func runCmd() *cobra.Command {
-	var env []string
-	c := &cobra.Command{
-		Use:   "run -- COMMAND [ARGS...]",
-		Short: "Run a local command with vault secrets in its environment",
-		Long: `Starts COMMAND on this computer with the --env values in its environment.
+const credentialRunLong = `Starts COMMAND on this computer with the --env values in its environment.
 A value credential:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
@@ -52,10 +47,17 @@ prints shows as [credential:NAME]. komando exits with the program's exit code.
 For an AI agent every credential:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
 could print a value in a form masking does not know. A secret a protected
-server, conn or VPN uses asks a person at a terminal too.`,
-		Example: `  komando secret run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app
-  komando secret run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
-  komando secret run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh`,
+server, conn or VPN uses asks a person at a terminal too.`
+
+func runCmd() *cobra.Command {
+	var env []string
+	c := &cobra.Command{
+		Use:   "run -- COMMAND [ARGS...]",
+		Short: "Run a local command with vault secrets in its environment",
+		Long:  credentialRunLong,
+		Example: `  komando credential run --env PGPASSWORD=credential:db-main -- psql -h 10.0.0.5 -U app
+  komando credential run -e AWS_SECRET_ACCESS_KEY=credential:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+  komando credential run --dry-run --env TOKEN=credential:gh-token -- ./deploy.sh`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runLocal(cl, env, args)
@@ -129,7 +131,7 @@ func runLocal(cl *call, pairs, args []string) error {
 		v := env[k]
 		if strings.HasPrefix(v, "credential:") {
 			if v, err = vault.Resolve(v); err != nil {
-				return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "see them with `komando secret list`", "%s for %s: %v", env[k], k, err)
+				return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", "see them with `komando credential list`", "%s for %s: %v", env[k], k, err)
 			}
 		}
 		vals = append(vals, k+"="+v)

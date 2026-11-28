@@ -64,7 +64,7 @@ func (f Follow) Run(ctx context.Context, read Reader) (Followed, error) {
 		}
 		if !time.Now().Before(deadline) {
 			return res, out.Errf(out.ExitTimeout, "SESSION_WAIT_TIMEOUT",
-				"it is still running: `komando exec "+f.Host+" --attach "+f.ID+" --offset "+strconv.FormatInt(res.NextFrom, 10)+"` reads on",
+				"it is still running: `komando host ssh exec "+f.Host+" --attach "+f.ID+" --offset "+strconv.FormatInt(res.NextFrom, 10)+"` reads on",
 				"session %s on %s still running after %s", f.ID, f.Host, f.Wait)
 		}
 		if len(data) < ReadMax {
@@ -84,7 +84,7 @@ func (f Follow) readExit(exit int) error {
 		return nil
 	case ExitGone:
 		return out.Errf(out.ExitNotFound, "SESSION_FOLDER_MISSING",
-			"check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit` shows the exec that started it",
+			"check the ID and the server: a session is removed once its starter read it to the end, or after 7 days; `komando audit list` shows the exec that started it",
 			"no session %s on %s", f.ID, f.Host)
 	case ExitUnsafe:
 		return folderDenied(f.Host)

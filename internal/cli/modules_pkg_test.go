@@ -13,7 +13,7 @@ import (
 // case, :arch, =version, /release and -version.
 func TestPkgNames(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "2")
 	cases := []struct {
 		name string
 		code string // "" = goes through (checked with --dry-run)
@@ -80,7 +80,7 @@ func TestPkgNames(t *testing.T) {
 // would_be_blocked, instead of printing nothing.
 func TestPkgRmDryRunShowsTheBlock(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "2")
 	d := mustRun(t, "pkg", "rm", "web1", "openssh-server", "--dry-run")
 	m, _ := d["_meta"].(map[string]any)
 	if m == nil || m["would_be_blocked"] == nil || d["would_run"] == nil {
@@ -93,7 +93,7 @@ func TestPkgRmDryRunShowsTheBlock(t *testing.T) {
 // every action, and a package file gets a message that says what to do.
 func TestPkgNameRemovalSuffixOnEveryAction(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1", "--port", "2")
 	for _, args := range [][]string{
 		{"pkg", "install", "web1", "openssh-server-"},
 		{"pkg", "upgrade", "web1", "sudo-"},
@@ -102,7 +102,7 @@ func TestPkgNameRemovalSuffixOnEveryAction(t *testing.T) {
 	} {
 		wantCode(t, "USAGE", append(args, "--dry-run")...)
 	}
-	if e := wantCode(t, "USAGE", "pkg", "install", "web1", "./app.deb"); !strings.Contains(e.Message, "komando upload") {
+	if e := wantCode(t, "USAGE", "pkg", "install", "web1", "./app.deb"); !strings.Contains(e.Message, "komando copy") {
 		t.Errorf("message: %s", e.Message)
 	}
 }

@@ -18,7 +18,7 @@ import (
 // service name-swarm (the tag is removed by the C cluster row).
 func addSwarm(t *testing.T, name string, flags ...string) {
 	t.Helper()
-	mustRun(t, append([]string{"host", "add", name, "deploy@" + closedAddr(t), "--tag", "swarm"}, flags...)...)
+	mustRun(t, append([]string{"host", "ssh", "add", name, "deploy@" + closedAddr(t), "--tag", "swarm"}, flags...)...)
 	st, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestSwarmServiceTierThroughManager(t *testing.T) {
 func TestSwarmServiceFound(t *testing.T) {
 	invHome(t)
 	addSwarm(t, "swarm1")
-	mustRun(t, "host", "add", "web1", "deploy@"+closedAddr(t))
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@"+closedAddr(t))
 	st, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestSwarmTagGoesWithClusterRow(t *testing.T) {
 			t.Errorf("the C cluster row landed: remove --tag swarm from swarmForm (%v)", cmd)
 		}
 	}
-	mustRun(t, "host", "add", "s1", "root@10.0.0.1", "--tag", "swarm")
+	mustRun(t, "host", "ssh", "add", "s1", "root@10.0.0.1", "--tag", "swarm")
 	st, err := store.Load()
 	if err != nil {
 		t.Fatal(err)

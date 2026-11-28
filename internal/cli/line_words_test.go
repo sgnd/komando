@@ -56,10 +56,10 @@ func TestLineWordsReadsWordsAndFlags(t *testing.T) {
 		pos     []string
 	}{
 		{"positional words", "queue kafka topic delete q1 t", "komando queue kafka topic delete", []string{"q1", "t"}, []string{"q1", "t"}},
-		{"a flag becomes --name=value", "host edit web1 --protected=false", "komando host edit", []string{"web1", "--protected=false"}, []string{"web1"}},
-		{"a bare bool flag becomes =true", "exec web1 --read-only -- df -h", "komando exec", []string{"web1", "--read-only=true", "--", "df", "-h"}, []string{"web1"}},
-		{"words after -- are kept apart", "exec web1 -- uptime", "komando exec", []string{"web1", "--", "uptime"}, []string{"web1"}},
-		{"an alias finds its command", "host ls", "komando host list", nil, nil},
+		{"a flag becomes --name=value", "host ssh edit web1 --protected=false", "komando host ssh edit", []string{"web1", "--protected=false"}, []string{"web1"}},
+		{"a bare bool flag becomes =true", "host ssh exec web1 --read-only -- df -h", "komando host ssh exec", []string{"web1", "--read-only=true", "--", "df", "-h"}, []string{"web1"}},
+		{"words after -- are kept apart", "host ssh exec web1 -- uptime", "komando host ssh exec", []string{"web1", "--", "uptime"}, []string{"web1"}},
+		{"an alias finds its command", "host ssh ls", "komando host ssh list", nil, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -143,5 +143,16 @@ func TestLineWordsEveryCommandID(t *testing.T) {
 		if !seen[id] {
 			t.Errorf("unreachableIDs has %q, which is no command ID: drop it", id)
 		}
+	}
+}
+
+// A repeatable flag gives one word per value, as the person typed it: a
+// comma or a double quote in a value does not join it to the next value or
+// hide it from a risk word (snippet exec --var is a KEY=VALUE flag).
+func TestLineWordsOneWordPerFlagValue(t *testing.T) {
+	_, words, _ := lineWords([]string{"snippet", "exec", "dk", "web", "--var", "sub=a,b", "--var", `k="rm`, "--no-sudo"})
+	want := []string{"dk", "web", "--no-sudo=true", "--var=sub=a,b", `--var=k="rm`}
+	if !slices.Equal(words, want) {
+		t.Errorf("words %q, want %q", words, want)
 	}
 }

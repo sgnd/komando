@@ -27,7 +27,7 @@ func longBodyWindow(t *testing.T, osName, body string) ([]string, error) {
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	setGate(tcl, true, gateYes)
-	tcl.args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--script", "./deploy.sh", "--yes"}
 	resetApproval()
 	noteApprovalScript(tcl, scriptLabel("the script", "./deploy.sh"), []byte(body))
 	err := Guard(tcl, st, []*store.Host{st.Hosts["web"]}, "sh -s", true)
@@ -115,8 +115,8 @@ func TestLineLimitFromKind(t *testing.T) {
 // The hint for a body too long to show says what to do for that kind.
 func TestTooLongHintByKind(t *testing.T) {
 	for kind, want := range map[bodyKind]string{
-		bodyScript: "`komando exec TARGET --script FILE`",
-		bodySQL:    "`komando db query CONN --file FILE`",
+		bodyScript: "`komando host ssh exec TARGET --script FILE`",
+		bodySQL:    "`komando database KIND query NAME --file FILE`",
 		bodyInput:  "put it in a script file",
 		bodyData:   "smaller pieces",
 	} {
@@ -139,14 +139,14 @@ func TestTooLongCodeOnRealPath(t *testing.T) {
 	var buf bytes.Buffer
 	saved := tcl.out.W
 	tcl.out.W = &buf
-	code := executeArgs([]string{"-o", "json", "db", "query", "lite", "--file", long, "--write", "--yes"})
+	code := executeArgs([]string{"-o", "json", "database", "sqlite", "query", "lite", "--file", long, "--write", "--yes"})
 	tcl.out.W = saved
 	lines := bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n"))
 	var env struct {
 		Error struct{ Code, Hint string } `json:"error"`
 	}
 	_ = json.Unmarshal(lines[len(lines)-1], &env)
-	if code != 6 || env.Error.Code != "SHORTER_SCRIPT_REQUIRED" || !strings.Contains(env.Error.Hint, "komando db query lite --file FILE") || len(*texts) != 0 {
+	if code != 6 || env.Error.Code != "SHORTER_SCRIPT_REQUIRED" || !strings.Contains(env.Error.Hint, "komando database sqlite query lite --file FILE") || len(*texts) != 0 {
 		t.Errorf("exit %d, code %q, hint %q, %d windows", code, env.Error.Code, env.Error.Hint, len(*texts))
 	}
 }

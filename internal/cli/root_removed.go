@@ -16,13 +16,35 @@ var removedIDs = []string{
 	"cluster.history", "cluster.list", "cluster.logs", "cluster.restart", "cluster.rm", "cluster.rollback",
 	"cluster.scale", "cluster.status",
 	"cron", "cron.list", "cron.rm", "cron.set", "environment", "exit-codes", "facts", "help",
+	"job", "job.kill", "job.list", "job.logs", "job.rm", "job.start", "job.status", "job.wait",
 	"net", "net.check", "net.dns", "net.http", "net.ports", "output", "reboot", "safety",
 	"svc", "svc.daemon-reload", "svc.disable", "svc.enable", "svc.list", "svc.logs", "svc.reload",
 	"svc.restart", "svc.start", "svc.status", "svc.stop",
 	"user", "user.add", "user.list", "user.lock", "user.rm", "user.unlock",
+	"recipe", // the noun is snippet now (cut step C8)
 }
 
 func init() { dropRemoved(removedIDs) }
+
+// keepNounEntries keeps the entries the ID of a noun has in the tables keyed
+// by ID through moveType: a noun that shares its ID with the command that
+// moved under it (audit) is still a command, and moveType takes the
+// entries of the old ID to the leaf. Call the returned func after moveType.
+func keepNounEntries(id string) func() {
+	tables := idTables()
+	got := make([]any, len(tables))
+	has := make([]bool, len(tables))
+	for i, tb := range tables {
+		got[i], has[i] = tb.get(id)
+	}
+	return func() {
+		for i, tb := range tables {
+			if has[i] {
+				tb.set(id, got[i])
+			}
+		}
+	}
+}
 
 // dropRemoved takes ids out of cmdKeys and the tables keyed by ID, and the
 // rows of the keys no command has any more out of riskRows.

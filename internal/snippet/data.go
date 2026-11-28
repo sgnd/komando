@@ -63,7 +63,7 @@ func Parse(b Builtin, f Family, o Output) (res any, perr *out.Error) {
 }
 
 func parseFailed(b Builtin) *out.Error {
-	return out.Errf(out.ExitRemote, "SNIPPET_PARSE_FAILED", "read it as text with `komando exec TARGET -- COMMAND`; the snippet has no JSON for it",
+	return out.Errf(out.ExitRemote, "SNIPPET_PARSE_FAILED", "read it as text with `komando host ssh exec TARGET -- COMMAND`; the snippet has no JSON for it",
 		"the output of snippet %s did not read as %s", b.Name, b.Shape)
 }
 

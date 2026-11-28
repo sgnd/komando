@@ -14,9 +14,9 @@ import (
 // asks once, outside the step, and the step finds that yes.
 func TestAskBeforeStoreLock(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "tmp-1", "u@10.0.0.1", "--protected")
+	mustRun(t, "host", "ssh", "add", "tmp-1", "u@10.0.0.1", "--protected")
 	texts := windowText(t, true) // the person says yes
-	mustRun(t, "host", "rm", "tmp-*", "--yes")
+	mustRun(t, "host", "ssh", "remove", "tmp-*", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("%d windows, want one", len(*texts))
 	}
@@ -28,7 +28,7 @@ func TestAskBeforeStoreLock(t *testing.T) {
 // naming both, and the first yes does not cover it.
 func TestStateChangedBetweenAskAndLock(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "tmp-1", "u@10.0.0.1", "--protected")
+	mustRun(t, "host", "ssh", "add", "tmp-1", "u@10.0.0.1", "--protected")
 	texts := windowText(t, true)
 	var inStep []string
 	savedAsked, savedBefore := askedInStoreStep, beforeLock
@@ -43,7 +43,7 @@ func TestStateChangedBetweenAskAndLock(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() { askedInStoreStep, beforeLock = savedAsked, savedBefore })
-	mustRun(t, "host", "rm", "tmp-*", "--yes")
+	mustRun(t, "host", "ssh", "remove", "tmp-*", "--yes")
 	if len(*texts) != 2 || strings.Contains((*texts)[0], "tmp-2") || !strings.Contains((*texts)[1], "tmp-2") {
 		t.Fatalf("windows %q: want one for tmp-1, then one that names tmp-2", *texts)
 	}
@@ -61,7 +61,7 @@ func TestAskBeforeStoreLockMore(t *testing.T) {
 		run   []string
 	}{
 		{"conn rm", [][]string{{"conn", "add", "lite", "sqlite:///tmp/komando-ask-first.db", "--protected"}}, []string{"conn", "rm", "lite", "--yes"}},
-		{"host add over a protected one", [][]string{{"host", "add", "web", "u@10.0.0.1", "--protected"}}, []string{"host", "add", "web", "u@10.0.0.9", "--overwrite", "--yes"}},
+		{"host add over a protected one", [][]string{{"host", "ssh", "add", "web", "u@10.0.0.1", "--protected"}}, []string{"host", "ssh", "add", "web", "u@10.0.0.9", "--overwrite", "--yes"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			invHome(t)
@@ -121,17 +121,17 @@ func inStepAsks(t *testing.T) *[]string {
 func groupOfFour(t *testing.T) {
 	invHome(t)
 	for i := 1; i <= 4; i++ {
-		mustRun(t, "host", "add", "h"+strconv.Itoa(i), "u@10.0.0."+strconv.Itoa(i))
+		mustRun(t, "host", "ssh", "add", "h"+strconv.Itoa(i), "u@10.0.0."+strconv.Itoa(i))
 	}
-	mustRun(t, "group", "add", "g", "h1,h2,h3,h4")
+	mustRun(t, "group", "create", "g", "h1,h2,h3,h4")
 }
 
-// group rm of a big group asks at the terminal, before the store's lock;
+// group remove of a big group asks at the terminal, before the store's lock;
 // the question names the members, and a no changes nothing.
 func TestGroupRmAsksBeforeLock(t *testing.T) {
 	groupOfFour(t)
 	errOut := typesAnswers(t, "n\n")
-	if _, e := invRun(t, "group", "rm", "g"); e == nil {
+	if _, e := invRun(t, "group", "remove", "g"); e == nil {
 		t.Fatal("the person said no, but the group was removed")
 	}
 	if !strings.Contains(errOut.String(), "Delete group g from 4 entries (h1, h2, h3, h4)?") {
@@ -159,7 +159,7 @@ func TestGroupRmMembershipChangedAsksAgain(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "group", "rm", "g")
+	mustRun(t, "group", "remove", "g")
 	if q := strings.Count(errOut.String(), "Delete group g"); q != 2 || !strings.Contains(errOut.String(), "from 5 entries (h1, h2, h3, h4, h5)?") {
 		t.Errorf("%d questions, want a second one naming h5: %q", q, errOut.String())
 	}
@@ -230,9 +230,9 @@ func TestAskInStoreStepIsAudited(t *testing.T) {
 			return nil
 		})
 	}
-	mustRun(t, "group", "rm", "g")
+	mustRun(t, "group", "remove", "g")
 	rec := lastAudit(t)
-	if rec["asked_in_store_step"] != true || rec["asked_in_store_step_command"] != "group.rm" {
+	if rec["asked_in_store_step"] != true || rec["asked_in_store_step_command"] != "group.remove" {
 		t.Errorf("audit record %v", rec)
 	}
 }

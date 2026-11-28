@@ -51,7 +51,7 @@ func (st *stored3) storeNamed(name string) *CredentialStore {
 // CredentialFix is the one line that says what to do with a field that
 // takes a credential and was given anything else, an outside store among
 // them (C547, until the credential store paths of C485).
-const CredentialFix = "save the secret as a credential with `komando secret set NAME`, then use credential:NAME"
+const CredentialFix = "save the secret as a credential with `komando credential password add NAME`, then use credential:NAME"
 
 // CredentialRef checks a reference given as what for a field that names a
 // credential (a password, sudo password, key passphrase, VPN key, shared

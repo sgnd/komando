@@ -83,6 +83,6 @@ func KillNoSession() error {
 // chNoLocks is db locks on ClickHouse, which has no row locks to wait for.
 func chNoLocks() error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"ClickHouse has no locks that queries wait for: `komando db activity CONN` shows what runs, and `komando db query CONN 'SELECT * FROM system.mutations WHERE NOT is_done'` the changes still waiting",
+		"ClickHouse has no locks that queries wait for: `komando db activity CONN` shows what runs, and `komando database clickhouse query CONN 'SELECT * FROM system.mutations WHERE NOT is_done'` the changes still waiting",
 		"db locks is not available for clickhouse")
 }

@@ -12,17 +12,17 @@ import (
 // appdb` is: a selector that picks nothing never succeeds with no rows.
 func TestKindListPicksNothing(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "appdb", "postgres://u@127.0.0.1:5/db")
-	for _, args := range [][]string{{"host", "list", "appdb"}, {"conn", "list", "web1"}, {"vpn", "wireguard", "list", "web1"}} {
+	for _, args := range [][]string{{"host", "ssh", "list", "appdb"}, {"conn", "list", "web1"}, {"vpn", "wireguard", "list", "web1"}} {
 		if e := wantCode(t, "NO_MATCHING_TARGETS", args...); e.Exit != 3 {
 			t.Errorf("%v: exit %d", args, e.Exit)
 		}
 	}
-	if d := mustRun(t, "host", "ls", "web1"); d["count"] != float64(1) {
+	if d := mustRun(t, "host", "ssh", "list", "web1"); d["count"] != float64(1) {
 		t.Errorf("host ls web1: %v", d)
 	}
-	if d := mustRun(t, "host", "list"); d["count"] != float64(1) {
+	if d := mustRun(t, "host", "ssh", "list"); d["count"] != float64(1) {
 		t.Errorf("host list: %v", d)
 	}
 }
@@ -70,7 +70,7 @@ func TestChangeSay(t *testing.T) {
 // The error says what the selector did pick, as other commands do.
 func TestKindListSaysWhatItPicked(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	if e := wantCode(t, "NO_MATCHING_TARGETS", "vpn", "wireguard", "list", "web1"); e.Message != `target "web1" picked no VPNs, only: web1 (server)` {
 		t.Errorf("vpn list: %q", e.Message)
 	}

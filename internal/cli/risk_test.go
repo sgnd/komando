@@ -140,27 +140,27 @@ type agentStop struct {
 
 var agentStops = []agentStop{
 	{args: []string{"host", "ssh-command", "web1"}, code: "NEEDS_PERSON",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
-	{args: []string{"secret", "keychain"}, code: "NEEDS_PERSON"},
-	{args: []string{"host", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
-	{args: []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
-		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+		setup: func(t *testing.T) { mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") }},
+	{args: []string{"config", "vault", "keychain"}, code: "NEEDS_PERSON"},
+	{args: []string{"host", "ssh", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
+	{args: []string{"host", "ssh", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1") }},
 	{args: []string{"import", "ssh-config", "testdata/risk_proxy_ssh_config"}, skipped: "--yes"},
 	{args: []string{"import", "kubeconfig", "testdata/risk_exec_kubeconfig"}, code: "SAFETY_SETTING"},
-	{args: []string{"recipe", "add", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
-		setup: func(t *testing.T) { mustRun(t, "recipe", "add", "free-space", "df -h") }},
-	{args: []string{"host", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+	{args: []string{"snippet", "create", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "snippet", "create", "free-space", "df -h") }},
+	{args: []string{"host", "ssh", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
 		key := new(atomic.Pointer[ssh.Signer])
 		s := trustSigner(t)
 		key.Store(&s)
-		mustRun(t, "host", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
+		mustRun(t, "host", "ssh", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
 		mustRun(t, "config", "set", "host_key_policy", "strict")
 	}},
-	{args: []string{"guide", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+	{args: []string{"agent", "skill", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
 		fakeHome := t.TempDir()
 		t.Setenv("HOME", fakeHome)
 		t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
-		mustRun(t, "guide", "install")
+		mustRun(t, "agent", "skill", "install")
 	}},
 }
 
@@ -169,35 +169,63 @@ var agentStops = []agentStop{
 // before (the union, S-7.1).
 func TestRiskPersonGains(t *testing.T) {
 	for _, line := range []string{
-		"sync ./site web1:/var/www --delete",
-		"db kill db1 123", "secret rm db-pass", "pkg rm web1 nginx",
+		"copy ./site web1:/var/www --sync --delete",
+		"db kill db1 123", "credential password remove db-pass", "pkg rm web1 nginx",
 	} {
 		if riskOfLine(strings.Fields(line)).typedWhat() == "" {
 			t.Errorf("%s: no typed name", line)
 		}
 	}
 	for _, line := range []string{
-		"sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
-		"host edit web1 --port 2222", "group rm web web1",
+		"copy ./site web1:/var/www --sync", "host ssh exec web1 -- uptime", "pkg upgrade web1 --security",
+		"host ssh edit web1 --port 2222", "group remove web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {
 			t.Errorf("%s: typed name %q", line, r.what)
 		}
 	}
-	if r := riskOfLine(strings.Fields("host edit web1 --protected=false")); r.tier != tierSafety {
+	if r := riskOfLine(strings.Fields("host ssh edit web1 --protected=false")); r.tier != tierSafety {
 		t.Errorf("protection off: %s", r.tier)
 	}
-	if r := riskOfLine(strings.Fields("group rm big")); r.bulk == "" {
-		t.Errorf("group rm GROUP: no bulk confirm")
+	if r := riskOfLine(strings.Fields("group remove big")); r.bulk == "" {
+		t.Errorf("group remove GROUP: no bulk confirm")
 	}
 	if r := riskOfLine(strings.Fields("logs web1")); r.tier != tierRead {
 		t.Errorf("logs: %s", r.tier)
 	}
 }
 
+// protectionOffSpellings are the ways to switch protection off: the gate
+// rates what the command does after parsing, so --unset protected counts
+// as much as --protected=false.
+var protectionOffSpellings = [][]string{
+	{"--protected=false"}, {"--protected=0"}, {"--protected=F"},
+	{"--unset", "protected"}, {"--unset=protected"},
+	{"--unset", "notes,protected"}, {"--unset=notes,protected"},
+}
+
+// Only the spellings that switch protection off are safety steps.
+func TestProtectionOffOnlyForOffSpellings(t *testing.T) {
+	for _, w := range [][]string{
+		{"x", "--protected=true"}, {"x", "--protected"}, {"x", "--unset", "notes"},
+		{"x", "--unset=notes,via"}, {"x", "--notes", "protected"}, {"x", "--unset"},
+	} {
+		if protectionOff(w) {
+			t.Errorf("%v does not switch protection off", w)
+		}
+	}
+	for _, sp := range protectionOffSpellings {
+		if !protectionOff(append([]string{"x"}, sp...)) {
+			t.Errorf("%v switches protection off", sp)
+		}
+	}
+}
+
 // Turning protection off is a safety step on every edit that takes
 // --protected, also on an edit whose command moved under a provider
 // (cache redis edit, registry oci edit): a moved key keeps the row (C564).
+// The edits come from the command tree, so a type that gains a protected
+// field is checked in every spelling without a list to keep.
 func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
 	var ids []string
 	for _, c := range allCommands(newRoot(tcl)) {
@@ -205,13 +233,22 @@ func TestProtectionOffSafetyOnEveryEdit(t *testing.T) {
 			continue
 		}
 		ids = append(ids, cmdID(c))
-		if got := riskOf(c, []string{"x", "--protected=false"}).tier; got != tierSafety {
-			t.Errorf("%s --protected=false: %s, want safety", cmdID(c), got)
+		for _, spelling := range protectionOffSpellings {
+			if strings.HasPrefix(spelling[0], "--unset") && c.Flags().Lookup("unset") == nil {
+				continue
+			}
+			if got := riskOf(c, append([]string{"x"}, spelling...)).tier; got != tierSafety {
+				t.Errorf("%s %s: %s, want safety (the gate rates what the command does, not its spelling)", cmdID(c), strings.Join(spelling, " "), got)
+			}
 		}
 	}
-	for _, want := range []string{"conn.edit", "host.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"} {
-		if !slices.Contains(ids, want) {
-			t.Errorf("%s: not among the edits that take --protected (%v)", want, ids)
+	want := []string{"conn.edit", "host.ssh.edit", "host.winrm.edit", "vpn.wireguard.edit", "cache.redis.edit", "cache.memcached.edit", "registry.oci.edit"}
+	for _, p := range []string{"postgres", "mysql", "sqlserver", "oracle", "sqlite", "mongodb", "clickhouse", "snowflake", "bigquery"} {
+		want = append(want, "database."+p+".edit")
+	}
+	for _, id := range want {
+		if !slices.Contains(ids, id) {
+			t.Errorf("%s: not among the edits that take --protected (%v)", id, ids)
 		}
 	}
 }
@@ -255,9 +292,9 @@ func TestSchemaConfirm(t *testing.T) {
 		}
 	}
 	walk(newRoot(tcl))
-	d := mustRun(t, "schema", "secret", "rm")
+	d := mustRun(t, "schema", "credential", "password", "remove")
 	cmd := d["commands"].([]any)[0].(map[string]any)
 	if c, _ := cmd["confirm"].([]any); len(c) != 1 || c[0].(map[string]any)["flag"] != "--allow-dangerous" {
-		t.Errorf("schema secret rm: %v", cmd["confirm"])
+		t.Errorf("schema credential password remove: %v", cmd["confirm"])
 	}
 }

@@ -79,12 +79,12 @@ that key: compare-then-pin in one step, for a fingerprint read from the
 server's console or a cloud provider. Any other key stops with
 HOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the
 fingerprint of the key type the server offers (key_type in the answer).`,
-		Example: `  komando host trust web1
-  komando host trust web1 --reset --dry-run   # how many pinned keys would go
-  komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)
-  komando host trust @web                 # pin new servers; changed keys are refused
-  komando host trust @web --reset         # after rebuilding the whole group: one yes
-  komando host trust web1 --fingerprint SHA256:pVt2...  # pin only this key`,
+		Example: `  komando host ssh trust web1
+  komando host ssh trust web1 --reset --dry-run   # how many pinned keys would go
+  komando host ssh trust web1 --reset             # after a real rebuild (a person, at a terminal)
+  komando host ssh trust @web                 # pin new servers; changed keys are refused
+  komando host ssh trust @web --reset         # after rebuilding the whole group: one yes
+  komando host ssh trust web1 --fingerprint SHA256:pVt2...  # pin only this key`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -121,7 +121,7 @@ fingerprint of the key type the server offers (key_type in the answer).`,
 func replacePin(cl *call, names, prot []string, what string) error {
 	if cl.isAgent() || !cl.interactive() {
 		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-			"report it to the user: once they have checked the new key another way, they run `komando host trust "+strings.Join(names, ",")+" --reset` in their own terminal",
+			"report it to the user: once they have checked the new key another way, they run `komando host ssh trust "+strings.Join(names, ",")+" --reset` in their own terminal",
 			"%s: only a person at a terminal replaces a pinned host key (a changed key may be an attack)", what).NoFlag())
 	}
 	if cl.dryRun() {
@@ -242,7 +242,7 @@ func checkTrustFingerprint(fp string, hosts []*store.Host) error {
 			"--fingerprint %q is not a SHA256 fingerprint (SHA256: and 43 characters)", fp)
 	}
 	if len(hosts) != 1 {
-		return out.Errf(out.ExitUsage, "USAGE", "name one server with --fingerprint: komando host trust NAME --fingerprint SHA256:...",
+		return out.Errf(out.ExitUsage, "USAGE", "name one server with --fingerprint: komando host ssh trust NAME --fingerprint SHA256:...",
 			"--fingerprint is one server's key, and the target names %s", countOf(len(hosts), "server"))
 	}
 	return nil

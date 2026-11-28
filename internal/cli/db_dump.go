@@ -114,35 +114,35 @@ func (o dumpOpts) args(kind string, base []string) ([]string, error) {
 	return argv, nil
 }
 
+// backupNotes is the longer help of `database KIND backup`.
+const backupNotes = `More about backup:
+Without --to the file is NAME-<date>.sql.gz (SQLite: NAME-<date>.db) in
+this folder. A file ending in .gz is compressed. Afterwards komando prints
+the command that loads it back.
+
+pg_dump or mysqldump runs on a server that has it: the one you name with
+--run-on HOST, else the database's --via server. It connects to the conn
+URL's address from that server, runs at low priority (nice, ionice) and
+streams the backup back over SSH. Without such a server (a direct
+connection or a VPN) komando writes plain SQL itself. PostgreSQL can also
+write its own archive with --format custom (compressed, restored with
+pg_restore; needs pg_dump on a server). --table and --schema-only narrow
+the backup. SQLite databases are copied as a database file instead. An
+existing FILE is never overwritten. The file holds your data: it is
+created readable only by you.
+
+An AI agent never gets the file: it holds every row as it is, passwords
+and tokens included, so an agent's backup needs a person, who runs it in
+their own terminal.`
+
+// dbDumpCmd is the body of `database KIND backup` (runBody).
 func dbDumpCmd() *cobra.Command {
 	var to, on string
 	var o dumpOpts
 	c := &cobra.Command{
 		Use:   "dump CONN",
 		Short: "Save a copy of a database to a file on this computer",
-		Long: `Saves a copy of the database to a file on this computer. Without --to the
-file is CONN-<date>.sql.gz (SQLite: CONN-<date>.db) in this
-folder. A file ending in .gz is compressed. Afterwards komando prints the
-command that loads it back.
-
-pg_dump or mysqldump runs on a server that has it: the one you name with
---run-on HOST, else the database's --via server. It connects to the conn URL's
-address from that server, runs at low priority (nice, ionice) and streams
-the backup back over SSH. Without such a server (a direct connection or a VPN)
-komando writes plain SQL itself. PostgreSQL can also write its own archive
-with --format custom (compressed, restored with pg_restore; needs pg_dump on
-a server). --table and --schema-only narrow the dump. SQLite databases are copied
-as a database file instead. An existing FILE is never overwritten. The file
-holds your data: it is created readable only by you.`,
-		Example: `  komando db dump prod-db                  # saves prod-db-<date>.sql.gz here
-  komando db dump prod-db --to backups/    # the same name, inside backups/
-  komando db dump prod-db --to prod-2026-11-02.sql.gz
-  komando db dump prod-db --to prod.dump --format custom
-  komando db dump prod-db --to prod.dump --format custom --run-on db1
-  komando db dump prod-db --to orders.sql --table public.orders --table public.order_items
-  komando db dump prod-db --to schema.sql --schema-only
-  komando db dump local --to backup.db`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			conn, file := args[0], false
 			if st, err := loadState(); err == nil {
@@ -159,7 +159,7 @@ holds your data: it is created readable only by you.`,
 			}
 			switch fi, err := os.Stat(to); {
 			case to == "-":
-				return out.Usage("db dump writes a file on this computer, not to stdout: give --to FILE, or a folder for %s", def)
+				return out.Usage("a backup is a file on this computer, not stdout: give --to FILE, or a folder for %s", def)
 			case to == "":
 				to = def
 			case err == nil && fi.IsDir(): // --to backups/: the usual name inside it
@@ -183,7 +183,7 @@ holds your data: it is created readable only by you.`,
 			return nil
 		}),
 	}
-	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: CONN-<date>.sql.gz; SQLite: CONN-<date>.db)")
+	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: NAME-<date>.sql.gz; SQLite: NAME-<date>.db)")
 	c.Flags().StringVar(&o.format, "format", "plain", "plain (SQL) or custom (PostgreSQL archive for pg_restore)")
 	c.Flags().BoolVar(&o.schemaOnly, "schema-only", false, "tables, indexes and functions, no rows")
 	c.Flags().StringArrayVar(&o.tables, "table", nil, "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)")
@@ -191,39 +191,40 @@ holds your data: it is created readable only by you.`,
 	return c
 }
 
+// restoreNotes is the longer help of `database KIND restore`.
+const restoreNotes = `More about restore:
+Runs the SQL in FILE (from backup, pg_dump, mysqldump or any plain SQL
+file; .gz is read compressed). komando runs the SQL itself, through the
+conn's --via path, never with psql or mysql. A PostgreSQL archive (backup
+--format custom) is recognized by its content and loaded with pg_restore
+on a server: the one named with --run-on HOST, else the database's --via
+server; the archive is streamed to it over SSH.
+
+In a terminal komando first offers to save a copy of the database as it is
+now (a backup), so you can go back. Scripts and AI agents get no question:
+run backup yourself first.
+
+A restore can overwrite existing data, so it needs --allow-dangerous, plus
+--yes on a protected database. The whole file is checked first: client
+commands that could run programs (\! or system) and SQL komando cannot
+follow (a file ending inside a quote, a change to how quotes are read) are
+refused, and SQL that runs programs, touches server files or changes
+privileges is named in the approval.
+
+PostgreSQL restores run in one transaction: on any error nothing changes.
+MySQL runs the statements in order and stops at the first error.`
+
+// dbRestoreCmd is the body of `database KIND restore` (runBody).
 func dbRestoreCmd() *cobra.Command {
 	var from, on string
 	c := &cobra.Command{
 		Use:   "restore CONN --from FILE",
 		Short: "Load a backup into a database",
-		Long: `Runs the SQL in FILE (from ` + "`db dump`" + `, pg_dump, mysqldump or any plain SQL
-file; .gz is read compressed). komando runs the SQL itself, through the
-conn's --via path, never with psql or mysql. A PostgreSQL archive
-(` + "`db dump --format custom`" + `) is recognized by its content and loaded with
-pg_restore on a server: the one named with --run-on HOST, else the database's --via
-server; the archive is streamed to it over SSH.
-
-In a terminal komando first offers to save a copy of the database as it is
-now (db dump), so you can go back. Scripts and AI agents get no question: run
-` + "`komando db dump CONN`" + ` yourself first.
-
-A restore can overwrite existing data, so it needs --allow-dangerous, plus
---yes on a protected database. The whole file is checked first: client commands
-that could run programs (\! or system) and SQL komando cannot follow (a file
-ending inside a quote, a change to how quotes are read) are refused, and SQL
-that runs programs, touches server files or changes privileges is named in
-the approval.
-
-PostgreSQL restores run in one transaction: on any error nothing changes.
-MySQL runs the statements in order and stops at the first error.`,
-		Example: `  komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing
-  komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
-  komando db restore staging-db --from prod.dump --run-on db1 --allow-dangerous`,
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if from == "" {
 				return out.Usage("give the backup to load with --from FILE").
-					WithHint("for example: komando db restore " + argQ(args[0]) + " --from backup.sql.gz --dry-run (`komando db dump` makes the file)")
+					WithHint("for example: " + dbPath(args[0], "restore") + " " + argQ(args[0]) + " --from backup.sql.gz --dry-run (`" + dbPath(args[0], "backup") + "` makes the file)")
 			}
 			return runRestore(cl, cmd.Context(), args[0], from, on)
 		}),
@@ -254,7 +255,7 @@ func (d transferData) Text() string {
 	return fmt.Sprintf("%s: %s (%s)", d.Conn, d.File, term.HumanBytes(d.Bytes))
 }
 
-// dumpChecks runs db dump's stops one after the other: the first stop
+// dumpChecks runs backup's stops one after the other: the first stop
 // wins, and a later check runs only when the earlier ones let the dump go
 // on (Audit A-C424-2).
 func dumpChecks(cl *call, st *store.State, c *store.Conn, to string) error {
@@ -288,10 +289,10 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 
 	if t.Kind.File { // sqlite: a consistent copy of the database file
 		if o.format == "custom" || o.schemaOnly || len(o.tables) > 0 || on != "" {
-			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups copy the whole database file; --format, --schema-only, --table and --run-on do not apply")
+			return out.Errf(out.ExitUsage, "USAGE", "drop those flags: "+dbPathOf(c, "backup")+" "+argQ(c.Name)+" --to backup.db", "sqlite backups copy the whole database file; --format, --schema-only, --table and --run-on do not apply")
 		}
 		if strings.HasSuffix(to, ".gz") {
-			return out.Errf(out.ExitUsage, "USAGE", "for example: komando db dump "+argQ(c.Name)+" --to backup.db", "sqlite backups are database files; drop the .gz")
+			return out.Errf(out.ExitUsage, "USAGE", "for example: "+dbPathOf(c, "backup")+" "+argQ(c.Name)+" --to backup.db", "sqlite backups are database files; drop the .gz")
 		}
 		data.Tool = []string{"VACUUM INTO"}
 		rec["runs_on"] = "local"
@@ -429,7 +430,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	}
 	fi, err := os.Stat(from)
 	if err != nil {
-		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
+		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `"+dbPathOf(c, "backup")+"`")
 	}
 	if isPGDirArchive(from, fi) {
 		return otherPGArchive(from, "directory archive (pg_dump -Fd)")
@@ -439,7 +440,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	// restore below reads it through that seal, so it runs what was checked.
 	seal := &backupSeal{}
 	v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}
-	if err := checkRestoreSQL(cl, t.Kind.Name, from, seal, &v); err != nil {
+	if err := checkRestoreSQL(cl, c, t.Kind.Name, from, seal, &v); err != nil {
 		return err
 	}
 	afterRestoreSeal(from)
@@ -473,7 +474,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	}
 	if cl.dryRun() {
 		cl.out.Print("db.restore", data, nil)
-		textNote(cl, "To keep a way back, save a copy first: komando db dump %s", argQ(c.Name))
+		textNote(cl, "To keep a way back, save a copy first: %s %s", dbPathOf(c, "backup"), argQ(c.Name))
 		return nil
 	}
 	if err := offerBackup(cl, ctx, c.Name); err != nil {
@@ -501,7 +502,7 @@ var afterRestoreSeal = func(string) {}
 // shown whole (a .gz unpacked) or no window; a pg_dump archive is not
 // text, so the window names its size and SHA-256. The window's own read
 // must match the seal, or the restore stops with FILE_CHANGED.
-func noteRestoreFile(cl *call, from string, custom bool, seal *backupSeal) error {
+func noteRestoreFile(cl *call, conn *store.Conn, from string, custom bool, seal *backupSeal) error {
 	if !cl.caller().IsAgent() {
 		setBody(cl, &approvalBody{label: "the backup " + from, big: true, sum: seal.body})
 		return nil
@@ -521,7 +522,7 @@ func noteRestoreFile(cl *call, from string, custom bool, seal *backupSeal) error
 	}
 	c, err := readCapped(from, unzip)
 	if err != nil {
-		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `komando db dump`", "%v", err)
+		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `"+dbPathOf(conn, "backup")+" "+conn.Name+"`", "%v", err)
 	}
 	return sealedBody(cl, from, seal, c, label, false)
 }
@@ -543,7 +544,7 @@ func sealedBody(cl *call, from string, seal *backupSeal, c capped, label string,
 // checkRestoreSQL checks the whole file before sending any of it: what the
 // SQL does beyond writing data (COPY ... PROGRAM, INTO OUTFILE, GRANT, ...)
 // is added to v, so it is named in the approval and in POLICY_BLOCKED.
-func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Verdict) error {
+func checkRestoreSQL(cl *call, conn *store.Conn, kind, from string, seal *backupSeal, v *driver.Verdict) error {
 	var sqlV driver.Verdict
 	if err := withBackup(cl, from, seal, func(r io.Reader) (err error) {
 		if seal.archive() {
@@ -552,7 +553,7 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 			if sqlV, err = driver.CheckRestoreArchive(r); errors.Is(err, driver.ErrArchiveTooLarge) {
 				return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "dump fewer objects (pg_dump -Fc -n SCHEMA or -t TABLE) and restore each part, or restore this one with pg_restore by hand", "%s: %v", from, err)
 			} else if err != nil {
-				return out.Errf(out.ExitUsage, "BAD_FILE", "dump it again with `komando db dump` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
+				return out.Errf(out.ExitUsage, "BAD_FILE", "back it up again with `"+dbPathOf(conn, "backup")+" "+conn.Name+" --format custom` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
 			}
 			_, err = io.Copy(io.Discard, r)
 			return err
@@ -613,7 +614,7 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 		return err
 	}
 	if strings.ContainsAny(password, "\r\n") {
-		return out.Errf(out.ExitUsage, "BAD_SECRET", "store the password again without line breaks (`komando secret set NAME`)", "the password for %s contains a line break", c.Name)
+		return out.Errf(out.ExitUsage, "BAD_SECRET", "store the password again without line breaks (`komando credential password add NAME`)", "the password for %s contains a line break", c.Name)
 	}
 	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
@@ -669,7 +670,7 @@ func toolHost(cl *call, st *store.State, c *store.Conn, on string) (*store.Host,
 		}
 		// the conn's password goes to this server: only one from the inventory
 		if st.Hosts[h.Name] != h {
-			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host add NAME USER@ADDRESS`), then use --run-on NAME",
+			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host ssh add NAME ADDRESS`), then use --run-on NAME",
 				"--run-on takes a server from your list, not %q", on)
 		}
 		return h, runOnSecret(cl, st, c, h)
@@ -703,7 +704,7 @@ func runOnSecret(cl *call, st *store.State, c *store.Conn, h *store.Host) error 
 }
 
 // toolFailed maps a failed dump or restore tool to the same error codes
-// as `db query`: a refused login is DB_AUTH (exit 4), a missing database
+// as `database KIND query`: a refused login is DB_AUTH (exit 4), a missing database
 // DB_NOT_FOUND (exit 3), a database the tool cannot reach from where it
 // runs CONN_UNREACHABLE (exit 4), a tool older than the server or archive
 // TOOL_TOO_OLD, anything else TOOL_FAILED.
@@ -777,7 +778,7 @@ func builtinRestore(cl *call, ctx context.Context, st *store.State, c *store.Con
 			if kind == "mysql" {
 				state = "the statements before that line were applied (MySQL cannot roll back tables)"
 			}
-			return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando db restore "+c.Name+" --from "+from+"`",
+			return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando database "+dbKindOf(c)+" restore "+c.Name+" --from "+from+"`",
 				"%v; %s", err, state)
 		}
 		return nil

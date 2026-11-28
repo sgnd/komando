@@ -41,7 +41,7 @@ func fakeEntry(e snippetEntry, client snippet.Client, opened, closed *int) snipp
 }
 
 // clientRun runs b against the entry named target, whose client is the fake,
-// as `recipe run NAME TARGET` does after it chose the entry.
+// as `snippet exec NAME TARGET` does after it chose the entry.
 func clientRun(t *testing.T, b snippet.Builtin, target string, client snippet.Client, kv map[string]string) (opened, closed int, printed string, err error) {
 	t.Helper()
 	closeStoreAtEnd(t)
@@ -76,9 +76,9 @@ func clientCode(err error) string {
 // refused before anything is opened.
 func TestResolveSnippetEntry(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1")
-	mustRun(t, "host", "add", "web2", "u@127.0.0.1:2")
-	mustRun(t, "host", "add", "win1", "u@127.0.0.1:3", "--os", "windows")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1")
+	mustRun(t, "host", "ssh", "add", "web2", "u@127.0.0.1:2")
+	mustRun(t, "host", "ssh", "add", "win1", "u@127.0.0.1:3", "--os", "windows")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
 	mustRun(t, "conn", "add", "cash", "redis://127.0.0.1:1")
 	for _, tc := range []struct {
@@ -209,7 +209,7 @@ func TestDatabaseClientIsReadOnly(t *testing.T) {
 	invHome(t)
 	path := filepath.Join(t.TempDir(), "app.db")
 	mustRun(t, "conn", "add", "lite", "sqlite://"+path)
-	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	mustRun(t, "database", "sqlite", "query", "lite", "--write", "create table t (id int)")
 	var wrote, read error
 	b := clientSnippet("database", capability.Read, func(c snippet.Client, _ snippet.Values) (any, error) {
 		db := c.(*dbClient).db
@@ -248,7 +248,7 @@ func TestDatabaseClientIsReadOnly(t *testing.T) {
 // refuses it, so a later built-in cannot reach SFTP without one.
 func TestHostClientChangeSnippetIsRefused(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1")
 	b := clientSnippet("host", capability.Change, nil)
 	opened, _, _, err := clientRun(t, b, "web1", struct{}{}, nil)
 	if err == nil || opened != 0 {

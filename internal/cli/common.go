@@ -69,37 +69,44 @@ func applyConventions(c *cobra.Command) {
 	if c.HasParent() && c.HasSubCommands() && c.Run == nil && c.RunE == nil {
 		// `komando host lst`: a typo must fail (exit 2) with a suggestion,
 		// not print the help and exit 0 as if it had worked
-		c.Args = cobra.ArbitraryArgs
+		// the typo fails in Args, which cobra checks before PersistentPreRunE:
+		// it opens no store and runs no start check
+		c.Args = func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return nil
+			}
+			e := unknownCommandErr(callOf(cmd), cmd, args[0], args[1:])
+			if e.Suggestion == "" {
+				e.Hint = groupHas(cmd)
+			}
+			if h := inventoryVerbHint(cmd, args[0]); h != "" {
+				e.Hint = h + "; " + groupHas(cmd)
+			}
+			return e
+		}
 		if c.Annotations == nil {
 			c.Annotations = map[string]string{}
 		}
 		c.Annotations[groupOnly] = "true" // it runs nothing (ssh-gate counts on it)
-		c.RunE = func(cmd *cobra.Command, args []string) error {
-			cl := callOf(cmd)
-			names := []string{}
-			for _, sub := range cmd.Commands() {
-				if sub.IsAvailableCommand() {
-					names = append(names, sub.Name())
-				}
+		c.RunE = func(cmd *cobra.Command, _ []string) error {
+			if callOf(cmd).out.Format == "json" {
+				// piped: one JSON envelope, never help text (ux.md, section 4)
+				return out.Usage("%s needs a command", cmd.CommandPath()).WithHint(groupHas(cmd))
 			}
-			has := "`" + cmd.CommandPath() + "` has: " + strings.Join(names, ", ")
-			if len(args) == 0 {
-				if cl.out.Format == "json" {
-					// piped: one JSON envelope, never help text (ux.md, section 4)
-					return out.Usage("%s needs a command", cmd.CommandPath()).WithHint(has)
-				}
-				return cmd.Help()
-			}
-			e := unknownCommandErr(cl, cmd, args[0], args[1:])
-			if e.Suggestion == "" {
-				e.Hint = has
-			}
-			if h := inventoryVerbHint(cmd, args[0]); h != "" {
-				e.Hint = h + "; " + has
-			}
-			return e
+			return cmd.Help()
 		}
 	}
+}
+
+// groupHas is the hint that lists a group's commands.
+func groupHas(cmd *cobra.Command) string {
+	names := []string{}
+	for _, sub := range cmd.Commands() {
+		if sub.IsAvailableCommand() {
+			names = append(names, sub.Name())
+		}
+	}
+	return "`" + cmd.CommandPath() + "` has: " + strings.Join(names, ", ")
 }
 
 func dash(s string) string {
@@ -190,7 +197,7 @@ func toErr(err error) *out.Error {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return &out.Error{Code: "TIMEOUT", Message: err.Error(), Exit: out.ExitTimeout,
-			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"}
+			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work in a session: `komando host ssh exec TARGET -- COMMAND` returns after --wait and goes on there"}
 	}
 	if errors.Is(err, context.Canceled) {
 		return term.Interrupted()
@@ -204,10 +211,10 @@ func toErr(err error) *out.Error {
 			Hint: "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)"}
 	case errors.Is(err, vault.ErrKey):
 		return &out.Error{Code: "VAULT_KEY", Message: err.Error(), Exit: out.ExitError,
-			Hint: "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
+			Hint: "restore ~/.komando/store.key from a backup, or move the key back with `komando config vault keychain` on the computer whose keychain holds it; `komando doctor` checks the vault"}
 	case errors.Is(err, vault.ErrNotFound):
 		return &out.Error{Code: "SECRET_NOT_FOUND", Message: err.Error(), Exit: out.ExitNotFound,
-			Hint: "check the name with `komando secret list`; a person stores a missing one with `komando secret set NAME`"}
+			Hint: "check the name with `komando credential list`; a person stores a missing one with `komando credential password add NAME`"}
 	case errors.Is(err, vault.ErrDecrypt):
 		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error() + "; nothing was lost", Exit: out.ExitError,
 			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use)"}

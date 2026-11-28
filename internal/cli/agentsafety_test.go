@@ -54,24 +54,24 @@ func TestAgentCannotClearItsVariables(t *testing.T) {
 	home := "/Users/me"
 	t.Setenv("KOMANDO_HOME", "")
 	for line, block := range map[string]bool{
-		"CLAUDECODE=0 komando exec prod --yes --allow-dangerous -- 'rm -rf /srv'": true,
-		"CLAUDECODE= komando fs cat prod /app/.env":                               true,
-		"CLAUDE_CODE_ENTRYPOINT= CLAUDECODE= komando list":                        true,
-		"env -u CLAUDECODE komando exec prod --yes -- reboot":                     true,
-		"env -uCLAUDECODE komando list":                                           true,
-		"env --unset=CLAUDECODE komando list":                                     true,
-		"/usr/bin/env -u CLAUDE_CODE_ENTRYPOINT komando list":                     true,
-		"env -i PATH=/usr/bin komando list":                                       true,
-		"env - komando list":                                                      true,
-		"env CLAUDECODE=0 komando list":                                           true,
-		"unset CLAUDECODE; komando fs cat prod /app/.env":                         true,
-		"unset -v GEMINI_CLI CURSOR_AGENT":                                        true,
-		"export CLAUDECODE=0 && komando cp prod:/app/.env ./notes.txt":            true,
-		"export -n CLAUDECODE":                                                    true,
-		"sudo -u app CLAUDECODE=0 komando list":                                   true,
-		"bash -c 'unset CLAUDECODE; komando list'":                                true,
-		`sh -c "env -u CLAUDECODE komando list"`:                                  true,
-		"eval 'CLAUDECODE=0 komando list'":                                        true,
+		"CLAUDECODE=0 komando host ssh exec prod --yes --allow-dangerous -- 'rm -rf /srv'": true,
+		"CLAUDECODE= komando fs cat prod /app/.env":                                        true,
+		"CLAUDE_CODE_ENTRYPOINT= CLAUDECODE= komando list":                                 true,
+		"env -u CLAUDECODE komando host ssh exec prod --yes -- reboot":                     true,
+		"env -uCLAUDECODE komando list":                                                    true,
+		"env --unset=CLAUDECODE komando list":                                              true,
+		"/usr/bin/env -u CLAUDE_CODE_ENTRYPOINT komando list":                              true,
+		"env -i PATH=/usr/bin komando list":                                                true,
+		"env - komando list":                                                               true,
+		"env CLAUDECODE=0 komando list":                                                    true,
+		"unset CLAUDECODE; komando fs cat prod /app/.env":                                  true,
+		"unset -v GEMINI_CLI CURSOR_AGENT":                                                 true,
+		"export CLAUDECODE=0 && komando cp prod:/app/.env ./notes.txt":                     true,
+		"export -n CLAUDECODE":                                                             true,
+		"sudo -u app CLAUDECODE=0 komando list":                                            true,
+		"bash -c 'unset CLAUDECODE; komando list'":                                         true,
+		`sh -c "env -u CLAUDECODE komando list"`:                                           true,
+		"eval 'CLAUDECODE=0 komando list'":                                                 true,
 		// a wrapper's flag value is not the program: these are still ssh
 		"env -u FOO ssh web1 uptime": true,
 		"sudo -u app ssh web1":       true,
@@ -83,8 +83,8 @@ func TestAgentCannotClearItsVariables(t *testing.T) {
 		"env -u GOFLAGS go test ./...":                   false,
 		// KOMANDO_HOME moves komando's data: a fresh folder knows no
 		// protected servers, deny rules or host keys
-		"KOMANDO_HOME=$(mktemp -d) komando list":                     true,
-		"export KOMANDO_HOME=/tmp/k; komando host add prod 10.0.0.1": true,
+		"KOMANDO_HOME=$(mktemp -d) komando list":                         true,
+		"export KOMANDO_HOME=/tmp/k; komando host ssh add prod 10.0.0.1": true,
 		"unset KOMANDO_HOME":                         true,
 		"env -u KOMANDO_HOME komando list":           true,
 		"env KOMANDO_HOME=/tmp/k komando list":       true,
@@ -94,7 +94,7 @@ func TestAgentCannotClearItsVariables(t *testing.T) {
 		`echo "$KOMANDO_HOME"`:                       false,
 		"KOMANDO_OUTPUT=json komando list":           false,
 		// HOME in front of komando: refused; elsewhere the agent's business
-		"HOME=/tmp/k komando host list":      true,
+		"HOME=/tmp/k komando host ssh list":  true,
 		"env HOME=/tmp/k komando list":       true,
 		"USERPROFILE=/tmp/k komando list":    true,
 		"bash -c 'HOME=/tmp/k komando list'": true,
@@ -543,16 +543,16 @@ func TestLocalReadCommandsForAgents(t *testing.T) {
 	t.Cleanup(func() {
 		setGate(tcl, false, gateDryRun, gateYes, gateAllowDangerous, gateReveal)
 	})
-	mustRun(t, "host", "add", "web", "deploy@127.0.0.1:1")
+	mustRun(t, "host", "ssh", "add", "web", "deploy@127.0.0.1:1")
 	asAgent(t, false, false)
 	key := filepath.Join(kh, "vault.key")
 	for _, args := range [][]string{
-		{"exec", "web", "--read-only", "--stdin-file", key, "--", "base64"},
-		{"exec", "web", "--read-only", "--stdin-file", filepath.Join(proj, "link", "vault.key"), "--", "base64"},
-		{"exec", "web", "--script", filepath.Join(home, ".ssh", "id_ed25519")},
-		{"cp", filepath.Join(home, ".ssh", "id_ed25519"), "web:/tmp/k"},
-		{"cp", "-r", kh, "web:/tmp/k"},
-		{"sync", kh, "web:/tmp/k"},
+		{"host", "ssh", "exec", "web", "--read-only", "--stdin-file", key, "--", "base64"},
+		{"host", "ssh", "exec", "web", "--read-only", "--stdin-file", filepath.Join(proj, "link", "vault.key"), "--", "base64"},
+		{"host", "ssh", "exec", "web", "--script", filepath.Join(home, ".ssh", "id_ed25519")},
+		{"copy", filepath.Join(home, ".ssh", "id_ed25519"), "web:/tmp/k"},
+		{"copy", "-r", kh, "web:/tmp/k"},
+		{"copy", kh, "web:/tmp/k", "--sync"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("%v: %+v", args, e)
@@ -625,7 +625,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	} {
 		resetApproval()
 		texts = nil
-		tcl.args = []string{"komando", "exec", "web", "--allow-dangerous", "--", c.cmd}
+		tcl.args = []string{"komando", "host", "ssh", "exec", "web", "--allow-dangerous", "--", c.cmd}
 		err := Guard(tcl, st, hosts, c.cmd, true)
 		if err == nil {
 			t.Errorf("%s: the person said no, but it passed", c.name)
@@ -642,7 +642,7 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 			}
 			continue
 		}
-		for _, want := range []string{"komando exec web --allow-dangerous -- " + c.shown + "\n", "Why komando asks: [rm-system-dir", "wants to change web (protected)"} {
+		for _, want := range []string{"komando host ssh exec web --allow-dangerous -- " + c.shown + "\n", "Why komando asks: [rm-system-dir", "wants to change web (protected)"} {
 			if !strings.Contains(texts[0], want) {
 				t.Errorf("%s: window text has no %q: %q", c.name, want, texts[0])
 			}
@@ -751,7 +751,7 @@ func TestGuardHookLineRefusesWhenTheGuardFails(t *testing.T) {
 	}
 }
 
-// guide install writes the hook line for every harness, replaces an old
+// agent skill install writes the hook line for every harness, replaces an old
 // line, and the readers find both forms; doctor flags the old form and a
 // missing program.
 func TestGuardHookInstallAndReaders(t *testing.T) {
@@ -979,7 +979,7 @@ func TestGuardKomandoFolderException(t *testing.T) {
 	}
 }
 
-// With no full path for komando, guide install writes no hook (a bare name
+// With no full path for komando, agent skill install writes no hook (a bare name
 // is found through PATH), and doctor flags a hook that names komando bare.
 func TestGuardHookNeedsAFullPath(t *testing.T) {
 	was := selfProgram
@@ -994,11 +994,11 @@ func TestGuardHookNeedsAFullPath(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	if err := runRoot(t, "guide", "install"); toErr(err).Code != "GUARD_PATH_MISSING" {
-		t.Errorf("guide install without a full path: %v, want GUARD_PATH_MISSING", err)
+	if err := runRoot(t, "agent", "skill", "install"); toErr(err).Code != "GUARD_PATH_MISSING" {
+		t.Errorf("agent skill install without a full path: %v, want GUARD_PATH_MISSING", err)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); err == nil {
-		t.Error("guide install wrote a hook without a full path")
+		t.Error("agent skill install wrote a hook without a full path")
 	}
 	for _, h := range []string{"claude", "codex"} {
 		if p := guardHookProblem(guardHookLine("komando", h)); !strings.Contains(p, "not a full path") {

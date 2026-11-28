@@ -79,17 +79,17 @@ func TestChangeCommandsOwnText(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, a := range [][]string{
-		{"host", "add", "web1", "u@10.0.0.1"}, {"host", "edit", "web1", "--port", "2222"}, {"host", "rename", "web1", "web2"},
+		{"host", "ssh", "add", "web1", "u@10.0.0.1"}, {"host", "ssh", "edit", "web1", "--port", "2222"}, {"host", "ssh", "rename", "web1", "web2"},
 		{"conn", "add", "app-db", "postgres://app@10.0.0.9/app"}, {"conn", "edit", "app-db", "--notes", "x"}, {"conn", "rename", "app-db", "db2"},
 		{"vpn", "socks", "add", "office", "--proxy-address", "10.0.0.1:1080"}, {"vpn", "socks", "edit", "office", "--notes", "x"}, {"vpn", "socks", "rename", "office", "off2"},
-		{"group", "add", "g1", "web2"}, {"group", "rename", "g1", "g2"}, {"group", "rm", "g2", "web2"},
-		{"key", "gen", "k1"}, {"key", "add", "k3", pub}, {"key", "rename", "k1", "k2"},
-		{"secret", "set", "s4", "--from-env", "PATH"}, {"secret", "rename", "s1", "s2"}, {"secret", "cp", "s2", "s3"},
-		{"recipe", "add", "r1", "uptime", "--read-only"}, {"recipe", "rm", "r1"}, {"policy", "deny", "foo bar"},
-		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "trust", "web2"},
-		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "secret", "rm", "s3"},
-		{"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
-		{"vpn", "socks", "remove", "off2"}, {"key", "rm", "k2"},
+		{"group", "create", "g1", "web2"}, {"group", "rename", "g1", "g2"}, {"group", "remove", "g2", "web2"},
+		{"credential", "key", "create", "k1"}, {"credential", "key", "add", "k3", pub}, {"credential", "key", "rename", "k1", "k2"},
+		{"credential", "password", "add", "s4", "--from-env", "PATH"}, {"credential", "password", "rename", "s1", "s2"}, {"secret", "cp", "s2", "s3"},
+		{"snippet", "create", "r1", "uptime", "--read-only"}, {"snippet", "remove", "r1"}, {"policy", "create", "foo bar"},
+		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "ssh", "trust", "web2"},
+		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "credential", "password", "remove", "s3"},
+		{"host", "ssh", "tunnel", "stop", "--all"}, {"host", "ssh", "remove", "web2"}, {"conn", "rm", "db3"},
+		{"vpn", "socks", "remove", "off2"}, {"credential", "key", "remove", "k2"},
 	} {
 		line = strings.Join(a, " ")
 		if _, err := textRun(t, a...); err != nil {

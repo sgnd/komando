@@ -17,7 +17,7 @@ import (
 // hidden and keeps it as credential:NAME-pass, and with --ask-psk it asks a
 // shared secret (pre-shared key, Cisco group password) hidden and keeps it
 // as credential:NAME-psk. A Tailscale auth key is stored first with `komando
-// secret set NAME-authkey`, which asks it hidden too. After the add comes
+// credential password add NAME-authkey`, which asks it hidden too. After the add comes
 // `komando vpn KIND start NAME` when a person has to log in, else `komando test
 // NAME`.
 func vpnForms() []formKind {
@@ -34,7 +34,7 @@ func vpnForms() []formKind {
 		{"Cisco IPsec", "other: an older Cisco VPN with a group name and a group password", ipsecForm},
 		{"IKEv2", "other: a server with a shared secret, or a user name and password", ikev2Form},
 		{"A VPN on this computer", "other: one already set up in your computer's network settings", systemVpnForm},
-		{"SOCKS proxy", "other: one already running, like komando tunnel start HOST -D 1080", func(cl *call) formSpec { return vpnProxyForm("socks") }},
+		{"SOCKS proxy", "other: one already running, like komando host ssh tunnel start HOST -D 1080", func(cl *call) formSpec { return vpnProxyForm("socks") }},
 		{"HTTP proxy", "other: your company's web proxy", func(cl *call) formSpec { return vpnProxyForm("proxy") }},
 	}
 }
@@ -140,7 +140,7 @@ func vpnPassQ(def string, canType bool) formQ {
 // question from.
 func vpnRefQ(key, from string) formQ {
 	return formQ{key: key, label: "Saved secret", ask: "Which saved secret holds it?", free: true,
-		help:    "A name from komando secret list, or credential:NAME.",
+		help:    "A name from komando credential list, or credential:NAME.",
 		show:    func(a formAnswers) bool { return a[from] == "ref" },
 		choices: cacheSecretRows, check: cacheSecretProblem}
 }
@@ -326,7 +326,7 @@ func tailscaleForm(_ *call) formSpec {
 			def:  func(*store.State, formAnswers) string { return "browser" },
 			choices: func(*store.State, formAnswers) []pickRow {
 				return []pickRow{{label: "Sign in with my browser", detail: "komando vpn tailscale start shows a link; you sign in as in the Tailscale app", value: "browser"},
-					{label: "An auth key", detail: "komando secret set asks for it next, hidden; then komando connects by itself", value: "authkey"}}
+					{label: "An auth key", detail: "komando credential password add asks for it next, hidden; then komando connects by itself", value: "authkey"}}
 			}},
 		vpnCheckQ(false, "100.64.0.5:22"),
 		formMore(formQ{key: "server", label: "Headscale", ask: "Do you use your own Headscale server? Its address:", optional: true,
@@ -347,7 +347,7 @@ func tailscaleForm(_ *call) formSpec {
 			return vpnBuild(a, nil, args, true)
 		}
 		sec := a["name"] + "-authkey"
-		return vpnBuild(a, [][]string{{"secret", "set", sec}}, append(args, "--credential", sec), false)
+		return vpnBuild(a, [][]string{{"credential", "password", "add", sec}}, append(args, "--credential", sec), false)
 	}}
 }
 
@@ -532,7 +532,7 @@ func systemVpnForm(_ *call) formSpec {
 // vpnProxyForm is a SOCKS proxy or a company HTTP proxy. Its login is a
 // More option: most need none.
 func vpnProxyForm(kind string) formSpec {
-	title, example, help := "Add a SOCKS proxy", "127.0.0.1:1080", "Its address and port. For komando tunnel start web1 -D 1080 it is 127.0.0.1:1080."
+	title, example, help := "Add a SOCKS proxy", "127.0.0.1:1080", "Its address and port. For komando host ssh tunnel start web1 -D 1080 it is 127.0.0.1:1080."
 	if kind == "proxy" {
 		title, example, help = "Add an HTTP proxy", "proxy.example.com:3128", "Its address and port, from your browser's proxy settings or your IT team."
 	}

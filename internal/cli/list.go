@@ -42,8 +42,8 @@ type targetList struct {
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
-const emptyInventory = "No servers, databases or other services yet. Add a server: komando host add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
-	"A database: komando db add prod-db postgres://app@10.0.0.5/app --ask-password. A cache, bucket or cluster: komando conn add"
+const emptyInventory = "No servers, databases or other services yet. Add a server: komando host ssh add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
+	"A database: komando database postgres add prod-db postgres://app@10.0.0.5/app --ask-password. A cache, bucket or cluster: komando conn add"
 
 func (l targetList) Text() string {
 	if l.empty {
@@ -52,7 +52,7 @@ func (l targetList) Text() string {
 	if len(l.Targets) == 0 {
 		switch l.only {
 		case "host":
-			return term.NoneYet("servers", "host add NAME USER@ADDRESS")
+			return term.NoneYet("servers", "host ssh add NAME ADDRESS")
 		case "conn":
 			return term.NoneYet("conns", "conn add NAME URL")
 		case "vpn":
@@ -92,8 +92,8 @@ func listCmd() *cobra.Command { return listCmdFor("") }
 
 func listCmdFor(only string) *cobra.Command { return listCmdKind(only, "") }
 
-// listCmdKind is listCmdFor that keeps only the conns or VPNs of one kind (a
-// provider's list: `cache redis list`, `vpn wireguard list`).
+// listCmdKind is listCmdFor that keeps only the servers, conns or VPNs of one
+// kind (a provider's list: `cache redis list`, `vpn wireguard list`, `host ssh list`).
 func listCmdKind(only, kind string) *cobra.Command {
 	var target string
 	var limit int
@@ -119,6 +119,7 @@ func listCmdKind(only, kind string) *cobra.Command {
 			}
 			picked := sel
 			if kind != "" {
+				sel.Hosts = slices.DeleteFunc(slices.Clone(sel.Hosts), func(h *store.Host) bool { return hostProvider(h) != kind })
 				sel.Conns = slices.DeleteFunc(slices.Clone(sel.Conns), func(c *store.Conn) bool { return c.Kind != kind })
 				sel.Vpns = slices.DeleteFunc(slices.Clone(sel.Vpns), func(v *store.Vpn) bool { return v.Kind != kind })
 			}
@@ -222,7 +223,7 @@ func fixTestError(st *store.State, name string, e *out.Error) *out.Error {
 	case "KEY_UNREADABLE":
 		c.Exit = out.ExitConnect
 		if st.Hosts[name] != nil {
-			c.Hint = "check the key file with `komando host show " + name + "`, or pick another with `komando host edit " + name + " --key NAME`"
+			c.Hint = "check the key file with `komando host ssh show " + name + "`, or pick another with `komando host ssh edit " + name + " --key NAME`"
 		}
 	}
 	return &c
@@ -258,7 +259,7 @@ cloud server was created or rebuilt. It does not wait out a changed host
 key (HOSTKEY_MISMATCH), a refused login (AUTH_FAILED: retrying could get
 your address banned), a VPN that needs a login, or a local key or secret
 problem: those fail at once. To wait for the server's own start-up too,
-run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next.
+run ` + "`komando host ssh exec TARGET --read-only -- cloud-init status --wait`" + ` next.
 
 A server that asks for a password or a two-factor code only a person can
 answer: when a person runs test at a terminal, komando asks once and keeps

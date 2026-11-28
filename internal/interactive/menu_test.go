@@ -22,9 +22,9 @@ func leaf(state capability.State, short string, words ...string) capability.Leaf
 
 func testLeaves() []capability.Leaf {
 	return []capability.Leaf{
-		leaf(capability.Built, "run a command on hosts", "host", "exec"),
-		leaf(capability.Built, "list hosts", "host", "list"),
-		leaf(capability.New, "not built yet", "host", "plan"),
+		leaf(capability.Built, "run a command on hosts", "host", "ssh", "exec"),
+		leaf(capability.Built, "list hosts", "host", "ssh", "list"),
+		leaf(capability.New, "not built yet", "host", "ssh", "plan"),
 		leaf(capability.Built, "run SQL", "database", "postgres", "query"),
 		leaf(capability.Built, "list databases", "database", "postgres", "list"),
 	}
@@ -65,8 +65,12 @@ func TestMenuLevels(t *testing.T) {
 	if r, _ := pick(t, m, "host"); r != Stay {
 		t.Fatalf("opening host gave %v", r)
 	}
+	if got := labels(m.List()); got != "ssh" {
+		t.Fatalf("host level %q, want ssh", got)
+	}
+	pick(t, m, "ssh")
 	if got := labels(m.List()); got != "exec,list" {
-		t.Errorf("host level %q, want exec,list (plan is not built)", got)
+		t.Errorf("ssh level %q, want exec,list (plan is not built)", got)
 	}
 }
 
@@ -137,9 +141,10 @@ func TestMenuEscGoesUp(t *testing.T) {
 func TestMenuEscClearsSearchFirst(t *testing.T) {
 	m := NewMenu(testLeaves())
 	pick(t, m, "host")
+	pick(t, m, "ssh")
 	typed(m.List(), "ex")
 	if r, _ := m.Key(term.Key{Kind: term.KeyEsc}); r != Stay || labels(m.List()) != "exec,list" {
-		t.Errorf("Esc with a search gave %v and %q, want the host level again", r, labels(m.List()))
+		t.Errorf("Esc with a search gave %v and %q, want the ssh level again", r, labels(m.List()))
 	}
 }
 

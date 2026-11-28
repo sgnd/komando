@@ -53,6 +53,9 @@ func addCompletion(c *cobra.Command) {
 		switch {
 		case w == "NAME":
 			w = c.Parent().Name()
+			if w == "snippet" {
+				w = "recipe" // the picker's word for a saved snippet
+			}
 		case w == "SERVER":
 			w = "host"
 		case w == "SETTING":

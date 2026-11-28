@@ -22,11 +22,11 @@ import (
 // which files may call it. A call moved between guard and guardScript changes
 // both counts here.
 var reviewedCallSites = map[string]int{
-	"guard":       22, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (key_revoke.go): a phone's key on one server, C372
+	"guard":       19, // -1 reboot (C493): exec rule power, TestRulePower; +1 deviceKeyInstall (credential_key_uninstall.go): a phone's key on one server, C372; -3 job start/kill/rm (D2): exec runFleet and changeSession guard them
 	"guardScript": 3,  // -2 swarmApply, swarmDo (D4, C496): `cluster swarm raw` is rated by guardSwarmRun, pinned by TestRawProtectedYes
-	"guardConns":  22, // +1 snippetTierStop (recipe.go): a dangerous built-in snippet, C368 S1-1; -3 withKubeWhy, swarmApply, swarmDo (D4, C496): the raw leaf is guarded by capability/build.go, pinned by TestRawProtectedYes
+	"guardConns":  22, // +1 snippetTierStop (snippet.go): a dangerous built-in snippet, C368 S1-1; -3 withKubeWhy, swarmApply, swarmDo (D4, C496): the raw leaf is guarded by capability/build.go, pinned by TestRawProtectedYes
 	"dangerOK":    16, // 15 commands (-1 reboot, C493: TestRulePower; -1 swarmDo, D4 C496: TestRawScaleToZeroDangerous), and (*call).dangerOK forwarding to (*gate).dangerOK (C468)
-	"askPerson":   3,  // the third: the window of the move to format 3 (migrateCallFor)
+	"askPerson":   4,  // the third: the window of the move to format 3 (migrateCallFor); the fourth: marking v0.17 jobs ended before it (doctorOldJobs, R3)
 }
 
 func TestGuardCallSitesAreReviewed(t *testing.T) {

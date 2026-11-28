@@ -28,9 +28,6 @@ func TestStrayArgument(t *testing.T) {
 	if code != 2 || c != "USAGE" || msg != `komando version takes no arguments (got "foo")` || strings.Contains(hint, "list of commands") {
 		t.Errorf("version foo: %d %s %q %q", code, c, msg, hint)
 	}
-	if _, _, msg, hint := envErr(t, "job", "list", "web1"); !strings.Contains(msg, "takes no arguments") || !strings.Contains(hint, "--target web1") {
-		t.Errorf("job list web1: %q %q", msg, hint)
-	}
 	if _, _, msg, _ := envErr(t, "host", "lst"); !strings.HasPrefix(msg, `unknown command "lst"`) {
 		t.Errorf("a group keeps its unknown command: %q", msg)
 	}
@@ -49,8 +46,8 @@ func TestBareGroupsPiped(t *testing.T) {
 
 func TestSchemaLookups(t *testing.T) {
 	invHome(t)
-	if d := mustRun(t, "schema", "db query"); len(d["commands"].([]any)) != 1 {
-		t.Errorf("schema 'db query': %v", d["commands"])
+	if d := mustRun(t, "schema", "database postgres query"); len(d["commands"].([]any)) != 1 {
+		t.Errorf("schema 'database postgres query': %v", d["commands"])
 	}
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "completion")
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "help")

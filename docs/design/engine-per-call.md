@@ -287,7 +287,7 @@ store, as reads go on beside a slow keychain.
 
 **A key file store fails closed too.** A store whose key is in `store.key`
 or a passphrase is compared when the keychain keeps a count for its
-folder: then it is a backup from before `secret keychain`. When the
+folder: then it is a backup from before `config vault keychain`. When the
 keychain cannot say whether it keeps one (`checkGeneration`: anything but
 "no count" or `NoKeychain`), the store is opened read only
 (`KEYCHAIN_FAILED`, or `KEYCHAIN_SLOW` when slow), or as a look for a
@@ -338,7 +338,7 @@ is not.
    `sshx.ChainOwner`, `netx.StartSession` and `netx.WriteFor` get the
    context of the connection, which carries the call: they answer for
    that call. Every command's context carries its call (`newRoot` and
-   `execute` put it there; each dial, tunnel, job, VPN session and the
+   `execute` put it there; each dial, tunnel, exec session, VPN session and the
    ssh gate's commands use the command's context). A context that
    carries no call is a bug, and these hooks never answer for another
    running call instead: `sshx.MayPin` refuses to pin a new server's key
@@ -432,11 +432,11 @@ is not.
   `STORE_OLD_COPY`.
 - `TestHooksReadRunningCallsSafely` calls the hooks from one goroutine
   over and over while a person's calls and agents' calls run `version`,
-  `list` and `secret list` (which open the store) through `RunCall`:
+  `list` and `credential list` (which open the store) through `RunCall`:
   under `-race`, nothing a hook reads is written without a lock. It
   fails if the hooks never ran while both kinds of call were running.
-- `TestDryRunBesideARealChange`: a person's `host add --ask-password`
-  has started and waits for its password while a dry run's `host add`
+- `TestDryRunBesideARealChange`: a person's `host ssh add --ask-password`
+  has started and waits for its password while a dry run's `host ssh add`
   runs from start to end; then the person's call saves its server and
   its password, and the dry run's server is not saved. Six more pairs
   run at once in no set order.

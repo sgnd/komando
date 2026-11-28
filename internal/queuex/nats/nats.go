@@ -156,9 +156,9 @@ func creds(ref string) (string, nkeys.KeyPair, error) {
 		if errors.Is(err, driver.ErrSecretNotFound) {
 			code = "SECRET_NOT_FOUND"
 		}
-		return "", nil, out.Errf(out.ExitNotFound, code, "store the .creds file with `komando secret set NAME < user.creds`", "nats creds %s: %v", ref, err)
+		return "", nil, out.Errf(out.ExitNotFound, code, "store the .creds file with `komando credential token add NAME < user.creds`", "nats creds %s: %v", ref, err)
 	}
-	bad := out.Errf(out.ExitConnect, "QUEUE_AUTH", "store the whole .creds file (with its NATS USER JWT and USER NKEY SEED parts) with `komando secret set NAME < user.creds`",
+	bad := out.Errf(out.ExitConnect, "QUEUE_AUTH", "store the whole .creds file (with its NATS USER JWT and USER NKEY SEED parts) with `komando credential token add NAME < user.creds`",
 		"nats creds %s is not a .creds file", ref)
 	jwt, err := nkeys.ParseDecoratedJWT([]byte(text))
 	if err != nil || jwt == "" || jwt == strings.TrimSpace(text) {

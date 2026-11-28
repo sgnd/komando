@@ -91,8 +91,8 @@ func TestAuditNamesAreIDsOrListedEvents(t *testing.T) {
 func TestAuditRecordNamesLeafAndKey(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.5")
-	wantIdentity(t, lastAudit(t), "host.add", "")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.5")
+	wantIdentity(t, lastAudit(t), "host.ssh.add", "")
 	mustRun(t, "vpn", "socks", "add", "lab", "--proxy-address", "127.0.0.1:1080")
 	wantIdentity(t, lastAudit(t), "vpn.socks.add", "")
 }
@@ -156,7 +156,7 @@ func TestAuditCommandReadsOldAndNewRecords(t *testing.T) {
 		{"vpn socks add", []string{"vpn.add", "vpn.socks.add"}},
 		{"host.key-pinned", []string{"host.key-pinned"}},
 	} {
-		d := mustRun(t, "audit", "--command", tc.filter, "-n", "0")
+		d := mustRun(t, "audit", "list", "--command", tc.filter, "-n", "0")
 		var got []string
 		for _, e := range d["entries"].([]any) {
 			r := e.(map[string]any)

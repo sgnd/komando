@@ -13,11 +13,10 @@ var listToolWords = map[string]bool{
 	"komando docker ps": true, "komando docker images": true, "komando docker stats": true,
 	"komando pkg installed": true, "komando pkg upgradable": true,
 	"komando queue kafka consumer list": true, "komando queue nats consumer list": true, "komando queue pubsub consumer list": true, "komando db activity": true, "komando db locks": true,
-	"komando db sizes": true,
-	"komando audit":    true,
+	"komando db sizes":   true,
+	"komando audit list": true,
 	// the log readers: the last N lines
 	"komando logs": true, "komando docker logs": true,
-	"komando job logs": true,
 }
 
 // TestStandardListLimit: every list command has --limit (S-5.8), the log
@@ -62,10 +61,10 @@ func TestStandardListLimit(t *testing.T) {
 // everything does not. Count is what is shown.
 func TestListLimitTruncated(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a1", "u@10.0.0.1")
-	mustRun(t, "host", "add", "a2", "u@10.0.0.2")
-	mustRun(t, "host", "add", "a3", "u@10.0.0.3")
-	for _, args := range [][]string{{"list"}, {"host", "list"}, {"ls"}} {
+	mustRun(t, "host", "ssh", "add", "a1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "a2", "u@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "a3", "u@10.0.0.3")
+	for _, args := range [][]string{{"list"}, {"host", "ssh", "list"}, {"ls"}} {
 		d := mustRun(t, append(args, "-n", "2")...)
 		if d["count"].(float64) != 2 || len(d["targets"].([]any)) != 2 {
 			t.Errorf("%v -n 2: %v", args, d)
@@ -89,7 +88,7 @@ func TestListLimitTruncated(t *testing.T) {
 		t.Errorf("list: %v", d)
 	}
 	// group list: groups and members both stop at --limit
-	mustRun(t, "group", "add", "web", "a1,a2,a3")
+	mustRun(t, "group", "create", "web", "a1,a2,a3")
 	d := mustRun(t, "group", "list", "web", "-n", "1")
 	if m := d["members"].([]any); len(m) != 1 || m[0] != "a1" {
 		t.Errorf("group list web -n 1: %v", d)
@@ -102,19 +101,5 @@ func TestFsLsLimitSpelling(t *testing.T) {
 	f := fsLsCmd().Flags().Lookup("limit")
 	if f == nil || f.Shorthand != "n" || f.DefValue != "1000" {
 		t.Fatalf("fs list --limit: %+v", f)
-	}
-}
-
-// job logs: -n/--limit is primary (default 0, read from --offset); --tail
-// is a permanent hidden synonym.
-func TestJobLogsLimit(t *testing.T) {
-	c := jobLogsCmd()
-	f := c.Flags().Lookup("limit")
-	if f == nil || f.Shorthand != "n" || f.DefValue != "0" {
-		t.Fatalf("job logs --limit: %+v", f)
-	}
-	tail := c.Flags().Lookup("tail")
-	if tail == nil || !tail.Hidden || tail.Value != f.Value {
-		t.Fatalf("job logs --tail must be a silent synonym of --limit: %+v", tail)
 	}
 }

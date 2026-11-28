@@ -1,0 +1,783 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
+
+	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
+)
+
+func readAllStdin(cl *call) ([]byte, error) { return io.ReadAll(cl.stdin) }
+
+type execHostResult struct {
+	Host string `json:"host"`
+	// Session: the run's session ID, null when it ran without one; absent
+	// when sessions are off or not for this run
+	Session  json.RawMessage `json:"session,omitempty"`
+	NextFrom *int64          `json:"next_from,omitempty"` // a running session: where --attach reads on
+	OK       bool            `json:"ok"`
+	*sshx.RunResult
+	Error *out.Error `json:"error,omitempty"`
+}
+
+type execData struct {
+	Recipe  string           `json:"recipe,omitempty"` // snippet exec: which recipe
+	Command string           `json:"command"`
+	Results []execHostResult `json:"results"`
+	Summary runSummary       `json:"summary"`
+	// streamed: the output was printed live (--stream, follow), so the
+	// final text does not repeat it
+	streamed bool
+}
+
+// Text is the output the way ssh shows it: one server prints its stdout
+// and stderr as they are; several get a "=== host [status]" block each,
+// with their stderr inside, marked [stderr].
+func (d execData) TextFor(pr *out.Printer) string {
+	var sb strings.Builder
+	multi := len(d.Results) > 1
+	for _, r := range d.Results {
+		if multi {
+			fmt.Fprintf(&sb, "=== %s [%s]\n", r.Host, hostStatus(r))
+		}
+		if r.RunResult != nil && !d.streamed {
+			sb.WriteString(r.Stdout)
+			if r.Stdout != "" && !strings.HasSuffix(r.Stdout, "\n") && multi {
+				sb.WriteString("\n")
+			}
+			if r.Stderr != "" {
+				if multi {
+					for _, line := range strings.SplitAfter(strings.TrimRight(r.Stderr, "\n"), "\n") {
+						sb.WriteString("[stderr] " + strings.TrimRight(line, "\n") + "\n")
+					}
+				} else if r.Error == nil || r.Error.Message != strings.TrimSpace(r.Stderr) { // else the closing line says it
+					fmt.Fprint(pr.Stderr(), out.SafeText(pr.Redact(r.Stderr)))
+				}
+			}
+		}
+		if r.Error != nil && multi && r.Error.Code != "SKIPPED" {
+			fmt.Fprintf(&sb, "  Error: %s (code %s)\n", r.Error.Message, r.Error.Code)
+			if r.Error.Hint != "" {
+				fmt.Fprintf(&sb, "  Hint: %s\n", r.Error.Hint)
+			}
+		}
+	}
+	return sb.String()
+}
+
+type execOpts struct {
+	sudo      bool
+	sudoUser  string
+	env       []string
+	dir       string
+	stdinFile string
+	pty       bool
+	stream    bool
+	failFast  bool
+	display   string // what output and the audit log show instead of a long generated script
+	recipe    string // snippet exec: the recipe's name, in the result and the audit log
+	// scriptFlags: exec --script's flags (--script FILE ...), so a timeout
+	// can name the exec that runs the same script
+	scriptFlags string
+	// follow: a log follow (logs --follow). Reaching --timeout is how it
+	// ends, not a failure.
+	follow bool
+	// exitMap turns a failed run into a typed error (fs commands: exit
+	// 83 = no such file; user add/rm: a #komando: marker on stdout); nil
+	// keeps the plain "exit N".
+	exitMap func(rr *sshx.RunResult) *out.Error
+	// session: exec's session flags; with sessions on, a run on one Unix
+	// server goes in a session (sessionFor)
+	session *sessionOpts
+}
+
+func (o *execOpts) bind(c *cobra.Command) {
+	f := c.Flags()
+	f.BoolVarP(&o.sudo, "sudo", "s", false, "run with sudo (never prompts; uses the server's --sudo-ref password if set)")
+	f.StringVar(&o.sudoUser, "sudo-user", "", "run as this user with sudo -u")
+	f.StringArrayVarP(&o.env, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
+	f.StringVarP(&o.dir, "dir", "C", "", "working folder on the server")
+	f.BoolVar(&o.stream, "stream", false, "stream output as NDJSON events while it runs")
+	f.BoolVar(&o.failFast, "fail-fast", false, "start no more servers after the first failure")
+}
+
+// bindInput adds exec's input flags. script has none: its file is the input.
+func (o *execOpts) bindInput(c *cobra.Command) {
+	f := c.Flags()
+	f.StringVar(&o.stdinFile, "stdin-file", "", "send this file on this computer as stdin ('-' = komando's stdin)")
+	f.BoolVar(&o.pty, "pty", false, "allocate a pseudo-terminal (some tools need one)")
+}
+
+func execCmd() *cobra.Command {
+	var o execOpts
+	var so scriptOpts
+	var cmdStr string
+	var readOnly bool
+	var sess sessionOpts
+	c := &cobra.Command{
+		Use:   "exec TARGET [-- COMMAND...]",
+		Short: "Run a shell command on one or many servers in parallel",
+		Long: `Runs COMMAND through the login shell on every server TARGET picks
+(PowerShell on Windows servers). Each server's result has its stdout,
+stderr, exit_code and duration. A non-zero exit on any server makes
+komando exit 5. A refused connection or login exits 4; a server that does
+not answer within --connect-timeout exits 7 (CONNECT_TIMEOUT).
+
+If the connection breaks while the command runs, that server's result has
+error code CONNECTION_LOST (exit 4) and the output that came so far: the
+command may still be running there, or may have finished. Check with a
+read-only command before running it again.
+
+On one Linux or Unix server (no --pty) the command runs in a session on the
+server, so it survives a drop: exec prints the session ID first (the first
+JSON line), waits --wait for the end and returns the output and the exit
+code, or exit 7 with next_from when the run goes on. Read the rest with
+` + "`komando host ssh exec TARGET --attach ID`" + `, stop it with ` + "`--attach ID --stop`" + `, and
+delete a finished one with ` + "`--attach ID --remove`" + `.
+
+Commands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)
+and any change on a production server: at a terminal komando asks you
+first. --yes and --allow-dangerous answer that question in advance, for
+scripts. --read-only says the command only looks: it runs only commands
+komando knows only read (cat, grep, df, systemctl status ...) and refuses
+any other, so a production server does not ask.
+
+--script FILE runs a script from this computer instead: it is sent to the
+interpreter (from its #! line, else sh; --interpreter to choose) as input,
+so nothing is left on the server. --arg values become $1, $2 ... .`,
+		Example: `  komando host ssh exec web1 -- uptime
+  komando host ssh exec @web -P 20 -- 'df -h / | tail -1'
+  komando host ssh exec tag:prod --sudo -- systemctl is-active nginx
+  komando host ssh exec db1 --read-only -- df -h
+  komando host ssh exec @web --script ./deploy.sh --arg v1.2.3 --sudo
+  komando host ssh exec db1 --script ./backup.py --interpreter python3
+  cat deploy.sh | komando host ssh exec web1 --stdin-file - -- 'bash -s'
+  komando host ssh exec web1 --attach ID --offset 4096
+  komando host ssh exec web1 --attach ID --stop
+  komando host ssh exec web1 --attach ID --remove`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if sess.wants(cmd) {
+				return sess.attachCall(cl, cmd.Context(), cmd, args, cmdStr != "" || so.file != "", readOnly)
+			}
+			o.session = &sess
+			if so.file != "" {
+				if cmdStr != "" || len(args) > 1 {
+					return out.Usage("give a command or --script FILE, not both")
+				}
+				return runScript(cl, cmd.Context(), args[0], so, o, readOnly)
+			}
+			if so.interpreter != "" || len(so.args) > 0 {
+				return out.Usage("--interpreter and --arg go with --script FILE")
+			}
+			command, err := commandWords(cmdStr, args[1:], "exec "+args[0])
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(command) == "" {
+				return out.Usage("no command given: komando host ssh exec TARGET -- COMMAND")
+			}
+			stdin, err := execInput(cl, o)
+			if err != nil {
+				return err
+			}
+			mutating, err := execReadOnly(cl, args[0], command, stdin, o, readOnly)
+			if err != nil {
+				return err
+			}
+			return runFleet(cl, cmd.Context(), "exec", args[0], command, stdin, o, mutating)
+		}),
+	}
+	o.bind(c)
+	o.bindInput(c)
+	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
+	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer ('-' = komando's stdin); nothing is left on the server")
+	so.bind(c)
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks: only commands komando knows only read run (protected servers: no --yes)")
+	sess.bind(c)
+	return c
+}
+
+// execReadOnly is exec's --read-only check: a command that changes
+// something is refused, and mutating says whether a protected target still
+// needs --yes. A Windows target is checked as PowerShell.
+func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, readOnly bool) (mutating bool, err error) {
+	if !readOnly {
+		return true, nil
+	}
+	if win, err := targetWindows(cl, target); err != nil || win {
+		if err != nil {
+			return true, err
+		}
+		return psReadOnlyCheck(cl, command)
+	}
+	// bash -s alone runs its input, so the input is checked as its script;
+	// any other command is checked itself, and its input is data (a CSV
+	// for wc)
+	checked := command
+	if o.stdinFile != "" && stdinShell(command) {
+		checked = string(stdin)
+		if err := checkReadOnlyEnv(cl, checked, o.env); err != nil {
+			return true, err
+		}
+	} else if err := checkReadOnlyEnv(cl, command, o.env); err != nil {
+		return true, err
+	}
+	// komando knows the command only reads: no change, so no --yes
+	return false, nil
+}
+
+// fleetDryRun is runFleet's --dry-run: what would run on each host. A
+// command that cannot be built (a secret that is not in the vault) fails
+// the dry run, as it would fail the real one.
+func fleetDryRun(cl *call, name string, hosts []*store.Host, req sshx.RunRequest, o execOpts, stdinBytes int, guardErr error) error {
+	plans := []map[string]any{}
+	for _, h := range hosts {
+		full, _, err := sshx.BuildCommand(&sshx.Client{Host: h}, req)
+		if err != nil {
+			return err
+		}
+		if o.display != "" {
+			full = o.display
+		}
+		plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": full, "stdin_bytes": stdinBytes})
+	}
+	res := map[string]any{"would_run": plans}
+	if o.recipe != "" {
+		res["recipe"] = o.recipe
+	}
+	if guardErr != nil {
+		res["would_be_blocked"] = toErr(guardErr)
+	} else if b := cl.out.Blocked(); b != nil {
+		res["would_be_blocked"] = b
+	}
+	cl.out.Print(name, res, nil)
+	return nil
+}
+
+// withRecipe adds a snippet exec's recipe name to its audit record.
+func withRecipe(rec map[string]any, recipe string) map[string]any {
+	if recipe != "" {
+		rec["recipe"] = recipe
+	}
+	return rec
+}
+
+// runFleet executes command on all hosts matching target and prints results.
+func runFleet(cl *call, ctx context.Context, name, target, command string, stdin []byte, o execOpts, mutating bool) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return err
+	}
+	if ctx, err = windowsRunCheck(ctx, name, hosts, o); err != nil {
+		return err
+	}
+	shown := command
+	if o.display != "" {
+		shown = o.display
+	}
+	guardErr := Guard(cl, st, hosts, command, mutating)
+	if guardErr != nil && !cl.dryRun() {
+		audit(cl, st, name, hostNames(hosts), shown, false, withRecipe(map[string]any{"blocked": toErr(guardErr).Code}, o.recipe))
+		return guardErr
+	}
+	env, err := parseEnvTo(cl, o.env, hosts)
+	if err != nil {
+		return err
+	}
+	req := sshx.RunRequest{Command: command, Sudo: o.sudo || o.sudoUser != "", SudoUser: o.sudoUser, Env: env, Dir: o.dir,
+		Stdin: stdin, Timeout: cmdTimeout(cl, st), MaxOutput: maxOutput(cl, st), PTY: o.pty}
+
+	if cl.dryRun() {
+		return fleetDryRun(cl, name, hosts, req, o, len(stdin), guardErr)
+	}
+
+	follow := o.follow || (o.stream && name == "logs") // logs --follow
+	if follow {
+		followStatus(cl, st, hosts)
+	}
+	sess := sessionFor(st, name, hosts, o, shown)
+	var mu sync.Mutex
+	var failed bool
+	run := func(ctx context.Context, c *sshx.Client) (any, error) {
+		if o.failFast {
+			mu.Lock()
+			f := failed
+			mu.Unlock()
+			if f {
+				return nil, out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped: another server failed first, and --fail-fast is on")
+			}
+		}
+		r := req
+		host := c.Host.Name
+		// output is shown by whole lines: a secret split across two reads
+		// is still one piece when it is redacted
+		bufs := map[string]*lineBuffer{"stdout": {mask: cl.out}, "stderr": {mask: cl.out}}
+		show := func(stream, text string) { // mu held
+			if text == "" {
+				return
+			}
+			if cl.out.Format == "text" { // a person: plain lines, marked by server when there are several
+				w := cl.out.W
+				if stream == "stderr" {
+					w = cl.out.Err
+				}
+				for _, line := range strings.SplitAfter(cl.out.Redact(text), "\n") {
+					if line == "" {
+						continue
+					}
+					if len(hosts) > 1 {
+						line = "[" + host + "] " + out.NoCR(line) // no \r back over the name
+					}
+					fmt.Fprint(w, out.SafeText(line))
+				}
+				return
+			}
+			cl.out.Event(map[string]any{"event": "output", "host": host, "stream": stream, "data": text})
+		}
+		if o.stream {
+			r.Stream = func(stream string, chunk []byte) {
+				mu.Lock()
+				defer mu.Unlock()
+				if b := bufs[stream]; b != nil {
+					show(stream, b.add(chunk))
+				}
+			}
+		}
+		res, err := sess.run(cl, ctx, c, r)
+		if o.stream {
+			mu.Lock()
+			show("stdout", bufs["stdout"].flush())
+			show("stderr", bufs["stderr"].flush())
+			mu.Unlock()
+		}
+		if o.failFast && (err != nil || res.ExitCode != 0) {
+			mu.Lock()
+			failed = true
+			mu.Unlock()
+		}
+		return res, err
+	}
+	var results []outcome
+	if o.failFast && parallelism(cl, st) <= 1 {
+		// one at a time, in name order, and nobody is dialled after a failure
+		ordered := append([]*store.Host(nil), hosts...)
+		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Name < ordered[j].Name })
+		for _, h := range ordered {
+			if failed {
+				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped: another server failed first, and --fail-fast is on")})
+				continue
+			}
+			results = append(results, fanout(cl, ctx, st, []*store.Host{h}, run)...)
+			if r := results[len(results)-1]; r.Err != nil {
+				failed = true
+			}
+		}
+	} else {
+		results = followEnded(ctx, follow, fanout(cl, ctx, st, hosts, run))
+	}
+
+	data := execData{Recipe: o.recipe, Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && cl.out.Format == "text"}
+	worst := 0
+	var fails []hostFail
+	for _, r := range results {
+		hr := execHostResult{Host: r.Host.Name}
+		sess.fill(&hr)
+		if r.Err != nil {
+			hr.Error = toErr(r.Err)
+			if hr.Error.Code == "SKIPPED" {
+				data.Summary.Skipped++
+				data.Summary.SkippedHosts = append(data.Summary.SkippedHosts, hr.Host)
+				data.Results = append(data.Results, hr)
+				continue
+			}
+			// a lost connection keeps what the command printed before it broke
+			hr.RunResult, _ = r.Value.(*sshx.RunResult)
+			lostHint(hr.Error, sess, hr.Host, execLine(name, r.Host, command, stdin, o))
+			worst = worse(worst, hr.Error.Exit)
+			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
+		} else {
+			hr.RunResult = r.Value.(*sshx.RunResult)
+			if hr.TimedOut && follow {
+				// --timeout is how a follow ends: what came so far is the result
+				hr.TimedOut, hr.ExitCode = false, 0
+			}
+			hr.OK = hr.ExitCode == 0 && !hr.TimedOut
+			switch {
+			case hr.TimedOut:
+				line := ""
+				if sess == nil || sess.id == "" {
+					line = execLine(name, r.Host, command, stdin, o)
+				}
+				hr.Error = execTimeoutErr(line, req.Timeout)
+				worst = worse(worst, out.ExitTimeout)
+				fails = append(fails, hostFail{host: hr.Host, reason: "timed out", err: hr.Error})
+			case !hr.OK && o.exitMap != nil && o.exitMap(hr.RunResult) != nil:
+				hr.Error = o.exitMap(hr.RunResult)
+				worst = worse(worst, hr.Error.Exit)
+				fails = append(fails, hostFail{host: hr.Host, reason: failReason(hr.ExitCode, hr.Error), err: hr.Error})
+			case !hr.OK:
+				worst = worse(worst, out.ExitRemote)
+				fails = append(fails, hostFail{host: hr.Host, reason: fmt.Sprintf("exit %d", hr.ExitCode)})
+			}
+		}
+		if hr.OK {
+			data.Summary.OK++
+		} else {
+			data.Summary.Failed++
+			data.Summary.FailedHosts = append(data.Summary.FailedHosts, hr.Host)
+		}
+		data.Results = append(data.Results, hr)
+	}
+	data.Summary.Total = len(results)
+	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, sess.note(withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe)))
+	if o.stream && cl.out.Format != "text" {
+		cl.out.Event(map[string]any{"event": "done", "summary": data.Summary})
+	}
+	err = finishFleet(cl, name, data, data.Summary, worst, fails)
+	truncationNotes(cl, data.Results, req.MaxOutput, len(results) > 1)
+	return err
+}
+
+// lineBuffer holds streamed output until a line is complete, so that a
+// secret split across two reads is redacted as one piece. A private key
+// waits for its END line, up to pemHold: a real key is far shorter, so
+// past that the BEGIN line was only a mention (a log line, a grep). Then
+// the key-like lines after it are hidden and the rest goes out. Past
+// streamCap without a line end, all but the last streamKeep bytes go out
+// (or the longest hidden value, if longer, up to streamHold). Before that
+// cut the held text goes through mask, when set, and the cut moves back
+// until no vault value or pattern mask (password=...) changes across it. An open private
+// key at a forced cut is hidden from its BEGIN line, and what follows is
+// dropped up to its END line or pemHold bytes.
+type lineBuffer struct {
+	buf  []byte
+	mask *out.Printer
+	drop int // bytes still to drop of a key hidden at a forced cut
+}
+
+const (
+	streamCap  = 256 << 10
+	streamKeep = 4 << 10
+	pemHold    = 16 << 10
+	// streamHold bounds the tail kept at a forced cut: a vault value
+	// longer than this can be split there and show in part.
+	streamHold = 1 << 20
+	cutWindow  = 1 << 10 // text each side of a cut that the pattern check reads
+)
+
+var (
+	pemBegin = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----`)
+	pemEnd   = regexp.MustCompile(`-----END [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----`)
+	// pemBody is a line a key can have: base64, or a header (Proc-Type: ...)
+	pemBody = regexp.MustCompile(`^([A-Za-z0-9+/=]{0,100}|[A-Za-z-]+: .*)\r?$`)
+)
+
+// add takes a chunk and returns the text that is ready to show.
+func (l *lineBuffer) add(chunk []byte) string {
+	l.buf = append(l.buf, chunk...)
+	if l.drop > 0 && !l.dropKey() {
+		return ""
+	}
+	var ready strings.Builder
+	for {
+		cut := bytes.LastIndexByte(l.buf, '\n') + 1
+		open := -1 // where the line of an open key starts
+		if locs := pemBegin.FindAllIndex(l.buf[:cut], -1); len(locs) > 0 {
+			last := locs[len(locs)-1]
+			if !pemEnd.Match(l.buf[last[1]:cut]) {
+				open = bytes.LastIndexByte(l.buf[:last[0]], '\n') + 1
+			}
+		}
+		if open >= 0 && cut-open > pemHold { // a mention, not a key
+			ready.Write(l.buf[:open])
+			ready.WriteString("[hidden: private key]\n")
+			rest := l.buf[open:]
+			rest = rest[bytes.IndexByte(rest, '\n')+1:] // the BEGIN line
+			for {
+				nl := bytes.IndexByte(rest, '\n')
+				if nl < 0 || !pemBody.Match(rest[:nl]) {
+					break
+				}
+				rest = rest[nl+1:]
+			}
+			l.buf = append(l.buf[:0], rest...)
+			continue
+		}
+		if open >= 0 {
+			cut = open
+		}
+		if len(l.buf) > streamCap && cut < len(l.buf)-streamKeep {
+			l.forcedCut(&ready)
+			return ready.String()
+		}
+		ready.Write(l.buf[:cut])
+		l.buf = append(l.buf[:0], l.buf[cut:]...)
+		return ready.String()
+	}
+}
+
+// flush returns what is left, at the end of the run.
+func (l *lineBuffer) flush() string {
+	if l.drop > 0 {
+		l.buf = nil
+		return ""
+	}
+	s := string(l.buf)
+	l.buf = nil
+	return s
+}
+
+// forcedCut sends out all but the tail of a held text past streamCap.
+func (l *lineBuffer) forcedCut(ready *strings.Builder) {
+	if locs := pemBegin.FindAllIndex(l.buf, -1); len(locs) > 0 {
+		if last := locs[len(locs)-1]; !pemEnd.Match(l.buf[last[1]:]) {
+			before := string(l.buf[:last[0]])
+			if l.mask != nil {
+				before = l.mask.Redact(before)
+			}
+			ready.WriteString(before + "[hidden: private key]\n")
+			l.buf, l.drop = l.buf[:0], pemHold
+			return
+		}
+	}
+	keep := streamKeep
+	if l.mask != nil {
+		keep = min(max(keep, l.mask.Longest()), streamHold)
+	}
+	cut := len(l.buf) - keep
+	if cut <= 0 {
+		return
+	}
+	if l.mask == nil {
+		ready.Write(l.buf[:cut])
+	} else {
+		cut = l.maskSafeCut(cut)
+		ready.WriteString(l.mask.Redact(string(l.buf[:cut])))
+	}
+	l.buf = append(l.buf[:0], l.buf[cut:]...)
+}
+
+// maskSafeCut moves cut back to a place where masking the two sides apart
+// gives what masking them together does, so no vault value or pattern
+// (password=value) is split there and shown in part. It tries the spaces
+// and line ends before cut, then steps back through text without them
+// (JSON, base64). The held tail stays unmasked, so a value that goes on in
+// the next read is still seen whole. With no safe place behind cut, all
+// held text up to the next safe place after it is hidden; with none
+// there either, all of it.
+func (l *lineBuffer) maskSafeCut(cut int) int {
+	s := string(l.buf)
+	win := min(max(cutWindow, l.mask.Longest()), streamHold)
+	safe := func(c int) bool {
+		lo, hi := max(0, c-win), min(len(s), c+win)
+		return l.mask.Redact(s[lo:c])+l.mask.Redact(s[c:hi]) == l.mask.Redact(s[lo:hi])
+	}
+	for c, try := cut, 0; c > 0 && try < 32; try++ {
+		if safe(c) {
+			return c
+		}
+		c = strings.LastIndexAny(s[:c-1], " \t\n,\"}") + 1
+	}
+	step := max(1, win/16)
+	for c := cut - step; c > 0 && c > cut-64*step; c -= step {
+		if safe(c) {
+			return c
+		}
+	}
+	end := len(s)
+	// a place closer to the end than the longest value can look safe only
+	// because the rest of a value has not arrived yet
+	for c := cut + step; c <= len(s)-l.mask.Longest() && c < cut+64*step; c += step {
+		if safe(c) {
+			end = c
+			break
+		}
+	}
+	l.buf = []byte(out.Hidden + s[end:])
+	return len(out.Hidden)
+}
+
+// dropKey drops held text of a key hidden at a forced cut, through its END
+// line or until pemHold bytes are gone, and reports whether the stream
+// goes on (false: still dropping, nothing left to show).
+func (l *lineBuffer) dropKey() bool {
+	if loc := pemEnd.FindIndex(l.buf); loc != nil && loc[0] <= l.drop {
+		l.buf = append(l.buf[:0], l.buf[loc[1]:]...)
+		l.drop = 0
+		return true
+	}
+	// keep a short tail: an END line may arrive split across two reads
+	n := max(0, len(l.buf)-64)
+	if n >= l.drop {
+		l.buf = append(l.buf[:0], l.buf[l.drop:]...)
+		l.drop = 0
+		return true
+	}
+	l.drop -= n
+	l.buf = append(l.buf[:0], l.buf[n:]...)
+	return false
+}
+
+// exitCodes is each server's exit code for the audit log; -1 when the
+// command did not run there.
+func exitCodes(rs []execHostResult) map[string]int {
+	codes := map[string]int{}
+	for _, r := range rs {
+		codes[r.Host] = -1
+		if r.RunResult != nil {
+			codes[r.Host] = r.ExitCode
+		}
+	}
+	return codes
+}
+
+// runOne is the building block for module commands (svc, docker, pkg ...):
+// run a fixed command on a target, honouring policy and dry-run.
+func runOne(cl *call, ctx context.Context, name, target, command string, sudo, mutating bool) error {
+	o := execOpts{sudo: sudo}
+	return runFleet(cl, ctx, name, target, command, nil, o, mutating)
+}
+
+// probe runs a read-only command on all target hosts and lets parse turn
+// stdout into structured data. exitMap, when not nil, names why a server's
+// command failed (a sudo refusal, docker missing ...): see probeExit.
+func probe(cl *call, ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error)) error {
+	return probeText(cl, ctx, name, target, command, sudo, exitMap, parse, nil)
+}
+
+// probeExit is a probe's typed error for one server's failed command: host
+// is its name, sudo whether the probe ran with sudo; nil keeps the plain
+// remote failure.
+type probeExit func(host string, sudo bool, rr *sshx.RunResult) *out.Error
+
+// probeRow is one host's answer to a probe.
+type probeRow struct {
+	Host     string     `json:"host"`
+	OK       bool       `json:"ok"`
+	Data     any        `json:"data,omitempty"`
+	ExitCode *int       `json:"exit_code,omitempty"`
+	Stderr   string     `json:"stderr,omitempty"`
+	Error    *out.Error `json:"error,omitempty"`
+}
+
+type probeData struct {
+	Results []probeRow   `json:"results"`
+	Summary fleetSummary `json:"summary"`
+}
+
+// probeTexter gives a probe its own -o text layout; the JSON is the same.
+type probeTexter struct {
+	probeData
+	text func(probeData) string
+}
+
+func (p probeTexter) Text() string { return p.text(p.probeData) }
+
+// probeText is probe with a text layout of its own (nil: the generic one).
+func probeText(cl *call, ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return err
+	}
+	winCommand, onWindows := windowsProbes[name]
+	if ctx, err = windowsGate(ctx, name, hosts, onWindows); err != nil {
+		return err
+	}
+	if cl.dryRun() {
+		plan := map[string]any{"hosts": hostNames(hosts), "would_run": command}
+		if win := windowsNames(hosts); len(win) == len(hosts) {
+			plan["would_run"] = winCommand
+		} else if len(win) > 0 {
+			plan["would_run_on_windows"] = winCommand
+		}
+		cl.out.Print(name, plan, nil)
+		return nil
+	}
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		cmd := command
+		if c.Host.Windows() {
+			cmd = winCommand
+		}
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: sudo, Timeout: cmdTimeout(cl, st), MaxOutput: maxOutput(cl, st)})
+	})
+	data := probeData{Results: []probeRow{}}
+	worst := 0
+	var fails []hostFail
+	for _, o := range res {
+		r := probeRow{Host: o.Host.Name}
+		if o.Err != nil {
+			r.Error = toErr(o.Err)
+			worst = worse(worst, r.Error.Exit)
+			fails = append(fails, hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error})
+		} else {
+			rr := o.Value.(*sshx.RunResult)
+			code := rr.ExitCode
+			r.ExitCode = &code
+			if parse != nil {
+				d, perr := parse(o.Host, rr.Stdout)
+				if perr != nil {
+					r.Error = toErr(perr)
+				}
+				r.Data = d
+			} else {
+				r.Data = rr.Stdout
+			}
+			r.OK = rr.ExitCode == 0 && r.Error == nil
+			if !r.OK {
+				r.Stderr = strings.TrimSpace(rr.Stderr)
+				exit := out.ExitRemote
+				f := hostFail{host: r.Host, reason: fmt.Sprintf("exit %d", rr.ExitCode)}
+				if exitMap != nil && !rr.TimedOut {
+					if e := exitMap(o.Host.Name, sudo, rr); e != nil {
+						r.Error = e // the command said why: a sudo refusal, docker missing ...
+					}
+				}
+				if r.Error != nil && r.Error.Exit != 0 {
+					exit = r.Error.Exit // the parser or exitMap named the problem (docker missing, a closed port ...): its code wins
+					f = hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error}
+				}
+				if rr.TimedOut {
+					r.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "command timed out")
+					exit = out.ExitTimeout
+					f = hostFail{host: r.Host, reason: "timed out", err: r.Error}
+				}
+				worst = worse(worst, exit)
+				fails = append(fails, f)
+			}
+		}
+		if r.OK {
+			data.Summary.OK++
+		} else {
+			data.Summary.Failed++
+			data.Summary.FailedHosts = append(data.Summary.FailedHosts, r.Host)
+		}
+		data.Results = append(data.Results, r)
+	}
+	data.Summary.Total = len(res)
+	audit(cl, st, name, hostNames(hosts), command, data.Summary.Failed == 0, nil)
+	var shown any = data
+	if text != nil {
+		shown = probeTexter{data, text}
+	}
+	return finishFleet(cl, name, shown, runSummary{fleetSummary: data.Summary}, worst, fails)
+}

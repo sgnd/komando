@@ -72,7 +72,7 @@ or a listed one is gone.
 | Package | What it is |
 |---|---|
 | `cmd/komando` | `main`: starts `internal/cli` |
-| `internal/auditlog` | the audit log: records sealed in the local store, read back in short steps, and checked by `komando audit verify` |
+| `internal/auditlog` | the audit log: records sealed in the local store, read back in short steps, and checked by `komando audit check` |
 | `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
@@ -80,7 +80,7 @@ or a listed one is gone.
 | `internal/ci` | test only: runs the scripts inside the GitHub workflows (the CLA check) |
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cli/kit/gatehere` | the rules of ssh-gate's server mode (`--here`): which commands a phone's key may run on the server, the files the gate protects and the files it never reads; pure, the cli hands in the paths and the words |
-| `internal/cli/kit/phonekey` | what `key deploy --public-key-file` checks and writes: a phone's public key line behind komando's gate, the facts read from the server, and the scripts that probe and write them; nothing is spliced into a script's text |
+| `internal/cli/kit/phonekey` | what `credential key install --public-key-file` checks and writes: a phone's public key line behind komando's gate, the facts read from the server, and the scripts that probe and write them; nothing is spliced into a script's text |
 | `internal/cli/kit/term` | what every command prints: terminal column widths, text tables, the line of an empty list, whether the terminal reads escape sequences, reading one answer at the terminal, and the raw-mode screen and the keys of the interactive mode; no cobra, no komando state. Code every command package shares moves into `kit` one part at a time |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
 | `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
@@ -119,7 +119,7 @@ or a listed one is gone.
 | `internal/snippet` | the engine of the ready-made snippets: the built-in type, the checks of a definition, the registry, filling a text with quoted variables, the parse step and the JSON contract; it runs nothing itself |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
-| `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
+| `internal/store` | komando's state: inventory, conns, keys, exec sessions, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
 | `internal/storex/ftptest` | a test FTP and FTPS server for the tests |
 | `internal/testhome` | tests only: a throwaway home folder for each test binary, and the rules that keep tests out of the real one |
@@ -151,14 +151,14 @@ row allows, or a row has no code.
 ## Files in internal/cli
 
 A file is named for the command it serves. The noun is the first word of
-the command (`komando db dump` → `db`), as listed in
+the command (`komando database postgres backup` → `database`), as listed in
 `internal/cli/testdata/command_ids.txt`, with any hyphen left out
 (`ssh-gate` → `sshgate`).
 
 | Name | Holds | Examples |
 |---|---|---|
 | `<noun>.go` | the command and what most of its verbs share | `host.go`, `db.go`, `cluster.go` |
-| `<noun>_<verb>.go` | one verb, when it is big enough for its own file | `job_start.go`, `fs_replace.go`, `key_revoke.go` |
+| `<noun>_<verb>.go` | one verb, when it is big enough for its own file | `fs_replace.go`, `credential_key_uninstall.go` |
 | `<noun>_<topic>.go` | one part of the noun | `db_dump_tls.go`, `conn_tls.go`, `cluster_swarm.go` |
 
 - Join words with `_`; never glue them (`db_dump.go`, not `dbdump.go`).

@@ -36,13 +36,13 @@ line (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names
 this komando by its full path, as sshd does not search PATH.
 
 A --read-only key runs only commands that read, and only those that stay
-on the servers and conns in your list: no net checks, and no exec, job
-start, docker exec, cluster kubernetes exec or recipe run, whose programs
-can connect anywhere and carry what they read in a URL or a
+on the servers and conns in your list: no net checks, and no exec, docker
+exec, cluster kubernetes exec or snippet exec, whose programs can connect
+anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.
 
 With --shell-access (not with --read-only) the key may also open a login
-shell on one server: ssh -t HOST komando shell SERVER, word for word. Its
+shell on one server: ssh -t HOST komando host ssh shell SERVER, word for word. Its
 line has restrict,pty, so sshd gives it a terminal when it asks for one.
 The shell is refused on a protected server, a Windows server or this
 computer, with any other word or flag, without the terminal, and on every
@@ -51,7 +51,7 @@ shell and cluster kubernetes shell stay refused. On the servers it opens on, the
 shell is full control of the server, as the account komando logs in with:
 what is typed is outside komando's per-command rules, masking and audit.
 Give such a key only to a device you would give that login to. Each
-session's start and end are in komando audit (key, server, how long, why
+session's start and end are in komando audit list (key, server, how long, why
 it ended), and a session with no input and no output for 30 minutes ends.`,
 		Example: `  komando ssh-gate line --name phone ~/phone.pub
   komando ssh-gate line --name phone-read --read-only 'ssh-ed25519 AAAA... phone'
@@ -103,7 +103,7 @@ it ended), and a session with no input and no output for 30 minutes ends.`,
 	c.Flags().StringVar(&name, "name", "", "the key's name in the audit log (required)")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "the key runs only commands that read")
 	c.Flags().BoolVar(&network, "network", false, "with --read-only: the key may also run reads that reach the network (net, exec --read-only)")
-	c.Flags().BoolVar(&shellAccess, "shell-access", false, "the key may also open a login shell on one server (ssh -t HOST komando shell SERVER); not with --read-only")
+	c.Flags().BoolVar(&shellAccess, "shell-access", false, "the key may also open a login shell on one server (ssh -t HOST komando host ssh shell SERVER); not with --read-only")
 	_ = c.MarkFlagRequired("name")
 	return c
 }

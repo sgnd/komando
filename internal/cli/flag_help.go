@@ -46,11 +46,11 @@ func shorthandSuggest(cmd *cobra.Command, letter, word string) string {
 		if strings.HasPrefix(cmd.CommandPath(), "komando cluster") {
 			return "komando runs one command and returns; for a shell in a pod: `komando cluster kubernetes shell NAME POD`"
 		}
-		return "komando runs one command and returns; for a shell on a server: `komando shell TARGET`"
+		return "komando runs one command and returns; for a shell on a server: `komando host ssh shell TARGET`"
 	case letter == "n" && has("limit"):
 		return "did you mean --limit?"
 	case letter == "L" || letter == "R" || letter == "D":
-		return "port forwarding is `komando tunnel start TARGET -" + letter + " SPEC`"
+		return "port forwarding is `komando host ssh tunnel start TARGET -" + letter + " SPEC`"
 	case letter == "w" && has("wait"):
 		return "did you mean --wait?"
 	}

@@ -96,7 +96,7 @@ func TestTablesKeyedByID(t *testing.T) {
 	add("localReads", keysOf(localReads))
 	add("leavesHome", keysOf(leavesHome))
 	add("riskRows", riskRowIDs())
-	add("mask line", []string{"secret.show"})
+	add("revealNever", keysOf(revealNever))
 	for name, keys := range tables {
 		for _, k := range keys {
 			check(name, k)
@@ -152,10 +152,13 @@ func TestAliasesKeepID(t *testing.T) {
 // as its result does.
 func TestEnvelopeNamesID(t *testing.T) {
 	invHome(t)
-	for _, a := range []string{"x", "run"} { // exec's aliases
-		code, s := runMain(t, a)
-		if code != out.ExitUsage || !strings.Contains(s, `"command":"exec"`) {
-			t.Errorf("%s: exit %d %s", a, code, s)
+	for line, id := range map[string]string{ // list's alias ls, with an argument list does not take
+		"host ssh tunnel ls extra": "host.ssh.tunnel.list",
+		"credential ls extra":      "credential.list",
+	} {
+		code, s := runMain(t, strings.Fields(line)...)
+		if code != out.ExitUsage || !strings.Contains(s, `"command":"`+id+`"`) {
+			t.Errorf("%s: exit %d %s", line, code, s)
 		}
 	}
 }

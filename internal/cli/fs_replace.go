@@ -34,7 +34,7 @@ func (e replaceEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 		return nil, err
 	}
 	if trunc {
-		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "for a bigger file: `komando download` it, edit it here, then `komando upload` it", "%s is larger than 64MiB, the most fs replace edits", p)
+		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "for a bigger file: `komando copy` it here, edit it, then `komando copy` it back", "%s is larger than 64MiB, the most fs replace edits", p)
 	}
 	src := string(b)
 	pl, err := planReplace(e.cl.out, src, e.oldS, e.newS, e.re, e.all, e.path)

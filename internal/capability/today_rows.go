@@ -38,14 +38,13 @@ var todayOnlyRows = []TodayRow{
 	{Key: TodayKey{"host", "docker", "prune"}, Tier: Dangerous, What: "deletes stopped containers and unused images"},
 	{Key: TodayKey{"host", "user", "rm"}, When: "flag:remove-home", Cond: "with --remove-home", Tier: Dangerous, What: "deletes the user and their home folder"},
 	{Key: TodayKey{"host", "user", "rm"}, Tier: Dangerous, What: "deletes the user"},
-	{Key: TodayKey{"credential", "", "remove"}, Tier: Dangerous, What: "deletes the saved passwords"},
 	{Key: TodayKey{"host", "package", "rm"}, When: "essential-package", Cond: "a package the server needs (openssh-server, sudo, systemd, ...)", Tier: Dangerous, What: "removes a package the server needs to run or to let you in"},
 	{Key: TodayKey{"host", "package", "rm"}, Tier: Change, Typed: "removes the packages", Items: "packages"},
 	{Key: TodayKey{"host", "cron", "rm"}, Tier: Change, Typed: "deletes the cron entry", Items: "cron entries"},
 	{Key: TodayKey{"host", "", "restart"}, Tier: Dangerous, What: "restarts the server (it is away until it is back)"},
 	{Key: TodayKey{"host", "service", "stop"}, When: "ssh-unit", Cond: "the unit is ssh or sshd", Tier: Dangerous, What: "stops sshd (no one can log in remotely)"},
 	{Key: TodayKey{"host", "service", "disable"}, When: "ssh-unit", Cond: "the unit is ssh or sshd", Tier: Dangerous, What: "turns sshd off (no one can log in remotely after a restart)"},
-	{Key: TodayKey{"", "sync", "copy"}, When: "flag:delete", Cond: "with --delete", Tier: Dangerous, What: "deletes the files in DST that SRC does not have"},
+	{Key: TodayKey{"", "", "copy"}, When: "flag:delete", Cond: "with --sync --delete", Tier: Dangerous, What: "deletes the files in the destination that the source does not have"},
 
 	// T3 when the command's own check finds it: a policy or classifier hit
 	// on what the command runs, decided at run time.

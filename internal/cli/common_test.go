@@ -31,9 +31,9 @@ func TestOSUser(t *testing.T) {
 // read of the vault, which reaches the store without a load (toErr).
 func TestPolicyMACStopsCommands(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "--address", "10.0.0.5", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "--address", "10.0.0.5", "--protected")
 	t.Setenv("PW", "s3cret")
-	mustRun(t, "secret", "set", "db-pass", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
 	master, err := store.MasterKey()
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"list"}, {"secret", "list"}} {
+	for _, args := range [][]string{{"list"}, {"credential", "list"}} {
 		if e := wantCode(t, "POLICY_MAC_FAILED", args...); !strings.Contains(e.Message, "server web") {
 			t.Errorf("%v: %s", args, e.Message)
 		}
@@ -116,7 +116,7 @@ func TestOwnScriptsThroughExecHitCarriedRules(t *testing.T) {
 		if err := os.WriteFile(p, []byte(c.script), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		err := runRoot(t, "exec", "prod", "--yes", "--script", p)
+		err := runRoot(t, "host", "ssh", "exec", "prod", "--yes", "--script", p)
 		if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(e.Message, c.rule) {
 			t.Errorf("%s through exec: %v, want POLICY_BLOCKED naming %s", name, err, c.rule)
 		}

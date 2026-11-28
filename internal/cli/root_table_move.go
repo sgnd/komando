@@ -54,6 +54,7 @@ func idTables() []idTable {
 		idTableOf("gateNoNetwork", gateNoNetwork, false),
 		idTableOf("gateLocalFlags", gateLocalFlags, false),
 		idTableOf("gateLocalArgs", gateLocalArgs, false),
+		idTableOf("revealNever", revealNever, false),
 	}
 }
 
@@ -81,65 +82,113 @@ func noCheck(v any) bool {
 // changes, so every provider of a type gets the same entries. Only then do
 // the old IDs lose theirs, so no table names a command that is gone; an ID
 // that a type not moved yet still names keeps them.
-func moveType(typ string) { moveLeaves(typ, capability.All()) }
+func moveType(typ string) { moveLeaves(typ, allLeaves) }
+
+// allLeaves is the table, copied once: capability.All copies it on every
+// call, and the start moves one type at a time (scripts/start-time.sh).
+// Read it, never change it; clipped, so an append copies it.
+var allLeaves = slices.Clip(capability.All())
+
+// moveTop is moveType for a top-level leaf (copy): what it carries leaves the tables.
+func moveTop(verb string) {
+	movedTop = append(movedTop, verb)
+	moveWhere("", allLeaves, func(l capability.Leaf) bool { return l.Type == "" && l.Verb == verb })
+}
+
+// leafMoved says whether l's type, or l itself when it is a top-level leaf, has moved.
+func leafMoved(l capability.Leaf) bool {
+	if l.Type == "" {
+		return slices.Contains(movedTop, l.Verb)
+	}
+	return slices.Contains(movedTypes, l.Type)
+}
 
 // moveLeaves is moveType over the table leaves.
 func moveLeaves(typ string, leaves []capability.Leaf) {
 	movedTypes = append(movedTypes, typ)
 	providerIDs[typ] = true // the type's own group shares its key with the provider groups
+	if old := familyOfType(typ); old != typ {
+		// the type's group had another word today (db): the new group gets
+		// its key and its gate entry; the old group keeps them while it
+		// still holds commands
+		cmdKeys[typ] = safetyKey{typ: typ}
+		providerIDs[old] = true // the old group runs nothing of its own either
+		if v, ok := gateNoNetwork[old]; ok {
+			gateNoNetwork[typ] = v
+		}
+	}
+	moveWhere(typ, leaves, func(l capability.Leaf) bool { return l.Type == typ })
+}
+
+// moveWhere moves the built leaves pick selects.
+func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) bool) {
 	tables := idTables()
-	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
+	// per new ID, per table, the entries it carries; nil when it carries none
+	carried := map[string][]map[string]any{}
 	var built []capability.Leaf
 	var order []int
+	var paths [][]string
 	stays := map[string]bool{}
 	carriedAway := carriedByMovedIn(leaves)
 	for n, l := range leaves {
 		if l.State != capability.Built {
 			continue
 		}
-		if !slices.Contains(movedTypes, l.Type) {
-			for _, id := range slices.Concat(l.Today, l.Carries) {
-				stays[id] = true
-			}
-		}
-		if l.Type != typ {
-			continue
-		}
-		id := strings.Join(l.Key.Path(), ".")
-		stays[id] = true
-		built, order = append(built, l), append(order, n)
-		got := make([]map[string]any, len(tables))
-		for i, tb := range tables {
-			got[i] = map[string]any{}
-			for _, old := range slices.Concat(l.Today, l.Carries) {
-				if v, ok := tb.get(old); ok {
-					got[i][old] = v
+		if !leafMoved(l) {
+			for _, ids := range [2][]string{l.Today, l.Carries} {
+				for _, id := range ids {
+					stays[id] = true
 				}
 			}
 		}
-		carried[id] = got
+		if !pick(l) {
+			continue
+		}
+		words := l.Key.Path()
+		id := strings.Join(words, ".")
+		stays[id] = true
+		built, order, paths = append(built, l), append(order, n), append(paths, words)
+		carried[id] = entriesOf(l, tables)
 	}
 	var gone []string
 	for k, l := range built {
-		words := l.Key.Path()
+		words := paths[k]
 		id := strings.Join(words, ".")
 		providerOrder[id] = order[k]
 		cmdKeys[id] = safetyKey{l.Type, l.Area, l.Verb}
 		providerIDs[id] = true
 		for i := 1; i < len(words)-1; i++ { // the provider and area groups
 			gid, gkey := strings.Join(words[:i+1], "."), safetyKey{typ: l.Type}
-			if i >= 2 {
-				gkey.area = words[2]
+			if i >= 2 || l.Provider == "" { // komando's own noun has its area first
+				gkey.area = words[i]
 			}
 			cmdKeys[gid], providerIDs[gid] = gkey, true
-			if _, ok := gateNoNetwork[typ]; ok {
+			if _, ok := gateNoNetwork[typ]; ok { // set above when today's word differs
 				gateNoNetwork[gid] = nil
 			}
 		}
 		for i, tb := range tables {
+			if len(carried[id]) == 0 || len(carried[id][i]) == 0 {
+				continue
+			}
+			// the leaf's own commands of today first: their entry is the one a
+			// reason or a list keeps when the carried commands have others
+			var own, rest []string
 			for _, old := range slices.Sorted(maps.Keys(carried[id][i])) {
+				if slices.Contains(l.Today, old) {
+					own = append(own, old)
+				} else {
+					rest = append(rest, old)
+				}
+			}
+			for _, old := range append(own, rest...) {
 				tb.set(id, joinEntry(tb, id, old, carried[id][i][old]))
 			}
+		}
+		if _, needs := gateNetwork[id]; needs {
+			// a leaf that carries reads and a program of your choosing (host ssh
+			// exec) has both entries: the reason it needs a network is the one
+			delete(gateNoNetwork, id)
 		}
 		if l.LocalRead {
 			localReads[id] = true
@@ -164,11 +213,42 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 			tb.drop(old)
 		}
 	}
+	keyGroups(typ, gone, tables)
 }
+
+// entriesOf is, per table, the entries the IDs l names (Today and Carries)
+// have there: nil when they have none, and a map only for a table that
+// holds one of them.
+func entriesOf(l capability.Leaf, tables []idTable) []map[string]any {
+	var got []map[string]any
+	for _, ids := range [2][]string{l.Today, l.Carries} {
+		for _, old := range ids {
+			for i, tb := range tables {
+				v, ok := tb.get(old)
+				if !ok {
+					continue
+				}
+				if got == nil {
+					got = make([]map[string]any, len(tables))
+				}
+				if got[i] == nil {
+					got[i] = map[string]any{}
+				}
+				got[i][old] = v
+			}
+		}
+	}
+	return got
+}
+
+// connVerbsUntilStepD are today's conn commands, which every moved conn type
+// carries: they stay in the tree until cut step D moves their callers (hints,
+// tests, e2e) to the per-type paths (row C488).
+var connVerbsUntilStepD = []string{"conn.add", "conn.edit", "conn.list", "conn.rename", "conn.rm", "conn.show", "conn.test"}
 
 // carriedByMoved says whether every built leaf that carries id is of a moved
 // type (hideCarried then takes the command out of the tree).
-func carriedByMoved(id string) bool { return carriedByMovedIn(capability.All())(id) }
+func carriedByMoved(id string) bool { return carriedByMovedIn(allLeaves)(id) }
 
 // carriedByMovedIn is carriedByMoved over leaves, read once: moveLeaves asks
 // for every carried ID of a type at start, so a scan for each ID would cost
@@ -179,7 +259,7 @@ func carriedByMovedIn(leaves []capability.Leaf) func(id string) bool {
 		if l.State != capability.Built {
 			continue
 		}
-		moved := slices.Contains(movedTypes, l.Type)
+		moved := leafMoved(l)
 		for _, id := range l.Carries {
 			carried[id] = true
 			waits[id] = waits[id] || !moved
@@ -188,13 +268,18 @@ func carriedByMovedIn(leaves []capability.Leaf) func(id string) bool {
 	for _, r := range capability.Replacements() {
 		waits[r.Today] = true // exec, query or raw replaces it: it stays until cut step D
 	}
+	for _, id := range connVerbsUntilStepD {
+		waits[id] = true
+	}
 	return func(id string) bool { return carried[id] && !waits[id] }
 }
 
 // joinEntry is the entry id gets in tb when it carries old's entry v as
 // well as the one it may have already: the stricter of the two, a check
-// over no check. Two different checks mean the tables disagree, and the
-// program stops at start (moveType runs in init).
+// over no check. Two reasons (gateNetwork) say the same thing, so the first
+// one stays; two lists of flags (gateLocalFlags) join. Two different checks
+// mean the tables disagree, and the program stops at start (moveType runs
+// in init).
 func joinEntry(tb idTable, id, old string, v any) any {
 	have, ok := tb.get(id)
 	switch {
@@ -202,6 +287,14 @@ func joinEntry(tb idTable, id, old string, v any) any {
 		return v
 	case noCheck(v):
 		return have
+	case isString(have) && isString(v):
+		return have
+	case isStrings(have) && isStrings(v):
+		return slices.Compact(slices.Sorted(slices.Values(slices.Concat(have.([]string), v.([]string)))))
 	}
 	panic("komando: " + id + " carries two different " + tb.name + " entries, one from " + old)
 }
+
+func isString(v any) bool { _, ok := v.(string); return ok }
+
+func isStrings(v any) bool { _, ok := v.([]string); return ok }

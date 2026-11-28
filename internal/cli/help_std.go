@@ -335,3 +335,20 @@ func dryRunLine(l string) string {
 	}
 	return lead + strings.Join(keep, " ")
 }
+
+// helpCommandName is the hidden help command cobra needs: not a word a person types.
+const helpCommandName = "__help"
+
+// dropHelpCommand takes the hidden help command out of the root when cmd is
+// the shell's completion request: cobra completes its help command even when
+// it is hidden, and the shell must not offer it.
+func dropHelpCommand(cmd *cobra.Command) {
+	if n := cmd.Name(); n != cobra.ShellCompRequestCmd && n != cobra.ShellCompNoDescRequestCmd {
+		return
+	}
+	for _, c := range cmd.Root().Commands() {
+		if c.Name() == helpCommandName {
+			cmd.Root().RemoveCommand(c)
+		}
+	}
+}

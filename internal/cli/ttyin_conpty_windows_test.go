@@ -201,8 +201,8 @@ func (p *conPTY) leftConsole() (echo bool, left int) {
 // A yes typed at the [y/N] of a protected server runs the command.
 func TestConPTYYesAtYesNo(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.1", "--protected")
-	p := startConPTY(t, "host", "rm", "web")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1", "--protected")
+	p := startConPTY(t, "host", "ssh", "remove", "web")
 	p.answer("[y/N]", "y\r")
 	if code := p.exit(); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
@@ -218,8 +218,8 @@ func TestConPTYYesAtYesNo(t *testing.T) {
 // Ctrl-C at the [y/N] stops the command, and nothing changes.
 func TestConPTYCtrlCAtYesNo(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.1", "--protected")
-	p := startConPTY(t, "host", "rm", "web")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.1", "--protected")
+	p := startConPTY(t, "host", "ssh", "remove", "web")
 	p.answer("[y/N]", "\x03")
 	if code := p.exit(); code != out.ExitPolicy {
 		t.Errorf("exit %d, want %d; the screen:\n%s", code, out.ExitPolicy, p.shown())
@@ -228,13 +228,13 @@ func TestConPTYCtrlCAtYesNo(t *testing.T) {
 	if echo, _ := p.leftConsole(); !echo {
 		t.Error("echo stayed off")
 	}
-	mustRun(t, "host", "show", "web") // still there
+	mustRun(t, "host", "ssh", "show", "web") // still there
 }
 
 // A hidden answer is stored and never shows; the console gets its echo back.
 func TestConPTYHiddenValue(t *testing.T) {
 	invHome(t)
-	p := startConPTY(t, "secret", "set", "s1")
+	p := startConPTY(t, "credential", "password", "add", "s1")
 	p.answer("(it stays hidden):", "s3cret\r")
 	if code := p.exit(); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
@@ -253,7 +253,7 @@ func TestConPTYHiddenValue(t *testing.T) {
 // Ctrl-C at a hidden question stores nothing, and echo comes back.
 func TestConPTYCtrlCAtHiddenPrompt(t *testing.T) {
 	invHome(t)
-	p := startConPTY(t, "secret", "set", "s1")
+	p := startConPTY(t, "credential", "password", "add", "s1")
 	p.answer("(it stays hidden):", "half-typed")
 	time.Sleep(200 * time.Millisecond)
 	if _, err := p.in.WriteString("\x03"); err != nil {

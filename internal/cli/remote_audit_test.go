@@ -10,15 +10,16 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // auditHome is a komando home with web1 (protected) and web2 (tag edge).
 func auditHome(t *testing.T) string {
 	t.Helper()
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "-t", "edge")
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web2", "u@10.0.0.2", "-t", "edge")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	return t.TempDir()
 }
 
@@ -59,7 +60,7 @@ func TestCpSelectorsAndAdhocPort(t *testing.T) {
 		{"root@192.0.2.50:2222:/tmp/x", "root@192.0.2.50:2222"},
 		{"[2001:db8::1]:/tmp/x", "[2001:db8::1]"},
 	} {
-		d, e := invRun(t, "cp", f, c.dst, "--dry-run")
+		d, e := invRun(t, "copy", f, c.dst, "--dry-run")
 		if e != nil {
 			t.Errorf("%s: %s %s", c.dst, e.Code, e.Message)
 			continue
@@ -73,29 +74,27 @@ func TestCpSelectorsAndAdhocPort(t *testing.T) {
 func TestFlagsAfterDashRefused(t *testing.T) {
 	auditHome(t)
 	for _, args := range [][]string{
-		{"exec", "web2", "--", "uptime", "-P", "2", "--dry-run", "-o", "json"},
-		{"exec", "web2", "--", "apt-get", "upgrade", "--dry-run"},
-		{"job", "start", "web2", "--", "sleep", "100", "--dry-run"},
-		{"exec", "web2", "-c", "ls", "--", "uptime"},
-		{"job", "start", "web2", "-c", "ls", "--", "uptime"},
+		{"host", "ssh", "exec", "web2", "--", "uptime", "-P", "2", "--dry-run", "-o", "json"},
+		{"host", "ssh", "exec", "web2", "--", "apt-get", "upgrade", "--dry-run"},
+		{"host", "ssh", "exec", "web2", "-c", "ls", "--", "uptime"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
 			t.Errorf("%v: want USAGE, got %+v", args, e)
 		}
 	}
-	e := toErr(komandoFlagsAfterDash("exec web2", strings.Fields("uptime -P 2 --dry-run -o json")))
-	if e == nil || !strings.Contains(e.Hint, "komando exec web2 -P 2 --dry-run -o json -- uptime") {
+	e := toErr(komandoFlagsAfterDash("host ssh exec web2", strings.Fields("uptime -P 2 --dry-run -o json")))
+	if e == nil || !strings.Contains(e.Hint, "komando host ssh exec web2 -P 2 --dry-run -o json -- uptime") {
 		t.Errorf("hint: %+v", e)
 	}
-	if e := toErr(komandoFlagsAfterDash("exec web2", strings.Fields("apt-get upgrade -y --dry-run"))); e == nil || !strings.Contains(e.Hint, "komando exec web2 --dry-run -- apt-get upgrade -y`") {
+	if e := toErr(komandoFlagsAfterDash("host ssh exec web2", strings.Fields("apt-get upgrade -y --dry-run"))); e == nil || !strings.Contains(e.Hint, "komando host ssh exec web2 --dry-run -- apt-get upgrade -y`") {
 		t.Errorf("-y stays with the command: %+v", e)
 	}
 	for _, ok := range []string{"kubectl wait --timeout 60s", "rsync --dry-run -a src dst", "uptime", "yum update -y", "apt-get install nginx --yes"} {
-		if err := komandoFlagsAfterDash("exec web2", strings.Fields(ok)); err != nil {
+		if err := komandoFlagsAfterDash("host ssh exec web2", strings.Fields(ok)); err != nil {
 			t.Errorf("%q refused: %v", ok, err)
 		}
 	}
-	d := mustRun(t, "exec", "web2", "-c", "apt-get upgrade --dry-run", "--dry-run")
+	d := mustRun(t, "host", "ssh", "exec", "web2", "-c", "apt-get upgrade --dry-run", "--dry-run")
 	if !strings.Contains(wouldRun(t, d)["remote_command"].(string), "apt-get upgrade --dry-run") {
 		t.Errorf("-c keeps the words: %v", d)
 	}
@@ -103,13 +102,9 @@ func TestFlagsAfterDashRefused(t *testing.T) {
 
 func TestEnvKeepsCommas(t *testing.T) {
 	auditHome(t)
-	d := mustRun(t, "exec", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
+	d := mustRun(t, "host", "ssh", "exec", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
 	if cmd := wouldRun(t, d)["remote_command"].(string); !strings.Contains(cmd, "HOSTS='a,b'") {
 		t.Errorf("remote_command %q", cmd)
-	}
-	d = mustRun(t, "job", "start", "web2", "-e", "HOSTS=a,b", "--dry-run", "--", "echo $HOSTS")
-	if d["command"] != "echo $HOSTS" {
-		t.Errorf("job start: %v", d)
 	}
 }
 
@@ -146,18 +141,18 @@ func TestScriptInputFlagsAndHiddenValues(t *testing.T) {
 	masked := filepath.Join(dir, "masked.conf")
 	_ = os.WriteFile(masked, []byte("requirepass [hidden]\n"), 0o600)
 
-	d := mustRun(t, "exec", "web2", "--script", s, "--dry-run", "--arg", "a b")
+	d := mustRun(t, "host", "ssh", "exec", "web2", "--script", s, "--dry-run", "--arg", "a b")
 	if cmd := wouldRun(t, d)["remote_command"]; cmd != "bash -e -s -- 'a b'" {
 		t.Errorf("remote_command %v", cmd)
 	}
 	for _, flag := range []string{"--stdin-file=" + in, "--pty"} {
-		if _, e := invRun(t, "exec", "web2", "--script", s, flag, "--dry-run"); e == nil {
+		if _, e := invRun(t, "host", "ssh", "exec", "web2", "--script", s, flag, "--dry-run"); e == nil {
 			t.Errorf("exec --script %s was taken", flag)
 		}
 	}
 	for _, args := range [][]string{
-		{"exec", "web2", "--script", masked, "--dry-run"},
-		{"exec", "web2", "--stdin-file", masked, "--dry-run", "--", "cat > /etc/redis.conf"},
+		{"host", "ssh", "exec", "web2", "--script", masked, "--dry-run"},
+		{"host", "ssh", "exec", "web2", "--stdin-file", masked, "--dry-run", "--", "cat > /etc/redis.conf"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "HIDDEN_VALUE" {
 			t.Errorf("%v: want HIDDEN_VALUE, got %+v", args, e)
@@ -165,8 +160,7 @@ func TestScriptInputFlagsAndHiddenValues(t *testing.T) {
 	}
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	for _, args := range [][]string{
-		{"upload", "bk", masked, "--dry-run"},
-		{"storage", "upload", "bk", masked, "--dry-run"},
+		{"copy", masked, "bk:", "--dry-run"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "HIDDEN_VALUE" {
 			t.Errorf("%v: want HIDDEN_VALUE, got %+v", args, e)
@@ -204,19 +198,19 @@ func TestSyncDeleteDryRunSaysBlocked(t *testing.T) {
 
 func TestTunnelChecks(t *testing.T) {
 	auditHome(t)
-	d := mustRun(t, "tunnel", "start", "web1", "-R", "8080:localhost:80", "--dry-run")
+	d := mustRun(t, "host", "ssh", "tunnel", "start", "web1", "-R", "8080:localhost:80", "--dry-run")
 	if m, _ := d["_meta"].(map[string]any); m["would_be_blocked"] == nil {
 		t.Errorf("-R on a protected server: %v", d)
 	}
-	d = mustRun(t, "tunnel", "start", "web2", "-R", "8080:localhost:80", "--dry-run")
+	d = mustRun(t, "host", "ssh", "tunnel", "start", "web2", "-R", "8080:localhost:80", "--dry-run")
 	if m, _ := d["_meta"].(map[string]any); m["would_be_blocked"] != nil {
 		t.Errorf("-R on a plain server: %v", d)
 	}
 	for _, args := range [][]string{
-		{"tunnel", "start", "web2", "-L", "99999:localhost:80", "--dry-run"},
-		{"tunnel", "start", "web2", "-L", "8080:localhost:0", "--dry-run"},
-		{"tunnel", "start", "web2", "-D", "x", "--dry-run"},
-		{"tunnel", "start", "web2", "-D", "1080", "--port", "5", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-L", "99999:localhost:80", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-L", "8080:localhost:0", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-D", "x", "--dry-run"},
+		{"host", "ssh", "tunnel", "start", "web2", "-D", "1080", "--port", "5", "--dry-run"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "USAGE" {
 			t.Errorf("%v: want USAGE, got %+v", args, e)
@@ -279,53 +273,115 @@ func TestFsCatTailReadsTheEnd(t *testing.T) {
 
 func TestRecipeRunNameAndOrder(t *testing.T) {
 	auditHome(t)
-	env := rawRun(t, "recipe", "run", "disk", "web2", "--dry-run")
-	if env["command"] != "recipe.run" {
+	env := rawRun(t, "snippet", "exec", "disk", "web2", "--dry-run")
+	if env["command"] != "snippet.exec" {
 		t.Errorf("command %v", env["command"])
 	}
 	if d, _ := env["data"].(map[string]any); d["recipe"] != "disk" {
 		t.Errorf("data.recipe: %v", env["data"])
 	}
-	e := wantCode(t, "RECIPE_NOT_FOUND", "recipe", "run", "web2", "disk")
-	if !strings.Contains(e.Hint, "komando recipe run disk web2") {
+	e := wantCode(t, "SNIPPET_NOT_FOUND", "snippet", "exec", "web2", "disk")
+	if !strings.Contains(e.Hint, "komando snippet exec disk web2") {
 		t.Errorf("hint %q", e.Hint)
-	}
-}
-
-func TestJobChecks(t *testing.T) {
-	auditHome(t)
-	if _, e := invRun(t, "job", "list", "--target", "nosuch"); e == nil {
-		t.Error("job list --target nosuch was ok")
-	}
-	mustRun(t, "job", "list", "--target", "web2")
-	w := jobWaitCmd()
-	if f := w.Flags().Lookup("timeout"); f == nil || f.DefValue != "10m" {
-		t.Errorf("job wait --timeout: %+v", f)
-	}
-	if s := (jobStarted{}); strings.Contains(jsonStr(s), "next") {
-		t.Errorf("next without a job: %s", jsonStr(s))
 	}
 }
 
 func TestDryRunMissingSecretFails(t *testing.T) {
 	auditHome(t)
-	if d, e := invRun(t, "exec", "web2", "-e", "TOKEN=credential:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
+	if d, e := invRun(t, "host", "ssh", "exec", "web2", "-e", "TOKEN=credential:nope", "--dry-run", "--", "echo ok"); e == nil || e.Code != "SECRET_NOT_FOUND" || e.Exit != out.ExitNotFound {
 		t.Errorf("a missing secret: want SECRET_NOT_FOUND, got %+v %v", e, d)
 	}
 }
 
 func TestDownloadChecks(t *testing.T) {
 	dir := auditHome(t)
-	if d, e := invRun(t, "download", "web2", "/etc/hosts", "--to", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
+	if d, e := invRun(t, "copy", "web2:/etc/hosts", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
 		t.Errorf("--to - for a server, dry run: %v %+v", d, e)
 	}
 	exists := filepath.Join(dir, "exists.txt")
 	_ = os.WriteFile(exists, []byte("x"), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "hosts"), []byte("x"), 0o600)
 	for _, to := range []string{exists, dir} {
-		if _, e := invRun(t, "download", "web2", "/etc/hosts", "--to", to, "--dry-run"); e == nil || e.Code != "FILE_EXISTS" {
+		if _, e := invRun(t, "copy", "web2:/etc/hosts", to, "--dry-run"); e == nil || e.Code != "FILE_EXISTS" {
 			t.Errorf("--to %s: want FILE_EXISTS, got %+v", to, e)
 		}
 	}
-	mustRun(t, "download", "web2", "/etc/hosts", "--to", exists, "--overwrite", "--dry-run")
+	mustRun(t, "copy", "web2:/etc/hosts", exists, "--overwrite", "--dry-run")
+}
+
+// copyAudits are the audit records of the copy command, oldest first.
+func copyAudits(t *testing.T) []map[string]any {
+	t.Helper()
+	var recs []map[string]any
+	for _, line := range strings.Split(auditText(t), "\n") {
+		var r map[string]any
+		if json.Unmarshal([]byte(line), &r) == nil && r["command"] == "copy" {
+			recs = append(recs, r)
+		}
+	}
+	return recs
+}
+
+// wantCopyRecord checks the op, delete and sudo of the newest copy record:
+// a sync --delete must not read as a plain copy in the log.
+func wantCopyRecord(t *testing.T, what, op string, del, sudo bool) {
+	t.Helper()
+	recs := copyAudits(t)
+	if len(recs) == 0 {
+		t.Fatalf("%s: no copy record in the audit log", what)
+	}
+	r := recs[len(recs)-1]
+	if r["op"] != op || r["delete"] != del || r["sudo"] != sudo {
+		t.Errorf("%s: op %v delete %v sudo %v, want %s %v %v (%v)", what, r["op"], r["delete"], r["sudo"], op, del, sudo, r)
+	}
+}
+
+func TestCopyAuditNamesTheOperation(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
+	mustRun(t, "conn", "add", "bk2", "s3://AKIAEXAMPLE@shop-dr/backups?region=eu-west-1")
+	one := &memBucket{objs: map[string]string{"db.sql": "x", "site/a.txt": "a"}}
+	two := &memBucket{objs: map[string]string{"gone.txt": "g"}}
+	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
+	dir := t.TempDir()
+	writeTree(t, dir, map[string]string{"a.txt": "a"})
+
+	mustRun(t, "copy", "bk:db.sql", "bk2:2026/")
+	wantCopyRecord(t, "storage to storage", "remote", false, false)
+
+	mustRun(t, "copy", dir, "bk2:sync/", "--sync")
+	wantCopyRecord(t, "sync up", "sync", false, false)
+
+	mustRun(t, "copy", dir, "bk2:sync/", "--sync", "--delete", "--allow-dangerous")
+	wantCopyRecord(t, "sync up --delete", "sync", true, false)
+
+	mustRun(t, "copy", "bk:site/", t.TempDir(), "--sync")
+	wantCopyRecord(t, "sync down", "sync", false, false)
+}
+
+// A sync to servers writes its record in finishSync: the op, the delete
+// and the sudo of the run are in it.
+func TestCopyAuditOfServerSync(t *testing.T) {
+	auditHome(t)
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := st.Hosts["web2"]
+	res := []outcome{{Host: h, Value: &syncResult{}}}
+	if err := finishSync(tcl, st, "copy", []*store.Host{h}, res, "./site", "web2:/srv", syncOpts{delete: true, sudo: true}); err != nil {
+		t.Fatal(err)
+	}
+	wantCopyRecord(t, "server sync --delete --sudo", "sync", true, true)
+}
+
+// The upload, download and stream records need a live server; the record
+// they start from is the same one the cases above check.
+func TestCopyRecordNamesEveryOp(t *testing.T) {
+	for _, op := range []string{"upload", "download", "stream", "remote", "sync"} {
+		r := copyRecord(op, false, false)
+		if r["op"] != op || r["delete"] != false || r["sudo"] != false {
+			t.Errorf("%s: %v", op, r)
+		}
+	}
 }

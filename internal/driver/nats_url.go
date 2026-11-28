@@ -55,7 +55,7 @@ func parseNATS(u *url.URL, t Target, hosts []string) (Target, error) {
 		creds := q.Get("creds")
 		if name, ok := strings.CutPrefix(creds, "credential:"); !ok || name == "" {
 			return Target{}, out.Errf(out.ExitUsage, "USAGE",
-				"store the .creds file with `komando secret set NAME < user.creds`, then use ?creds=credential:NAME",
+				"store the .creds file with `komando credential token add NAME < user.creds`, then use ?creds=credential:NAME",
 				"the nats creds option takes credential:NAME, not %q", creds)
 		}
 		if t.User != "" {

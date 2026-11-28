@@ -208,17 +208,17 @@ func renameCmd() *cobra.Command {
 		Use:   "rename OLD NEW",
 		Short: "Rename one entry, or all names starting with OLD (--starts-with)",
 		Long: `Without --starts-with: renames the one server, conn, VPN, secret, key or group
-named OLD, as ` + "`komando host rename`" + ` and the others do. When OLD names
+named OLD, as ` + "`komando host ssh rename`" + ` and the others do. When OLD names
 two kinds of entry (a server and a secret), it says which commands to use.
 
 With --starts-with: renames every server, conn, VPN, secret, key and group whose
 name starts with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD without
 it is renamed too (--starts-with shop- acme-shop- turns group shop into acme-shop).
 
-Every reference follows, as with ` + "`host rename`" + ` and ` + "`secret rename`" + `: --via paths,
+Every reference follows, as with ` + "`komando host ssh rename`" + ` and ` + "`komando credential password rename`" + `: --via paths,
 password, sudo, key, preshared key and passphrase references, credential:NAME
-options in conn URLs, the key a server uses, group membership, jobs and
-tunnels. A key komando made (key gen) lives in the sealed store, so no file
+options in conn URLs, the key a server uses, group membership, exec sessions and
+tunnels. A key komando made (credential key create) lives in the sealed store, so no file
 moves; a key file you added stays where it is.
 The protected mark, labels, notes and creation time stay. Names inside
 URLs (a bucket, a database user) are the resource's own and do not change.
@@ -240,8 +240,9 @@ Renaming protected servers and conns needs --yes once, for all of them
 (an AI agent's --yes opens one window for a person). See what would change
 with --dry-run first. --kind renames only some kinds; references still
 follow.
-To rename one entry, use host rename, conn rename, vpn rename, secret rename, key rename or
-group rename.`,
+To rename one entry, use ` + "`komando host ssh rename`" + `, ` + "`komando conn rename`" + `,
+each VPN kind's rename (` + "`komando vpn socks rename`" + `), ` + "`komando credential password rename`" + `,
+` + "`komando credential key rename`" + ` or ` + "`komando group rename`" + `.`,
 		Example: `  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is
   komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list and every reference
   komando rename --starts-with shop- acme-shop- --yes       # some of them are protected
@@ -273,7 +274,7 @@ group rename.`,
 				set, sk := prefixRenames(s, old, new, want)
 				skipped = sk
 				if set.size() == 0 && len(sk) == 0 {
-					return nil, renameOpts{}, out.Errf(out.ExitNotFound, "NOTHING_TO_RENAME", "check OLD with `komando list` and `komando secret list`; names are matched from the start, as written",
+					return nil, renameOpts{}, out.Errf(out.ExitNotFound, "NOTHING_TO_RENAME", "check OLD with `komando list` and `komando credential list`; names are matched from the start, as written",
 						"no %s starts with %q", strings.Join(slices.Sorted(maps.Keys(want)), ", "), old)
 				}
 				return set, renameOpts{notes: notes, labels: labels, prefix: &renamePair{From: old, To: new},
@@ -362,27 +363,24 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	switch len(found) {
 	case 0: // USAGE, as before this form existed (rename needed --starts-with)
 		return out.Errf(out.ExitUsage, "USAGE",
-			"to rename every name that starts with it: `komando rename --starts-with "+old+" "+new+" --dry-run`; check the name with `komando list`, `komando secret list`, `komando key list` and `komando group list`",
+			"to rename every name that starts with it: `komando rename --starts-with "+old+" "+new+" --dry-run`; check the name with `komando list`, `komando credential list`, `komando credential key list` and `komando group list`",
 			"no server, conn, VPN, secret, key or group is named %q", old)
 	case 1:
 	default:
 		var what, cmds []string
 		for _, k := range found {
 			what = append(what, renameKindWords[k])
-			cmds = append(cmds, "`komando "+k+" rename "+old+" "+new+"`")
+			cmds = append(cmds, "`komando "+strings.Join(renamePath(st, k, old), " ")+" "+old+" "+new+"`")
 		}
 		return out.Errf(out.ExitUsage, "USAGE", "say which: "+strings.Join(cmds, " or "),
 			"%q is a %s; rename one of them", old, strings.Join(what, " and a "))
 	}
 	// the kind's rename is not on this line's path: prepare it first, and
 	// run it only if that worked (as the root's check would)
-	path := []string{found[0], "rename"}
-	if found[0] == "vpn" { // a VPN is renamed under its kind: komando vpn KIND rename
-		path = []string{"vpn", st.Vpns[old].Kind, "rename"}
-	}
+	path := renamePath(st, found[0], old)
 	openPath(cmd.Root(), path)
 	sub, _, err := cmd.Root().Find(path)
-	if err != nil || sub.RunE == nil {
+	if err != nil || sub.Name() != "rename" || sub.RunE == nil {
 		return fmt.Errorf("komando: no %s rename command", found[0])
 	}
 	if e := notPrepared(sub); e != nil {
@@ -390,4 +388,25 @@ func renameOne(cmd *cobra.Command, old, new string) error {
 	}
 	sub.SetContext(cmd.Context()) // a leaf takes its call from its context; only the command cobra ran has one
 	return sub.RunE(sub, []string{old, new})
+}
+
+// renamePath is the command that renames old of this kind: a saved value and
+// a key under credential, a VPN under its kind, a server under the provider it
+// was saved with (host ssh rename).
+func renamePath(st *store.State, kind, old string) []string {
+	switch kind {
+	case "secret":
+		return []string{"credential", "password", "rename"}
+	case "key":
+		return []string{"credential", "key", "rename"}
+	case "vpn":
+		if v := st.Vpns[old]; v != nil {
+			return []string{"vpn", v.Kind, "rename"}
+		}
+	case "host":
+		if h := st.Hosts[old]; h != nil {
+			return []string{"host", hostProvider(h), "rename"}
+		}
+	}
+	return []string{kind, "rename"}
 }

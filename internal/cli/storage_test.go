@@ -253,8 +253,8 @@ func TestStorageHintNamesTheConn(t *testing.T) {
 	if e.Hint != "list objects with `komando storage s3 object list bk [PREFIX]`" {
 		t.Errorf("hint: %q", e.Hint)
 	}
-	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando secret set NAME` and pass --password-ref credential:NAME; then `komando conn test NAME`", "x")
-	if got := namedHint(in, "bk").(*out.Error).Hint; got != "store a key with `komando secret set NAME` and pass --password-ref credential:NAME; then `komando conn test bk`" {
+	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando credential password add NAME` and pass --password-ref credential:NAME; then `komando conn test NAME`", "x")
+	if got := namedHint(in, "bk").(*out.Error).Hint; got != "store a key with `komando credential password add NAME` and pass --password-ref credential:NAME; then `komando conn test bk`" {
 		t.Errorf("only conn commands change: %q", got)
 	}
 }
@@ -346,7 +346,7 @@ func TestStorageRmMaxRemove(t *testing.T) {
 // pattern is a usage error.
 func TestStorageFolderIsADirectory(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"logs/a.txt": "x"}})
-	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "download", "bk", "logs/", "--to", t.TempDir()); e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "-r") {
+	if e := wantCode(t, "IS_A_DIRECTORY", "copy", "bk:logs/", t.TempDir()); e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "-r") {
 		t.Errorf("download: %+v", e)
 	}
 	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "s3", "object", "delete", "bk", "logs/"); !strings.Contains(e.Hint, "--prefix") {
@@ -402,7 +402,7 @@ func TestStorageReadHidesPersonalDataForEveryProvider(t *testing.T) {
 func TestStorageObjectRefusesAnotherProvidersSelector(t *testing.T) {
 	invHome(t)
 	mustRun(t, "storage", "sftp", "add", "files1", "sftp://deploy@10.0.0.5/uploads", "--label", "k=v")
-	mustRun(t, "group", "add", "grp", "files1")
+	mustRun(t, "group", "create", "grp", "files1")
 	for _, sel := range []string{"files1", "@grp", "label:k=v"} {
 		wantCode(t, "WRONG_KIND", "storage", "s3", "object", "delete", sel, "a.txt", "--dry-run")
 	}

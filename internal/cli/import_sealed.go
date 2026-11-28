@@ -77,7 +77,7 @@ func importSealed(cl *call, path string, b []byte) (*importPlan, error) {
 	np := planFromExport(cl, c.exportFile)
 	np.SealedSecrets, np.Notes = p.SealedSecrets, append(p.Notes, np.Notes...)
 	if len(missing) > 0 {
-		np.Notes = append(np.Notes, "secrets the file does not hold (set them with `komando secret set NAME`): "+strings.Join(missing, ", "))
+		np.Notes = append(np.Notes, "secrets the file does not hold (set them with `komando credential password add NAME`): "+strings.Join(missing, ", "))
 	}
 	return np, sealedKeys(cl, np, c)
 }

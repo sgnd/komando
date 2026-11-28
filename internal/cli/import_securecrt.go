@@ -79,13 +79,13 @@ func importSecureCRT(cl *call, path string) (*importPlan, error) {
 		}
 		if k := crtKeyFile(s.vals["identity filename v2"], s.vals["identity filename"]); k != "" {
 			if strings.HasSuffix(strings.ToLower(k), ".ppk") {
-				p.Notes = append(p.Notes, name+": its key "+k+" is in PuTTY's format; convert it (`puttygen KEY.ppk -O private-openssh -o KEY`), then `komando key add NAME KEY` and `komando host edit "+name+" --key NAME`")
+				p.Notes = append(p.Notes, name+": its key "+k+" is in PuTTY's format; convert it (`puttygen KEY.ppk -O private-openssh -o KEY`), then `komando credential key add NAME KEY` and `komando host ssh edit "+name+" --key NAME`")
 			} else {
 				h.Identity = k
 			}
 		}
 		if fw := strings.TrimSpace(s.vals["firewall name"]); fw != "" && !strings.EqualFold(fw, "none") {
-			p.Notes = append(p.Notes, name+": SecureCRT reaches it through the firewall or jump host "+fw+"; set the way there with `komando host edit "+name+" --via JUMP` or `--proxy-command`")
+			p.Notes = append(p.Notes, name+": SecureCRT reaches it through the firewall or jump host "+fw+"; set the way there with `komando host ssh edit "+name+" --via JUMP` or `--proxy-command`")
 		}
 		p.Hosts = append(p.Hosts, h)
 	}

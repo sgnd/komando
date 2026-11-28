@@ -10,19 +10,18 @@ var (
 		"docker stats",
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
-		"policy deny",
 	}
 	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
 	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
 	allowPairs = []string{
 		"host ca grant/revoke",
 		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
-		"key grant/revoke",
 		"pkg install/uninstall",
 	}
 	// S-5.1 exceptions: --config a file on vpn add, KEY=VALUE on queue create;
 	// --new a bool on secret set (create only), the replacement text on fs replace
 	allowFlagTypes = []string{
+		"--attach", // host ssh shell (a tmux session) and host ssh exec (session IDs): the v0.18.0 flag review gives them one word each
 		"--config",
 		"--new",
 	}
@@ -41,17 +40,12 @@ var (
 	// S-6.5: Longs with indented lines (examples, tables) wider than 76 columns
 	allowLong = []string{
 		"config set",
-		"cp",
 		"import",
 		"secret",
-		"tunnel",
 		"vpn",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
-		"audit",
-		"audit verify",
-		"config show",
 		"conn kinds",
 		"conn show",
 		"db info",
@@ -67,43 +61,32 @@ var (
 		"doctor",
 		"fs replace dry-run",
 		"fs stat",
-		"host show",
-		"job status",
-		"key list",
 		"pkg installed",
-		"policy list",
-		"secret list",
-		"shell",
 		"ssh-gate",
-		"storage download",
-		"tunnel list",
 		"version",
 	}
 	// S-6.8: names outside the sample table where an example needs its own
 	allowSampleNames = []string{
 		"app1",
 		"bastion",
-		"bq",
-		"local",
-		"mongo-db",
 		"shop-2",
-		"vps1",
 		"web3",
 	}
 	// S-6.10: group rename's Long shows a merge with the old and the new name;
 	// the vpn help writes KIND for the kind a VPN was saved with
 	allowReferences = []string{
-		"group rename: komando group add NEW @OLD",
-		"group rename: komando group rm OLD",
+		"group rename: komando group create NEW @OLD",
+		"group rename: komando group remove OLD",
 		"vpn: komando vpn KIND start NAME",
 	}
 	// S-5.9: depends commands without --write or --read-only (they decide by their arguments)
 	allowDependsSwitch = []string{
-		"cp",
+		"copy",
+		"host ssh shell",
+		"host winrm shell",
 		"pkg security",
 		"pkg upgradable",
-		"recipe run",
-		"secret run",
-		"shell",
+		"snippet exec",
+		"credential run",
 	}
 )

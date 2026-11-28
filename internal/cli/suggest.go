@@ -75,7 +75,25 @@ func swappedLine(args []string, wrong, right string) (string, bool) {
 	if !found {
 		return "", false
 	}
-	return commandLineOf(w), true
+	// the remote command's words may hold a password: the line ends at --
+	if i := slices.Index(w, "--"); i >= 0 {
+		w = append(w[:i:i], "--", "…")
+	}
+	return commandLineOf(withoutSecretArgs(w)), true
+}
+
+// withoutSecretArgs ends the line w of a secretValueLeaves command at its
+// words and NAME: any argument may be the secret's value.
+func withoutSecretArgs(w []string) []string {
+	for id := range secretValueLeaves {
+		words := strings.Split(id, ".")
+		for i := 0; i+len(words) <= len(w); i++ {
+			if slices.Equal(w[i:i+len(words)], words) {
+				return append(w[:i+len(words):i+len(words)], "NAME")
+			}
+		}
+	}
+	return w
 }
 
 // nearWords are the names within reach of word (S-5.17): an edit distance
@@ -125,25 +143,26 @@ var foreignWords = map[string]string{
 	"get":        "list",
 	"ps":         "docker ps TARGET",
 	"kubectl":    "cluster kubernetes raw NAME -- ...",
-	"psql":       "db query CONN",
-	"mysql":      "db query CONN",
+	"psql":       "database postgres query NAME",
+	"mysql":      "database mysql query NAME",
 	"redis-cli":  "cache redis raw NAME -- ...",
 	"apt":        "pkg",
 	"apt-get":    "pkg",
 	"yum":        "pkg",
 	"dnf":        "pkg",
-	"systemctl":  "exec SERVER -- systemctl",
+	"systemctl":  "host ssh exec SERVER -- systemctl",
+	"exec":       "host ssh exec SERVER -- ...",
 	"journalctl": "logs TARGET",
-	"ssh":        "shell SERVER",
-	"scp":        "cp",
-	"rsync":      "sync",
-	"crontab":    "exec SERVER -- crontab -l",
+	"ssh":        "host ssh shell SERVER",
+	"scp":        "copy",
+	"rsync":      "copy --sync",
+	"crontab":    "host ssh exec SERVER -- crontab -l",
 	"aws":        "login aws",
 	"ls":         "list",
-	"rm":         "host rm NAME",
-	"delete":     "host rm NAME",
-	"remove":     "host rm NAME",
-	"del":        "host rm NAME",
+	"rm":         "host ssh remove NAME",
+	"delete":     "host ssh remove NAME",
+	"remove":     "host ssh remove NAME",
+	"del":        "host ssh remove NAME",
 }
 
 // foreignCommand is the komando command for a foreign word at the top
@@ -154,14 +173,14 @@ func foreignCommand(root *cobra.Command, word string, rest []string) (string, bo
 	if !ok {
 		return "", false
 	}
-	if strings.HasSuffix(cmd, " rm NAME") && len(rest) > 0 {
+	if strings.HasSuffix(cmd, " remove NAME") && len(rest) > 0 {
 		if c, _, err := root.Find(rest[:1]); err == nil && c != root && c.HasSubCommands() {
 			if rm, _, err := c.Find([]string{"rm"}); err == nil && rm != c {
 				return strings.TrimSpace(c.Name() + " rm " + strings.Join(rest[1:], " ")), true
 			}
 		}
 		if len(rest) == 1 {
-			return "host rm " + rest[0], true
+			return "host ssh remove " + rest[0], true
 		}
 	}
 	return cmd, true

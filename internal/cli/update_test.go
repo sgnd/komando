@@ -302,7 +302,7 @@ func TestUpdateInstallsNewest(t *testing.T) {
 	if d["action"] != "updated" || d["from"] != "v0.6.0" || d["to"] != "v0.7.0" || d["path"] != exe {
 		t.Errorf("data = %v", d)
 	}
-	if !strings.HasSuffix(d["release"].(string), "/releases/tag/v0.7.0") || d["next"] != "komando guide install (gives your AI agents this version's skill)" {
+	if !strings.HasSuffix(d["release"].(string), "/releases/tag/v0.7.0") || d["next"] != "komando agent skill install (gives your AI agents this version's skill)" {
 		t.Errorf("release/next = %v / %v", d["release"], d["next"])
 	}
 	if got := fileText(t, exe); !strings.Contains(got, "echo v0.7.0") {
@@ -659,7 +659,7 @@ func TestReleasePlatformsMatchMakefile(t *testing.T) {
 // points at `pkg upgrade` (S-3.6, C-V16), before anything is fetched.
 func TestUpdateRefusesATarget(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1", "-g", "web")
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:1", "-g", "web")
 	mustRun(t, "conn", "add", "db1", "postgres://u@127.0.0.1:1/app")
 	for _, w := range []string{"web1", "WEB1", "db1", "@web"} {
 		e := wantCode(t, "USAGE", "update", w)

@@ -21,6 +21,6 @@ func TestParseRevokeAll(t *testing.T) {
 // --user and --all-users do not go together.
 func TestKeyRevokeAllUsersFlags(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
-	wantCode(t, "USAGE", "key", "revoke", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA x", "web1", "--user", "deploy", "--all-users")
+	mustRun(t, "host", "ssh", "add", "web1", "root@10.0.0.5")
+	wantCode(t, "USAGE", "credential", "key", "uninstall", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA x", "web1", "--user", "deploy", "--all-users")
 }

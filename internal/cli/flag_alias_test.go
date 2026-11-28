@@ -99,7 +99,7 @@ func spellingAnswer(t *testing.T, id, flag, alias string) string {
 // as the flag itself is: pkg upgradable --refresh under another name.
 func TestAliasSpellingReachesGate(t *testing.T) {
 	for _, c := range []struct{ id, flag string }{
-		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.redis.raw", "--write"},
+		{"pkg.upgradable", "--refresh"}, {"database.postgres.query", "--write"}, {"cache.redis.raw", "--write"},
 		{"cluster.kubernetes.raw", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--refresh"},
 	} {
 		if got := spellingAnswer(t, c.id, c.flag, "old-spelling"); got != "SSH_GATE_READ_ONLY" {
@@ -110,7 +110,7 @@ func TestAliasSpellingReachesGate(t *testing.T) {
 		}
 	}
 	// --read-only under another spelling still says the command only reads
-	if got := spellingAnswer(t, "exec", "--read-only", "only-reads"); got != "" {
+	if got := spellingAnswer(t, "host.ssh.exec", "--read-only", "only-reads"); got != "" {
 		t.Errorf("exec --only-reads: %q", got)
 	}
 }

@@ -561,11 +561,11 @@ func checkProgram(cl *call, base string, args, margs []string, mglobs []bool, va
 			}
 		}
 	case base == "ssh" || base == "scp" || base == "sftp" || base == "mosh" || base == "sshpass":
-		return cwd, deny("use komando for servers (`komando exec`, `komando fs`, `komando cp`), not %s: komando checks every command, hides secrets and keeps an audit log", base)
+		return cwd, deny("use komando for servers (`komando host ssh exec`, `komando fs`, `komando copy`), not %s: komando checks every command, hides secrets and keeps an audit log", base)
 	case base == "rsync":
 		for _, a := range args {
 			if !strings.HasPrefix(a, "-") && !strings.Contains(a, "://") && remoteSpec.MatchString(a) {
-				return cwd, deny("use `komando sync` or `komando cp` for servers, not rsync")
+				return cwd, deny("use `komando copy` for servers, not rsync")
 			}
 		}
 	case base == "printenv" || base == "env" || base == "set" || base == "export" || base == "declare" || base == "typeset":

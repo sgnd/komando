@@ -24,7 +24,7 @@ func TestSQLServerConnsCheckTLS(t *testing.T) {
 	if url("sales") != "sqlserver://app@db.example.com/sales?encrypt=true" || !strings.Contains(fmt.Sprint(d["warnings"]), "added encrypt=true") {
 		t.Errorf("sqlserver: %s, %v", url("sales"), d)
 	}
-	mustRun(t, "host", "add", "jump", "deploy@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "jump", "deploy@10.0.0.3")
 	for name, raw := range map[string]string{
 		"s-plain": "sqlserver://app@db.example.com/sales?Encrypt=disable",
 		"s-local": "sqlserver://app@127.0.0.1/sales",
@@ -71,8 +71,8 @@ func TestSQLServerConnsCheckTLS(t *testing.T) {
 
 	// what SQL Server cannot do says so before connecting
 	wantCode(t, "NOT_SUPPORTED", "db", "kill", "sales", "57")
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "sales", "--to", t.TempDir()+"/s.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "s-local", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "sqlserver", "backup", "sales")    // no backup leaf+"/s.sql")
+	wantCode(t, "USAGE", "database", "sqlserver", "restore", "s-local") // no restore leaf
 }
 
 func TestSQLServerExplainOnlyPlans(t *testing.T) {

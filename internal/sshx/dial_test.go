@@ -493,7 +493,7 @@ func TestAgentOutlivesASlowTransport(t *testing.T) {
 
 // A server with no user gets the account this process runs as, from the
 // user database as OpenSSH takes it, never the USER or USERNAME an agent
-// can set: else `USER=other komando exec web1` would have a person type
+// can set: else `USER=other komando host ssh exec web1` would have a person type
 // the password of another account on a login-ask server.
 func TestLocalUser(t *testing.T) {
 	u, err := user.Current()

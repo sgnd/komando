@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -44,31 +45,28 @@ var tierRuns = []tierRun{
 	{"storage object delete dangerous", "storage.s3.object.delete", []string{"s3", "a.txt"}, false},
 	{"registry image delete dangerous", "registry.oci.image.delete", []string{"reg", "app:1"}, false},
 	{"registry image prune dangerous", "registry.oci.image.prune", []string{"reg", "app", "--keep", "1"}, false},
-	{"database restore dangerous", "db.restore", []string{"pg", "--from", "dump.sql"}, false},
-	{"credential key remove --delete-file dangerous", "key.rm", []string{"k1", "--delete-file"}, false},
-	{"host exec dynamic dangerous", "exec", []string{"dev", "--", "rm -rf /"}, false},
-	{"snippet exec dynamic dangerous", "recipe.run", []string{"wipe", "dev"}, false},
+	{"credential key remove --delete-file dangerous", "credential.key.remove", []string{"k1", "--delete-file"}, false},
+	{"host exec dynamic dangerous", "host.ssh.exec", []string{"dev", "--", "rm -rf /"}, false},
+	{"snippet exec dynamic dangerous", "snippet.exec", []string{"wipe", "dev"}, false},
 	{"cluster exec dynamic dangerous", "cluster.kubernetes.exec", []string{"k8s", "pod/a", "--", "rm -rf /"}, false},
 	{"cluster raw dynamic dangerous", "cluster.kubernetes.raw", []string{"k8s", "--write", "--", "delete", "pod", "a"}, false},
 	{"cache raw dynamic dangerous", "cache.redis.raw", []string{"r", "--write", "--", "FLUSHALL"}, false},
-	{"database query dynamic dangerous", "db.query", []string{"pg", "--write", "DROP TABLE t"}, false},
-	{"host ssh add --proxy-command dynamic dangerous", "host.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
-	{"host ssh edit --proxy-command dynamic dangerous", "host.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
+	{"host ssh add --proxy-command dynamic dangerous", "host.ssh.add", []string{"x", "--address", "10.0.0.9", "--proxy-command", "rm -rf /"}, false},
+	{"host ssh edit --proxy-command dynamic dangerous", "host.ssh.edit", []string{"dev", "--proxy-command", "rm -rf /"}, false},
 	// safety
-	{"policy remove safety", "policy.rm", []string{"kubectl apply"}, false},
+	{"policy remove safety", "policy.remove", []string{"kubectl apply"}, false},
 	{"policy edit --off safety", "policy.edit", []string{"docker-prune", "--off"}, false},
 	{"policy edit --add-server safety", "policy.edit", []string{"docker-prune", "--off", "--add-server", "dev"}, false},
 	{"policy edit --add-group safety", "policy.edit", []string{"docker-prune", "--off", "--add-group", "g1"}, false},
 	{"floor", "policy.edit", []string{"docker-prune", "--rm-server", "dev"}, false},
 	{"config set dynamic safety", "config.set", []string{"audit", "false"}, false},
-	{"host tunnel start dynamic safety", "tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
-	{"host ssh add --proxy-command dynamic safety", "host.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
-	{"host ssh edit --proxy-command dynamic safety", "host.edit", []string{"dev", "--proxy-command", "nc %h %p"}, false},
-	{"snippet create --overwrite --read-only dynamic safety", "recipe.add", []string{"r1", "--overwrite", "--read-only", "--", "uptime"}, false},
-	{"host ssh trust dynamic safety", "host.trust", []string{"dev"}, false},
-	{"agent skill uninstall dynamic safety", "guide.uninstall", []string{"--project"}, false},
-	{"host edit --protected=false safety", "host.edit", []string{"prod", "--protected=false"}, false},
-	{"database edit --protected=false safety", "conn.edit", []string{"pg-prot", "--protected=false"}, false},
+	{"host tunnel start dynamic safety", "host.ssh.tunnel.start", []string{"dev", "-L", "0.0.0.0:15432:localhost:5432"}, false},
+	{"host ssh add --proxy-command dynamic safety", "host.ssh.add", []string{"y", "--address", "10.0.0.9", "--proxy-command", "nc %h %p"}, false},
+	{"host ssh edit --proxy-command dynamic safety", "host.ssh.edit", []string{"dev", "--proxy-command", "nc %h %p"}, false},
+	{"snippet create --overwrite --read-only dynamic safety", "snippet.create", []string{"r1", "--overwrite", "--read-only", "--", "uptime"}, false},
+	{"host ssh trust dynamic safety", "host.ssh.trust", []string{"dev"}, false},
+	{"agent skill uninstall dynamic safety", "agent.skill.uninstall", []string{"--project"}, false},
+	{"host edit --protected=false safety", "host.ssh.edit", []string{"prod", "--protected=false"}, false},
 	{"cache edit --protected=false safety", "cache.redis.edit", []string{"r-prot", "--protected=false"}, false},
 	{"storage edit --protected=false safety", "storage.s3.edit", []string{"s3-prot", "--protected=false"}, false},
 	{"registry edit --protected=false safety", "registry.oci.edit", []string{"reg-prot", "--protected=false"}, false},
@@ -76,34 +74,38 @@ var tierRuns = []tierRun{
 	{"floor", "conn.edit", []string{"pg", "--notes", "x"}, false},
 	{"floor", "conn.rm", []string{"pg"}, false},
 	{"floor", "conn.rename", []string{"pg", "pg9"}, false},
-	{"credential password remove dangerous", "secret.rm", []string{"pw"}, false},
-	{"credential token remove dangerous", "secret.rm", []string{"pw"}, false},
-	{"floor", "secret.rename", []string{"pw", "pw2"}, false},
-	{"floor", "secret.set", []string{"pw3", "--from-env", "PW"}, false},
-	{"copy --sync --delete dangerous", "sync", []string{"dev:/tmp/a", "b", "--delete"}, false},
-	{"floor", "sync", []string{"dev:/tmp/a", "b"}, false},
-	{"floor", "cp", []string{"dev:/tmp/a", "b"}, false},
-	{"floor", "upload", []string{"dev", "a.txt", "/tmp/"}, false},
-	{"floor", "download", []string{"dev", "/tmp/a", "--to", "."}, false},
-	{"floor", "storage.upload", []string{"s3", "a.txt"}, false},
-	{"floor", "storage.download", []string{"s3", "a.txt"}, false},
+	{"credential password remove dangerous", "credential.password.remove", []string{"pw"}, false},
+	{"credential token remove dangerous", "credential.token.remove", []string{"pw"}, false},
+	{"floor", "credential.password.rename", []string{"pw", "pw2"}, false},
+	{"floor", "credential.token.rename", []string{"pw", "pw2"}, false},
+	{"floor", "credential.password.add", []string{"pw3", "--from-env", "PW"}, false},
+	{"floor", "credential.token.add", []string{"pw3", "--from-env", "PW"}, false},
+	{"copy --sync --delete dangerous", "copy", []string{"dev:/tmp/a", "b", "--sync", "--delete"}, false},
+	{"floor", "copy", []string{"dev:/tmp/a", "b", "--sync"}, false},
+	{"floor", "copy", []string{"dev:/tmp/a", "b"}, false},
+	{"floor", "copy", []string{"a.txt", "dev:/tmp/"}, false},
+	{"floor", "copy", []string{"dev:/tmp/a", "."}, false},
+	{"floor", "copy", []string{"a.txt", "s3:"}, false},
+	{"floor", "copy", []string{"s3:a.txt", "."}, false},
 	// person
 	{"config approval-code person", "config.approval-code", nil, false},
-	{"config vault passphrase person", "secret.passphrase", nil, false},
-	{"config vault keychain not --off person", "secret.keychain", nil, false},
-	{"host shell person", "shell", []string{"dev"}, false},
-	{"database shell person", "db.shell", []string{"pg"}, false},
-	{"database backup dynamic person", "db.dump", []string{"pg", "--to", "pg.sql"}, false}, // C424: every connection
+	{"config vault passphrase person", "config.vault.passphrase", nil, false},
+	{"config vault keychain not --off person", "config.vault.keychain", nil, false},
 	{"cluster shell person", "cluster.kubernetes.shell", []string{"k8s", "pod/a"}, false},
-	{"credential certificate add person", "host.ca.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
-	{"host ssh trust --reset person", "host.trust", []string{"prod", "--reset"}, false},
+	{"credential certificate add person", "credential.certificate.add", []string{"ca1", "--key", "ca.pub", "--hosts", "*.corp.example"}, false},
+	{"host shell person", "host.ssh.shell", []string{"dev"}, false},
+	{"host ssh trust --reset person", "host.ssh.trust", []string{"prod", "--reset"}, false},
 	{"export --sealed person", "export", []string{"--sealed", "--to", "out.kmd"}, false},
 	{"export --for-phone person", "export", []string{"--for-phone", "--to", "out.kmd"}, false},
 	// change rows
-	{"host ssh test --end change", "host.test", []string{"dev", "--end"}, false},
-	{"host ssh test --end change", "host.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
+	{"host ssh test --end change", "host.ssh.test", []string{"dev", "--end"}, false},
+	{"host ssh test --end change", "host.ssh.test", []string{"prod", "--end"}, true}, // #558: the change-tier guard
 	{"test --end change", "test", []string{"--end"}, false},
-	{"group remove change", "group.rm", []string{"g1"}, false},
+	{"group remove change", "group.remove", []string{"g1"}, false},
+	{"host ssh exec --stop change", "host.ssh.exec", []string{"dev", "--attach", attachID, "--stop"}, false},
+	{"host ssh exec --stop change", "host.ssh.exec", []string{"prod", "--attach", tierProdSession, "--stop"}, true},
+	{"host ssh exec --remove change", "host.ssh.exec", []string{"dev", "--attach", attachID, "--remove"}, false},
+	{"host ssh exec --remove change", "host.ssh.exec", []string{"prod", "--attach", tierProdSession, "--remove"}, true},
 	// the floor: a leaf that changes something, run with no row applying
 	{"floor", "cache.redis.add", []string{"c2", "redis://127.0.0.1:1"}, false},
 	{"floor", "cache.redis.edit", []string{"r", "--notes", "x"}, false},
@@ -117,39 +119,37 @@ var tierRuns = []tierRun{
 	{"floor", "cluster.kubernetes.rename", []string{"k8s", "k8s9"}, false},
 	{"floor", "cluster.kubernetes.tunnel.start", []string{"k8s", "svc/a", "18080:80"}, false},
 	{"floor", "config.set", []string{"parallel", "4"}, false},
-	{"floor", "db.add", []string{"pg2", "postgres://u@127.0.0.1:1/app"}, false},
-	{"floor", "db.query", []string{"pg", "SELECT 1"}, false},
-	{"floor", "exec", []string{"dev", "--", "touch /tmp/x"}, false},
-	{"floor", "exec", []string{"prod", "--", "touch /tmp/x"}, true},
-	{"floor", "group.add", []string{"g2", "dev"}, false},
+	{"floor", "host.ssh.exec", []string{"dev", "--", "touch /tmp/x"}, false},
+	{"floor", "host.ssh.exec", []string{"prod", "--", "touch /tmp/x"}, true},
+	{"floor", "group.create", []string{"g2", "dev"}, false},
 	{"floor", "group.rename", []string{"g1", "g3"}, false},
-	{"floor", "guide.install", []string{"--project"}, false},
-	{"floor", "guide.uninstall", nil, false},
-	{"floor", "host.add", []string{"h2", "--address", "10.0.0.8"}, false},
-	{"floor", "host.edit", []string{"dev", "--notes", "x"}, false},
-	{"floor", "host.edit", []string{"prod", "--notes", "x"}, false}, // komando's own list: not stopped on a protected host
-	{"floor", "host.rename", []string{"dev", "dev2"}, false},
-	{"floor", "host.rm", []string{"dev"}, false},
-	{"floor", "host.rm", []string{"prod"}, true},
-	{"floor", "host.trust", []string{"prod"}, false},
+	{"floor", "agent.skill.install", []string{"--project"}, false},
+	{"floor", "agent.skill.uninstall", nil, false},
+	{"floor", "host.ssh.add", []string{"h2", "--address", "10.0.0.8"}, false},
+	{"floor", "host.ssh.edit", []string{"dev", "--notes", "x"}, false},
+	{"floor", "host.ssh.edit", []string{"prod", "--notes", "x"}, false}, // komando's own list: not stopped on a protected host
+	{"floor", "host.ssh.rename", []string{"dev", "dev2"}, false},
+	{"floor", "host.ssh.remove", []string{"dev"}, false},
+	{"floor", "host.ssh.remove", []string{"prod"}, true},
+	{"floor", "host.ssh.trust", []string{"prod"}, false},
 	{"floor", "import", []string{"ssh-config", "ssh_config"}, false},
-	{"floor", "key.deploy", []string{"k1", "dev"}, false},
-	{"floor", "key.edit", []string{"k1", "--passphrase-ref", "credential:pw"}, false},
-	{"floor", "key.gen", []string{"k3"}, false},
-	{"floor", "key.rename", []string{"k1", "k4"}, false},
-	{"floor", "key.revoke", []string{"k1", "dev"}, false},
-	{"floor", "key.rm", []string{"k1"}, false},
-	{"floor", "policy.deny", []string{"curl evil"}, false},
-	{"floor", "recipe.add", []string{"r2", "uptime"}, false},
-	{"floor", "recipe.rm", []string{"r1"}, false},
-	{"floor", "recipe.run", []string{"r1", "dev"}, false},
+	{"floor", "credential.key.install", []string{"k1", "dev"}, false},
+	{"floor", "credential.key.edit", []string{"k1", "--passphrase-credential", "pw"}, false},
+	{"floor", "credential.key.create", []string{"k3"}, false},
+	{"floor", "credential.key.rename", []string{"k1", "k4"}, false},
+	{"floor", "credential.key.uninstall", []string{"k1", "dev"}, false},
+	{"floor", "credential.key.remove", []string{"k1"}, false},
+	{"floor", "policy.create", []string{"curl evil"}, false},
+	{"floor", "snippet.create", []string{"r2", "uptime"}, false},
+	{"floor", "snippet.remove", []string{"r1"}, false},
+	{"floor", "snippet.exec", []string{"r1", "dev"}, false},
 	{"floor", "registry.oci.add", []string{"reg2", "registry://127.0.0.1:1"}, false},
 	{"floor", "registry.oci.edit", []string{"reg", "--notes", "x"}, false},
 	{"floor", "registry.oci.remove", []string{"reg"}, false},
 	{"floor", "registry.oci.rename", []string{"reg", "reg9"}, false},
 	{"registry add dynamic safety", "registry.oci.add", []string{"reg3", "registry://127.0.0.1:1?tls=false"}, false},
 	{"floor", "registry.oci.image.copy", []string{"reg:app:1", "reg:app:2"}, false},
-	{"credential run dynamic safety", "secret.run", []string{"--env", "X=credential:pw", "--", "true"}, false},
+	{"credential run dynamic safety", "credential.run", []string{"--env", "X=credential:pw", "--", "true"}, false},
 	{"floor", "ssh-gate.line", []string{"--name", "phone", "ca.pub"}, false},
 	{"floor", "storage.s3.add", []string{"s4", "s3://key@bucket/p?endpoint=http://127.0.0.1:1"}, false},
 	{"floor", "storage.s3.edit", []string{"s3", "--notes", "x"}, false},
@@ -158,9 +158,9 @@ var tierRuns = []tierRun{
 	{"storage object link dynamic safety", "storage.s3.object.link", []string{"s3", "a.txt"}, false},
 	{"floor", "storage.s3.object.create", []string{"s3", "dir/"}, false},
 	{"floor", "storage.s3.object.move", []string{"s3", "a.txt", "b.txt"}, false},
-	{"floor", "tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
-	{"floor", "key.add", []string{"k5", "id_k5"}, false},
-	{"credential key uninstall dynamic dangerous", "key.revoke", []string{"k6", "kh"}, false},
+	{"floor", "host.ssh.tunnel.start", []string{"dev", "-L", "15432:localhost:5432"}, false},
+	{"floor", "credential.key.add", []string{"k5", "id_k5"}, false},
+	{"credential key uninstall dynamic dangerous", "credential.key.uninstall", []string{"k6", "kh"}, false},
 	{"import dynamic dangerous", "import", []string{"ssh-config", "ssh_config_rm"}, false},
 	{"import dynamic safety", "import", []string{"ssh-config", "ssh_config_nc"}, false},
 }
@@ -168,33 +168,71 @@ var tierRuns = []tierRun{
 // tierUnreached are the rows and floors this test cannot run, by name
 // and today's ID, with the reason and where the stop is proved instead.
 var tierUnreached = map[string]string{
-	// leaves with no path today: C gives them one, and this test then runs them
-	"floor | (no path today)": "no path today (credential token rename)",
-	// only sync has --delete today; copy --sync --delete is run as sync above
-	"copy --sync --delete dangerous | cp":               "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | upload":           "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | download":         "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | storage.upload":   "only sync has --delete today (run as sync)",
-	"copy --sync --delete dangerous | storage.download": "only sync has --delete today (run as sync)",
-	// flags that arrive in the cut
-	"host ssh exec --stop change | exec":   "--stop arrives with exec sessions (cut step D2); today it is job kill",
-	"host ssh exec --remove change | exec": "--remove arrives with exec sessions (cut step D2); today it is job rm",
 	// the condition needs what a unit run cannot give; the stop is proved there
-	"host ssh test dynamic person | host.test":                     "needs a server that asks a second factor",
-	"import dynamic person | import":                               "needs a sealed file from export --sealed, which only a person makes",
-	"ssh-gate person | ssh-gate":                                   "sshd starts it for a key; an agent never runs ssh-gate itself",
-	"update dynamic safety | update":                               "needs a release site",
-	"floor | update":                                               "needs a release site",
-	"config vault keychain dynamic safety | secret.keychain":       "tests run with KOMANDO_KEYCHAIN=off",
-	"floor | secret.keychain":                                      "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
-	"floor | host.ca.rm":                                           "adding the CA it removes needs a person",
-	"credential key install --public-key-file person | key.deploy": "a device's key is put by a person at a terminal: a unit run has none",
-	"floor | tunnel.stop":                                          "no stop for an agent: change on an unprotected target",
-	"floor | cluster.swarm.raw":                                    "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
-	"cluster raw dynamic dangerous | cluster.swarm.raw":            "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
-	"floor | cluster.kubernetes.add":                               "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
-	"floor | secret.run":                                           "an agent always meets the row: secret run always hands a secret on",
-	"floor | storage.s3.object.link":                               "an agent always meets the row: a link is always --reveal for an agent",
+	"host ssh test dynamic person | host.ssh.test":                             "needs a server that asks a second factor",
+	"import dynamic person | import":                                           "needs a sealed file from export --sealed, which only a person makes",
+	"ssh-gate person | ssh-gate":                                               "sshd starts it for a key; an agent never runs ssh-gate itself",
+	"update dynamic safety | update":                                           "needs a release site",
+	"floor | update":                                                           "needs a release site",
+	"config vault keychain dynamic safety | config.vault.keychain":             "tests run with KOMANDO_KEYCHAIN=off",
+	"floor | config.vault.keychain":                                            "tests run with KOMANDO_KEYCHAIN=off; a plain run is the not --off person row",
+	"floor | credential.certificate.remove":                                    "adding the CA it removes needs a person",
+	"credential key install --public-key-file person | credential.key.install": "a device's key is put by a person at a terminal: a unit run has none",
+	"floor | host.ssh.tunnel.stop":                                             "no stop for an agent: change on an unprotected target",
+	"floor | cluster.swarm.raw":                                                "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"cluster raw dynamic dangerous | cluster.swarm.raw":                        "a swarm manager is a server until E1 gives it an entry; kubernetes raw holds the run",
+	"floor | cluster.kubernetes.add":                                           "a Kubernetes conn logs in with a whole kubeconfig from the vault, which a unit run has not got",
+	"floor | credential.run":                                                   "an agent always meets the row: credential run always hands a secret on",
+	"floor | storage.s3.object.link":                                           "an agent always meets the row: a link is always --reveal for an agent",
+}
+
+// databaseTierConns are one conn of each database provider: the runs of
+// the database leaves use the conn of their provider. Snowflake goes
+// through dev, so no run looks up a Snowflake host; BigQuery has an
+// emulator endpoint, so no run asks Google for a login.
+var databaseTierConns = []struct{ name, provider, url, prot, via, drop string }{
+	{"pg", "postgres", "postgres://u@127.0.0.1:1/app", "postgres://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"my", "mysql", "mysql://u@127.0.0.1:1/app", "mysql://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"ms", "sqlserver", "sqlserver://u@127.0.0.1:1/app", "sqlserver://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"ora", "oracle", "oracle://u@127.0.0.1:1/APP", "oracle://u@127.0.0.1:2/APP", "", "DROP TABLE t"},
+	{"lite", "sqlite", "", "", "", "DROP TABLE t"}, // files in the seed's folder
+	{"mg", "mongodb", "mongodb://u@127.0.0.1:1/app", "mongodb://u@127.0.0.1:2/app", "", `{"dropDatabase": 1}`},
+	{"ch", "clickhouse", "clickhouse://u@127.0.0.1:1/app", "clickhouse://u@127.0.0.1:2/app", "", "DROP TABLE t"},
+	{"sf", "snowflake", "snowflake://u@acct/APP/PUBLIC", "snowflake://u@acct2/APP/PUBLIC", "dev", "DROP TABLE t"},
+	{"bq", "bigquery", "bigquery://my-project/app?endpoint=http://127.0.0.1:1", "bigquery://my-project/app?endpoint=http://127.0.0.1:2", "", "DROP TABLE t"},
+}
+
+// The database runs: today's db query, dump, restore, shell and add, on
+// every provider of the table that has the verb (moving a type keeps the
+// runs of each of its IDs on every new path).
+func init() {
+	for _, d := range databaseTierConns {
+		id := "database." + d.provider + "."
+		tierRuns = append(tierRuns,
+			tierRun{"database query dynamic dangerous", id + "query", []string{d.name, "--write", d.drop}, false},
+			tierRun{"floor", id + "query", []string{d.name, map[bool]string{true: `{"find": "t"}`, false: "SELECT 1"}[d.provider == "mongodb"]}, false},
+			// add saves another one; a plain-HTTP endpoint would need a yes there
+			tierRun{"floor", id + "add", []string{d.name + "2", strings.Replace(cmp.Or(d.url, "sqlite:///var/lib/app2.db"), "endpoint=http:", "endpoint=https:", 1)}, false},
+			tierRun{"database edit --protected=false safety", id + "edit", []string{d.name + "-prot", "--protected=false"}, false},
+			tierRun{"floor", id + "edit", []string{d.name, "--notes", "x"}, false},
+			tierRun{"floor", id + "remove", []string{d.name}, false},
+			tierRun{"floor", id + "rename", []string{d.name, d.name + "9"}, false},
+		)
+		tierDisagree[id+"edit "+d.name+"-prot --protected=false"] = "PROTECTED_TARGET" // as conn edit (C429)
+		built := func(verb string) bool {
+			l, ok := capability.Find(capability.Key{Type: "database", Provider: d.provider, Verb: verb})
+			return ok && l.State == capability.Built
+		}
+		if built("shell") {
+			tierRuns = append(tierRuns, tierRun{"database shell person", id + "shell", []string{d.name}, false})
+		}
+		if built("backup") { // C424: every connection
+			tierRuns = append(tierRuns, tierRun{"database backup dynamic person", id + "backup", []string{d.name, "--to", d.name + "-copy.sql"}, false})
+		}
+		if built("restore") {
+			tierRuns = append(tierRuns, tierRun{"database restore dangerous", id + "restore", []string{d.name, "--from", "dump.sql"}, false})
+		}
+	}
 }
 
 // tierDisagree are the runs whose stop is not the one the tier names, with
@@ -203,7 +241,7 @@ var tierUnreached = map[string]string{
 // until its line goes.
 var tierDisagree = map[string]string{
 	// the same strength under another code (C429: one code later)
-	"host.edit prod --protected=false":                   "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
+	"host.ssh.edit prod --protected=false":               "PROTECTED_TARGET", // vpn edit gives SAFETY_SETTING
 	"conn.edit pg-prot --protected=false":                "PROTECTED_TARGET",
 	"cache.redis.edit r-prot --protected=false":          "PROTECTED_TARGET",
 	"storage.s3.edit s3-prot --protected=false":          "PROTECTED_TARGET",
@@ -225,15 +263,15 @@ type tierProof struct {
 // that the test exists and that its body (with the table it runs) names
 // the command and the code.
 var tierProvedBy = map[string]tierProof{
-	"host ssh test dynamic person | host.test":                     {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
-	"import dynamic person | import":                               {test: "TestSealedNeedsPerson"},
-	"update dynamic safety | update":                               {test: "TestUpdateOlderAgentNeedsWindow"},
-	"floor | update":                                               {test: "TestUpdateInstallsNewest"},
-	"config vault keychain dynamic safety | secret.keychain":       {test: "TestSecretKeychainOff"},
-	"floor | secret.keychain":                                      {test: "TestSecretKeychainNeedsPerson"},
-	"floor | host.ca.rm":                                           {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
-	"floor | cluster.kubernetes.add":                               {test: "TestClusterAddKind"},
-	"credential key install --public-key-file person | key.deploy": {test: "TestDeviceKeyChecksFirst"},
+	"host ssh test dynamic person | host.ssh.test":                             {test: "TestLoginKeepsATwoFactorLogin", cmd: "login"},
+	"import dynamic person | import":                                           {test: "TestSealedNeedsPerson"},
+	"update dynamic safety | update":                                           {test: "TestUpdateOlderAgentNeedsWindow"},
+	"floor | update":                                                           {test: "TestUpdateInstallsNewest"},
+	"config vault keychain dynamic safety | config.vault.keychain":             {test: "TestSecretKeychainOff"},
+	"floor | config.vault.keychain":                                            {test: "TestSecretKeychainNeedsPerson"},
+	"floor | credential.certificate.remove":                                    {test: "TestHostCAPersonAddsAndAnyoneRemoves"},
+	"floor | cluster.kubernetes.add":                                           {test: "TestClusterAddKind"},
+	"credential key install --public-key-file person | credential.key.install": {test: "TestDeviceKeyChecksFirst"},
 }
 
 func TestTierMatchesRuntime(t *testing.T) {
@@ -247,6 +285,9 @@ func TestTierMatchesRuntime(t *testing.T) {
 	needed := tierNeeded()
 	tierProofsExist(t)
 	for _, r := range tierRuns {
+		if slices.Contains(connVerbsUntilStepD, r.id) {
+			continue // a conn verb kept until step D is still run as it was (C488)
+		}
 		if _, ok := needed[r.row+" | "+r.id]; !ok {
 			t.Errorf("run %q | %s proves no row the table has for that command: remove or rename it", r.row, r.id)
 		}
@@ -418,14 +459,14 @@ func tableHasCase(table, cmd, stop string) bool {
 func TestTableHasCase(t *testing.T) {
 	table := "var cases = []c{\n" +
 		"\t{args: []string{\"host\", \"trust\", \"web1\"}, code: \"POLICY_BLOCKED\"},\n" +
-		"\t{args: []string{\"policy\", \"rm\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
+		"\t{args: []string{\"policy\", \"remove\", \"x\"},\n\t\tcode: \"SAFETY_SETTING\"},\n"
 	tests := []struct {
 		name, cmd, stop string
 		want            bool
 	}{
 		{"code on another entry", "host trust", "SAFETY_SETTING", false},
 		{"same entry", "host trust", "POLICY_BLOCKED", true},
-		{"entry over two lines", "policy rm", "SAFETY_SETTING", true},
+		{"entry over two lines", "policy remove", "SAFETY_SETTING", true},
 		{"no such command", "host shell", "", false},
 	}
 	for _, tt := range tests {
@@ -604,8 +645,12 @@ var policyStopCodes = []string{"NEEDS_PERSON", "NEEDS_TERMINAL", "POLICY_BLOCKED
 	"PROTECTED_TARGET", "WRITE_REQUIRES_FLAG", "CONFIRM_REQUIRED", "OPEN_BIND", "SSH_GATE_REFUSED"}
 
 // tierSeed fills the home: hosts dev and prod (protected, its key pinned)
-// on a fake SSH server, one conn or VPN of each kind a run names, and the
+// on a fake SSH server, the WinRM servers wdev and wprod (protected), one conn or VPN of each kind a run names, and the
 // secret, key, snippets, group and deny rule the runs remove.
+// tierProdSession is the session of prod that tierSeed records: --stop
+// needs the record of the run on this computer.
+var tierProdSession = "b" + attachID[1:]
+
 func tierSeed(t *testing.T) {
 	t.Chdir(t.TempDir())
 	startFakeServer(t)
@@ -614,8 +659,25 @@ func tierSeed(t *testing.T) {
 	prodPort := listenFakeSSH(t)
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"].Port = prodPort
-		st.Conns["pg"] = &store.Conn{Name: "pg", Kind: "postgres", URL: "postgres://u@127.0.0.1:1/app"}
-		st.Conns["pg-prot"] = &store.Conn{Name: "pg-prot", Kind: "postgres", URL: "postgres://u@127.0.0.1:2/app", Protected: true}
+		st.Hosts["wdev"] = &store.Host{Name: "wdev", Address: "127.0.0.3", Port: 5985, User: "deploy", OS: store.OSWindows, Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{TLS: "off"}}
+		st.Hosts["wprod"] = &store.Host{Name: "wprod", Address: "127.0.0.4", Port: 5985, User: "deploy", OS: store.OSWindows, Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{TLS: "off"}, Protected: true}
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		for _, d := range databaseTierConns {
+			c := &store.Conn{Name: d.name, Kind: d.provider, URL: d.url, Via: d.via}
+			if d.provider == "sqlite" {
+				c.URL = "sqlite://" + filepath.Join(wd, "tier.db")
+			}
+			st.Conns[d.name] = c
+			// its protected twin at another address: one address is one target
+			p := &store.Conn{Name: d.name + "-prot", Kind: d.provider, URL: d.prot, Via: d.via, Protected: true}
+			if d.provider == "sqlite" {
+				p.URL = "sqlite://" + filepath.Join(wd, "tier-prot.db")
+			}
+			st.Conns[p.Name] = p
+		}
 		st.Conns["r-prot"] = &store.Conn{Name: "r-prot", Kind: "redis", URL: "redis://127.0.0.1:3", Protected: true}
 		st.Conns["s3-prot"] = &store.Conn{Name: "s3-prot", Kind: "s3", URL: "s3://key@bucket2/p?endpoint=http://127.0.0.1:3", Protected: true}
 		st.Conns["reg-prot"] = &store.Conn{Name: "reg-prot", Kind: "registry", URL: "registry://127.0.0.1:3?tls=false", Protected: true}
@@ -647,17 +709,23 @@ func tierSeed(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// the runs of dev and prod, started by this agent: stopping one's own run
+	// asks no window, so the stop is the tier's alone
+	setCallerEnv(t, "KOMANDO_ACTOR", "tier-actor")
+	for id, host := range map[string]string{attachID: "dev", tierProdSession: "prod"} {
+		putExecSession(t, &store.ExecSession{ID: id, Host: host, Command: "sleep 99", PID: 4242, PGID: 4242, ProcStart: "proc 99", Actor: "tier-actor", Agent: true})
+	}
 	t.Setenv("PW", "secret-value-1")
-	mustRun(t, "secret", "set", "pw", "--from-env", "PW")
+	mustRun(t, "credential", "password", "add", "pw", "--from-env", "PW")
 	saveSecrets(t, "office-psk")
-	mustRun(t, "key", "gen", "k1")
-	mustRun(t, "key", "gen", "k6")
-	mustRun(t, "recipe", "add", "wipe", "rm -rf /")
-	mustRun(t, "recipe", "add", "r1", "uptime")
-	mustRun(t, "group", "add", "g1", "dev")
-	mustRun(t, "policy", "deny", "kubectl apply")
-	mustRun(t, "guide", "install", "--project")
-	mustRun(t, "host", "trust", "prod", "--yes")
+	mustRun(t, "credential", "key", "create", "k1")
+	mustRun(t, "credential", "key", "create", "k6")
+	mustRun(t, "snippet", "create", "wipe", "rm -rf /")
+	mustRun(t, "snippet", "create", "r1", "uptime")
+	mustRun(t, "group", "create", "g1", "dev")
+	mustRun(t, "policy", "create", "kubectl apply")
+	mustRun(t, "agent", "skill", "install", "--project")
+	mustRun(t, "host", "ssh", "trust", "prod", "--yes")
 	mustRun(t, "config", "set", "host_key_policy", "strict")
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 	sp, _ := ssh.NewPublicKey(pub)
@@ -845,4 +913,24 @@ var vpnFloorArgs = map[string][]string{
 	"system":        {"--check", "10.20.0.1:443"},
 	"socks":         {"--proxy-address", "127.0.0.1:1082"},
 	"proxy":         {"--proxy-address", "proxy.corp.example:3128"},
+}
+
+// The runs of the WinRM provider of host: the rows that reach it (exec,
+// shell, protection off) and the floor of each of its leaves that changes
+// something.
+func init() {
+	tierRuns = append(tierRuns,
+		tierRun{"host exec dynamic dangerous", "host.winrm.exec", []string{"wdev", "--", "rm -rf /"}, false},
+		tierRun{"host edit --protected=false safety", "host.winrm.edit", []string{"wprod", "--protected=false"}, false},
+		tierRun{"host shell person", "host.winrm.shell", []string{"wdev"}, false},
+		tierRun{"floor", "host.winrm.exec", []string{"wdev", "--", "touch /tmp/x"}, false},
+		tierRun{"floor", "host.winrm.exec", []string{"wprod", "--", "touch /tmp/x"}, true},
+		tierRun{"floor", "host.winrm.add", []string{"w2", "--address", "10.0.0.8"}, false},
+		tierRun{"floor", "host.winrm.edit", []string{"wdev", "--notes", "x"}, false},
+		tierRun{"floor", "host.winrm.edit", []string{"wprod", "--notes", "x"}, false},
+		tierRun{"floor", "host.winrm.rename", []string{"wdev", "wdev2"}, false},
+		tierRun{"floor", "host.winrm.remove", []string{"wdev"}, false},
+		tierRun{"floor", "host.winrm.remove", []string{"wprod"}, true},
+	)
+	tierDisagree["host.winrm.edit wprod --protected=false"] = "PROTECTED_TARGET"
 }

@@ -42,7 +42,7 @@ make e2e      # real SSH tests in Docker (bastion + private target); see item 7 
 
 ## Easiest first contribution: add a recipe
 
-Recipes are ready-made checks (`komando recipe list`). They live in one list in [`internal/cli/recipe.go`](internal/cli/recipe.go). Add an entry like:
+Recipes are ready-made checks (`komando snippet list`). They live in one list in [`internal/cli/snippet.go`](internal/cli/snippet.go). Add an entry like:
 
 ```go
 {Name: "swap-usage", Category: "system", Desc: "Processes using swap",
@@ -61,7 +61,7 @@ Each command has its own files in `internal/cli/`, named for its noun (`host.go`
 1. **Print results only via `out.P.Print`.** It writes one JSON envelope when piped (agents) and readable text in a terminal (humans). Give a result type a `Text() string` method if the generic text view is not clear enough.
 2. **Never prompt an agent or a script.** Missing input is an error with a `hint`. A person at a terminal is asked only for what a flag or argument can also give, through the prompter (`promptable` in `internal/cli/prompter.go` decides who may be asked). A question never adds `--yes`, `--allow-dangerous`, `--reveal` or `--write`.
 3. **Typed errors**: `out.Errf(exitCode, "UPPER_SNAKE_CODE", "hint: what to do next", "message")`, with every code listed in `internal/cli/errcodes.go`. Reuse existing codes and exit codes. The words follow [docs/design/message-style.md](docs/design/message-style.md).
-4. **Multi-host commands** return `data.results[]` + `data.summary` (use `fanout`, `probe` or `runFleet` in `common.go` / `exec.go`).
+4. **Multi-host commands** return `data.results[]` + `data.summary` (use `fanout`, `probe` or `runFleet` in `common.go` / `host_exec.go`).
 5. **Safety**: anything that changes a server must call `guard(...)` with `mutating=true`, respect `--dry-run`, and call `audit(...)`.
 6. **Quote everything** sent to a remote shell with `sshx.Q`.
 7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/checks/`, listed in the right area of `test/e2e/run.sh` (`make e2e AREA=NAME` runs that area alone). The e2e lab runs in CI or on Linux only; it does not start on macOS, and that refusal is not worked around; a failing e2e check is investigated from the CI logs. The lab runs komando on the machine that runs it and gives every call an empty home of its own, with no desktop keyring and no ssh-agent; on macOS an AI agent's checks would read your login keychain.

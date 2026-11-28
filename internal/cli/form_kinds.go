@@ -45,9 +45,7 @@ func formGroupsFor(cl *call, kind string) []formGroup {
 }
 
 // formFamilyAdd is each `komando FAMILY add` and its Add group.
-var formFamilyAdd = map[string]string{
-	"db add": "Databases",
-}
+var formFamilyAdd = map[string]string{}
 
 // formGroupNamed is the one Add group with this label.
 func formGroupNamed(cl *call, label string) []formGroup {
@@ -361,7 +359,7 @@ func serverAddressProblem(_ *store.State, _ formAnswers, v string) string {
 		if strings.HasPrefix(v, "ssh://") {
 			return "type it without ssh://, like root@vps.example.com"
 		}
-		return "this looks like a web address or a database URL; for a server type only its address. To add a database instead, leave with Ctrl-C and type komando db add"
+		return "this looks like a web address or a database URL; for a server type only its address. To add a database instead, leave with Ctrl-C and type komando database postgres add (or mysql, sqlite ...)"
 	}
 	if strings.HasPrefix(v, "-") || strings.ContainsAny(v, " \t/") {
 		return "type only the address, like 203.0.113.20 or vps.example.com"
@@ -396,7 +394,7 @@ func serverLoginChoices(st *store.State, _ formAnswers) []pickRow {
 		{label: "A key file", detail: "a file somewhere else, like a .pem from your cloud provider", value: "file"},
 	}
 	if len(st.Keys) > 0 {
-		rows = append(rows, pickRow{label: "A komando key", detail: "one from komando key list", value: "keylist"})
+		rows = append(rows, pickRow{label: "A komando key", detail: "one from komando credential key list", value: "keylist"})
 	}
 	return rows
 }
@@ -412,7 +410,7 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	if strings.Contains(addr, ":") {
 		addr = "[" + addr + "]"
 	}
-	args := []string{"host", "add", a["name"], a["user"] + "@" + addr}
+	args := []string{"host", "ssh", "add", a["name"], a["user"] + "@" + addr}
 	if a["port"] != "" && a["port"] != "22" {
 		args = append(args, "--port", a["port"])
 	}
@@ -617,13 +615,12 @@ func sqliteForm(_ *call) formSpec {
 // The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
-		"host add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
-		"conn add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
+		"host ssh add":   {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host ssh show {}", "host ssh edit {} --protected"}},
+		"host winrm add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host winrm show {}", "host winrm edit {} --ask-password"}},
+		"conn add":       {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
 	})
-	// db add, cache add, ...: conn add for one family, asked the same way.
-	next := map[string][]string{
-		"db add": {"db info {}", "db query {} \"select 1\"", "db schema {}"},
-	}
+	// queue add, storage add, ...: conn add for one family, asked the same way.
+	next := map[string][]string{}
 	for cmd, label := range formFamilyAdd {
 		addFormHints(map[string]formHint{cmd: {form: func(cl *call) []formGroup { return formGroupNamed(cl, label) }, next: next[cmd]}})
 	}

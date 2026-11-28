@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -177,8 +178,8 @@ func TestStandardKeyValue(t *testing.T) {
 			}
 		}
 	})
-	if n != 102 {
-		t.Errorf("%d KEY=VALUE flags, want 102 (--env x2, then --label and --option on the add and edit of each typed provider and VPN kind)", n)
+	if n != 142 { // 102, the 9 database providers add 34 (--label and --option on add and edit), host ssh and winrm add 6
+		t.Errorf("%d KEY=VALUE flags, want 142 (--env on exec, job start and each host exec, then --label and --option on the add and edit of each typed provider and VPN kind)", n)
 	}
 	var got []string
 	v := &kvArray{p: &got, name: "option"}
@@ -200,9 +201,45 @@ func TestStandardKeyValue(t *testing.T) {
 	if strings.Contains(e.Message+e.Hint, "hunter2") || strings.Contains(e.Message+e.Hint, "require") {
 		t.Errorf("the values are shown: %+v", e)
 	}
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
-	h := mustRun(t, "host", "show", "web1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--env", "A=1", "--env", "B=x,y", "--label", "team=ops", "--label", "env=prod")
+	h := mustRun(t, "host", "ssh", "show", "web1")
 	if s := jsonStr(h); !strings.Contains(s, `"B":"x,y"`) || !strings.Contains(s, `"team":"ops"`) || !strings.Contains(s, `"env":"prod"`) {
 		t.Errorf("host show: %s", s)
+	}
+}
+
+// A KEY=VALUE flag reads back as it was typed through every pflag getter: a
+// value with a comma and a double quote is one value, not split and not
+// dropped (the ssh gate reads a snippet's --var from the table leaf).
+func TestKvArrayReadsBackExactly(t *testing.T) {
+	values := []string{`sub=a,b`, `k="x`, `q=a,"b"`, `plain=1`}
+	c := findCmd(t, newRoot(tcl), "snippet", "exec")
+	var args []string
+	for _, v := range values {
+		args = append(args, "--var", v)
+	}
+	if err := c.ParseFlags(args); err != nil {
+		t.Fatal(err)
+	}
+	got, err := c.Flags().GetStringArray("var")
+	if err != nil || !slices.Equal(got, values) {
+		t.Errorf("GetStringArray: %q (%v), want %q", got, err, values)
+	}
+	sv, ok := c.Flags().Lookup("var").Value.(pflag.SliceValue)
+	if !ok || !slices.Equal(sv.GetSlice(), values) {
+		t.Errorf("SliceValue: %v %q, want %q", ok, sv, values)
+	}
+}
+
+// pflag reads String once per KEY=VALUE flag when the tree is built, so an
+// empty one must not build a CSV writer (start time, scripts/start-time.sh).
+func TestKvArrayEmptyStringAllocatesNothing(t *testing.T) {
+	var none []string
+	v := &kvArray{p: &none, name: "var"}
+	if n := testing.AllocsPerRun(100, func() { _ = v.String() }); n != 0 {
+		t.Errorf("String of an empty array: %v allocations, want 0", n)
+	}
+	if s := v.String(); s != "[]" {
+		t.Errorf("String of an empty array: %q, want []", s)
 	}
 }

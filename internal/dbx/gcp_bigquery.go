@@ -49,7 +49,7 @@ func bqCredentials(key string, plain *http.Client, onGoogle bool) (*google.Crede
 	}
 	if err != nil {
 		return nil, out.Errf(out.ExitConnect, "DB_AUTH",
-			"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME < key.json` and pass --password-ref credential:NAME",
+			"log in with `gcloud auth application-default login`, or store a service account key with `komando credential token add NAME < key.json` and pass --password-ref credential:NAME",
 			"bigquery: no Google Cloud login: %v", err)
 	}
 	return creds, nil
@@ -147,7 +147,7 @@ func (c *bqConnector) connectErr(err error) error {
 	switch {
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
 		return out.Errf(out.ExitConnect, "DB_CONNECT",
-			"Google's certificates are signed by a public CA, so something on the way answered instead (a proxy that inspects TLS?): if it is your company's, give its CA with ?ca=credential:NAME (`komando secret set NAME < ca.pem`)",
+			"Google's certificates are signed by a public CA, so something on the way answered instead (a proxy that inspects TLS?): if it is your company's, give its CA with ?ca=credential:NAME (`komando credential token add NAME < ca.pem`)",
 			"cannot connect to %s: %v", c.b.Endpoint, err)
 	case strings.Contains(msg, "oauth2:") || strings.Contains(msg, "google: "):
 		return out.Errf(out.ExitConnect, "DB_AUTH",

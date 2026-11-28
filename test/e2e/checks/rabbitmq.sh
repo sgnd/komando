@@ -6,7 +6,7 @@
 set +e
 # the lab waits for the server's healthcheck (compose.yml): no command of the
 # check runs in the container, which as root would break the server (C560)
-echo -n rabbitpass | $K secret set rabbit-pass >/dev/null
+echo -n rabbitpass | $K credential password add rabbit-pass >/dev/null
 q $K conn add jobs 'amqp://app@rabbitmq:5672/%2F?management=15672' --via bastion --password-ref credential:rabbit-pass
 for _ in $(seq 1 30); do [ "$($K conn test jobs | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)" = True ] && break; sleep 1; done
 check "rabbitmq conn test logs in through --via" login "$($K conn test jobs | jget 'd["data"]["results"][0]["detail"]["check"]')"

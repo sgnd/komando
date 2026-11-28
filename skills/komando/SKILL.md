@@ -28,14 +28,14 @@ Update komando only when the human asks: `komando update` (when it stops with
 
 At a person's terminal, a command typed with something missing asks for
 it, one line at a time, and shows the whole line before it runs.
-`komando host add` (or `db add`, `vpn KIND add`) typed alone asks that kind's
+`komando host ssh add` (or `database KIND add`, `vpn KIND add`) typed alone asks that kind's
 questions.
 
 komando never asks an AI agent or a script anything. Give every argument
 and flag on the command line. When a step needs a person (a yes, a
 password, a two-factor code), the command stops with an error code, and
 `error.hint` says what to ask the human for. If the human would rather add
-servers themselves, tell them to type `komando host add` in their own
+servers themselves, tell them to type `komando host ssh add` in their own
 terminal. Running komando under a pseudo-terminal as an agent komando does
 not know? Set `KOMANDO_AGENT=1`.
 
@@ -46,7 +46,7 @@ not know? Set `KOMANDO_AGENT=1`.
    `facts` warnings first. `null` means unknown, never 0 or false (an
    unsupported OS shows security updates as `null`). Each multi-target
    result names its server in `host`.
-   To read a command's output, add `-o text` (`komando exec web1 --read-only
+   To read a command's output, add `-o text` (`komando host ssh exec web1 --read-only
    -o text -- cat FILE`). Keep JSON when you branch on each server's exit
    code or error, or need to know whether output was cut (`stdout_truncated`).
    On a Windows server (`os:windows`) commands are PowerShell, there is no
@@ -57,21 +57,22 @@ not know? Set `KOMANDO_AGENT=1`.
    show the human what you will ask for. (One exception: with
    `KOMANDO_HOME` set to another folder every command stops, a dry run
    too, and no flag clears it.) Declare read-only shell commands
-   with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
+   with `komando host ssh exec TARGET --read-only -- 'COMMAND'`. `database KIND query`,
    `cache redis raw` and `cluster kubernetes raw` are the other way round: they only read
    unless you add `--write`.
-   Every command that hands words to another program (`exec`, `job start`,
+   Every command that hands words to another program (`host ssh exec`,
    `docker exec`, `docker compose`, `docker raw`, `cluster kubernetes exec`,
    `cluster kubernetes shell`, `cluster kubernetes raw`, `cache redis raw`) takes them only after `--`, and
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**
    - Files: `komando fs replace TARGET PATH --old '...' --new '...' --backup`,
-     never `sed -i` over `exec`.
-   - Databases: query with `komando db query`. A backup is
-     `komando db dump CONN --to FILE`, and only the human runs it, in their
+     never `sed -i` over `host ssh exec`.
+   - Databases: query with `komando database KIND query NAME` (KIND is
+     postgres, mysql, sqlite, mongodb ...). A backup is
+     `komando database KIND backup NAME --to FILE`, and only the human runs it, in their
      own terminal (`NEEDS_PERSON`: the file holds every row, secrets
-     included); never `pg_dump` through `exec` and base64. Manage users with `komando db user` and
+     included); never `pg_dump` through `host ssh exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref credential:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.
@@ -81,17 +82,21 @@ not know? Set `KOMANDO_AGENT=1`.
      reboots.
    - Docker disk space: `komando docker prune TARGET --dry-run` first; it
      lists what would be removed and how much space that frees.
-   - Your list in bulk: `komando host edit TARGET --sudo-ref credential:NAME`
-     (one approval for every server), `komando host rename OLD NEW` (updates
-     every reference; `key rename` and `group rename` likewise),
+   - Your list in bulk: `komando host ssh edit TARGET --sudo-credential NAME`
+     (one approval for every server), `komando host ssh rename OLD NEW` (updates
+     every reference; `credential key rename` and `group rename` likewise),
      `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
      secret, key and group of a project, one approval for all of them),
      `komando import csv FILE` (many servers at once).
-4. **Long or fragile work is a job.** Use `komando job start` for anything
-   that may take more than about 2 minutes or runs over a shaky link (a
-   VPN): a job survives a dropped connection, `exec` does not.
-   `CONNECTION_LOST` (exit 4) from `exec` means the link broke while the
-   command ran: it may still be running, or may have finished. Check with a
+4. **Long or fragile work runs in a session.** `komando host ssh exec` on one Linux
+   or Unix server (no `--pty`) runs the command in a session on the server,
+   so it survives a dropped connection (a VPN, a shaky link). It prints the
+   session ID first; read the rest with `komando host ssh exec TARGET --attach ID`,
+   stop it with `--attach ID --stop`, delete it when it ended with
+   `--attach ID --remove`.
+   command ran: in a session it goes on, so read it with `--attach ID`; without
+   one it may still be running, or may have finished: check with a
+   `CONNECTION_LOST` (exit 4) from `host ssh exec` means the link broke while the
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
    When a command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
@@ -117,7 +122,7 @@ not know? Set `KOMANDO_AGENT=1`.
    the human to run `komando vpn KIND start NAME`. A server that asks for a code
    (`AUTH_FAILED`, two-factor): ask them to run `komando test SERVER` once;
    your commands then use that login. A server or conn added with
-   `--login ask` (`host show` or `conn show` says `login: ask`) has no
+   `--login ask` (`host ssh show` or `conn show` says `login: ask`) has no
    stored password, so komando asks the human to type it in its own
    window, and you never see it. Every command that connects asks, even
    `komando test`. If that gives `NEEDS_PERSON` (no screen, or a first
@@ -133,7 +138,7 @@ not know? Set `KOMANDO_AGENT=1`.
      (`{{credential:NAME}}` becomes the vault value on the server). Text that
      still holds `[hidden]` is never written (`HIDDEN_VALUE`).
    - Sending a secret somewhere (that `fs replace`, `--env K=credential:NAME`,
-     `komando secret run --env K=credential:NAME -- COMMAND` on this computer,
+     `komando credential run --env K=credential:NAME -- COMMAND` on this computer,
      a password reference on a new or moved server, conn or VPN) stops with
      `SECRET_DESTINATION`: tell the human which secret goes where, and when
      they agree, re-run with `--yes`.
@@ -141,11 +146,11 @@ not know? Set `KOMANDO_AGENT=1`.
      IBANs, columns the human named) shows as `[hidden: KIND]`. Work with
      ids and counts, never write it back, and ask the human if a task needs
      a real value.
-   - `secret show --reveal` and `key show --reveal` are for people only
+   - `credential password show --reveal` and `credential key show --reveal` are for people only
      (`REVEAL_NEEDS_TERMINAL`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
-     knows, ask them to run `komando secret set NAME` in their own terminal
+     knows, ask them to run `komando credential password add NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.
-   - Rename or copy a secret with `komando secret rename OLD NEW` or
+   - Rename or copy a secret with `komando credential password rename OLD NEW` or
      `secret cp OLD NEW` (references follow a rename; the value is never shown)
      instead of asking the human to type it again.
    - Refer to secrets as `credential:NAME`; never put a secret value on a
@@ -163,7 +168,7 @@ not know? Set `KOMANDO_AGENT=1`.
     gets `error.suggestion` (the name komando thinks you meant), and the
     hint is the whole command line with it in place.
 11. When done, summarize what you changed, on which targets, and how to roll
-    back (`komando audit --limit 20` helps).
+    back (`komando audit list --limit 20` helps).
 
 ## Reading the output
 

@@ -38,7 +38,8 @@ func TestSessionOptions(t *testing.T) {
 }
 
 // TestSessionEnd: a person ends a kept two-factor or cloud session early
-// with test --end, on one host or on all of them (no logout command).
+// with test --end, on one host or on all of them (logout stays a command
+// of its own until cut plan C325).
 func TestSessionEnd(t *testing.T) {
 	for _, k := range []Key{{Type: "host", Provider: "ssh", Verb: "test"}, {Verb: "test"}} {
 		l, ok := Find(k)
@@ -49,10 +50,12 @@ func TestSessionEnd(t *testing.T) {
 			t.Errorf("%s: no --end that ends the kept session", k)
 		}
 	}
-	for _, id := range []string{"logout", "logout.aws"} {
-		if len(carriers()[id]) == 0 {
-			t.Errorf("%s: no leaf carries it; test --end does now", id)
-		}
+	if len(carriers()["logout.aws"]) == 0 {
+		t.Error("logout.aws: no leaf carries it; test --end does now")
+	}
+	// logout stays a command of its own until host ssh test logs in (cut plan C325)
+	if len(carriers()["logout"]) > 0 {
+		t.Error("logout is carried now: test it here again with logout.aws")
 	}
 }
 

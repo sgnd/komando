@@ -113,9 +113,9 @@ func (v approvalView) title() string {
 	}
 	verb := w.change
 	switch {
-	case strings.HasPrefix(v.Line, "komando exec "):
+	case strings.HasPrefix(v.Line, "komando host ssh exec "):
 		verb = w.runOn
-	case strings.HasPrefix(v.Line, "komando db query "):
+	case strings.HasPrefix(v.Line, "komando database ") && slices.Index(strings.Fields(v.Line), "query") == 3:
 		verb = w.queryOn
 	}
 	switch len(v.Targets) {

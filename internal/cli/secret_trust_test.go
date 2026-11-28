@@ -42,9 +42,9 @@ func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 		Config: "[Interface]\nAddress = 10.66.0.2/32\n"}, map[string]string{"office-key": "key-1", "office-psk": "psk-1", "other": "agent-value"})
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
-	wantCode(t, "PROTECTED_TARGET", "secret", "set", "office-key", "--from-env", "V")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "add", "office-key", "--from-env", "V")
 	wantCode(t, "PROTECTED_TARGET", "secret", "cp", "other", "office-psk", "--overwrite")
-	wantCode(t, "PROTECTED_TARGET", "secret", "rename", "other", "office-key", "--overwrite")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "rename", "other", "office-key", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -68,9 +68,9 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "evil": ovpnEvil})
 	texts := windowText(t, true)
 	t.Setenv("V", ovpnEvil)
-	wantCode(t, "SECRET_DESTINATION", "secret", "set", "corp-config", "--from-env", "V")
+	wantCode(t, "SECRET_DESTINATION", "credential", "password", "add", "corp-config", "--from-env", "V")
 	wantCode(t, "SECRET_DESTINATION", "secret", "cp", "evil", "corp-config", "--overwrite")
-	wantCode(t, "SECRET_DESTINATION", "secret", "rename", "evil", "corp-config", "--overwrite")
+	wantCode(t, "SECRET_DESTINATION", "credential", "password", "rename", "evil", "corp-config", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -79,15 +79,15 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 
 	// the same value again changes nothing: not asked
 	t.Setenv("V", ovpnOld)
-	mustRun(t, "secret", "set", "corp-config", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "corp-config", "--from-env", "V")
 	// another secret is not asked about
-	mustRun(t, "secret", "set", "evil", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "evil", "--from-env", "V")
 	if len(*texts) != 0 {
 		t.Errorf("nothing changes where a login goes: %q", *texts)
 	}
 
 	t.Setenv("V", ovpnEvil)
-	mustRun(t, "secret", "set", "corp-config", "--from-env", "V", "--yes")
+	mustRun(t, "credential", "password", "add", "corp-config", "--from-env", "V", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "credential:corp-pass to evil.example:443") || !strings.Contains((*texts)[0], "vpn corp") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -96,7 +96,7 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	// a person or a script is not asked
 	noAgent(t)
 	t.Setenv("V", ovpnOld)
-	mustRun(t, "secret", "set", "corp-config", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "corp-config", "--from-env", "V")
 }
 
 // The CA certificate a WinRM server or a conn is checked against lives in
@@ -110,17 +110,17 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9?ca=credential:win-ca", "--password-ref", "credential:win-pass")
-	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.10?ca=credential:later-ca")
+	mustRun(t, "host", "winrm", "add", "win1", "winrm://Administrator@10.0.0.9?ca=credential:win-ca", "--credential", "win-pass")
+	mustRun(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.10?ca=credential:later-ca")
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app?sslmode=verify-full&ca=credential:db-ca")
 	texts := windowText(t, true)
 	t.Setenv("V", "PEM-AGENT")
-	wantCode(t, "SAFETY_SETTING", "secret", "set", "win-ca", "--from-env", "V")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "add", "win-ca", "--from-env", "V")
 	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "win-ca", "--overwrite")
-	wantCode(t, "SAFETY_SETTING", "secret", "rename", "mine", "db-ca", "--overwrite")
-	wantCode(t, "SAFETY_SETTING", "secret", "set", "later-ca", "--from-env", "V")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "db-ca", "--overwrite")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "add", "later-ca", "--from-env", "V")
 	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "later-ca")
-	wantCode(t, "SAFETY_SETTING", "secret", "rename", "mine", "later-ca")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "later-ca")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -130,11 +130,11 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 		t.Error("later-ca was made")
 	}
 	// a password is not a CA: replaced as before
-	mustRun(t, "secret", "set", "win-pass", "--from-env", "V")
+	mustRun(t, "credential", "password", "add", "win-pass", "--from-env", "V")
 	if len(*texts) != 0 {
 		t.Errorf("a password asks nothing: %q", *texts)
 	}
-	mustRun(t, "secret", "set", "win-ca", "--from-env", "V", "--yes")
+	mustRun(t, "credential", "password", "add", "win-ca", "--from-env", "V", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "server win1") || !strings.Contains((*texts)[0], "CA certificate") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -150,11 +150,11 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "host", "add", "win1", "winrm://Administrator@10.0.0.9?ca=credential:win-ca")
-	mustRun(t, "host", "add", "win2", "winrm://Administrator@10.0.0.10")
+	mustRun(t, "host", "winrm", "add", "win1", "winrm://Administrator@10.0.0.9?ca=credential:win-ca")
+	mustRun(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.10")
 	texts := windowText(t, true)
-	wantCode(t, "SAFETY_SETTING", "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?ca=credential:mine")
-	wantCode(t, "SAFETY_SETTING", "host", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=credential:mine")
+	wantCode(t, "SAFETY_SETTING", "host", "winrm", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9?ca=credential:mine")
+	wantCode(t, "SAFETY_SETTING", "host", "winrm", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=credential:mine")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -162,12 +162,12 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 		t.Errorf("win1 trusts %s", h.WinRMOpts.CA)
 	}
 	// a new server with a CA of its own, and dropping the extra CA, ask nothing
-	mustRun(t, "host", "add", "win3", "winrm://Administrator@10.0.0.11?ca=credential:win-ca")
-	mustRun(t, "host", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9")
+	mustRun(t, "host", "winrm", "add", "win3", "winrm://Administrator@10.0.0.11?ca=credential:win-ca")
+	mustRun(t, "host", "winrm", "edit", "win1", "--address", "winrm://Administrator@10.0.0.9")
 	if len(*texts) != 0 {
 		t.Errorf("nothing weaker: %q", *texts)
 	}
-	mustRun(t, "host", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=credential:mine", "--yes")
+	mustRun(t, "host", "winrm", "edit", "win2", "--address", "winrm://Administrator@10.0.0.10?ca=credential:mine", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "server win2") || !strings.Contains((*texts)[0], "CA certificate") {
 		t.Errorf("window: %q", *texts)
 	}
@@ -178,15 +178,15 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 // when a conn or server behind it sends a vault password that way.
 func TestMovedHopNeedsAPerson(t *testing.T) {
 	secretHome(t)
-	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
-	mustRun(t, "host", "add", "edge", "u@10.0.0.4")
-	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-ref", "credential:db-pass")
+	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "edge", "u@10.0.0.4")
+	mustRun(t, "host", "ssh", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-credential", "db-pass")
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass", "--via", "jump")
-	mustRun(t, "host", "add", "lone", "u@10.0.0.8")
+	mustRun(t, "host", "ssh", "add", "lone", "u@10.0.0.8")
 	texts := windowText(t, true)
-	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--address", "10.6.6.6")
-	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--port", "2222")
-	wantCode(t, "SECRET_DESTINATION", "host", "add", "jump", "u@10.6.6.6", "--overwrite")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "edit", "jump", "--address", "10.6.6.6")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "edit", "jump", "--port", "2222")
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "add", "jump", "u@10.6.6.6", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -194,12 +194,12 @@ func TestMovedHopNeedsAPerson(t *testing.T) {
 		t.Errorf("jump moved: %+v", h)
 	}
 	// nothing behind it, or nothing about the way there: not asked
-	mustRun(t, "host", "edit", "lone", "--address", "10.0.0.88")
-	mustRun(t, "host", "edit", "jump", "--add-tag", "hop")
+	mustRun(t, "host", "ssh", "edit", "lone", "--address", "10.0.0.88")
+	mustRun(t, "host", "ssh", "edit", "jump", "--add-tag", "hop")
 	if len(*texts) != 0 {
 		t.Errorf("nothing re-routed: %q", *texts)
 	}
-	mustRun(t, "host", "edit", "jump", "--address", "10.6.6.6", "--yes")
+	mustRun(t, "host", "ssh", "edit", "jump", "--address", "10.6.6.6", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("one window: %q", *texts)
 	}
@@ -262,7 +262,7 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 		}
 	}
 	t.Setenv("V", ovpnEvil)
-	wantCode(t, "NEEDS_PERSON", "secret", "set", "typed-config", "--from-env", "V", "--yes")
+	wantCode(t, "NEEDS_PERSON", "credential", "password", "add", "typed-config", "--from-env", "V", "--yes")
 	secretIs(t, "typed-config", ovpnOld)
 }
 
@@ -270,13 +270,13 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 // names it, and also when it is reached through a second hop.
 func TestMovedHopReachesEverythingBehindIt(t *testing.T) {
 	secretHome(t)
-	mustRun(t, "host", "add", "jump", "u@10.0.0.3", "--port", "2222")
-	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-ref", "credential:db-pass")
-	mustRun(t, "host", "add", "mid", "u@10.0.1.2", "--via", "jump")
+	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.3", "--port", "2222")
+	mustRun(t, "host", "ssh", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-credential", "db-pass")
+	mustRun(t, "host", "ssh", "add", "mid", "u@10.0.1.2", "--via", "jump")
 	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "credential:db-pass", "--via", "mid")
 	texts := windowText(t, true)
-	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump,inner", "--port", "22")
-	if e := wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--address", "10.6.6.6"); !strings.Contains(e.Message, "conn shop") {
+	wantCode(t, "SECRET_DESTINATION", "host", "ssh", "edit", "jump,inner", "--port", "22")
+	if e := wantCode(t, "SECRET_DESTINATION", "host", "ssh", "edit", "jump", "--address", "10.6.6.6"); !strings.Contains(e.Message, "conn shop") {
 		t.Errorf("the conn behind the second hop is named: %s", e.Message)
 	}
 	if len(*texts) != 0 {

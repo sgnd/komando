@@ -322,7 +322,7 @@ func (w *writer3) put(typ, id string, v any) (string, error) {
 // credential that others use too.
 func (w *writer3) sharedRefusal(entry, what, cred string) error {
 	return out.Errf(out.ExitConflict, "CREDENTIAL_IN_USE",
-		"give this entry its own: `komando secret cp "+cred+" NEW`, then pass credential:NEW",
+		"give this entry its own: `komando credential password add NAME`, then pass --credential NAME",
 		"%s: changing %s would change credential %s, which these entries use: %s; nothing was changed",
 		entry, what, cred, strings.Join(w.st.users(cred), ", "))
 }

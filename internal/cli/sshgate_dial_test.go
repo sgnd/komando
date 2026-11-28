@@ -163,22 +163,22 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 	gateStubDNS(t, map[string][][]net.IP{"web.example": {ips("203.0.113.5")}, "mixed.example": {ips("203.0.113.5", "127.0.0.1")}})
 	const R = "SSH_GATE_REFUSED"
 	for line, want := range map[string]string{
-		"logs nxhost":                         R,
-		"logs errhost":                        R,
-		"logs mixedhost":                      R,
-		"db query pgnx 'select 1'":            R,
-		"logs vpninner":                       R, // a name through a VPN: the gate cannot tell where the VPN goes
-		"logs innerme":                        R, // the jump host is this computer
-		"logs pubhost":                        "",
-		"logs inner":                          "", // the jump host bastion resolves it, far from here
-		"logs pcloop":                         R,
-		"logs ssmhost":                        "", // its proxy command connects: an instance ID resolves nowhere
-		"logs innerssm":                       "", // the same for a jump host
-		"logs innerpc":                        R,  // a jump host on this computer, through its proxy command
-		"storage download s3pub a.txt --to -": "",
-		"storage download s3res a.txt --to -": "",
-		"storage download s3resloop a.txt --to -": R,
-		"storage download s3resname a.txt --to -": R, // the name as written
+		"logs nxhost":    R,
+		"logs errhost":   R,
+		"logs mixedhost": R,
+		"database postgres query pgnx 'select 1'": R,
+		"logs vpninner":          R, // a name through a VPN: the gate cannot tell where the VPN goes
+		"logs innerme":           R, // the jump host is this computer
+		"logs pubhost":           "",
+		"logs inner":             "", // the jump host bastion resolves it, far from here
+		"logs pcloop":            R,
+		"logs ssmhost":           "", // its proxy command connects: an instance ID resolves nowhere
+		"logs innerssm":          "", // the same for a jump host
+		"logs innerpc":           R,  // a jump host on this computer, through its proxy command
+		"copy s3pub:a.txt -":     "",
+		"copy s3res:a.txt -":     "",
+		"copy s3resloop:a.txt -": R,
+		"copy s3resname:a.txt -": R, // the name as written
 	} {
 		for _, readOnly := range []bool{true, false} {
 			if got := gateAnswer(t, line, readOnly); got != want {

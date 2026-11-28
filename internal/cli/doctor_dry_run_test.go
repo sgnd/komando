@@ -163,8 +163,8 @@ func TestPersonAtTerminalOnlyDoctorMoves(t *testing.T) {
 		{[]string{"completion", "zsh"}, true, ""},
 		{[]string{"schema"}, true, ""},
 		{[]string{"guide"}, true, ""},
-		{nil, false, "komando needs a command"},                // stdout here is no terminal: the USAGE envelope
-		{[]string{"__complete", "host", "show", ""}, true, ""}, // the shell's helper, typed by hand
+		{nil, false, "komando needs a command"},                       // stdout here is no terminal: the USAGE envelope
+		{[]string{"__complete", "host", "ssh", "show", ""}, true, ""}, // the shell's helper, typed by hand
 		{[]string{"list"}, false, "only `komando doctor`"},
 		{[]string{"logs"}, false, "nothing is asked: the store is still to move to format 3"},
 		{[]string{"lsit"}, false, ""},

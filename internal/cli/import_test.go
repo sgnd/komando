@@ -196,7 +196,7 @@ func TestImportDBeaverPasswordNote(t *testing.T) {
 		"b":{"name":"Broken","provider":"postgresql","configuration":{"host":"db.lan","port":"not-a-port","database":"x","user":"app"}}}}`))
 	notes := fmt.Sprint(d["not_imported"])
 	if fmt.Sprint(d["conns"]) != "[shop-prod-2]" ||
-		!strings.Contains(notes, "shop-prod-2: set its password with `komando secret set shop-prod-2-pass` and `komando conn edit shop-prod-2 --password-ref credential:shop-prod-2-pass`") ||
+		!strings.Contains(notes, "shop-prod-2: set its password with `komando credential password add shop-prod-2-pass` and `komando conn edit shop-prod-2 --password-ref credential:shop-prod-2-pass`") ||
 		strings.Contains(notes, "conn edit shop-prod ") || strings.Contains(notes, "broken: set its password") {
 		t.Errorf("conns %v, notes %s", d["conns"], notes)
 	}
@@ -226,14 +226,14 @@ func TestImportFileZillaStoresServerPassword(t *testing.T) {
 	if s, _ := d["secrets"].([]any); len(s) != 1 || s[0] != "web-pass" {
 		t.Errorf("import says secrets %v", d["secrets"])
 	}
-	if !strings.Contains(fmt.Sprint(mustRun(t, "secret", "list")), "web-pass") {
+	if !strings.Contains(fmt.Sprint(mustRun(t, "credential", "list")), "web-pass") {
 		t.Errorf("web-pass is not in the vault")
 	}
-	if ref := mustRun(t, "host", "show", "web")["password_ref"]; ref != "credential:web-pass" {
+	if ref := mustRun(t, "host", "ssh", "show", "web")["password_ref"]; ref != "credential:web-pass" {
 		t.Errorf("password_ref %v", ref)
 	}
 	// a secret of that name in the vault stays: the server comes without it
-	mustRun(t, "host", "rm", "web")
+	mustRun(t, "host", "ssh", "remove", "web")
 	d = mustRun(t, "import", "filezilla", writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
 <Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">b3RoZXI=</Pass><Name>Web</Name></Server>
 </Servers></FileZilla3>`))

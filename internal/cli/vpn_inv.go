@@ -226,7 +226,7 @@ func vpnEditChecks(cmd *cobra.Command, e *vpnEditFlags) error {
 			return err
 		}
 		if ref != "" && !vault.ValidRef(ref) {
-			return out.Usage("--%s takes the name of a saved secret, not the secret itself: store it with `komando secret set NAME`, then pass --%s NAME", vpnFlagWord(flag), vpnFlagWord(flag))
+			return out.Usage("--%s takes the name of a saved secret, not the secret itself: store it with `komando credential password add NAME`, then pass --%s NAME", vpnFlagWord(flag), vpnFlagWord(flag))
 		}
 	}
 	_, err := parseKV(e.labels)
@@ -353,7 +353,7 @@ func vpnRmCmd() *cobra.Command {
 				var prot []string
 				for _, v := range vs {
 					if users := vpnUsers(s, v.Name); len(users) > 0 {
-						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first: `komando host edit TARGET --via OTHER`", "VPN %s is on the --via path of %s", v.Name, strings.Join(users, ", "))
+						return out.Errf(out.ExitConflict, "VPN_IN_USE", "change their --via first: `komando host ssh edit TARGET --via OTHER`", "VPN %s is on the --via path of %s", v.Name, strings.Join(users, ", "))
 					}
 					if v.Protected {
 						prot = append(prot, v.Name)
@@ -446,7 +446,7 @@ func vpnAddFlagChecks(v *store.Vpn, pskRef string, labels []string) error {
 			return err
 		}
 		if r != "" && !vault.ValidRef(r) {
-			return out.Usage("a VPN key or shared key takes the name of a saved secret, not the secret itself: store it with `komando secret set NAME`, then pass --credential NAME or --psk-credential NAME")
+			return out.Usage("a VPN key or shared key takes the name of a saved secret, not the secret itself: store it with `komando credential password add NAME`, then pass --credential NAME or --psk-credential NAME")
 		}
 	}
 	return applyKV(&v.Labels, labels)

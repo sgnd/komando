@@ -23,33 +23,32 @@ if in_area data; then
 aok "version" version
 aok "list" list
 aok "test direct" test direct
-aok "host show (references, no values)" host show direct
+aok "host ssh show (references, no values)" host ssh show direct
 aok "conn show" conn show pg
 aok "conn kinds" conn kinds
 aok "vpn list" vpn system list
 aok "vpn show" vpn system show corp
 aok "group list" group list
-aok "key list" key list
-aok "secret list" secret list
+aok "credential key list" credential key list
+aok "credential list" credential list
 aok "config show" config show
 aok "policy list" policy list
 check "agent: policy check names the rule" True "$(ag policy check 'rm -rf /' | jget '"rm-root" in json.dumps(d)' || true)"
-aok "audit" audit --limit 5
-aok "audit verify" audit verify
+aok "audit list" audit list --limit 5
+aok "audit check" audit check
 aok "doctor" doctor
 aok "status" status
 aok "schema" schema --compact
-aok "recipe list" recipe list
+aok "snippet list" snippet list
 
 # servers
-aok "exec --read-only" exec direct --read-only -- uname -a
-aok "recipe run health" recipe run health direct
+aok "host ssh exec --read-only" host ssh exec direct --read-only -- uname -a
+aok "snippet exec health" snippet exec health direct
 aok "fs ls" fs ls direct /etc
 aok "fs stat" fs stat direct /etc/hostname
 aok "fs cat" fs cat direct /etc/hostname
 aok "logs from a file" logs direct --file /etc/hostname
-aok "job list" job list
-aok "tunnel list" tunnel list
+aok "host ssh tunnel list" host ssh tunnel list
 aok "pkg installed" pkg installed direct curl
 fi
 
@@ -60,14 +59,14 @@ fi
 
 if in_area data; then
 # data
-aok "db query" db query pg 'select 1'
+aok "database postgres query" database postgres query pg 'select 1'
 aok "db schema" db schema pg
 aok "db info" db info pg
 aok "db sizes" db sizes pg
 aok "db activity" db activity pg
 aok "db locks" db locks pg
 aok "db user ls" db user ls pg
-aok "db on a protected conn reads" db query maria 'select 1'
+aok "db on a protected conn reads" database mysql query maria 'select 1'
 aok "storage s3 object list" storage s3 object list bucket
 fi
 
@@ -77,8 +76,8 @@ fi
 
 if in_area data; then
 # what an agent may not do alone: each stops with a code that says why
-acode "db write needs --write" WRITE_REQUIRES_FLAG db query pg 'create table t_agent(x int)'
-acode "db write on a protected conn needs a person" PROTECTED_TARGET db query maria --write 'create table t_agent(x int)'
+acode "db write needs --write" WRITE_REQUIRES_FLAG database postgres query pg 'create table t_agent(x int)'
+acode "db write on a protected conn needs a person" PROTECTED_TARGET database mysql query maria --write 'create table t_agent(x int)'
 acode "cache write needs --write" WRITE_REQUIRES_FLAG cache redis raw cache -- SET t-agent 1
 acode "storage s3 object delete needs --allow-dangerous" POLICY_BLOCKED storage s3 object delete bucket e2e/nothing
 fi
@@ -92,9 +91,9 @@ acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster kubernetes r
 fi
 
 if in_area data; then
-acode "a change on a protected host needs a person" PROTECTED_TARGET exec target -- touch /tmp/t-agent
+acode "a change on a protected host needs a person" PROTECTED_TARGET host ssh exec target -- touch /tmp/t-agent
 acode "an agent cannot log in for a person" NEEDS_PERSON login direct
-acode "an agent gets no SQL shell" NEEDS_TERMINAL db shell pg
+acode "an agent gets no SQL shell" NEEDS_TERMINAL database postgres shell pg
 fi
 
 if in_area k8s; then
@@ -102,22 +101,22 @@ acode "an agent gets no pod shell" NEEDS_TERMINAL cluster kubernetes shell lab-k
 fi
 
 if in_area data; then
-acode "an agent cannot change the vault passphrase" NEEDS_PERSON secret passphrase
-check "agent: secret passphrase --dry-run previews" "True NEEDS_PERSON" "$(ag secret passphrase --dry-run | jget 'd["data"]["dry_run"], d["meta"]["would_be_blocked"]["code"]' || true)"
+acode "an agent cannot change the vault passphrase" NEEDS_PERSON config vault passphrase
+check "agent: config vault passphrase --dry-run previews" "True NEEDS_PERSON" "$(ag config vault passphrase --dry-run | jget 'd["data"]["dry_run"], d["meta"]["would_be_blocked"]["code"]' || true)"
 # secrets: the user types a password, never the agent
-acode "an agent does not type a password" NEEDS_PERSON secret set t-agent-pass
-check "agent: secret set --dry-run previews" "True NEEDS_PERSON" "$(ag secret set t-agent-pass --dry-run | jget 'd["data"]["would_set"], d["meta"]["would_be_blocked"]["code"]' || true)"
-acode "a value on the command line is refused" SECRET_IN_ARGS secret set t-agent-pass hunter22
+acode "an agent does not type a password" NEEDS_PERSON credential password add t-agent-pass
+check "agent: credential password add --dry-run previews" "True NEEDS_PERSON" "$(ag credential password add t-agent-pass --dry-run | jget 'd["data"]["would_set"], d["meta"]["would_be_blocked"]["code"]' || true)"
+acode "a value on the command line is refused" SECRET_IN_ARGS credential password add t-agent-pass hunter22
 export T_AGENT_EMPTY=
-acode "an empty --from-env is refused" USAGE secret set t-agent-pass --from-env T_AGENT_EMPTY
+acode "an empty --from-env is refused" USAGE credential password add t-agent-pass --from-env T_AGENT_EMPTY
 unset T_AGENT_EMPTY
 acode "only a person compares a value" NEEDS_PERSON secret check ops-pass
-check "agent: a generated token can come on stdin" True "$(echo gen-token-123 | A secret set t-agent-token | jget 'd["ok"]' || true)"
-check "agent: the token is listed, without its value" "True False" "$(ag secret list | jget '"t-agent-token" in json.dumps(d), "gen-token-123" in json.dumps(d)' || true)"
-check "agent: rename a secret it cannot read" True "$(ag secret mv t-agent-token t-agent-token2 | jget 'd["ok"]' || true)"
-check "agent: removing a secret needs a person's yes" POLICY_BLOCKED "$(ag secret rm t-agent-token2 | jget 'd["error"]["code"]' || true)"
-q $K secret rm t-agent-token2 --allow-dangerous
-check "agent: nothing was stored for the typed password" SECRET_NOT_FOUND "$(ag secret get t-agent-pass | jget 'd["error"]["code"]' || true)"
+check "agent: a generated token can come on stdin" True "$(echo gen-token-123 | A credential token add t-agent-token | jget 'd["ok"]' || true)"
+check "agent: the token is listed, without its value" "True False" "$(ag credential list | jget '"t-agent-token" in json.dumps(d), "gen-token-123" in json.dumps(d)' || true)"
+check "agent: rename a secret it cannot read" True "$(ag credential token rename t-agent-token t-agent-token2 | jget 'd["ok"]' || true)"
+check "agent: removing a secret needs a person's yes" POLICY_BLOCKED "$(ag credential token remove t-agent-token2 | jget 'd["error"]["code"]' || true)"
+q $K credential token remove t-agent-token2 --allow-dangerous
+check "agent: nothing was stored for the typed password" SECRET_NOT_FOUND "$(ag credential password show t-agent-pass | jget 'd["error"]["code"]' || true)"
 fi
 
 # not one password of the lab in anything the agent saw

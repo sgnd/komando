@@ -10,7 +10,7 @@ func internal/cli/cluster_kctl_explain.go kctlRun.explain 102
 func internal/cli/cluster_run.go clusterRunCmd 112
 func internal/cli/cluster_status.go summarize 115
 func internal/cli/db_dump.go runDump 135
-func internal/cli/exec.go runFleet 179
+func internal/cli/host_exec.go runFleet 179
 func internal/cli/host_facts.go parseFactsAt 106
 func internal/cli/guard_home.go checkAgentVars 111
 func internal/cli/host_sshconfig.go parseSSHConfig 126

@@ -66,7 +66,7 @@ func ec2Host(p *importPlan, prof string, in cloud.EC2Instance) *store.Host {
 		addr = in.PublicIP
 	case addr == "":
 		addr = in.PrivateIP
-		p.Notes = append(p.Notes, fmt.Sprintf("%s: no public address, only %s; reach it through a server in its network (`komando host edit %s --via BASTION`) or AWS Session Manager (`--ssm`)", name, in.PrivateIP, name))
+		p.Notes = append(p.Notes, fmt.Sprintf("%s: no public address, only %s; reach it through a server in its network (`komando host ssh edit %s --via BASTION`) or AWS Session Manager (`--ssm`)", name, in.PrivateIP, name))
 	}
 	h := &store.Host{Name: name, Address: addr, Groups: []string{in.Region},
 		Labels: map[string]string{"aws-instance": in.ID, "aws-profile": prof}}
@@ -75,7 +75,7 @@ func ec2Host(p *importPlan, prof string, in cloud.EC2Instance) *store.Host {
 		p.Notes = append(p.Notes, name+": a Windows server; komando reaches it over OpenSSH or WinRM (see the Windows guide)")
 	}
 	if in.KeyName != "" {
-		p.Notes = append(p.Notes, fmt.Sprintf("%s: launched with the EC2 key pair %q; add its key (`komando key add NAME FILE`) and `komando host edit %s --key NAME`, and set the login user (ec2-user, ubuntu, admin ...) with --user", name, in.KeyName, name))
+		p.Notes = append(p.Notes, fmt.Sprintf("%s: launched with the EC2 key pair %q; add its key (`komando credential key add NAME FILE`) and `komando host ssh edit %s --key NAME`, and set the login user (ec2-user, ubuntu, admin ...) with --user", name, in.KeyName, name))
 	}
 	return h
 }

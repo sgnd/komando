@@ -457,7 +457,7 @@ func approvalHint(cl *call, e *out.Error) {
 		e.Hint = "komando did not ask the user in its window, because " + cl.sess.Window().Unshown + ". " + tooLongAdvice(kind)
 	case "unshowable":
 		e.Hint = "komando did not ask the user in its window, because " + cl.sess.Window().Unshown +
-			". Make the command shorter (put a long script in a file for `komando exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
+			". Make the command shorter (put a long script in a file for `komando host ssh exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
 		case e.Final, e.Code == "REVEAL_NEEDS_TERMINAL", e.Code == "NEEDS_PERSON":

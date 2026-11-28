@@ -97,11 +97,11 @@ func wantCode(t *testing.T, code string, args ...string) *out.Error {
 
 func TestInvAuditLimit(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a1", "u@10.0.0.1")
-	if e := wantCode(t, "USAGE", "audit", "-n", "-1"); e.Exit != out.ExitUsage {
+	mustRun(t, "host", "ssh", "add", "a1", "u@10.0.0.1")
+	if e := wantCode(t, "USAGE", "audit", "list", "-n", "-1"); e.Exit != out.ExitUsage {
 		t.Errorf("exit %d", e.Exit)
 	}
-	if d := mustRun(t, "audit", "-n", "0"); d["count"].(float64) < 1 {
+	if d := mustRun(t, "audit", "list", "-n", "0"); d["count"].(float64) < 1 {
 		t.Errorf("-n 0 shows all: %v", d)
 	}
 }
@@ -110,7 +110,7 @@ func TestInvHostAddValidation(t *testing.T) {
 	invHome(t)
 	id := filepath.Join(t.TempDir(), "id")
 	os.WriteFile(id, []byte("x"), 0o600)
-	mustRun(t, "host", "add", "b1", "u@10.0.0.9")
+	mustRun(t, "host", "ssh", "add", "b1", "u@10.0.0.9")
 	for _, c := range []struct {
 		code string
 		args []string
@@ -128,18 +128,18 @@ func TestInvHostAddValidation(t *testing.T) {
 		{"USAGE", []string{"h", "-t", "tag:x"}},
 		{"USAGE", []string{"h", "--label", "a,b=1"}},
 	} {
-		wantCode(t, c.code, append([]string{"host", "add", "n1"}, c.args...)...)
+		wantCode(t, c.code, append([]string{"host", "ssh", "add", "n1"}, c.args...)...)
 	}
-	mustRun(t, "host", "add", "n2", "u@10.0.0.5:2201", "--port", "2201", "--user", "u") // agreeing is fine
-	mustRun(t, "host", "add", "n1", "h", "--identity", id, "--via", "b1")
+	mustRun(t, "host", "ssh", "add", "n2", "u@10.0.0.5:2201", "--port", "2201", "--user", "u") // agreeing is fine
+	mustRun(t, "host", "ssh", "add", "n1", "h", "--identity", id, "--via", "b1")
 	// a loop through another host
-	wantCode(t, "VIA_CYCLE", "host", "edit", "b1", "--via", "n1")
+	wantCode(t, "VIA_CYCLE", "host", "ssh", "edit", "b1", "--via", "n1")
 }
 
 func TestInvProtectedTwin(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod", "u@db.example.com", "--protected")
-	d := mustRun(t, "host", "add", "alias", "u@DB.Example.com.")
+	mustRun(t, "host", "ssh", "add", "prod", "u@db.example.com", "--protected")
+	d := mustRun(t, "host", "ssh", "add", "alias", "u@DB.Example.com.")
 	if d["protected"] != true || d["warnings"] == nil || d["address"] != "db.example.com" {
 		t.Errorf("same server under another spelling: %v", d)
 	}
@@ -152,15 +152,15 @@ func TestInvProtectedTwin(t *testing.T) {
 
 func TestInvProtectedEditNeedsYes(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "jump", "u@10.0.0.1")
-	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected")
-	wantCode(t, "PROTECTED_TARGET", "host", "edit", "prod", "--via", "jump")
-	wantCode(t, "PROTECTED_TARGET", "host", "edit", "prod", "--address", "10.0.0.3")
-	d := mustRun(t, "host", "edit", "prod", "--via", "jump", "--dry-run")
+	mustRun(t, "host", "ssh", "add", "jump", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.2", "--protected")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "edit", "prod", "--via", "jump")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "edit", "prod", "--address", "10.0.0.3")
+	d := mustRun(t, "host", "ssh", "edit", "prod", "--via", "jump", "--dry-run")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry-run shows the stop: %v", d)
 	}
-	mustRun(t, "host", "edit", "prod", "--add-tag", "x") // a label is no login change
+	mustRun(t, "host", "ssh", "edit", "prod", "--add-tag", "x") // a label is no login change
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--protected")
 	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--via", "jump")
 	wantCode(t, "PROTECTED_TARGET", "conn", "edit", "db", "--password-ref", "credential:x")
@@ -168,31 +168,31 @@ func TestInvProtectedEditNeedsYes(t *testing.T) {
 
 func TestInvHostEditConflicts(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "h1", "u@10.0.0.1", "-t", "a")
-	wantCode(t, "USAGE", "host", "edit", "h1")
-	wantCode(t, "USAGE", "host", "edit", "h1", "--user", "x", "--unset", "user")
-	wantCode(t, "USAGE", "host", "edit", "h1", "--add-tag", "x", "--rm-tag", "X")
-	d := mustRun(t, "host", "edit", "h1", "--add-tag", "a")
+	mustRun(t, "host", "ssh", "add", "h1", "u@10.0.0.1", "-t", "a")
+	wantCode(t, "USAGE", "host", "ssh", "edit", "h1")
+	wantCode(t, "USAGE", "host", "ssh", "edit", "h1", "--user", "x", "--unset", "user")
+	wantCode(t, "USAGE", "host", "ssh", "edit", "h1", "--add-tag", "x", "--rm-tag", "X")
+	d := mustRun(t, "host", "ssh", "edit", "h1", "--add-tag", "a")
 	if d["changed"] != false {
 		t.Errorf("no change: %v", d)
 	}
-	d = mustRun(t, "host", "edit", "H1", "-g", "web", "-t", "b")
+	d = mustRun(t, "host", "ssh", "edit", "H1", "--add-group", "web", "--add-tag", "b")
 	if d["changed"] != true || len(d["groups"].([]any)) != 1 || len(d["tags"].([]any)) != 2 {
-		t.Errorf("-g/-t add, names match in any case: %v", d)
+		t.Errorf("--add-group/--add-tag, names match in any case: %v", d)
 	}
 }
 
 func TestInvHostRmBatch(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a", "u@10.0.0.1")
-	mustRun(t, "host", "add", "b", "u@10.0.0.2", "--via", "a")
-	wantCode(t, "HOST_IN_USE", "host", "rm", "a")
-	mustRun(t, "host", "rm", "a", "b")
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2", "--via", "a")
+	wantCode(t, "HOST_IN_USE", "host", "ssh", "remove", "a")
+	mustRun(t, "host", "ssh", "remove", "a", "b")
 }
 
 func TestInvHostImportJSON(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.2", "--protected")
 	f := filepath.Join(t.TempDir(), "h.json")
 	os.WriteFile(f, []byte(`{"format":"komando-export/1","hosts":[
 		{"name":"prod","address":"10.9.9.9"},
@@ -209,7 +209,7 @@ func TestInvHostImportJSON(t *testing.T) {
 	if st, _ := store.Load(); st.Hosts["px"].ProxyCommand != "" {
 		t.Error("a proxy command came in from a file")
 	}
-	mustRun(t, "host", "rm", "px")
+	mustRun(t, "host", "ssh", "remove", "px")
 	// prod exists (skipped, fine), bad is refused: the rest comes in, and
 	// the refusal makes the import fail (exit 1), not a quiet skip
 	d, e = invRun(t, "import", "komando", f)
@@ -220,12 +220,12 @@ func TestInvHostImportJSON(t *testing.T) {
 
 func TestInvTrustDryRun(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "h", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "h", "u@10.0.0.1")
 	k, _, _, _, _ := ssh.ParseAuthorizedKey([]byte("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"))
 	if _, err := sshx.PinHostKey("10.0.0.1:22", k, false); err != nil {
 		t.Fatal(err)
 	}
-	d := mustRun(t, "host", "trust", "h", "--reset", "--dry-run")
+	d := mustRun(t, "host", "ssh", "trust", "h", "--reset", "--dry-run")
 	if r := trustRow0(d); r["would_remove_entries"].(float64) != 1 || r["would_fetch_from"] != "the server directly" {
 		t.Errorf("count: %v", d)
 	}
@@ -236,54 +236,54 @@ func TestInvTrustDryRun(t *testing.T) {
 
 func TestInvKeys(t *testing.T) {
 	invHome(t)
-	wantCode(t, "USAGE", "key", "gen", "k", "--type", "rsa", "-b", "1024")
-	wantCode(t, "USAGE", "key", "gen", "k", "-C", "a\nssh-rsa AAAA evil")
-	d := mustRun(t, "key", "gen", "k", "--type", "ECDSA", "--dry-run")
+	wantCode(t, "USAGE", "credential", "key", "create", "k", "--type", "rsa", "-b", "1024")
+	wantCode(t, "USAGE", "credential", "key", "create", "k", "-C", "a\nssh-rsa AAAA evil")
+	d := mustRun(t, "credential", "key", "create", "k", "--type", "ECDSA", "--dry-run")
 	if d["fingerprint"] != nil || d["action"] != "would_add" {
 		t.Errorf("dry-run: %v", d)
 	}
-	mustRun(t, "key", "gen", "k", "--type", "ecdsa", "-b", "384")
+	mustRun(t, "credential", "key", "create", "k", "--type", "ecdsa", "-b", "384")
 	st, _ := loadState()
 	pub := filepath.Join(t.TempDir(), "k.pub")
 	os.WriteFile(pub, []byte(st.Keys["k"].PublicKey+"\n"), 0o600)
-	e := wantCode(t, "KEY_INVALID", "key", "add", "p", pub)
+	e := wantCode(t, "KEY_INVALID", "credential", "key", "add", "p", pub)
 	if !strings.Contains(e.Hint, "public key") || e.Exit != out.ExitUsage {
 		t.Errorf("hint: %+v", e)
 	}
-	wantCode(t, "USAGE", "key", "add", "p", pub, "--passphrase-ref", "pw123")
-	wantCode(t, "USAGE", "key", "edit", "k", "--passphrase-ref", "pw123")
-	// key edit says what it did, warns about a secret not stored yet, and
-	// clears with --unset like host and conn edit ('' still works)
-	d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp")
-	if d["action"] != "changed" || !strings.Contains(fmt.Sprint(d["warnings"]), "a secret it names is not in the vault") {
+	// key edit takes a saved secret's name only (rule R2), says what it did,
+	// and clears with --unset like host and conn edit ('' still works)
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--passphrase-credential", "kp")
+	saveSecrets(t, "kp")
+	d = mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp")
+	if d["action"] != "changed" {
 		t.Errorf("key edit: %v", d)
 	}
-	if d = mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp"); d["action"] != "unchanged" {
+	if d = mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp"); d["action"] != "unchanged" {
 		t.Errorf("same again: %v", d)
 	}
-	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "passphrase-ref", "--passphrase-ref", "credential:kp")
-	wantCode(t, "USAGE", "key", "edit", "k", "--unset", "path")
-	if d = mustRun(t, "key", "edit", "k", "--unset", "passphrase-ref"); d["passphrase_ref"] != nil || d["action"] != "changed" {
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--unset", "passphrase-credential", "--passphrase-credential", "kp")
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--unset", "path")
+	if d = mustRun(t, "credential", "key", "edit", "k", "--unset", "passphrase-credential"); d["passphrase_ref"] != nil || d["action"] != "changed" {
 		t.Errorf("--unset: %v", d)
 	}
-	mustRun(t, "key", "edit", "k", "--passphrase-ref", "credential:kp")
-	mustRun(t, "key", "edit", "k", "--passphrase-ref", "")
+	mustRun(t, "credential", "key", "edit", "k", "--passphrase-credential", "kp")
+	wantCode(t, "USAGE", "credential", "key", "edit", "k", "--passphrase-credential", "") // --unset clears (rule R2)
 
 	ext := filepath.Join(t.TempDir(), "ext")
 	b, _ := store.ReadPrivateKey(st.Keys["k"])
 	os.WriteFile(ext, b, 0o600)
 	// the same key under a second name is added, with a warning naming the first
-	if d = mustRun(t, "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
+	if d = mustRun(t, "credential", "key", "add", "ext", ext); !strings.Contains(fmt.Sprint(d["warnings"]), "same key as k") {
 		t.Errorf("same key twice: %v", d)
 	}
-	d = mustRun(t, "key", "rm", "ext", "--delete-file")
+	d = mustRun(t, "credential", "key", "remove", "ext", "--delete-file")
 	if d["file_deleted"] != false {
 		t.Errorf("an added key's file stays: %v", d)
 	}
 	if _, err := os.Stat(ext); err != nil {
 		t.Error("the file was deleted")
 	}
-	audit := mustRun(t, "audit", "-n", "0", "--command", "key.")
+	audit := mustRun(t, "audit", "list", "-n", "0", "--command", "credential.key.")
 	if audit["count"].(float64) < 4 {
 		t.Errorf("key changes are audited: %v", audit["count"])
 	}
@@ -291,7 +291,7 @@ func TestInvKeys(t *testing.T) {
 
 func TestInvCleanPubLine(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "k")
+	mustRun(t, "credential", "key", "create", "k")
 	st, _ := loadState()
 	f := filepath.Join(t.TempDir(), "x.pub")
 	os.WriteFile(f, []byte(st.Keys["k"].PublicKey+" a\rb\n"), 0o600)
@@ -305,28 +305,28 @@ func TestInvSecrets(t *testing.T) {
 	invHome(t)
 	for _, n := range []string{"s1", "s2"} {
 		t.Setenv("INV_S", "value-"+n)
-		mustRun(t, "secret", "set", n, "--from-env", "INV_S")
+		mustRun(t, "credential", "password", "add", n, "--from-env", "INV_S")
 	}
-	d := mustRun(t, "secret", "get", "s1")
+	d := mustRun(t, "credential", "password", "show", "s1")
 	if _, ok := d["length"]; ok {
 		t.Error("secret get leaks the length")
 	}
-	e := wantCode(t, "SECRET_NOT_FOUND", "secret", "get", "s3")
+	e := wantCode(t, "SECRET_NOT_FOUND", "credential", "password", "show", "s3")
 	if e.Suggestion == "" || !strings.Contains(e.Hint, e.Suggestion) {
 		t.Errorf("no suggestion: %+v", e)
 	}
-	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected", "--password-ref", "credential:s1")
-	wantCode(t, "PROTECTED_TARGET", "secret", "set", "s1", "--from-env", "INV_S")
-	d = mustRun(t, "secret", "set", "s2", "--from-env", "INV_S")
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.2", "--protected", "--credential", "s1")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "add", "s1", "--from-env", "INV_S")
+	d = mustRun(t, "credential", "password", "add", "s2", "--from-env", "INV_S")
 	if d["replaced"] != true {
 		t.Errorf("replaced: %v", d)
 	}
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "s1", "s2")
-	mustRun(t, "host", "rm", "prod", "--yes")
-	wantCode(t, "POLICY_BLOCKED", "secret", "rm", "s1", "s2") // a deleted secret has no copy (OD-7)
-	personTypes(t, "2")                                       // a person types how many go
-	mustRun(t, "secret", "rm", "s1", "s2")
-	d = mustRun(t, "secret", "list")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "s1", "s2")
+	mustRun(t, "host", "ssh", "remove", "prod", "--yes")
+	wantCode(t, "POLICY_BLOCKED", "credential", "password", "remove", "s1", "s2") // a deleted secret has no copy (OD-7)
+	personTypes(t, "2")                                                           // a person types how many go
+	mustRun(t, "credential", "password", "remove", "s1", "s2")
+	d = mustRun(t, "credential", "list")
 	if d["count"].(float64) != 0 {
 		t.Errorf("both removed: %v", d)
 	}
@@ -334,14 +334,14 @@ func TestInvSecrets(t *testing.T) {
 
 func TestInvGroups(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "a", "u@10.0.0.1", "-g", "web")
-	mustRun(t, "host", "add", "b", "u@10.0.0.2", "-g", "web")
-	mustRun(t, "host", "add", "c", "u@10.0.0.3")
-	wantCode(t, "USAGE", "group", "add", "bad name", "a")
-	if e := wantCode(t, "GROUP_NOT_FOUND", "group", "rm", "wbe", "a"); !strings.Contains(e.Hint, "web") || e.Exit != out.ExitNotFound {
+	mustRun(t, "host", "ssh", "add", "a", "u@10.0.0.1", "-g", "web")
+	mustRun(t, "host", "ssh", "add", "b", "u@10.0.0.2", "-g", "web")
+	mustRun(t, "host", "ssh", "add", "c", "u@10.0.0.3")
+	wantCode(t, "USAGE", "group", "create", "bad name", "a")
+	if e := wantCode(t, "GROUP_NOT_FOUND", "group", "remove", "wbe", "a"); !strings.Contains(e.Hint, "web") || e.Exit != out.ExitNotFound {
 		t.Errorf("did you mean: %+v", e)
 	}
-	d := mustRun(t, "group", "rm", "web", "all", "--dry-run")
+	d := mustRun(t, "group", "remove", "web", "all", "--dry-run")
 	if got := d["would_remove"].([]any); len(got) != 2 {
 		t.Errorf("only members: %v", got)
 	}
@@ -349,7 +349,7 @@ func TestInvGroups(t *testing.T) {
 	if len(d["members"].([]any)) != 2 {
 		t.Errorf("members: %v", d)
 	}
-	mustRun(t, "group", "rm", "web")
+	mustRun(t, "group", "remove", "web")
 	wantCode(t, "GROUP_NOT_FOUND", "group", "list", "web")
 }
 
@@ -370,7 +370,7 @@ func TestInvConfig(t *testing.T) {
 	if d := mustRun(t, "config", "get", "parallel"); d["value"] != "20" || d["default"] != "10" {
 		t.Errorf("get: %v", d)
 	}
-	a := mustRun(t, "audit", "--command", "config.set")
+	a := mustRun(t, "audit", "list", "--command", "config.set")
 	if a["count"].(float64) != 2 {
 		t.Errorf("config changes audited: %v", a)
 	}
@@ -378,19 +378,19 @@ func TestInvConfig(t *testing.T) {
 
 func TestInvPolicy(t *testing.T) {
 	invHome(t)
-	wantCode(t, "BUILTIN_RULE", "policy", "rm", "rm-root")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "nonexistent")
-	wantCode(t, "USAGE", "policy", "deny", " ")
-	mustRun(t, "policy", "deny", `kubectl\s+apply`)
-	mustRun(t, "policy", "rm", policy.CustomID(`kubectl\s+apply`), "--yes")
-	if a := mustRun(t, "audit", "--command", "policy.rm"); a["count"].(float64) != 1 {
-		t.Errorf("policy rm is audited as policy.rm: %v", a)
+	wantCode(t, "BUILTIN_RULE", "policy", "remove", "rm-root")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "remove", "nonexistent")
+	wantCode(t, "USAGE", "policy", "create", " ")
+	mustRun(t, "policy", "create", `kubectl\s+apply`)
+	mustRun(t, "policy", "remove", policy.CustomID(`kubectl\s+apply`), "--yes")
+	if a := mustRun(t, "audit", "list", "--command", "policy.remove"); a["count"].(float64) != 1 {
+		t.Errorf("policy remove is audited as policy.remove: %v", a)
 	}
 	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "rm -rf //"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
 	mustRun(t, "policy", "check", "grep mkfs notes.txt")
-	if a := mustRun(t, "audit", "--command", "policy."); a["count"].(float64) != 2 {
+	if a := mustRun(t, "audit", "list", "--command", "policy."); a["count"].(float64) != 2 {
 		t.Errorf("policy changes audited: %v", a)
 	}
 }
@@ -483,21 +483,21 @@ func TestInvDoctorInventory(t *testing.T) {
 
 func TestInvRmSelector(t *testing.T) {
 	invHome(t)
-	if e := wantCode(t, "TARGET_EMPTY", "test", "all"); !strings.Contains(e.Hint, "host add") {
+	if e := wantCode(t, "TARGET_EMPTY", "test", "all"); !strings.Contains(e.Hint, "host ssh add") {
 		t.Errorf("empty inventory hint: %q", e.Hint)
 	}
-	mustRun(t, "host", "add", "tmp-1", "u@10.0.0.1", "-g", "old")
-	mustRun(t, "host", "add", "tmp-2", "u@10.0.0.2", "-g", "old", "--via", "tmp-1")
-	mustRun(t, "host", "add", "keep", "u@10.0.0.3", "--via", "tmp-1")
-	mustRun(t, "host", "add", "prod", "u@10.0.0.4", "-g", "old", "--protected")
-	wantCode(t, "HOST_IN_USE", "host", "rm", "tmp-*") // keep still goes through tmp-1
-	mustRun(t, "host", "edit", "keep", "--unset", "via")
-	wantCode(t, "PROTECTED_TARGET", "host", "rm", "@old")
-	d := mustRun(t, "host", "rm", "@old", "--dry-run")
+	mustRun(t, "host", "ssh", "add", "tmp-1", "u@10.0.0.1", "-g", "old")
+	mustRun(t, "host", "ssh", "add", "tmp-2", "u@10.0.0.2", "-g", "old", "--via", "tmp-1")
+	mustRun(t, "host", "ssh", "add", "keep", "u@10.0.0.3", "--via", "tmp-1")
+	mustRun(t, "host", "ssh", "add", "prod", "u@10.0.0.4", "-g", "old", "--protected")
+	wantCode(t, "HOST_IN_USE", "host", "ssh", "remove", "tmp-*") // keep still goes through tmp-1
+	mustRun(t, "host", "ssh", "edit", "keep", "--unset", "via")
+	wantCode(t, "PROTECTED_TARGET", "host", "ssh", "remove", "@old")
+	d := mustRun(t, "host", "ssh", "remove", "@old", "--dry-run")
 	if got := d["would_remove"].([]any); len(got) != 3 || d["removed"] != nil {
 		t.Errorf("dry-run lists all: %v", got)
 	}
-	mustRun(t, "host", "rm", "tmp-*")
+	mustRun(t, "host", "ssh", "remove", "tmp-*")
 	if d := mustRun(t, "list"); d["count"].(float64) != 2 {
 		t.Errorf("tmp-* removed: %v", d)
 	}
@@ -506,7 +506,7 @@ func TestInvRmSelector(t *testing.T) {
 	if d := mustRun(t, "conn", "rm", "kind:redis"); len(d["removed"].([]any)) != 2 {
 		t.Errorf("conn rm selector: %v", d)
 	}
-	wantCode(t, "TARGET_NOT_FOUND", "host", "rm", "nosuch")
+	wantCode(t, "TARGET_NOT_FOUND", "host", "ssh", "remove", "nosuch")
 }
 
 func TestInvEmptyListText(t *testing.T) {
@@ -521,9 +521,9 @@ func TestInvEmptyListText(t *testing.T) {
 // instead of leaving the server out.
 func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	invHome(t)
-	mustRun(t, "key", "gen", "deploy")
-	mustRun(t, "host", "add", "db1", "root@10.0.0.20", "--key", "deploy")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
+	mustRun(t, "credential", "key", "create", "deploy")
+	mustRun(t, "host", "ssh", "add", "db1", "root@10.0.0.20", "--key", "deploy")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.21")
 	f := filepath.Join(t.TempDir(), "backup.json")
 	d := mustRun(t, "export", "--to", f)
 	// a key komando made has no file: it is named as sealed instead
@@ -540,10 +540,10 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 	if len(d["hosts"].([]any)) != 2 {
 		t.Fatalf("both servers come in: %v", d)
 	}
-	if !strings.Contains(fmt.Sprint(d), "run `komando key add deploy PATH`") || !strings.Contains(fmt.Sprint(d), "`komando key gen deploy`") || !strings.Contains(fmt.Sprint(d), "then `komando host edit db1 --key deploy`") {
+	if !strings.Contains(fmt.Sprint(d), "run `komando credential key add deploy PATH`") || !strings.Contains(fmt.Sprint(d), "`komando credential key create deploy`") || !strings.Contains(fmt.Sprint(d), "then `komando host ssh edit db1 --key deploy`") {
 		t.Errorf("the import says how to bring the key: %v", d)
 	}
-	h := mustRun(t, "host", "show", "db1")
+	h := mustRun(t, "host", "ssh", "show", "db1")
 	if h["key"] != nil && h["key"] != "" {
 		t.Errorf("db1 points at a key this computer does not have: %v", h)
 	}
@@ -555,8 +555,8 @@ func TestExportImportKeepsServersWithKeys(t *testing.T) {
 // off).
 func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.21")
-	mustRun(t, "policy", "deny", `rm -rf /srv`)
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.21")
+	mustRun(t, "policy", "create", `rm -rf /srv`)
 	mustRun(t, "config", "set", "parallel", "5")
 	f := filepath.Join(t.TempDir(), "backup.json")
 	if d := mustRun(t, "export", "--to", f); d["deny_rules"] != float64(1) || d["settings"] != true {
@@ -574,7 +574,7 @@ func TestExportImportCarriesRulesAndSettings(t *testing.T) {
 	if v := mustRun(t, "config", "get", "parallel"); fmt.Sprint(v["value"]) == "5" {
 		t.Error("import changed a setting")
 	}
-	if _, e := invRun(t, "exec", "web1", "--", "rm -rf /srv"); e == nil || e.Code != "POLICY_BLOCKED" {
+	if _, e := invRun(t, "host", "ssh", "exec", "web1", "--", "rm -rf /srv"); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("the imported rule stops it: %+v", e)
 	}
 	// importing again adds nothing new
@@ -600,7 +600,7 @@ func TestImportSSHConfigProxyCommandAgent(t *testing.T) {
 // output is meant to go to a file.
 func TestExportTextIsImportable(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
+	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.10")
 	textOut := func(args ...string) []byte {
 		t.Helper()
 		root := newRoot(tcl)
@@ -627,30 +627,30 @@ func TestExportTextIsImportable(t *testing.T) {
 func TestPolicyCustomIDsStay(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	mustRun(t, "policy", "deny", `shutdown\s+-h`)
-	mustRun(t, "policy", "deny", `kubectl\s+delete`)
+	mustRun(t, "policy", "create", `shutdown\s+-h`)
+	mustRun(t, "policy", "create", `kubectl\s+delete`)
 	ids := map[string]string{}
 	for _, r := range mustRun(t, "policy", "list")["custom_rules"].([]any) {
 		m := r.(map[string]any)
 		ids[m["pattern"].(string)] = m["id"].(string)
 	}
 	kube := ids[`kubectl\s+delete`]
-	mustRun(t, "policy", "rm", ids[`shutdown\s+-h`], "--yes")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", ids[`shutdown\s+-h`], "--yes")
-	wantCode(t, "RULE_NOT_FOUND", "policy", "rm", "custom-0", "--yes")
+	mustRun(t, "policy", "remove", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "remove", ids[`shutdown\s+-h`], "--yes")
+	wantCode(t, "RULE_NOT_FOUND", "policy", "remove", "custom-0", "--yes")
 	if r := mustRun(t, "policy", "list")["custom_rules"].([]any); len(r) != 1 || r[0].(map[string]any)["id"] != kube {
 		t.Errorf("after rm: %v", r)
 	}
 }
 
-// policy deny refuses a pattern that matches empty text: it would block
+// policy create refuses a pattern that matches empty text: it would block
 // every command.
 func TestPolicyDenyMatchesEverything(t *testing.T) {
 	invHome(t)
 	for _, p := range []string{".*", "^", "x*", "(?i)"} {
-		wantCode(t, "USAGE", "policy", "deny", p)
+		wantCode(t, "USAGE", "policy", "create", p)
 	}
-	mustRun(t, "policy", "deny", ".+")
+	mustRun(t, "policy", "create", ".+")
 }
 
 // policy check --conn-kind: a kind it does not rate says which it does, MongoDB
@@ -681,7 +681,7 @@ func TestPolicyCheckFor(t *testing.T) {
 	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "redis", `FLUSHALL ASYNC`)
 }
 
-// policy deny and rm say "would" in a dry run, and show the pattern as
+// policy create and rm say "would" in a dry run, and show the pattern as
 // written, not Go-quoted.
 func TestPolicyChangeText(t *testing.T) {
 	t.Cleanup(func() { setGate(tcl, false, gateDryRun) })

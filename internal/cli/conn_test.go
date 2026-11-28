@@ -177,7 +177,7 @@ func TestActionCommandsUseWhatTheyCan(t *testing.T) {
 	}
 	// only servers picked: the hint says to use exec
 	_, err := singleConn(tcl, st, "@web", "db")
-	if e := toErr(err); err == nil || e.Code != "NO_MATCHING_TARGETS" || !strings.Contains(e.Hint, "komando exec") {
+	if e := toErr(err); err == nil || e.Code != "NO_MATCHING_TARGETS" || !strings.Contains(e.Hint, "komando host ssh exec") {
 		t.Errorf("expected NO_MATCHING_TARGETS with an exec hint, got %v", err)
 	}
 	// a database given to a cache command points to `komando db`
@@ -343,7 +343,7 @@ func TestRedactArgs(t *testing.T) {
 func TestFamilyAddWrongKind(t *testing.T) {
 	invHome(t)
 	e := wantCode(t, "WRONG_KIND", "cache", "redis", "add", "c1", "postgres://app@192.0.2.40/app", "--dry-run")
-	if e.Exit != 2 || !strings.Contains(e.Hint, "`komando db add`") {
+	if e.Exit != 2 || !strings.Contains(e.Hint, "`komando database postgres add`") {
 		t.Errorf("%+v", e)
 	}
 	for kind, k := range connAddKinds {

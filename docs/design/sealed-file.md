@@ -9,7 +9,7 @@ contract between the two; `internal/sealfile` is the Go side.
 
 ## Who makes one, who opens one
 
-- Only a person at a terminal makes a sealed file, as with `secret show
+- Only a person at a terminal makes a sealed file, as with `credential password show
   --reveal`. An AI agent or a script gets `NEEDS_PERSON` (exit 6), which no
   flag lifts. A dry run says what would be sealed and never asks anything.
 - The passphrase is typed at the terminal, twice, hidden (15 or more
@@ -157,8 +157,8 @@ The `komando export` document (`komando-export/1`: `hosts`, `conns`,
 
 `secrets_needed` still lists every secret the records name; a name in it
 that is not in `secrets` was not in the vault. Not inside: pinned host
-keys (each is checked again on first use), the audit log, jobs, tunnels,
-sessions, logins, the approval-code key, cloud tokens. A security key
+keys (each is checked again on first use), the audit log, exec sessions,
+tunnels, sessions, logins, the approval-code key, cloud tokens. A security key
 (FIDO2) stays on its device.
 
 ## Check phrase
@@ -186,7 +186,7 @@ then:
 - another value here is kept, and the file's records do not get it, unless
   `--overwrite` and the person says yes at the terminal;
 - a key of the file whose name is not here is kept in komando's sealed
-  store, like one `key gen` made; a key with a name that is here is left
+  store, like one `credential key create` made; a key with a name that is here is left
   out.
 
 ## Errors

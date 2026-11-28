@@ -29,7 +29,7 @@ func formCheckLine(t *testing.T, source string, line []string) {
 		if _, err := driver.Parse(cmd.Flags().Arg(1)); err != nil {
 			t.Errorf("%s: URL %q: %v", source, cmd.Flags().Arg(1), err)
 		}
-	case "host add":
+	case "host ssh add", "host winrm add":
 		if _, err := parseAddressArg(cmd.Flags().Arg(1)); err != nil {
 			t.Errorf("%s: address %q: %v", source, cmd.Flags().Arg(1), err)
 		}
@@ -102,13 +102,13 @@ func TestFormKindLines(t *testing.T) {
 	}{
 		{"Server", "Server", formAnswers{"name": "win1", "os": "windows", "transport": "ssh", "address": "10.0.0.9",
 			"user": "Administrator", "port": "22", "login": "password", "protected": "no"},
-			"host add win1 Administrator@10.0.0.9 --os windows --ask-password"},
+			"host ssh add win1 Administrator@10.0.0.9 --os windows --ask-password"},
 		{"Server", "Server", formAnswers{"name": "win2", "os": "windows", "transport": "winrm", "address": "10.0.0.9",
 			"user": "deploy@corp.local", "winrmtls": "", "winrmport": "5986", "protected": "yes"},
-			"host add win2 winrm://deploy@corp.local@10.0.0.9 --ask-password --protected"},
+			"host winrm add win2 winrm://deploy@corp.local@10.0.0.9 --ask-password --protected"},
 		{"Server", "Server", formAnswers{"name": "win3", "os": "windows", "transport": "winrm", "address": "win3.lan",
 			"user": "Administrator", "winrmtls": "off", "winrmport": "5985", "protected": "no"},
-			"host add win3 winrm://Administrator@win3.lan?tls=off --ask-password"},
+			"host winrm add win3 winrm://Administrator@win3.lan?tls=off --ask-password"},
 		{"Databases", "SQL Server", formAnswers{"name": "sales", "host": "db.internal", "port": "1433", "user": "app",
 			"database": "sales", "protected": "no", "tls": "nocheck"},
 			"conn add sales sqlserver://app@db.internal/sales?encrypt=true&tls=skip-verify --ask-password"},
@@ -187,7 +187,7 @@ func TestFormNewKindChecks(t *testing.T) {
 		{func(v string) string { return serverUserProblem(nil, nil, v) }, "deploy@corp.local", ""},
 		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "winrm://10.0.0.9", "without winrm://"},
 		// said on first run too, where Add a server has no list to go back to
-		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "postgres://app@10.0.0.5/shop", "komando db add"},
+		{func(v string) string { return serverAddressProblem(nil, nil, v) }, "postgres://app@10.0.0.5/shop", "komando database postgres add"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "https://myorg-myaccount.snowflakecomputing.com", "type only"},
 		{func(v string) string { return snowflakeAccountProblem(nil, nil, v) }, "xy12345.eu-central-1", ""},
 		{gcpProjectProblem, "My Project", "project ID"},
@@ -253,11 +253,11 @@ func TestFormDestructive(t *testing.T) {
 	cases := map[string]bool{
 		"queue kafka message delete q1 orders --all": true, "storage s3 object delete s3 a": true,
 		"registry oci image prune r repo": true,
-		"host add web1 root@10.0.0.5":     false,
+		"host ssh add web1 root@10.0.0.5": false,
 		"fs rm web1 /srv/old --recursive": true, "docker rm web1 api": true, "docker prune web1 --all": true,
 		"db user rm db1 bob": true, "db user list db1": false,
-		"secret rm db-pass": true, "key rm k1 --delete-file": true, "key rm k1": false,
-		"pkg rm web1 nginx": true, "host rm web1": false,
+		"credential password remove db-pass": true, "credential key remove k1 --delete-file": true, "credential key remove k1": false,
+		"pkg rm web1 nginx": true, "host ssh remove web1": false,
 	}
 	for line, want := range cases {
 		if got := riskOfLine(strings.Fields(line)).typedWhat() != ""; got != want {

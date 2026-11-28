@@ -46,7 +46,7 @@ type formArg struct {
 	label                   string // its short name on the review; "" takes it from Use
 	// pick is the list it is picked from: server (one server), host
 	// (servers, groups, all), target, conn, db, cache, storage, cluster,
-	// queue, registry, vpn, key, group, job, tunnel, secret; "" typed
+	// queue, registry, vpn, key, group, tunnel, secret; "" typed
 	pick    string
 	free    bool     // with pick: something not in the list may be typed (tag:prod)
 	local   bool     // a path on this computer: ~/ is your home folder
@@ -98,6 +98,26 @@ func addFormHints(m map[string]formHint) {
 		}
 		formHints[k] = v
 	}
+}
+
+// winrmVerbs are the verbs of `host ssh VERB` that `host winrm VERB` has too.
+var winrmVerbs = []string{"add", "edit", "list", "remove", "rename", "show", "test", "exec", "shell"}
+
+// winrmLacks are the flags of `host ssh VERB` that a WinRM server has no use for:
+// no sudo, no ssh key.
+var winrmLacks = []string{"sudo", "key"}
+
+// withWinRM is m and, for each hint of a verb that both host providers have,
+// the same hint for `host winrm VERB`.
+func withWinRM(m map[string]formHint) map[string]formHint {
+	all := maps.Clone(m)
+	for _, v := range winrmVerbs {
+		if h, ok := m["host ssh "+v]; ok {
+			h.flags = slices.DeleteFunc(slices.Clone(h.flags), func(f formFlag) bool { return slices.Contains(winrmLacks, f.name) })
+			all["host winrm "+v] = h
+		}
+	}
+	return all
 }
 
 // nextOnly: h gives Next: lines and nothing else.
@@ -200,8 +220,6 @@ func formArgPick(name string) (string, bool) {
 		return "vpn", false
 	case "GROUP":
 		return "group", true
-	case "JOB":
-		return "job", true
 	case "TUNNEL":
 		return "tunnel", true
 	}
@@ -239,10 +257,6 @@ func formPickRows(st *store.State, pick string) []pickRow {
 	case "key":
 		for _, n := range pickNames(st.Keys, "key") {
 			rows = append(rows, pickRow{label: n, value: n})
-		}
-	case "job":
-		for _, n := range slices.Sorted(maps.Keys(st.Jobs)) {
-			rows = append(rows, pickRow{label: n, detail: st.Jobs[n].Host, value: n})
 		}
 	case "tunnel":
 		for _, n := range slices.Sorted(maps.Keys(st.Tunnels)) {
@@ -456,7 +470,7 @@ func formSentence(s string) string {
 // pasted password or token is refused before it reaches a command line.
 func formRefProblem(v string) string {
 	if !vault.ValidRef(v) {
-		return "type where the secret is kept, like credential:NAME (komando secret list), not the secret itself"
+		return "type where the secret is kept, like credential:NAME (komando credential list), not the secret itself"
 	}
 	return ""
 }
@@ -482,7 +496,7 @@ func formValueProblem(typ, v string) string {
 
 // formJoined are the commands that join the words after -- into one
 // shell line themselves: their command is passed as one word, as typed.
-var formJoined = []string{"exec", "job start"}
+var formJoined = []string{"host ssh exec", "host winrm exec"}
 
 // formCmdArgs is the command line for the answers: the command, its
 // arguments in order, then each flag that differs from its default.
@@ -624,19 +638,19 @@ var formAreas = []struct {
 	words         []string
 }{
 	{"Servers", "run commands, logs, packages, Docker", []string{"exec", "shell", "logs", "pkg", "docker"}},
-	{"Files", "read, edit, copy and move files on servers", []string{"fs", "upload", "download", "cp", "sync"}},
-	{"Databases", "queries, shells, dumps, users", []string{"db"}},
+	{"Files", "read, edit, copy and move files on servers", []string{"fs", "copy"}},
+	{"Databases", "queries, shells, backups, users", []string{"db", "database"}},
 	{"Cache", "Redis and Memcached keys", []string{"cache"}},
 	{"Message queues", "Kafka, RabbitMQ, NATS, SQS, Pub/Sub", []string{"queue"}},
 	{"File storage", "buckets, SFTP, FTP, WebDAV, SMB", []string{"storage"}},
 	{"Kubernetes", "clusters, apps, logs, Helm", []string{"cluster"}},
 	{"Container registries", "images and tags", []string{"registry"}},
 	{"VPNs, logins and tunnels", "connect, log in once, forward ports", []string{"vpn", "tunnel", "login", "logout"}},
-	{"Secrets and keys", "the vault and SSH keys", []string{"secret", "key"}},
+	{"Secrets and keys", "the vault and SSH keys", []string{"credential", "secret"}},
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
-	{"Jobs and recipes", "long tasks and saved commands", []string{"job", "recipe"}},
+	{"Snippets", "saved commands", []string{"snippet"}},
 	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
-	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
+	{"Setup", "AI agents, updates", []string{"guide", "agent", "update", "version", "schema", "completion"}},
 }
 
 // formListed: it has questions. A group command (cache, cluster

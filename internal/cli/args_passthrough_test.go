@@ -47,7 +47,7 @@ func TestStandardPassthrough(t *testing.T) {
 		}
 	}
 	slices.Sort(want)
-	all := []string{"cache memcached raw", "cache redis raw", "cluster kubernetes exec", "cluster kubernetes raw", "cluster kubernetes shell", "cluster swarm raw", "docker compose", "docker exec", "docker raw", "exec", "job start", "secret run"}
+	all := []string{"cache memcached raw", "cache redis raw", "cluster kubernetes exec", "cluster kubernetes raw", "cluster kubernetes shell", "cluster swarm raw", "credential run", "docker compose", "docker exec", "docker raw", "host ssh exec", "host ssh shell", "host winrm exec", "host winrm shell"}
 	if !slices.Equal(want, all) {
 		t.Errorf("passthrough commands %v, want %v", want, all)
 	}
@@ -56,18 +56,16 @@ func TestStandardPassthrough(t *testing.T) {
 // The documented forms keep working: flags before --, -c, --script.
 func TestPassthroughDocumentedForms(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	for _, args := range [][]string{
-		{"--dry-run", "exec", "web1", "--", "apt-get", "install", "-y", "nginx"},
-		{"exec", "web1", "--dry-run", "-P", "2", "--read-only", "--", "df", "-h"},
-		{"--dry-run", "exec", "web1", "-c", "uptime"},
-		{"--dry-run", "x", "web1", "--", "uptime"},
-		{"--dry-run", "job", "start", "web1", "--", "sleep", "1"},
+		{"--dry-run", "host", "ssh", "exec", "web1", "--", "apt-get", "install", "-y", "nginx"},
+		{"host", "ssh", "exec", "web1", "--dry-run", "-P", "2", "--read-only", "--", "df", "-h"},
+		{"--dry-run", "host", "ssh", "exec", "web1", "-c", "uptime"},
 	} {
 		mustRun(t, args...)
 	}
 	// -y given before -- is komando's own; after -- it goes to the server
-	d := mustRun(t, "--dry-run", "exec", "web1", "--", "yum", "update", "-y")
+	d := mustRun(t, "--dry-run", "host", "ssh", "exec", "web1", "--", "yum", "update", "-y")
 	if !strings.Contains(stringOf(d), "yum update -y") {
 		t.Errorf("plan: %v", d)
 	}
@@ -76,16 +74,16 @@ func TestPassthroughDocumentedForms(t *testing.T) {
 // The USAGE hint never hands out an approval flag: an example with --yes,
 // -y, --allow-dangerous or --reveal is skipped (review F10).
 func TestDashExampleSkipsApprovalFlags(t *testing.T) {
-	c := &cobra.Command{Use: "exec TARGET -- COMMAND", Example: "  komando exec web1 --allow-dangerous -- rm -rf /tmp/x\n" +
-		"  komando exec web1 -y -- reboot\n  komando exec web1 -- uptime   # how long it is up"}
-	if got := dashExample(c); got != "komando exec web1 -- uptime" {
+	c := &cobra.Command{Use: "exec TARGET -- COMMAND", Example: "  komando host ssh exec web1 --allow-dangerous -- rm -rf /tmp/x\n" +
+		"  komando host ssh exec web1 -y -- reboot\n  komando host ssh exec web1 -- uptime   # how long it is up"}
+	if got := dashExample(c); got != "komando host ssh exec web1 -- uptime" {
 		t.Errorf("dashExample: %q", got)
 	}
-	c.Example = "  komando exec web1 -- apt-get install -y nginx" // the other program's -y
-	if got := dashExample(c); got != "komando exec web1 -- apt-get install -y nginx" {
+	c.Example = "  komando host ssh exec web1 -- apt-get install -y nginx" // the other program's -y
+	if got := dashExample(c); got != "komando host ssh exec web1 -- apt-get install -y nginx" {
 		t.Errorf("dashExample: %q", got)
 	}
-	c.Example = "  komando exec web1 --yes -- touch /tmp/x"
+	c.Example = "  komando host ssh exec web1 --yes -- touch /tmp/x"
 	if got, _, _ := strings.Cut(dashExample(c), " -- "); approvalFlag.MatchString(got) {
 		t.Errorf("dashExample with only approval examples: %q", got)
 	}

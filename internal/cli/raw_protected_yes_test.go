@@ -71,7 +71,8 @@ func rawTargets() []rawTarget {
 			provider: "cluster swarm",
 			add: func(t *testing.T) (string, func() int) {
 				addr, n := acceptCounter(t)
-				mustRun(t, "host", "add", "pswarm", "deploy@"+addr, "--tag", "swarm", "--protected", "--password-ref", savedRef(t, "pswarm-pass", "Test-pass-7"))
+				mustRun(t, "host", "ssh", "add", "pswarm", "deploy@"+addr, "--tag", "swarm", "--protected",
+					"--credential", strings.TrimPrefix(savedRef(t, "pswarm-pass", "Test-pass-7"), "credential:"))
 				return "pswarm", n
 			},
 			raw:    []string{"cluster", "swarm", "raw"},

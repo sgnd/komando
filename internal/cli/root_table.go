@@ -92,6 +92,12 @@ func mountTable(root *cobra.Command) {
 	if err := mountLeaves(root, leaves, handlers, groupShorts); err != nil {
 		panic("komando: " + err.Error())
 	}
+	for _, c := range root.Commands() {
+		if g := helpGroups[c.Name()]; g != "" && c.GroupID == "" {
+			c.GroupID = g
+		}
+	}
+	addNounAliases(root) // a top-level group the table made (database) gets its plural too
 }
 
 // hideCarried takes out of today's tree each command whose ID every built
@@ -112,6 +118,9 @@ func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 	for _, r := range capability.Replacements() {
 		delete(carriers, r.Today)
 	}
+	for _, id := range connVerbsUntilStepD {
+		delete(carriers, id)
+	}
 	hide := map[string]bool{}
 	for id, keys := range carriers {
 		hide[id] = !slices.ContainsFunc(keys, func(k capability.Key) bool { return hs[k] == nil })
@@ -119,7 +128,9 @@ func hideCarried(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 	var drop func(c *cobra.Command) bool
 	drop = func(c *cobra.Command) (hid bool) {
 		for _, s := range c.Commands() {
-			if hide[cmdID(s)] {
+			// a bare noun (audit) shares its ID with a command that moved
+			// under it: it stays, only a command that runs goes
+			if hide[cmdID(s)] && (s.Runnable() || s.HasSubCommands()) {
 				c.RemoveCommand(s)
 				hid = true
 				continue
@@ -186,22 +197,33 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 				return fmt.Errorf("%s: %q is already a command's name or alias under %q", l.Key, w, parent.CommandPath())
 			}
 		}
-		parent.AddCommand(buildLeaf(l, h))
+		leaf := buildLeaf(l, h)
+		parent.AddCommand(leaf)
 	}
 	return nil
 }
 
-// idsInTree is the set of the IDs of the commands under c.
+// idsInTree is the set of the IDs of the commands under c. The walk carries
+// each parent's dotted path, so a command costs one string, not one per
+// word of its path (cmdID builds the whole path).
 func idsInTree(c *cobra.Command) map[string]bool {
 	ids := map[string]bool{}
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
+	var walk func(c *cobra.Command, path string)
+	walk = func(c *cobra.Command, path string) {
 		for _, s := range c.Commands() {
-			ids[cmdID(s)] = true
-			walk(s)
+			p := s.Name()
+			if path != "" {
+				p = path + "." + p
+			}
+			if id := s.Annotations[cmdIDNote]; id != "" {
+				ids[id] = true
+			} else {
+				ids[p] = true
+			}
+			walk(s, p)
 		}
 	}
-	walk(c)
+	walk(c, pathID(c))
 	return ids
 }
 
@@ -235,6 +257,10 @@ func childNamed(c *cobra.Command, name string) *cobra.Command {
 
 // buildLeaf is the cobra command of one leaf.
 func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
+	var group string
+	if len(l.Key.Path()) == 1 {
+		group = topGroups[l.Key.Verb]
+	}
 	use := []string{l.Key.Path()[len(l.Key.Path())-1]}
 	least, most := 0, 0
 	for _, a := range l.Args {
@@ -261,7 +287,14 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Short:   l.Short,
 		Example: l.Example,
 		Aliases: slices.Clone(l.Synonyms),
-		Args: func(_ *cobra.Command, args []string) error {
+		GroupID: group,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := secretValueInArgs(strings.Join(l.Key.Path(), "."), args); err != nil {
+				return err
+			}
+			if len(args) == 0 && l.Type == "host" && formAddCmd(cmd) { // a server's add alone asks, or says how
+				return formOrUsage(cmd, strings.Join(l.Key.Path()[:len(l.Key.Path())-1], " "), "komando "+strings.Join(l.Key.Path(), " ")+" web1 deploy@10.0.0.5")
+			}
 			if len(args) < least || most >= 0 && len(args) > most {
 				return out.Usage("%s takes %s", strings.Join(l.Key.Path(), " "), strings.Join(use[1:], " "))
 			}
@@ -272,6 +305,12 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		if !o.Generated { // komando makes the value; a person never types it
 			addOption(c.Flags(), o, vals)
 		}
+	}
+	if l.Provider != "" && l.Area == "" && len(l.Args) > 0 && l.Args[0].Name == "NAME" && slices.Contains(movedTypes, l.Type) {
+		c.ValidArgsFunction = entryCompletion(familyOfType(l.Type))
+	}
+	if extra := leafExtras[safetyKey{l.Type, l.Area, l.Verb}]; extra != nil {
+		extra(c)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		in := leafInput{Args: args, ID: strings.Join(l.Key.Path(), "."), Dash: cmd.ArgsLenAtDash(), vals: vals, changed: func(n string) bool { return cmd.Flags().Changed(n) }}
@@ -344,6 +383,13 @@ func declareOption(fs *pflag.FlagSet, o capability.Option, vals map[string]any) 
 	}
 }
 
+// enumUsage is a value an enum option does not take. The value is not
+// echoed: a password typed into the wrong option stays out of the error.
+func enumUsage(o capability.Option) error {
+	return out.Errf(out.ExitUsage, "USAGE", "give one of them, for example --"+o.Name+" "+o.Enum[0],
+		"--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+}
+
 // checkOptions applies the table's rules for the options: required, one
 // of the enum, needs, conflicts and the pattern, before the handler runs.
 func checkOptions(l capability.Leaf, in leafInput) error {
@@ -357,8 +403,21 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 			return out.Usage("%s needs --%s", strings.Join(l.Key.Path(), " "), o.Name)
 		case !set:
 			continue
+		case o.Kind == capability.Enum && o.Repeat:
+			for _, v := range in.Strings(o.Name) {
+				if !slices.Contains(o.Enum, v) {
+					return enumUsage(o)
+				}
+			}
 		case o.Kind == capability.Enum && !slices.Contains(o.Enum, in.String(o.Name)):
-			return out.Usage("--%s takes %s", o.Name, strings.Join(o.Enum, ", "))
+			return enumUsage(o)
+		}
+		if o.Name == "unset" {
+			for _, w := range in.Strings(o.Name) {
+				if _, ok := in.vals[w]; ok && in.Changed(w) {
+					return out.Errf(out.ExitUsage, "USAGE", "pass one of them", "--%s and --unset %s contradict each other", w, w)
+				}
+			}
 		}
 		if o.Pattern != "" {
 			values := []string{}
@@ -374,7 +433,7 @@ func checkOptions(l capability.Leaf, in leafInput) error {
 			}
 		}
 		for _, n := range o.Needs {
-			if !in.Changed(n) {
+			if b, isBool := in.vals[n].(*bool); !in.Changed(n) || (isBool && !*b) { // --sync=false is not --sync
 				return out.Usage("--%s works only with --%s", o.Name, n)
 			}
 		}
@@ -413,6 +472,13 @@ func runBody(cl *call, ctx context.Context, body *cobra.Command, in leafInput, r
 	return body.ExecuteContext(withCall(ctx, cl))
 }
 
+// bodyHandler is the handler of a leaf that runs today's command body.
+func bodyHandler(body func() *cobra.Command) handler {
+	return func(cl *call, ctx context.Context, in leafInput) error {
+		return runBody(cl, ctx, body(), in, nil)
+	}
+}
+
 // credentialRef is the body's reference for the value of a credential
 // option (credentialFlags): the name of a saved secret and nothing else
 // (spec O-08, chief rule R2): no credential:, env:, op:// or other form. A
@@ -426,10 +492,17 @@ func credentialRef(flag, v string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("--%s: the saved secrets cannot be read: %w", flag, err)
 	}
-	if v == "" || !slices.ContainsFunc(saved, func(i vault.Info) bool { return i.Name == v }) {
+	i := slices.IndexFunc(saved, func(i vault.Info) bool { return i.Name == v })
+	if v == "" || i < 0 {
 		return "", out.Errf(out.ExitUsage, "USAGE",
-			"save the secret with `komando secret set NAME` (it asks for the value, hidden), then pass --"+flag+" NAME",
+			"save the secret with `komando credential password add NAME` (it asks for the value, hidden), then pass --"+flag+" NAME",
 			"--%s takes the name of a saved secret, and this is none", flag)
+	}
+	// a key can hold a value too (C625): it is still a key, never a password
+	if saved[i].Kind == store.CredKey {
+		return "", out.Errf(out.ExitUsage, "USAGE",
+			"save a password with `komando credential password add NAME`, then pass --"+flag+" NAME",
+			"--%s takes a password or a token, and %s names an SSH key", flag, v)
 	}
 	return "credential:" + v, nil
 }

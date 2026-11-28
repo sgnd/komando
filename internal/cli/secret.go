@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/capability"
 	"github.com/sgnd/komando/internal/cli/kit/term"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
@@ -30,7 +31,7 @@ type secretList struct {
 
 func (l secretList) Text() string {
 	if len(l.Secrets) == 0 {
-		return term.NoneYet("secrets", "secret set NAME")
+		return term.NoneYet("credentials", "credential password add NAME", "or `komando credential token add NAME`")
 	}
 	var rows [][]string
 	for _, s := range l.Secrets {
@@ -51,7 +52,7 @@ func secretNames() []string {
 
 // reservedSecret refuses the secrets komando keeps for itself: the approval
 // code's key is set up by a person (`config approval-code`), never through
-// `secret set`, `mv`, `cp` or `rm`.
+// `credential password add`, `mv`, `cp` or `rm`.
 func reservedSecret(name string) error {
 	if name == approvalSecret {
 		return out.Errf(out.ExitUsage, "RESERVED_SECRET", "a person manages it with `komando config approval-code`",
@@ -60,7 +61,7 @@ func reservedSecret(name string) error {
 	return nil
 }
 
-// secretInput reads a value the way `secret set` and `secret check` take it:
+// secretInput reads a value the way `credential password add` and `secret check` take it:
 // from --from-env VAR, from a pipe, or typed hidden at the terminal. name is
 // the secret's name, for the hint when there is no value.
 func secretInput(cmd *cobra.Command, name, label string) (string, error) {
@@ -98,8 +99,12 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 			// A password only the user knows is typed by the user. Sending
 			// the agent back to --from-env or stdin would make it ask for
 			// the password in the chat, where it stays in the transcript.
+			path := cmd.CommandPath()
+			if cl.out.As != "" { // a leaf runs this body: name the leaf's path
+				path = "komando " + strings.ReplaceAll(cl.out.As, ".", " ")
+			}
 			return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can be piped in (stdin) or given with --from-env VAR", cmd.CommandPath(), name),
+				fmt.Sprintf("ask the user to run `%s %s` in their own terminal: it asks for the value, hidden. Never ask for a password in the chat. A value a program makes (a new token) can be piped in (stdin) or given with --from-env VAR", path, name),
 				"no value for %s: a password is typed by the user, so it never passes through an AI agent", name)
 		}
 		return "", out.Usage("no value: use --from-env VAR or pipe the value in (stdin)")
@@ -175,18 +180,18 @@ func secretDiff(stored, given string) string {
 }
 
 const secretLong = `Save a password once, then point to it as credential:NAME instead of typing it:
-  komando secret set web1-pass
-  komando host edit web1 --password-ref credential:web1-pass
+  komando credential password add web1-pass
+  komando host ssh edit web1 --credential web1-pass
 
 komando shows a saved value only to a person: at a terminal with
-` + "`secret show --reveal`" + `, or after "Allow once" in komando's window; never
+` + "`credential password show --reveal`" + `, or after "Allow once" in komando's window; never
 to an AI agent. ` + "`secret check`" + ` compares a value with the saved one
-without showing either. ` + "`secret rename`" + ` and ` + "`secret cp`" + ` rename and copy.
+without showing either. ` + "`credential password rename`" + ` and ` + "`secret cp`" + ` rename and copy.
 
 How it is stored: each secret sealed with AES-256-GCM in ~/.komando/store.db.
 The random key is in the OS keychain (or in store.key where there is none,
 or with KOMANDO_KEYCHAIN=off), or comes from $KOMANDO_VAULT_PASS when that is
-set at first use (` + "`secret passphrase`" + ` changes it).
+set at first use (` + "`config vault passphrase`" + ` changes it).
 
 A --password-ref (and the other -ref flags) can also read a password your
 team keeps elsewhere; komando reads it when needed and never stores it:
@@ -197,15 +202,60 @@ func secretCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets", "vault"},
-		Short:   "Saved passwords and tokens: store, check, use as credential:NAME",
+		Short:   "Check or copy a saved password or token",
 		Long:    secretLong,
 	}
-	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true), runCmd(),
-		addAliases(secretCopyCmd(false), "copy"), secretRmCmd(), secretKeychainCmd(), addAliases(secretPassphraseCmd(), "passwd"))
+	// the other commands run as the credential and config vault leaves;
+	// check and cp go in cut step D
+	c.AddCommand(secretCheckCmd(), addAliases(secretCopyCmd(false), "copy"))
 	return c
 }
 
-// secretCopyCmd is `secret mv` (move) or `secret cp`. The value is copied
+// The credential leaves run today's secret, key and host ca bodies. Until
+// cut step E keeps a kind with each saved value, the password and the token
+// leaves run the same body.
+func init() {
+	for verb, body := range map[string]func() *cobra.Command{"add": secretSetCmd, "show": secretGetCmd,
+		"remove": secretRmCmd, "rename": func() *cobra.Command { return secretCopyCmd(true) }} {
+		for _, kind := range []string{"password", "token"} {
+			handlers[capability.Key{Type: "credential", Area: kind, Verb: verb}] = bodyHandler(body)
+		}
+	}
+	handlers[capability.Key{Type: "credential", Verb: "list"}] = bodyHandler(secretListCmd)
+	handlers[capability.Key{Type: "credential", Verb: "run"}] = bodyHandler(runCmd)
+	for verb, body := range map[string]func() *cobra.Command{"add": keyAddCmd, "create": keyGenCmd, "edit": keyEditCmd,
+		"install": keyDeployCmd, "uninstall": keyRevokeCmd, "list": keyListCmd, "remove": keyRmCmd, "rename": keyMvCmd, "show": keyShowCmd} {
+		handlers[capability.Key{Type: "credential", Area: "key", Verb: verb}] = bodyHandler(body)
+	}
+	for verb, body := range map[string]func() *cobra.Command{"add": hostCAAddCmd, "list": hostCAListCmd, "remove": hostCARmCmd} {
+		handlers[capability.Key{Type: "credential", Area: "certificate", Verb: verb}] = bodyHandler(body)
+	}
+	moveType("credential")
+	helpGroups["credential"] = "access"
+	groupShorts["credential"] = "Saved passwords, tokens, SSH keys and server CAs"
+	groupShorts["credential password"] = "Saved passwords: add, show, rename, remove"
+	groupShorts["credential token"] = "Saved tokens: add, show, rename, remove"
+	groupShorts["credential key"] = "SSH keys: make, add, install on servers, uninstall"
+	groupShorts["credential certificate"] = "Server CAs: trust the CA that signs servers' host keys"
+	// the leaves keep the longer help of today's bodies
+	details["komando credential key create"] = keyCreateLong
+	details["komando credential key add"] = keyAddLong
+	details["komando credential key edit"] = keyEditLong
+	details["komando credential key show"] = keyShowLong
+	details["komando credential key remove"] = keyRemoveLong
+	details["komando credential key install"] = keyInstallLong
+	details["komando credential key rename"] = keyRenameLong
+	details["komando credential key uninstall"] = keyUninstallLong
+	details["komando credential certificate add"] = certificateAddLong
+	details["komando credential certificate remove"] = certificateRemoveLong
+	details["komando credential password add"] = secretAddLong
+	details["komando credential token add"] = secretAddLong
+	details["komando credential password show"] = secretShowLong
+	details["komando credential token show"] = secretShowLong
+	details["komando credential run"] = credentialRunLong
+}
+
+// secretCopyCmd is `credential password rename` (move) or `secret cp`. The value is copied
 // inside the vault and never printed, so an AI agent can rename a secret it
 // cannot read. mv also points every server, conn, key and VPN that used the
 // old name at the new one, in the same step.
@@ -225,7 +275,7 @@ VPN that used credential:OLD at credential:NEW in the same step, so nothing stop
 working and nobody types the value again. The value is never printed, so an
 AI agent can do this too. Scripts or notes of your own that name credential:OLD
 are not changed.`
-		example = "  komando secret rename vpn-password office-vpn-pass --dry-run\n  komando secret rename vpn-password office-vpn-pass"
+		example = "  komando credential password rename vpn-password office-vpn-pass --dry-run\n  komando credential password rename vpn-password office-vpn-pass"
 	}
 	c := &cobra.Command{
 		Use:     verb + " OLD NEW",
@@ -352,25 +402,27 @@ func moveSecret(cl *call, from, to string, overwrite bool) ([]string, error) {
 	return updated, err
 }
 
-func secretKeychainCmd() *cobra.Command {
-	var off bool
-	c := &cobra.Command{
-		Use:   "keychain",
-		Short: "Keep the vault key in the OS keychain instead of store.key",
-		Long: `Moves the vault's key out of the store.key file into the operating system's
+const vaultKeychainLong = `Moves the vault's key out of the store.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
 the vault or its secrets. The vault gets a new key as it moves, so a copy of store.key
 made before opens nothing either, and the vault keeps every secret.
 --off moves the key back into store.key, which needs --yes.
 
 Only a person at a terminal moves the key in: the keychain may ask them to
-unlock it, and an AI agent or a script cannot answer that.`,
-		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
+unlock it, and an AI agent or a script cannot answer that.`
+
+func secretKeychainCmd() *cobra.Command {
+	var off bool
+	c := &cobra.Command{
+		Use:     "keychain",
+		Short:   "Keep the vault key in the OS keychain instead of store.key",
+		Long:    vaultKeychainLong,
+		Example: "  komando config vault keychain\n  komando config vault keychain --off --yes",
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if !off && (cl.isAgent() || !cl.interactive()) {
 				// an unlock prompt nobody answers would keep komando waiting
-				err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando secret keychain` in their own terminal",
+				err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando config vault keychain` in their own terminal",
 					"only a person at a terminal can move the vault key into the keychain: it may ask them to unlock it"))
 				if err != nil {
 					return err
@@ -419,12 +471,12 @@ unlock it, and an AI agent or a script cannot answer that.`,
 func secretInUse(name string, users []string) error {
 	kind, who, _ := strings.Cut(users[0], " ")
 	hint := map[string]string{
-		"host": "komando host edit " + who + " --password-ref ... (or --sudo-ref ..., --env ...)",
+		"host": "komando host ssh edit " + who + " --credential ... (or --sudo-credential ..., --env ...)",
 		"conn": "komando conn edit " + who + " --password-ref ...",
-		"key":  "komando key edit " + who + " --passphrase-ref ...",
+		"key":  "komando credential key edit " + who + " --passphrase-credential ...",
 		"vpn":  "komando vpn KIND edit " + who + " ...",
 	}[kind]
-	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando secret rename`",
+	return out.Errf(out.ExitConflict, "SECRET_IN_USE", "point them at another secret first, for example `"+hint+"`, or rename it with `komando credential password rename`",
 		"secret %s is used by %s", name, strings.Join(users, ", "))
 }
 

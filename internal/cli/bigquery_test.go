@@ -34,24 +34,24 @@ func TestBigQueryConns(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "conn", "add", "bq-tls", "bigquery://my-project?tls=false")
 	wantCode(t, "USAGE", "conn", "add", "bq-user", "bigquery://me@my-project")
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "bq", "--to", t.TempDir()+"/s.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "bq", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "bigquery", "backup", "bq") // BigQuery has no backup leaf
+	wantCode(t, "USAGE", "database", "bigquery", "restore", "bq")
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "bq", "select 1", "--analyze")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "add", "bq", "bob", "--password-ref", "credential:x")
 	wantCode(t, "NOT_SUPPORTED", "db", "user", "rm", "bq", "bob")
 	wantCode(t, "NOT_SUPPORTED", "db", "grant", "bq", "bob", "--role", "readers")
 	// the classifier says what needs --write before anything connects
-	wantCode(t, "WRITE_REQUIRES_FLAG", "db", "query", "bq", "insert into shop.t values (1)")
-	wantCode(t, "SQL_HIDDEN_CODE", "db", "query", "bq", "select 1 # a\x0bdrop table t")
-	wantCode(t, "USAGE", "db", "query", "bq", "declare x int64")
-	wantCode(t, "USAGE", "db", "query", "bq", "select 1", "--max-bytes", "lots")
+	wantCode(t, "WRITE_REQUIRES_FLAG", "database", "bigquery", "query", "bq", "insert into shop.t values (1)")
+	wantCode(t, "SQL_HIDDEN_CODE", "database", "bigquery", "query", "bq", "select 1 # a\x0bdrop table t")
+	wantCode(t, "USAGE", "database", "bigquery", "query", "bq", "declare x int64")
+	wantCode(t, "USAGE", "database", "bigquery", "query", "bq", "select 1", "--max-bytes", "lots")
 	p, e := invRun(t, "policy", "check", "--conn-kind", "bigquery", "export data options (uri = 'gs://b/*.csv') as select 1")
 	if p["risk"] != "destructive" || e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("policy check: %v %+v", p, e)
 	}
 	// --max-bytes is BigQuery's
 	mustRun(t, "conn", "add", "lite", "sqlite://"+t.TempDir()+"/x.db")
-	wantCode(t, "USAGE", "db", "query", "lite", "select 1", "--max-bytes", "1GB")
+	wantCode(t, "USAGE", "database", "sqlite", "query", "lite", "select 1", "--max-bytes", "1GB")
 }
 
 func TestBigQueryText(t *testing.T) {

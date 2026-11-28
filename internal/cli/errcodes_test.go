@@ -707,7 +707,7 @@ func example(format string) string {
 // meanings stand in for an example where the message is all values (the
 // server's own words): what the code means, in a few words.
 var meanings = map[string]string{
-	"AUDIT_TAMPERED":         "the audit log was changed outside komando (komando audit verify)",
+	"AUDIT_TAMPERED":         "the audit log was changed outside komando (komando audit check)",
 	"BAD_FILE":               "a file komando was given cannot be used as it is",
 	"CACHE_AUTH":             "the cache refused the login (password or ACL user)",
 	"CACHE_ERROR":            "the cache answered with an error (its words follow)",
@@ -717,7 +717,7 @@ var meanings = map[string]string{
 	"DB_NOT_FOUND":           "the database named in the conn does not exist",
 	"DB_PRIVILEGE":           "the conn's user lacks a right the command needs",
 	"DB_USER_IN_USE":         "the database user owns objects or has sessions, so it is not removed",
-	"DEPLOY_FAILED":          "key deploy could not add the key to the server's authorized_keys (the server's words follow)",
+	"DEPLOY_FAILED":          "credential key install could not add the key to the server's authorized_keys (the server's words follow)",
 	"GATE_BINARY_INVALID":    "the server's komando could be replaced by the paired user (owner, mode or place), so no gate line is written",
 	"GATE_UNSUPPORTED":       "komando on the server has no server mode (ssh-gate --here)",
 	"KEY_USER_INVALID":       "the user is root (uid 0) or is not on the server, so no device key is written for it",
@@ -736,7 +736,7 @@ var meanings = map[string]string{
 	"K8S_ERROR":              "the Kubernetes API answered with an error (its words follow)",
 	"K8S_INVALID":            "the cluster refused the request as written (its words follow)",
 	"KEYCHAIN_FAILED":        "the system keychain refused (locked, or no Secret Service on Linux)",
-	"KILL_FAILED":            "the session or job could not be stopped",
+	"KILL_FAILED":            "the session could not be stopped",
 	"PARTIAL_FAILURE":        "some targets failed and some worked (see each result)",
 	"QUEUE_AUTH":             "the queue server refused the login (user, Kafka sasl= mechanism or password)",
 	"QUEUE_CONNECT":          "komando could not connect to the queue server (address, TLS or --via path)",
@@ -767,7 +767,7 @@ var meanings = map[string]string{
 	"VAULT_LOCKED":           "the vault has a passphrase and none was given (KOMANDO_VAULT_PASS)",
 	"VPN_STOP_FAILED":        "the VPN session could not be stopped",
 	"WEAK_PASSPHRASE":        "the passphrase is shorter than 15 characters",
-	"WRITE_FAILED":           "a file on this computer could not be written (guide install, update)",
+	"WRITE_FAILED":           "a file on this computer could not be written (agent skill install, update)",
 	"REMOTE_WRITE_FAILED":    "a file on a server could not be written (fs --sudo, sync, Windows fs)",
 	"CONNECTION_REFUSED":     "the server refused the connection: nothing listens on that port",
 	"DNS_ERROR":              "the server's name does not resolve on this computer",
@@ -813,11 +813,11 @@ var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR", "SHORTER_SCRI
 // hintMeanings stand in for a hint the program builds as it runs (from the
 // key's path, or from the tool's error): what it tells the reader to do.
 var hintMeanings = map[string]string{
-	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
+	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando credential password add NAME` (the hint gives the whole commands)",
 	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
 	"TOOL_FAILED":             "read the message; `komando test CONN` checks reachability (for a known problem, the hint names the fix)",
-	"SHORTER_SCRIPT_REQUIRED": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando exec TARGET --script FILE` for a script",
+	"SHORTER_SCRIPT_REQUIRED": "split it into shorter pieces (the hint names the command for a script, SQL or a file) or ask the user to run it in their own terminal; e.g. `komando host ssh exec TARGET --script FILE` for a script",
 	"WRONG_KIND":              "use the path the hint names, for example `komando cluster kubernetes raw NAME` for a Kubernetes entry; a URL of another provider goes to `komando … add`",
 	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",
 }

@@ -54,7 +54,7 @@ risk     = read | write | destructive  ->  the same guard for all
 
 | Command | Family |
 |---|---|
-| `exec`, `fs`, `cp`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
+| `host ssh exec`, `fs`, `svc`, `docker`, ... | host (Linux; Windows over SSH or WinRM) |
 | `db` | sql and document databases |
 | `cache` | key-value |
 | `queue` | message queues |
@@ -68,8 +68,8 @@ risk     = read | write | destructive  ->  the same guard for all
 
 ```
 komando <noun> <verb> [ITEM] [TARGET] [args] [flags]
-komando db query prod-db "select 1"
-komando storage upload backups ./dump.sql.gz
+komando database postgres query prod-db "select 1"
+komando copy ./dump.sql.gz backups:
 ```
 
 - **There is one interface.** `komando` alone prints the commands by group.
@@ -80,10 +80,10 @@ komando storage upload backups ./dump.sql.gz
 - **A verb has one meaning everywhere.** `list` lists, `show` shows one
   item, `rename` renames, `rm` removes. Words an area's own tool uses
   stay (`scale`, `apply`, `peek`, `purge`), from a fixed list.
-- **A few shortcuts live at the top level** (`exec`, `logs`, `cp`, `list`,
-  `test`, `upload`, `download`), with the same shape as the long form.
+- **A few shortcuts live at the top level** (`exec`, `logs`, `copy`, `list`,
+  `test`), with the same shape as the long form.
 - **Words for a server go after `--`** on every command that passes them
-  on (`exec web1 -- uptime`), so komando never reads them as its own flags.
+  on (`host ssh exec web1 -- uptime`), so komando never reads them as its own flags.
 - **One cluster command.** Verbs every engine has sit under `cluster` and
   work on any cluster; a feature only one engine has says so on the other
   (`cluster kubernetes` is for Kubernetes). `docker` is for one server.
@@ -113,7 +113,7 @@ Selectors pick everything: servers and conns alike.
 
 1. **Commands that look** (`list`, `test`, `show`, `audit`) use everything
    picked.
-2. **Commands that act** use the members they can serve (`exec` → hosts,
+2. **Commands that act** use the members they can serve (`host ssh exec` → hosts,
    `db` → databases). The rest are listed in `meta.skipped` with the
    reason, never dropped quietly.
 3. If none can be served: `NO_MATCHING_TARGETS` (exit 3) with a hint that
@@ -124,7 +124,7 @@ Selectors pick everything: servers and conns alike.
 6. **Safety checks run for the whole batch before anything runs.** One
    protected target that needs a yes stops the whole batch, and every such
    target is named.
-7. `db query` runs against one database; a selector that picks several is
+7. `database KIND query` runs against one database; a selector that picks several is
    refused.
 
 ## 4. Flags
@@ -147,7 +147,7 @@ Selectors pick everything: servers and conns alike.
   Progress, prompts and warnings always go to stderr.
 - Colour only in a terminal, never with `NO_COLOR`.
 - Lists are sorted by name, as one list; a KIND or TYPE column tells kinds
-  apart. Lists without names keep their own order: jobs and tunnels by
+  apart. Lists without names keep their own order: exec sessions and tunnels by
   start time, crontab lines as in the file, `audit` by time.
 - Many targets: `data.results[]` per target, `data.summary` (`ok`,
   `failed`), skipped targets in `meta.skipped[]`. Top-level `ok` is false
@@ -207,7 +207,7 @@ not possible, it says so. The details are in
   `komando test HOST` once and the agent's commands use that login for a
   few hours.
 - **A value only the person knows is typed by the person.** An agent that
-  runs `secret set NAME` without a value gets `NEEDS_PERSON`.
+  runs `credential password add NAME` without a value gets `NEEDS_PERSON`.
 - `--allow-dangerous` and `--yes` apply to one command only and are
   recorded in the audit.
 - **No way around it.** Removing, replacing or turning off protection on a
@@ -226,7 +226,7 @@ not possible, it says so. The details are in
 ## 8. Secrets
 
 - Secrets never appear in command arguments, URLs, the audit or output,
-  except `secret get --reveal` asked for by a person.
+  except `credential password show --reveal` asked for by a person.
 - A secret is entered at a hidden prompt, with `--from-env VAR`, or on
   stdin. **A value as an argument is refused**: it lands in shell history
   and in `ps`.
@@ -282,7 +282,7 @@ komando export [--to FILE]
   runs at once; a change asks `Run it? [y/N, d = --dry-run first]`. The
   questions never add `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`. A command typed in full runs as it always did.
-- `host add`, `conn add`, `vpn KIND add` and each area's add, typed alone, ask
+- `host ssh add`, `conn add`, `vpn KIND add` and each area's add, typed alone, ask
   that kind's own questions, never a password (that is asked hidden).
 - After a command a person ran ends well: `Next time: <line>` when komando
   asked for something, and up to three `Next:` lines. `show` ends with
@@ -306,9 +306,9 @@ If so, extend that one.
 - Doing one item or many at once may be two commands, sharing the same
   code.
 
-Examples in place: `test` (`host test` and `conn test` call it), `list`,
-`logs` (`svc logs` and `docker logs` call it), `recipe`, `upload` /
-`download`, `exec --script`, `import` / `export`, `status --short`.
+Examples in place: `test` (`host ssh test` and `conn test` call it), `list`,
+`logs` (`svc logs` and `docker logs` call it), `recipe`, `copy`,
+`host ssh exec --script`, `import` / `export`, `status --short`.
 
 ## 13. Everything the native tool can do
 
@@ -317,11 +317,11 @@ in every area:
 
 1. **Commands komando understands** (`db schema`, `storage ls`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
-   default and audited: `exec`, `db query`, `cache redis raw`,
+   default and audited: `exec`, `database KIND query`, `cache redis raw`,
    `cluster kubernetes raw -- <kubectl args>`.
-3. **Your own tool, through komando's path**: `komando tunnel start prod-db`
-   gives a local port for any client; `komando shell` opens SSH;
-   `komando db shell prod-db` opens komando's own SQL shell with the
+3. **Your own tool, through komando's path**: `komando host ssh tunnel start prod-db`
+   gives a local port for any client; `komando host ssh shell` opens SSH;
+   `komando database postgres shell prod-db` opens komando's own SQL shell with the
    password from the vault.
 
 Paths 2 and 3 are not overlaps: they exist on purpose, with the same
@@ -363,7 +363,7 @@ A family is done when:
 - **Our own code where no suitable open library exists, and fully open
   source**: no closed or prebuilt parts. Never copy GPL code.
 - **No pool and no daemon.** One connection per command. Tunnels, VPN
-  sessions, kept logins and jobs are the only background processes
+  sessions, kept logins and exec sessions are the only background processes
   (`komando status` lists them).
 - **The paid boundary.** The CLI never syncs between devices. Sync and the
   AI assistant are only in the paid apps, and these rules keep paid-plan
@@ -456,7 +456,7 @@ Use this list for every feature and every review.
 **Credentials**
 - Ref missing, env empty, file unreadable, vault locked without a terminal
 - Expired token (AWS session, kube exec plugin): a clear error that says how to renew
-- Password in the URL at `conn add` or `import`: refused, hint `secret set`
+- Password in the URL at `conn add` or `import`: refused, hint `credential password add`
 
 **Safety**
 - Dangerous commands in disguise: comments, mixed case, odd spacing, several statements, Redis `rename-command`
@@ -474,11 +474,11 @@ Use this list for every feature and every review.
 **Files and transfer**
 - The destination exists: not replaced without `--overwrite`
 - An interrupted download: write to a temporary file, then rename
-- A trailing slash (`dir` vs `dir/`): its meaning is in `--help`, the same for `cp` and `storage`
+- A trailing slash (`dir` vs `dir/`): its meaning is in `--help`, the same for `copy` and `storage`
 - `~` in local and remote paths, spaces and unicode in names, symlinks, very large files (progress on stderr)
 
 **Processes**
-- Over about 2 minutes: `job`; the connection drops while a job runs; orphan jobs are cleaned up
+- Over about 2 minutes: an exec session; the connection drops while it runs; old sessions are cleaned up
 - Ctrl-C: roll back, clean up, `CANCELLED`; at a question, a no with echo back on
 - Two komando processes on the same state
 

@@ -20,7 +20,7 @@ import (
 // `host mv`, `conn mv` and `vpn mv` give an entry a new name. Everything
 // about it stays (address, login, protected mark, groups, tags, labels),
 // and every place in the inventory that names it follows: --via paths of
-// servers, conns and tunnels, jobs and tunnels started on it. Pinned host
+// servers, conns and tunnels, exec sessions and tunnels started on it. Pinned host
 // keys belong to the address, not the name, so they stay valid. All of it
 // changes in one write under the state lock, or not at all.
 
@@ -121,10 +121,10 @@ func renameHost(cl *call, s *store.State, from, to string) (mvResult, error) {
 	h.Name, h.UpdatedAt = to, time.Now().UTC()
 	s.Hosts[to] = h
 	res.Updated = append(res.Updated, renameVia(s, old, to)...)
-	for _, id := range slices.Sorted(maps.Keys(s.Jobs)) {
-		if j := s.Jobs[id]; j.Host == old {
-			j.Host = to
-			res.Updated = append(res.Updated, "job "+id)
+	for _, id := range slices.Sorted(maps.Keys(s.ExecSessions)) {
+		if e := s.ExecSessions[id]; e.Host == old {
+			e.Host = to
+			res.Updated = append(res.Updated, "exec session "+id)
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(s.Tunnels)) {
@@ -202,7 +202,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 	}
 	if len(secrets) > 0 && !cl.dryRun() {
 		if err := vault.RenameMany(cl.storeWrite(), secrets); err != nil {
-			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
+			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando credential list`, KOMANDO_VAULT_PASS)",
 				"the vault cannot rename the VPN's secrets: %v; nothing was renamed", err)
 		}
 		back := map[string]string{}
@@ -268,7 +268,7 @@ func mvCmd(kind, example string, rename func(cl *call, s *store.State, from, to 
 	long := map[string]string{
 		"host": `Gives a server a new name. Everything about it stays: address, login,
 references, protected mark, groups, tags and labels. Servers, conns and
-tunnels that reach other things through it (--via), and its jobs and
+tunnels that reach other things through it (--via), and its exec sessions and
 tunnels, follow the new name. Pinned host keys belong to the address, so
 they stay. Renaming a protected server needs --yes.`,
 		"conn": `Gives a conn a new name. Everything about it stays: URL, password
@@ -315,9 +315,9 @@ uses them, so the old name is free again. Disconnect it first
 }
 
 func hostMvCmd() *cobra.Command {
-	return mvCmd("host", `  komando host rename web1 web-01
-  komando host rename db1 prod-db1 --dry-run   # what would change
-  komando host rename db1 prod-db1 --yes       # db1 is protected`, renameHost)
+	return mvCmd("host", `  komando host ssh rename web1 web-01
+  komando host ssh rename db1 prod-db1 --dry-run   # what would change
+  komando host ssh rename db1 prod-db1 --yes       # db1 is protected`, renameHost)
 }
 
 func connMvCmd() *cobra.Command {

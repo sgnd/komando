@@ -188,7 +188,7 @@ func runRoot(t *testing.T, args ...string) error {
 // The input of exec --stdin-file and the interpreter of script are
 // checked like the command itself.
 func TestStdinAndInterpreterChecked(t *testing.T) {
-	srv := startFakeServer(t)
+	srv := startSessionServer(t, "", true)
 	tmp := t.TempDir()
 	evil := filepath.Join(tmp, "evil.sh")
 	_ = os.WriteFile(evil, []byte("rm -rf / --no-preserve-root\n"), 0o600)
@@ -215,44 +215,42 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		code  string // "" = it runs
 		stdin string // what the server got, when it runs
 	}{
-		{"policy reads the input", []string{"exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
-		{"read-only input that writes", []string{"exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION", ""},
-		{"read-only input, destructive", []string{"exec", "prod", "--read-only", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
-		{"read-only bash -s with a read-only script", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
-		{"read-only reader of data", []string{"exec", "prod", "--read-only", "--stdin-file", data, "--", "wc -l"}, "", "id,cmd\n1,rm -rf /x\n2,a > b\n"},
-		{"psql is not a known read (db query is)", []string{"exec", "prod", "--read-only", "--stdin-file", report, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
-		{"read-only SQL input with a shell escape", []string{"exec", "prod", "--read-only", "--stdin-file", escape, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
-		{"script arguments after --", []string{"exec", "prod", "--read-only", "--stdin-file", positional, "--", "bash -s -- -delete"}, "READ_ONLY_VIOLATION", ""},
-		{"script --arg", []string{"exec", "prod", "--script", positional, "--read-only", "--arg", "-delete"}, "READ_ONLY_VIOLATION", ""},
-		{"script with #!/bin/bash", []string{"exec", "prod", "--script", shebang, "--read-only"}, "", bashScript},
-		{"script with #!/usr/bin/env bash", []string{"exec", "prod", "--script", envBang, "--read-only"}, "", envScript},
-		{"bash -s with #!/bin/bash", []string{"exec", "prod", "--read-only", "--stdin-file", shebang, "--", "bash -s"}, "", bashScript},
-		{"bash -s with #!/usr/bin/env bash", []string{"exec", "prod", "--read-only", "--stdin-file", envBang, "--", "bash -s"}, "", envScript},
-		{"env value that runs code", []string{"exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
-		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "dir=/var/log", "--", "find $dir -name '*.gz'"}, "", ""},
-		{"read-only, input piped into a shell", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
-		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_TARGET", ""},
-		{"interpreter tee", []string{"exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
-		{"interpreter with -c", []string{"exec", "prod", "--read-only", "--interpreter", `sh -c "systemctl stop nginx" #`, "--script", benign}, "READ_ONLY_VIOLATION", ""},
-		{"interpreter python", []string{"exec", "prod", "--read-only", "--interpreter", "python3", "--script", benign}, "READ_ONLY_VIOLATION", ""},
-		{"read-only shell script", []string{"exec", "prod", "--read-only", "--interpreter", "bash -eu", "--script", benign}, "", "uptime\ndf -h /\n"},
-		{"read-only script that writes", []string{"exec", "prod", "--read-only", "--script", writes}, "READ_ONLY_VIOLATION", ""},
-		{"env value turns find into a delete", []string{"exec", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
-		{"job: env value", []string{"job", "start", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
+		{"policy reads the input", []string{"host", "ssh", "exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
+		{"read-only input that writes", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION", ""},
+		{"read-only input, destructive", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
+		{"read-only bash -s with a read-only script", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
+		{"read-only reader of data", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", data, "--", "wc -l"}, "", "id,cmd\n1,rm -rf /x\n2,a > b\n"},
+		{"psql is not a known read (db query is)", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", report, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
+		{"read-only SQL input with a shell escape", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", escape, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
+		{"script arguments after --", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", positional, "--", "bash -s -- -delete"}, "READ_ONLY_VIOLATION", ""},
+		{"script --arg", []string{"host", "ssh", "exec", "prod", "--script", positional, "--read-only", "--arg", "-delete"}, "READ_ONLY_VIOLATION", ""},
+		{"script with #!/bin/bash", []string{"host", "ssh", "exec", "prod", "--script", shebang, "--read-only"}, "", bashScript},
+		{"script with #!/usr/bin/env bash", []string{"host", "ssh", "exec", "prod", "--script", envBang, "--read-only"}, "", envScript},
+		{"bash -s with #!/bin/bash", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", shebang, "--", "bash -s"}, "", bashScript},
+		{"bash -s with #!/usr/bin/env bash", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", envBang, "--", "bash -s"}, "", envScript},
+		{"env value that runs code", []string{"host", "ssh", "exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
+		{"env value filled in, read-only", []string{"host", "ssh", "exec", "prod", "--read-only", "-e", "dir=/var/log", "--", "find $dir -name '*.gz'"}, "", "export dir='/var/log'; "},
+		{"read-only, input piped into a shell", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
+		{"no --read-only on protected", []string{"host", "ssh", "exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_TARGET", ""},
+		{"interpreter tee", []string{"host", "ssh", "exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
+		{"interpreter with -c", []string{"host", "ssh", "exec", "prod", "--read-only", "--interpreter", `sh -c "systemctl stop nginx" #`, "--script", benign}, "READ_ONLY_VIOLATION", ""},
+		{"interpreter python", []string{"host", "ssh", "exec", "prod", "--read-only", "--interpreter", "python3", "--script", benign}, "READ_ONLY_VIOLATION", ""},
+		{"read-only shell script", []string{"host", "ssh", "exec", "prod", "--read-only", "--interpreter", "bash -eu", "--script", benign}, "", "uptime\ndf -h /\n"},
+		{"read-only script that writes", []string{"host", "ssh", "exec", "prod", "--read-only", "--script", writes}, "READ_ONLY_VIOLATION", ""},
+		{"env value turns find into a delete", []string{"host", "ssh", "exec", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
 		// --read-only is an allowlist on a protected target: a command
 		// komando does not know reads still needs --yes, even though the
 		// denylist lets it pass (it changes nothing komando can see)
-		{"allowlist: unknown command is refused", []string{"exec", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
-		{"allowlist: unknown in a pipe is refused", []string{"exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "READ_ONLY_VIOLATION", ""},
-		{"allowlist: unknown in a shell is refused", []string{"exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "READ_ONLY_VIOLATION", ""},
-		{"allowlist: unknown script command is refused", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
-		{"allowlist: known read runs", []string{"exec", "prod", "--read-only", "--", "cat /etc/hostname"}, "", ""},
-		{"allowlist: ps runs", []string{"exec", "prod", "--read-only", "--", "ps aux | grep nginx"}, "", ""},
-		{"allowlist: docker ps runs", []string{"exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
-		{"allowlist: docker rm is a clear write", []string{"exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
-		{"allowlist: systemctl status runs", []string{"exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
-		{"allowlist: job unknown is refused", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
-		{"compose file in a folder komando cannot tell", []string{"exec", "prod", "--yes", "--", `cd "$APP" && docker compose up -d`}, "POLICY_BLOCKED", ""},
+		{"allowlist: unknown command is refused", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: unknown in a pipe is refused", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: unknown in a shell is refused", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: unknown script command is refused", []string{"host", "ssh", "exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
+		{"allowlist: known read runs", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "cat /etc/hostname"}, "", ""},
+		{"allowlist: ps runs", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "ps aux | grep nginx"}, "", ""},
+		{"allowlist: docker ps runs", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
+		{"allowlist: docker rm is a clear write", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: systemctl status runs", []string{"host", "ssh", "exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
+		{"compose file in a folder komando cannot tell", []string{"host", "ssh", "exec", "prod", "--yes", "--", `cd "$APP" && docker compose up -d`}, "POLICY_BLOCKED", ""},
 	}
 	for _, c := range cases {
 		err := runRoot(t, c.args...)
@@ -267,8 +265,16 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		if c.code != "" && len(execs) != 0 {
 			t.Errorf("%s: the server ran %d command(s): %+v", c.name, len(execs), execs)
 		}
-		if c.code == "" && (len(execs) != 1 || execs[0].stdin != c.stdin) {
-			t.Errorf("%s: the server got %+v, want one run with input %q", c.name, execs, c.stdin)
+		if c.code == "" {
+			var starts []fakeExec
+			for _, x := range execs {
+				if strings.Contains(x.cmd, "mkfifo") {
+					starts = append(starts, x)
+				}
+			}
+			if len(starts) != 1 || starts[0].stdin != c.stdin {
+				t.Errorf("%s: the server got %d session start(s), want one with input %q: %+v", c.name, len(starts), c.stdin, starts)
+			}
 		}
 	}
 }
@@ -281,12 +287,12 @@ func TestRecipeVarsChecked(t *testing.T) {
 		args []string
 		code string
 	}{
-		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=-delete"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=--files0-from=/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "big-dirs", "prod", "--var", "path=-o/etc/x"}, "OPTION_LIKE_VAR"},
-		{[]string{"recipe", "run", "oom", "prod", "--var", "since=-2h"}, ""}, // a relative time
-		{[]string{"recipe", "run", "big-files", "prod", "--var", "path=./-odd-dir"}, ""},
-		{[]string{"recipe", "add", "wipe", "find {{path=/srv}} -delete", "--read-only"}, "READ_ONLY_VIOLATION"},
+		{[]string{"snippet", "exec", "big-files", "prod", "--var", "path=-delete"}, "OPTION_LIKE_VAR"},
+		{[]string{"snippet", "exec", "big-dirs", "prod", "--var", "path=--files0-from=/etc/x"}, "OPTION_LIKE_VAR"},
+		{[]string{"snippet", "exec", "big-dirs", "prod", "--var", "path=-o/etc/x"}, "OPTION_LIKE_VAR"},
+		{[]string{"snippet", "exec", "oom", "prod", "--var", "since=-2h"}, ""}, // a relative time
+		{[]string{"snippet", "exec", "big-files", "prod", "--var", "path=./-odd-dir"}, ""},
+		{[]string{"snippet", "create", "wipe", "find {{path=/srv}} -delete", "--read-only"}, "READ_ONLY_VIOLATION"},
 	}
 	for _, c := range cases {
 		err := runRoot(t, c.args...)
@@ -315,7 +321,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 	}
 	// finder with x=rm deletes files (rule rm-files): it needs --allow-dangerous too
 	for _, name := range []string{"finder", "procs"} {
-		args := []string{"recipe", "run", name, "prod", "--var", "n=x", "--var", "x=rm"}
+		args := []string{"snippet", "exec", name, "prod", "--var", "n=x", "--var", "x=rm"}
 		want, approve := "POLICY_BLOCKED", []string{"--yes", "--allow-dangerous"}
 		if name == "procs" {
 			args, want, approve = args[:4], "PROTECTED_TARGET", []string{"--yes"}
@@ -333,14 +339,14 @@ func TestRecipeVarsChecked(t *testing.T) {
 			t.Errorf("%s --yes: %d runs", name, n)
 		}
 	}
-	if err := runRoot(t, "recipe", "run", "peek", "prod", "--var", "f=/etc/hosts"); err != nil {
+	if err := runRoot(t, "snippet", "exec", "peek", "prod", "--var", "f=/etc/hosts"); err != nil {
 		t.Errorf("peek: %v", err)
 	}
 	srv.take()
 }
 
 // Every built-in read-only recipe, filled in with its defaults, passes the
-// read-only check (recipe run applies it).
+// read-only check (snippet exec applies it).
 func TestBuiltinRecipesAreReadOnly(t *testing.T) {
 	for _, r := range recipes {
 		if r.Mutating {
@@ -365,7 +371,7 @@ func TestBuiltinRecipesAreReadOnly(t *testing.T) {
 // Streamed output is redacted by whole lines, so a secret split across
 // two reads does not reach the agent in pieces.
 func TestStreamRedactsSplitSecrets(t *testing.T) {
-	srv := startFakeServer(t)
+	srv := startSessionServer(t, "", true)
 	asAgent(t, false, true) // agents get masking
 	cases := []struct {
 		chunks []string
@@ -377,10 +383,10 @@ func TestStreamRedactsSplitSecrets(t *testing.T) {
 		{[]string{"-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAE\nQyNTUxOQAAACDUMMYBODYKEY\n-----END OPENSSH PRIVATE KEY-----\n"}, []string{"b3BlbnNzaC1rZXkt", "DUMMYBODYKEY"}},
 	}
 	for i, c := range cases {
-		srv.reply(c.chunks...)
+		srv.log = strings.Join(c.chunks, "")
 		for _, format := range []string{"json", "text"} {
 			got := captureOutput(t, func() error {
-				return runRoot(t, "-o", format, "exec", "prod", "--read-only", "--stream", "--", "tail -f /var/log/app.log")
+				return runRoot(t, "-o", format, "host", "ssh", "exec", "prod", "--read-only", "--stream", "--", "tail -f /var/log/app.log")
 			})
 			for _, l := range c.leaks {
 				if strings.Contains(got, l) {
@@ -486,7 +492,7 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 	if !strings.Contains(got, `"error":"matches every command: your deny rule`) {
 		t.Errorf("policy list: %s", got)
 	}
-	if err := runRoot(t, "exec", "prod", "--read-only", "--", "uptime"); toErr(err) == nil || toErr(err).Code != "POLICY_BLOCKED" {
+	if err := runRoot(t, "host", "ssh", "exec", "prod", "--read-only", "--", "uptime"); toErr(err) == nil || toErr(err).Code != "POLICY_BLOCKED" {
 		t.Errorf("exec with a broken rule: %v", err)
 	}
 }
@@ -745,13 +751,13 @@ func TestDryRunReportsInputStops(t *testing.T) {
 		args       []string
 		code, rule string
 	}{
-		{[]string{"--dry-run", "exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
-		{[]string{"--dry-run", "exec", "dev", "--script", evil}, "POLICY_BLOCKED", ""},
-		{[]string{"--dry-run", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION", ""},
+		{[]string{"--dry-run", "host", "ssh", "exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
+		{[]string{"--dry-run", "host", "ssh", "exec", "dev", "--script", evil}, "POLICY_BLOCKED", ""},
+		{[]string{"--dry-run", "host", "ssh", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION", ""},
 		// user lock and user add --shell stopped here before the cut (D1)
-		{[]string{"--dry-run", "exec", "dev", "--", "usermod", "-L", "-e", "1", "root"}, "POLICY_BLOCKED", "account-lock"},
-		{[]string{"--dry-run", "exec", "dev", "--", "passwd", "-l", "root"}, "POLICY_BLOCKED", "account-lock"},
-		{[]string{"--dry-run", "exec", "dev", "--", "usermod", "-s", "/sbin/nologin", "root"}, "POLICY_BLOCKED", "account-lock"},
+		{[]string{"--dry-run", "host", "ssh", "exec", "dev", "--", "usermod", "-L", "-e", "1", "root"}, "POLICY_BLOCKED", "account-lock"},
+		{[]string{"--dry-run", "host", "ssh", "exec", "dev", "--", "passwd", "-l", "root"}, "POLICY_BLOCKED", "account-lock"},
+		{[]string{"--dry-run", "host", "ssh", "exec", "dev", "--", "usermod", "-s", "/sbin/nologin", "root"}, "POLICY_BLOCKED", "account-lock"},
 	}
 	for _, c := range cases {
 		tcl.out.Reset()

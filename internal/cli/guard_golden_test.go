@@ -18,7 +18,7 @@ func TestGuardGolden(t *testing.T) {
 	var b strings.Builder
 	for _, c := range []struct{ name, args, in string }{
 		{"allow: an ordinary command", "", `{"tool_name":"Bash","tool_input":{"command":"go test ./..."},"cwd":"/p"}`},
-		{"allow: a komando command", "", `{"tool_name":"Bash","tool_input":{"command":"komando exec web1 --read-only -- uptime"},"cwd":"/p"}`},
+		{"allow: a komando command", "", `{"tool_name":"Bash","tool_input":{"command":"komando host ssh exec web1 --read-only -- uptime"},"cwd":"/p"}`},
 		{"deny: reading a private key", "", `{"tool_name":"Bash","tool_input":{"command":"cat ~/.ssh/id_ed25519"},"cwd":"/p"}`},
 		{"deny: reading a .env file", "", `{"tool_name":"Read","tool_input":{"file_path":"/p/.env"},"cwd":"/p"}`},
 		{"unreadable input", "", `not json`},

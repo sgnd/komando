@@ -1,5 +1,5 @@
 {
-  "audit --limit 5": {
+  "audit list --limit 5": {
     "command": "string",
     "data": {
       "count": "number",
@@ -172,7 +172,7 @@
     },
     "ok": "bool"
   },
-  "cp web:/etc/hosts web:/tmp/hosts --dry-run": {
+  "copy - web:/tmp/motd --size 12 --dry-run": {
     "command": "string",
     "data": {
       "direction": "string",
@@ -190,7 +190,7 @@
     },
     "ok": "bool"
   },
-  "download web /etc/hosts --to - --dry-run": {
+  "copy web:/etc/hosts - --dry-run": {
     "command": "string",
     "data": {
       "direction": "string",
@@ -208,10 +208,79 @@
     },
     "ok": "bool"
   },
-  "exec web -- rm -rf /": {
+  "copy web:/etc/hosts web:/tmp/hosts --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential key list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "keys": []
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential list": {
+    "command": "string",
+    "data": {
+      "count": "number",
+      "secrets": [
+        {
+          "name": "string",
+          "updated_at": "string",
+          "used_by": [
+            "string"
+          ]
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential password add pg-new --new --from-env PG_PASS --dry-run": {
+    "command": "string",
+    "data": {
+      "action": "string",
+      "name": "string",
+      "ref": "string",
+      "replaced": "bool",
+      "would_set": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "credential password add pg-pass --new --from-env PG_PASS": {
     "command": "string",
     "error": {
-      "code": "code POLICY_BLOCKED",
+      "code": "code SECRET_EXISTS",
       "hint": "string",
       "message": "string"
     },
@@ -222,21 +291,18 @@
     },
     "ok": "bool"
   },
-  "exec web --dry-run -- uptime": {
+  "credential password show pg-pass": {
     "command": "string",
     "data": {
-      "would_run": [
-        {
-          "address": "string",
-          "host": "string",
-          "remote_command": "string",
-          "stdin_bytes": "number"
-        }
+      "exists": "bool",
+      "name": "string",
+      "ref": "string",
+      "used_by": [
+        "string"
       ]
     },
     "meta": {
       "contract": "number",
-      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },
@@ -468,70 +534,6 @@
     },
     "ok": "bool"
   },
-  "facts web --only load,mem,disks (recorded)": {
-    "command": "string",
-    "data": {
-      "results": [
-        {
-          "data": {
-            "cpus": "number",
-            "disk_root_total_gb": "number",
-            "disk_root_used_pct": "number",
-            "disks": [
-              {
-                "avail_mb": "number",
-                "device": "string",
-                "mount": "string",
-                "size_mb": "number",
-                "used_mb": "number",
-                "used_pct": "number"
-              }
-            ],
-            "load": [
-              "number"
-            ],
-            "mem_available_mb": "number",
-            "mem_total_mb": "number",
-            "swap_free_mb": "number",
-            "swap_total_mb": "number"
-          },
-          "exit_code": "number",
-          "host": "string",
-          "ok": "bool"
-        }
-      ],
-      "summary": {
-        "failed": "number",
-        "ok": "number",
-        "total": "number"
-      }
-    },
-    "ok": "bool"
-  },
-  "facts web --only system (recorded)": {
-    "command": "string",
-    "data": {
-      "results": [
-        {
-          "data": {
-            "os": "string",
-            "os_pretty": "string",
-            "os_version": "string",
-            "uptime_sec": "number"
-          },
-          "exit_code": "number",
-          "host": "string",
-          "ok": "bool"
-        }
-      ],
-      "summary": {
-        "failed": "number",
-        "ok": "number",
-        "total": "number"
-      }
-    },
-    "ok": "bool"
-  },
   "group list": {
     "command": "string",
     "data": {
@@ -553,7 +555,7 @@
     },
     "ok": "bool"
   },
-  "host edit web --port 2222 --dry-run": {
+  "host ssh edit web --port 2222 --dry-run": {
     "command": "string",
     "data": {
       "address": "string",
@@ -579,7 +581,41 @@
     },
     "ok": "bool"
   },
-  "host list": {
+  "host ssh exec web -- rm -rf /": {
+    "command": "string",
+    "error": {
+      "code": "code POLICY_BLOCKED",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh exec web --dry-run -- uptime": {
+    "command": "string",
+    "data": {
+      "would_run": [
+        {
+          "address": "string",
+          "host": "string",
+          "remote_command": "string",
+          "stdin_bytes": "number"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host ssh list": {
     "command": "string",
     "data": {
       "count": "number",
@@ -606,7 +642,7 @@
     },
     "ok": "bool"
   },
-  "host rm web --dry-run": {
+  "host ssh remove web --dry-run": {
     "command": "string",
     "data": {
       "would_remove": [
@@ -621,7 +657,7 @@
     },
     "ok": "bool"
   },
-  "host show nope": {
+  "host ssh show nope": {
     "command": "string",
     "error": {
       "code": "code TARGET_NOT_FOUND",
@@ -635,7 +671,7 @@
     },
     "ok": "bool"
   },
-  "host show web": {
+  "host ssh show web": {
     "command": "string",
     "data": {
       "address": "string",
@@ -658,22 +694,7 @@
     },
     "ok": "bool"
   },
-  "host ssh-command web": {
-    "command": "string",
-    "data": {
-      "argv": [
-        "string"
-      ],
-      "command": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "host trust web --dry-run": {
+  "host ssh trust web --dry-run": {
     "command": "string",
     "data": {
       "results": [
@@ -692,7 +713,7 @@
     },
     "ok": "bool"
   },
-  "host trust web --fingerprint SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc --dry-run": {
+  "host ssh trust web --fingerprint SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc --dry-run": {
     "command": "string",
     "data": {
       "results": [
@@ -712,11 +733,11 @@
     },
     "ok": "bool"
   },
-  "job list": {
+  "host ssh tunnel list": {
     "command": "string",
     "data": {
       "count": "number",
-      "jobs": []
+      "tunnels": []
     },
     "meta": {
       "contract": "number",
@@ -725,11 +746,13 @@
     },
     "ok": "bool"
   },
-  "key list": {
+  "host ssh-command web": {
     "command": "string",
     "data": {
-      "count": "number",
-      "keys": []
+      "argv": [
+        "string"
+      ],
+      "command": "string"
     },
     "meta": {
       "contract": "number",
@@ -861,32 +884,6 @@
     },
     "ok": "bool"
   },
-  "recipe list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "recipes": [
-        {
-          "builtin": "bool",
-          "category": "string",
-          "command": "string",
-          "description": "string",
-          "name": "string",
-          "params": {
-            "*": "string"
-          },
-          "read_only": "bool",
-          "sudo": "bool"
-        }
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
   "schema conn add": {
     "command": "string",
     "data": {
@@ -945,14 +942,11 @@
     },
     "ok": "bool"
   },
-  "schema secret set": {
+  "schema credential password add": {
     "command": "string",
     "data": {
       "commands": [
         {
-          "aliases": [
-            "string"
-          ],
           "confirm": [
             {
               "tier": "string"
@@ -1024,67 +1018,24 @@
     },
     "ok": "bool"
   },
-  "secret get pg-pass": {
-    "command": "string",
-    "data": {
-      "exists": "bool",
-      "name": "string",
-      "ref": "string",
-      "used_by": [
-        "string"
-      ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret list": {
+  "snippet list": {
     "command": "string",
     "data": {
       "count": "number",
-      "secrets": [
+      "recipes": [
         {
+          "builtin": "bool",
+          "category": "string",
+          "command": "string",
+          "description": "string",
           "name": "string",
-          "updated_at": "string",
-          "used_by": [
-            "string"
-          ]
+          "params": {
+            "*": "string"
+          },
+          "read_only": "bool",
+          "sudo": "bool"
         }
       ]
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret set pg-new --new --from-env PG_PASS --dry-run": {
-    "command": "string",
-    "data": {
-      "action": "string",
-      "name": "string",
-      "ref": "string",
-      "replaced": "bool",
-      "would_set": "bool"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "secret set pg-pass --new --from-env PG_PASS": {
-    "command": "string",
-    "error": {
-      "code": "code SECRET_EXISTS",
-      "hint": "string",
-      "message": "string"
     },
     "meta": {
       "contract": "number",
@@ -1115,7 +1066,7 @@
     "command": "string",
     "data": {
       "aws_logins": [],
-      "jobs": [],
+      "exec_sessions": [],
       "logins": [],
       "tunnels": [],
       "vpns": []
@@ -1202,37 +1153,6 @@
     },
     "meta": {
       "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "tunnel list": {
-    "command": "string",
-    "data": {
-      "count": "number",
-      "tunnels": []
-    },
-    "meta": {
-      "contract": "number",
-      "duration_ms": "number",
-      "version": "string"
-    },
-    "ok": "bool"
-  },
-  "upload web - /tmp/motd --size 12 --dry-run": {
-    "command": "string",
-    "data": {
-      "direction": "string",
-      "dst": "string",
-      "hosts": [
-        "string"
-      ],
-      "src": "string"
-    },
-    "meta": {
-      "contract": "number",
-      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },

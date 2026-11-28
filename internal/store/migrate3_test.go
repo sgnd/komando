@@ -541,6 +541,7 @@ func TestMigrate3FailsClosed(t *testing.T) {
 		opts  func(o *migrate3Opts)
 		code  string
 		says  string // a part of the message, when one matters
+		lacks string // what the message must not name
 	}{
 		{name: "an AI agent or a script", opts: func(o *migrate3Opts) { o.way = MigrateRefuse; o.why = "an AI agent (Claude Code)" }, code: "NEEDS_PERSON"},
 		{
@@ -552,6 +553,20 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			},
 			opts: func(o *migrate3Opts) { o.alive = func(pid int, _ string) bool { return pid == 4242 } },
 			code: "STORE_IN_USE",
+		},
+		{
+			// rule R3 (C606): v0.18 has no job commands and its exec sessions
+			// never take a v0.17 job ID, so a job not seen ending stops the move
+			name: "a v0.17 job record not seen ending",
+			setup: func(t *testing.T) {
+				format2Runtime(t, func(s *State) {
+					s.Jobs["j1"] = &Job{ID: "j1", Host: "web", Command: "pg_dump --password " + sentinel, PID: 4242}
+					s.Jobs["j2"] = &Job{ID: "j2", Host: "web", PID: 4243, Ended: "exited"}
+				})
+			},
+			code:  "STORE_IN_USE",
+			says:  "job j1 on web (`komando doctor` offers to mark it ended)",
+			lacks: "j2",
 		},
 		{
 			name: "a deny pattern changed outside komando",
@@ -635,6 +650,9 @@ func TestMigrate3FailsClosed(t *testing.T) {
 			}
 			if !strings.Contains(e.Message, tt.says) {
 				t.Errorf("message %q lacks %q", e.Message, tt.says)
+			}
+			if tt.lacks != "" && strings.Contains(e.Message, tt.lacks) {
+				t.Errorf("message %q names %q", e.Message, tt.lacks)
 			}
 			if want := map[string]int{"STORE_IN_USE": out.ExitConflict, "STORE_MIGRATION_FAILED": out.ExitError, "NEEDS_PERSON": out.ExitPolicy}[tt.code]; want != 0 && e.Exit != want {
 				t.Errorf("%s: exit %d, want %d (S-8.2)", tt.code, e.Exit, want)

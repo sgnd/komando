@@ -19,7 +19,7 @@ func TestAskSecretNeverReplacesOneMadeWhileTyping(t *testing.T) {
 		sec  string
 		args []string
 	}{
-		{"vps7-pass", []string{"host", "add", "vps7", "root@10.0.0.70", "--ask-password"}},
+		{"vps7-pass", []string{"host", "ssh", "add", "vps7", "root@10.0.0.70", "--ask-password"}},
 		{"app7-pass", []string{"conn", "add", "app7", "postgres://app@10.0.0.71/app", "--ask-password"}},
 	} {
 		readPassword = func(*call, string) (string, error) {
@@ -27,7 +27,7 @@ func TestAskSecretNeverReplacesOneMadeWhileTyping(t *testing.T) {
 			return "Typed-Pass-7", nil
 		}
 		e := wantCode(t, "SECRET_EXISTS", tc.args...)
-		if !strings.Contains(e.Message, "while you typed") || !strings.Contains(e.Hint, "komando secret set") {
+		if !strings.Contains(e.Message, "while you typed") || !strings.Contains(e.Hint, "komando credential password add") {
 			t.Errorf("%s: %+v", tc.sec, e)
 		}
 		if v, _ := vault.Get(tc.sec); v != "made-meanwhile" {

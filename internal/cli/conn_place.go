@@ -125,11 +125,11 @@ func guardConnFile(cl *call, c *store.Conn) error {
 }
 
 // guardDBFile is guardConnFile for a database file path p on this
-// computer (a conn's, or a db dump's --to); what says what p would be.
+// computer (a conn's, or a backup's --to); what says what p would be.
 func guardDBFile(cl *call, p, what string) error {
 	if localSecret(cl, p) == komandoData {
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			"use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)",
+			"use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando credential list`)",
 			"%s is %s, not %s", p, komandoData, what).NoFlag()
 	}
 	if !cl.isAgent() {
@@ -181,7 +181,7 @@ func dbFileOffLimits(cl *call, p string) string {
 	return ""
 }
 
-// dumpTarget checks db dump's conn and its --to file: the conn's file
+// dumpTarget checks backup's conn and its --to file: the conn's file
 // (guardConnFile), a file an agent may not write there (guardDBFile), and
 // one that exists already (backups are never overwritten).
 func dumpTarget(cl *call, c *store.Conn, to string) error {
@@ -197,7 +197,7 @@ func dumpTarget(cl *call, c *store.Conn, to string) error {
 	return nil
 }
 
-// guardBackupFile checks a backup db restore reads: what the agent guard
+// guardBackupFile checks a backup that restore reads: what the agent guard
 // keeps from an agent (guardLocalRead), and a login folder (guardDBFile).
 func guardBackupFile(cl *call, path string) error {
 	if err := guardLocalRead(cl, path); err != nil {
@@ -220,7 +220,7 @@ func sqliteFileSQL(cl *call, c *store.Conn, query string) error {
 	}
 	if cl.isAgent() { // (the SQLite engine keeps load_extension off for everyone: "not authorized")
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			"leave "+strings.Join(found, " and ")+" out, or ask the user to run it in their own terminal (`komando db dump "+c.Name+" --to FILE` copies the database)",
+			"leave "+strings.Join(found, " and ")+" out, or ask the user to run it in their own terminal (`"+dbPathOf(c, "backup")+" "+c.Name+" --to FILE` copies the database)",
 			"%s on a SQLite conn writes or loads a file wherever it is told; komando does not run it for an AI agent", strings.Join(found, " and ")).NoFlag()
 	}
 	return nil

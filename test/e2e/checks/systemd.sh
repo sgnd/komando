@@ -17,14 +17,14 @@ done
 if [ "$up" != yes ]; then
   echo "  skipped: systemd cannot run as PID 1 in a container on this machine"
 else
-  q $K host add t-sysd "agent@127.0.0.1:$SYSD_PORT" --password-ref credential:agent-pass
-  q $K host trust t-sysd
+  q $K host ssh add t-sysd "agent@127.0.0.1:$SYSD_PORT" --credential agent-pass
+  q $K host ssh trust t-sysd
 
   # like journalctl: a plain user may not read the system journal; komando says so
   # (journald answers "No entries" or "insufficient permissions"; either way komando names --sudo)
   check "logs --unit as a plain user = journalctl's refusal, said clearly" "No entries True" \
     "$(sys su agent -s /bin/sh -c 'journalctl -u t-svc --no-pager' 2>/dev/null | grep -o 'No entries') $($K logs t-sysd --unit t-svc | jget '"--sudo" in json.dumps(d) and "hello from t-svc" not in json.dumps(d)' || true)"
   check "logs --unit = journalctl -u" True "$(sys journalctl -u t-svc --no-pager | grep -q 'hello from t-svc' && $K logs t-sysd --unit t-svc --sudo | jget '"hello from t-svc" in json.dumps(d)')"
-  q $K host rm t-sysd
+  q $K host ssh remove t-sysd
 fi
 docker rm -f "$SYSD" >/dev/null 2>&1 || true

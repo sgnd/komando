@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -94,6 +95,19 @@ func PreviewMigration(ctx context.Context, refGuard func(kind, name string) erro
 	}
 	p := buildPlan3(snap, refGuard)
 	pv.WouldRefuse = append(pv.WouldRefuse, p.plain...)
+	if pv.Format == "2" { // a format-1 store is upgraded first, and counted then
+		n, err := unendedJobs(ctx, d, master)
+		if err != nil {
+			return pv, err
+		}
+		if n > 0 {
+			what := "job records have"
+			if n == 1 {
+				what = "job record has"
+			}
+			pv.WouldRefuse = append(pv.WouldRefuse, fmt.Sprintf("%d v0.17 %s no end: `komando doctor` offers to mark each one ended", n, what))
+		}
+	}
 	pv.Fix = p.fix()
 	r := p.report
 	pv.Counts, pv.NamesChanged, pv.FieldsRewritten = r.Counts, len(r.Names), len(r.Rewritten)

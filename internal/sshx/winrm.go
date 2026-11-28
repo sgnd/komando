@@ -25,7 +25,7 @@ import (
 func dialWinRM(ctx context.Context, st *store.State, h *store.Host, o Options) (*Client, error) {
 	if !o.WinRM || o.scan != nil {
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"WinRM carries PowerShell commands only: use `komando exec "+h.Name+" -- ...`; for a shell, tunnels or SSH host keys, turn on OpenSSH on the server and add it with --os windows (https://github.com/sgnd/komando/blob/main/docs/features/windows.md)",
+			"WinRM carries PowerShell commands only: use `komando host winrm exec "+h.Name+" -- ...`; for a shell, tunnels or SSH host keys, turn on OpenSSH on the server and add it with --os windows (https://github.com/sgnd/komando/blob/main/docs/features/windows.md)",
 			"%s is reached over WinRM, which cannot do this (it has no SSH)", h.Name)
 	}
 	pass, refused, err := winrmPassword(ctx, st, h)
@@ -80,7 +80,7 @@ func winrmOpts(h *store.Host) store.WinRMOpts {
 func winrmPassword(ctx context.Context, st *store.State, h *store.Host) (pw string, refused func(), err error) {
 	if (h.PasswordRef == "" && !h.AskLogin()) || h.User == "" {
 		return "", nil, out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"WinRM logs in with a user and a password: `komando host edit "+h.Name+" --ask-password` (and the user in the address, for example winrm://Administrator@HOST)",
+			"WinRM logs in with a user and a password: `komando host winrm edit "+h.Name+" --ask-password` (and the user in the address, for example winrm://Administrator@HOST)",
 			"%s has no user or password for WinRM", h.Name)
 	}
 	if h.AskLogin() {
@@ -116,7 +116,7 @@ func winrmTLS(h *store.Host) (*tls.Config, error) {
 		}
 		pool := transport.Roots()
 		if !pool.AppendCertsFromPEM([]byte(pem)) {
-			return nil, out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM) with `komando secret set NAME < ca.crt`",
+			return nil, out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM) with `komando credential token add NAME < ca.crt`",
 				"%s: the WinRM CA %s holds no PEM certificate", h.Name, opts.CA)
 		}
 		tc.RootCAs = pool
@@ -154,10 +154,10 @@ func winrmErr(h *store.Host, err error) error {
 	var oe *net.OpError
 	switch {
 	case errors.Is(err, winrm.ErrAuth):
-		return out.Errf(out.ExitConnect, "AUTH_FAILED", "check the user and password (`komando host edit "+h.Name+" --ask-password`); a domain user is written DOMAIN\\user; Basic login works only for local accounts",
+		return out.Errf(out.ExitConnect, "AUTH_FAILED", "check the user and password (`komando host ssh edit "+h.Name+" --ask-password`); a domain user is written DOMAIN\\user; Basic login works only for local accounts",
 			"%s: %v", h.Name, err)
 	case errors.As(err, &ue), errors.As(err, &ce), errors.As(err, &he):
-		return out.Errf(out.ExitConnect, "WINRM_TLS", "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=credential:NAME to its winrm:// address (`komando host edit "+h.Name+" --address winrm://...`)",
+		return out.Errf(out.ExitConnect, "WINRM_TLS", "if the server's certificate comes from your own CA, store it with `komando credential token add NAME < ca.crt` and add ?ca=credential:NAME to its winrm:// address (`komando host winrm edit "+h.Name+" --address winrm://...`)",
 			"%s: the WinRM server's certificate cannot be trusted: %v", h.Name, err)
 	case errors.As(err, &fe):
 		return out.Errf(out.ExitRemote, "WINRM_ERROR", "read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group)",

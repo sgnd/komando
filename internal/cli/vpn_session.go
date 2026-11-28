@@ -605,7 +605,7 @@ func vpnDownCmd() *cobra.Command {
 					case "socks":
 						how := "stop the program that serves " + v.Address
 						if id := socksTunnel(st, v.Address); id != "" {
-							how = "stop its tunnel with `komando tunnel stop " + id + "`"
+							how = "stop its tunnel with `komando host ssh tunnel stop " + id + "`"
 						}
 						notes = append(notes, n+" is a SOCKS proxy that komando does not run; "+how)
 					case "proxy":

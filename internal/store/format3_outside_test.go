@@ -139,7 +139,7 @@ func TestOldReference(t *testing.T) {
 // else is not a reference; the caller says what it wants instead.
 // outsideFixLine is the fix the refusal of an outside store names, spelled
 // out here so that a change to CredentialFix shows in this test.
-const outsideFixLine = "save the secret as a credential with `komando secret set NAME`, then use credential:NAME"
+const outsideFixLine = "save the secret as a credential with `komando credential password add NAME`, then use credential:NAME"
 
 func TestCredentialRef(t *testing.T) {
 	for _, tc := range []struct {

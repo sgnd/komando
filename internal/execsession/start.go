@@ -67,11 +67,11 @@ func StartScript(s Start) (string, error) {
 		// the root process writes its own PID and waits for .go: the facts
 		// are its own, and with setsid it must lead its own group before
 		// anything of the command runs, or the start fails
-		`p=; i=0; while [ $i -lt 20 ]; do p=$(cat "$d/.w" 2>/dev/null); [ -n "$p" ] && break; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+		FactsScript + `; p=; i=0; while [ $i -lt 20 ]; do p=$(cat "$d/.w" 2>/dev/null); [ -n "$p" ] && break; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
 		`case "$p" in ''|*[!0-9]*) rm -rf "$d"; exit ` + noGroup + `;; esac; ` +
-		`i=0; while [ -n "$g" ] && [ "$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')" != "$p" ]; do ` +
+		`i=0; while [ -n "$g" ] && [ "$(ks_pgid "$p")" != "$p" ]; do ` +
 		`[ $i -lt 10 ] || { kill -TERM "$p" 2>/dev/null; rm -rf "$d"; exit ` + noGroup + `; }; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
-		`echo "$p" > "$d/pid"; : > "$d/.go"; ` + FactsScript + `; ks_facts "$p" ` + s.ID, nil
+		`echo "$p" > "$d/pid"; : > "$d/.go"; ks_facts "$p" ` + s.ID, nil
 }
 
 // wrapper is the session's root process. It first writes its PID to .w
@@ -81,15 +81,20 @@ func StartScript(s Start) (string, error) {
 // login's umask comes back, so its files stay private. exit is written
 // through exit.tmp once the capper is done (or 3 s after the run, when a
 // child the run left still holds the output open), and after the input
-// files and the fifo are gone: a reader that sees exit sees them gone.
+// files and the fifo are gone: a reader that sees exit sees them gone. It
+// is written also after a stop's killed mark, which a stop that signalled
+// nothing takes back (the run ended on its own meanwhile).
 func wrapper(start string, timeout time.Duration, max int64) string {
 	watch, end := watcher(timeout)
-	return `echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+	// the group's TERM (a stop, the timeout) ends the run, not its ending: the
+	// root traps it and hands it to the run (without setsid only the root gets
+	// it); the capper ignores it, so head writes what it holds
+	return `trap '[ -z "$w" ] || kill -TERM $w 2>/dev/null' TERM; echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
 		`[ -e "$d/.go" ] || exit 0; rm -f "$d/.w" "$d/.go"; ` +
-		`{ head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
+		`{ trap '' TERM; head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
 		`exec > "$d/.o" 2>&1; umask "$1"; ` + start + `; umask 077; ` + watch + end +
 		`exec > /dev/null 2>&1; i=0; while kill -0 $k 2>/dev/null && [ $i -lt 3 ]; do sleep 1; i=$((i+1)); done; ` +
-		`rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"; [ -f "$d/killed" ] || { echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"; }`
+		`rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"; echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"`
 }
 
 // ErrNoFolder: no session folder can be made on the server (a read-only or
@@ -109,7 +114,7 @@ func ReadStart(host string, exit int, stdout, id string) (Facts, []string, error
 		return Facts{}, nil, folderDenied(host)
 	case ExitNoSpace:
 		return Facts{}, nil, out.Errf(out.ExitRemote, "SESSION_SPACE_DENIED",
-			"free space in the home folder, or give a smaller log cap: `komando exec TARGET --log-max 100MiB -- COMMAND`",
+			"free space in the home folder, or give a smaller log cap: `komando host ssh exec TARGET --log-max 100MiB -- COMMAND`",
 			"%s: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran", host)
 	default:
 		return Facts{}, nil, startFailed(host, "exit "+strconv.Itoa(exit))
@@ -132,12 +137,12 @@ func ReadStart(host string, exit int, stdout, id string) (Facts, []string, error
 
 func folderDenied(host string) error {
 	return out.Errf(out.ExitRemote, "SESSION_FOLDER_DENIED",
-		"look with `komando exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)",
+		"look with `komando host ssh exec TARGET -- ls -ld ~/.komando ~/.komando/sessions`: each is to be a plain folder of the login user that only it can write (chmod 700)",
 		"%s: ~/.komando or its sessions folder is a link, a file, not the login user's, or others can write it", host)
 }
 
 func startFailed(host, why string) error {
 	return out.Errf(out.ExitRemote, "SESSION_START_FAILED",
-		"the server needs nohup, ps and mkfifo: look with `komando exec TARGET -- command -v setsid nohup ps mkfifo`",
+		"the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo`",
 		"%s: the run in a session did not start (%s)", host, why)
 }

@@ -123,7 +123,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 		}
 	case "mongodb":
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-			"on MongoDB use `komando db query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando exec`",
+			"on MongoDB use `komando database mongodb query CONN '{\"find\": ...}'`, `db schema` and `db info`; for a backup, run mongodump on a server with `komando host ssh exec`",
 			"this db command is for SQL databases, not MongoDB")
 	default:
 		return nil, out.Usage("%s conns do not take SQL", t.Kind.Name)
@@ -448,7 +448,7 @@ const txMark = "komando_tx"
 
 func txEscaped(n int, st driver.Statement, err error) error {
 	return out.Errf(out.ExitPolicy, "SQL_TX_CHECK_REQUIRED",
-		"leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando db query CONN -- SELECT ...`",
+		"leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando database KIND query NAME -- SELECT ...`",
 		"statement %d (%s) ended komando's transaction, so komando stopped (%v)", n, st.Keyword, err)
 }
 
@@ -650,7 +650,7 @@ func tlsHint(kind string, err error) string {
 	via := "reach the server --via an SSH server and connect without TLS through it (`komando conn edit NAME --via HOST --url '..." + weak[1] + "'`)"
 	switch {
 	case strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify"):
-		ca := "give the CA that signed it with ?ca=credential:NAME (`komando secret set NAME < ca.pem`)"
+		ca := "give the CA that signed it with ?ca=credential:NAME (`komando credential token add NAME < ca.pem`)"
 		return "the server's certificate could not be checked: " + ca + ", or " + via +
 			"; without --via, " + weak[0] + " encrypts without checking it, so anyone on the network path could pretend to be the server"
 	case strings.Contains(msg, "server refused TLS"), errors.Is(err, mysql.ErrNoTLS),

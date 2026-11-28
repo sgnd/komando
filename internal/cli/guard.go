@@ -17,7 +17,7 @@ import (
 // shell commands on this computer) away from secrets, so the agent goes
 // through komando, which hides them. komando cannot see what an agent does
 // outside it; the agent's harness can, and asks komando before each tool
-// call (`komando guide install` sets that up for Claude Code).
+// call (`komando agent skill install` sets that up for Claude Code).
 
 // guardDecision is what the guard says about one tool call. Deny is false
 // for calls it lets through.
@@ -84,7 +84,7 @@ func checkTool(cl *call, tool string, in map[string]any, home, cwd string) guard
 
 func viaKomando(why string) string {
 	if why == komandoData {
-		return ". Use komando commands instead: `komando list`, `komando secret list`, `komando audit`"
+		return ". Use komando commands instead: `komando list`, `komando credential list`, `komando audit list`"
 	}
 	return ""
 }

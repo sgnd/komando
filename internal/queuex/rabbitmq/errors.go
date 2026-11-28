@@ -30,7 +30,7 @@ func connectErr(t driver.Target, err error) error {
 	case errors.Is(err, context.DeadlineExceeded) || isTimeout(err) || strings.Contains(msg, "i/o timeout"): // the library wraps a read timeout in its own error
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "check the address and the port (5672, or 5671 for amqps://; not the management API's 15672), or raise --connect-timeout", "connecting to %s timed out", t.Address)
 	case t.Secure && (strings.Contains(msg, "x509:") || strings.Contains(msg, "tls: failed to verify")):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=credential:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server",
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=credential:NAME (`komando credential token add NAME < ca.pem`), or reach the server --via an SSH server",
 			"cannot connect to %s: %s", t.Address, msg)
 	case t.Secure && strings.Contains(msg, "first record does not look like a TLS handshake"):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server does not speak TLS on this port: use amqp://, or the TLS port (usually 5671)", "cannot connect to %s: %s", t.Address, msg)

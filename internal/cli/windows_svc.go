@@ -74,7 +74,7 @@ func winServices(rr *sshx.RunResult) ([]winService, *out.Error) {
 		}
 	}
 	if len(missing) > 0 {
-		return svcs, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando exec TARGET -- Get-Service`",
+		return svcs, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando host ssh exec TARGET -- Get-Service`",
 			"service not found: %s", strings.Join(missing, ", "))
 	}
 	return svcs, nil

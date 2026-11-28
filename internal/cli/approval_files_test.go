@@ -15,7 +15,7 @@ import (
 // a person allows names the file's SHA-256 and shows it when it can.
 func TestApprovalWindowShowsSentFiles(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	mustRun(t, "conn", "add", "kube", "kubernetes://127.0.0.1:2", "--protected")
 	conf := writeTemp(t, "app.conf", "listen 8080\nmarker_upload on\n")
 	dir := filepath.Join(t.TempDir(), "site")
@@ -33,9 +33,9 @@ func TestApprovalWindowShowsSentFiles(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{[]string{"cp", conf, "web:/etc/app.conf", "--yes"}, []string{"marker_upload on", "SHA-256"}},
-		{[]string{"cp", "-r", dir, "web:/srv/", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
-		{[]string{"sync", dir, "web:/srv/site", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
+		{[]string{"copy", conf, "web:/etc/app.conf", "--yes"}, []string{"marker_upload on", "SHA-256"}},
+		{[]string{"copy", "-r", dir, "web:/srv/", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
+		{[]string{"copy", dir, "web:/srv/site", "--sync", "--yes"}, []string{"index.html", "css/app.css", "SHA-256"}},
 		{[]string{"cluster", "kubernetes", "raw", "kube", "--write", "--yes", "--", "apply", "-f", yaml}, []string{"metadata: {name: marker-run-cm}", "SHA-256"}},
 	} {
 		*texts = nil
@@ -60,10 +60,10 @@ func TestApprovalWindowShowsSentFiles(t *testing.T) {
 // it is not shown, as for a named file too long to show.
 func TestApprovalWindowNamesBinaryFile(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	bin := writeTemp(t, "app.tar", strings.Repeat("PK\x00\x01binary\x00data", 400))
 	texts := windowText(t, false)
-	invRun(t, "cp", bin, "web:/srv/app.tar", "--yes")
+	invRun(t, "copy", bin, "web:/srv/app.tar", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "SHA-256") || !strings.Contains((*texts)[0], "it is not text") {
 		t.Errorf("a binary file: %q", *texts)
 	}
@@ -77,13 +77,13 @@ func TestRestoreWindowShowsTheSQL(t *testing.T) {
 	short := writeTemp(t, "fix.sql", "create table marker_restore (id int);\n")
 	long := writeTemp(t, "long.sql", strings.Repeat("insert into t values (1);\n", 60))
 	texts := windowText(t, false)
-	invRun(t, "db", "restore", "pg", "--from", short, "--allow-dangerous", "--yes")
+	invRun(t, "database", "postgres", "restore", "pg", "--from", short, "--allow-dangerous", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "create table marker_restore") || !strings.Contains((*texts)[0], "SHA-256") {
 		t.Errorf("a short SQL file: %q", *texts)
 	}
 	*texts = nil
 	resetApproval()
-	if _, e := invRun(t, "db", "restore", "pg", "--from", long, "--allow-dangerous", "--yes"); e == nil || len(*texts) != 0 {
+	if _, e := invRun(t, "database", "postgres", "restore", "pg", "--from", long, "--allow-dangerous", "--yes"); e == nil || len(*texts) != 0 {
 		t.Errorf("a 60-line SQL file: %v, %q", e, *texts)
 	}
 }
@@ -93,7 +93,7 @@ func TestRestoreWindowShowsTheSQL(t *testing.T) {
 // window, as a script that does not fit; a pg_dump archive is named.
 func TestApprovalWindowBigUploads(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "host", "ssh", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	mustRun(t, "conn", "add", "pg", "postgres://app@127.0.0.1:2/app", "--protected")
 	big := writeTemp(t, "big.conf", strings.Repeat("a line of config text\n", bodyMaxBytes/10))
 	dir := t.TempDir()
@@ -104,7 +104,7 @@ func TestApprovalWindowBigUploads(t *testing.T) {
 	}
 	archive := writeTemp(t, "app.dump", testPGArchive(t))
 	texts := windowText(t, false)
-	invRun(t, "cp", big, "web:/etc/big.conf", "--yes")
+	invRun(t, "copy", big, "web:/etc/big.conf", "--yes")
 	b, _ := os.ReadFile(big)
 	sum := sha256.Sum256(b)
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], hex.EncodeToString(sum[:])) || !strings.Contains((*texts)[0], "it is too long") {
@@ -112,12 +112,12 @@ func TestApprovalWindowBigUploads(t *testing.T) {
 	}
 	*texts = nil
 	resetApproval()
-	if _, e := invRun(t, "cp", "-r", dir, "web:/srv/", "--yes"); e == nil || len(*texts) != 0 {
+	if _, e := invRun(t, "copy", "-r", dir, "web:/srv/", "--yes"); e == nil || len(*texts) != 0 {
 		t.Errorf("a folder of %d files: %v, %q", bodyMaxLines+1, e, *texts)
 	}
 	*texts = nil
 	resetApproval()
-	invRun(t, "db", "restore", "pg", "--from", archive, "--run-on", "web", "--allow-dangerous", "--yes")
+	invRun(t, "database", "postgres", "restore", "pg", "--from", archive, "--run-on", "web", "--allow-dangerous", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "the archive "+archive) || !strings.Contains((*texts)[0], "SHA-256") {
 		t.Errorf("a pg_dump archive: %q", *texts)
 	}

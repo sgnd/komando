@@ -523,7 +523,7 @@ func swarmHosts(cl *call, st *store.State, sel selection) ([]*store.Host, error)
 		}
 		h := swarmManagerOf(st, c)
 		if h == nil {
-			return nil, out.Errf(out.ExitNotFound, "SWARM_MANAGER_NOT_FOUND", "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service",
+			return nil, out.Errf(out.ExitNotFound, "SWARM_MANAGER_NOT_FOUND", "add the manager server again (`komando host ssh add NAME ADDRESS`), or remove the swarm service",
 				"swarm service %s: its manager server %s is not in your list", c.Name, c.Manager)
 		}
 		if !slices.ContainsFunc(hosts, func(o *store.Host) bool { return o.Name == h.Name }) {

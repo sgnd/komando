@@ -164,11 +164,11 @@ func registryTLS(t driver.Target) (registry.TLS, error) {
 		if errors.Is(err, vault.ErrNotFound) {
 			code = "SECRET_NOT_FOUND"
 		}
-		return tc, out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando secret set NAME < ca.crt`",
+		return tc, out.Errf(out.ExitNotFound, code, "store the CA certificate with `komando credential token add NAME < ca.crt`",
 			"registry CA %s: %v", t.CA, err)
 	}
 	if tc.RootCAs, err = registry.CAPool([]byte(pem)); err != nil {
-		return tc, out.Errf(out.ExitUsage, "BAD_CA", "store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt`",
+		return tc, out.Errf(out.ExitUsage, "BAD_CA", "store the registry's CA certificate (PEM) with `komando credential token add NAME < ca.crt`",
 			"registry CA %s: %v", t.CA, err)
 	}
 	return tc, nil
@@ -209,7 +209,7 @@ func registryErr(err error) error {
 	}
 	if certErr(err) {
 		return out.Errf(out.ExitConnect, "REGISTRY_TLS",
-			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando secret set NAME < ca.crt` and add ?ca=credential:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
+			"if the registry uses a private CA (mkcert, an internal CA), store that CA with `komando credential token add NAME < ca.crt` and add ?ca=credential:NAME to the conn URL (preferred: the check stays on); without the CA, store the registry's own certificate the same way, which pins it; ?tls=skip-verify turns the check off",
 			"the registry's TLS certificate is not trusted: %v", err)
 	}
 	if errors.Is(err, context.DeadlineExceeded) {

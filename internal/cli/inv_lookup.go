@@ -205,7 +205,7 @@ func (r rmResult) Text() string {
 		t = "would remove " + strings.Join(r.Removed, ", ") + " (dry run)"
 	}
 	for _, s := range r.SecretsUnused {
-		t += "\n" + s + " is no longer used: `komando secret rm " + s + "`"
+		t += "\n" + s + " is no longer used: `komando credential password remove " + s + "`"
 	}
 	if r.Note != "" {
 		t += "\nnote: " + r.Note

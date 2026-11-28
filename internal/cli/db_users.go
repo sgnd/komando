@@ -78,13 +78,13 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			case action == "rm" && ref != "":
 				return out.Usage("rm takes no --password-ref")
 			case action == "passwd" && ref == "", action == "add" && ref == "" && !noLogin:
-				return out.Usage("give the password as a reference: --password-ref credential:NAME (set it with `komando secret set NAME`)")
+				return out.Usage("give the password as a reference: --password-ref credential:NAME (set it with `komando credential password add NAME`)")
 			case oldRef("--password-ref", ref) != nil:
 				return oldRef("--password-ref", ref)
 			case ref != "" && !vault.ValidRef(ref):
 				return out.Usage("--password-ref: %s", vault.RefHelp())
 			}
-			// the same tier as the statement in `db query` (sql-privileges):
+			// the same tier as the statement in `database KIND query` (sql-privileges):
 			// a new login, a new role or another user's password gives rights
 			askTypes(cl, args[1:2], "users")
 			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user", "sql-privileges"},
@@ -101,7 +101,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 						}
 						pw, err := vault.Resolve(ref)
 						if err != nil {
-							return nil, out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "set it with `komando secret set NAME`", "--password-ref: %v", err)
+							return nil, out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", "set it with `komando credential password add NAME`", "--password-ref: %v", err)
 						}
 						if pw == "" {
 							return nil, out.Usage("the password in %s is empty", ref)
@@ -194,7 +194,7 @@ DB.*, DB.TABLE or *.* (with --from-host for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
 available (db user show reads them). BigQuery: not available (Google Cloud
 IAM). MongoDB: not available (db user show reads them; send grantRolesToUser
-with db query). --dry-run shows the statement.`,
+with database mongodb query --write). --dry-run shows the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --dry-run   # shows the statement
   komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --allow-dangerous
   komando db ` + verb + ` prod-db app_ro --role readers --allow-dangerous
@@ -212,7 +212,7 @@ with db query). --dry-run shows the statement.`,
 			if privs != "" && on == "" {
 				return out.Usage("--privileges needs --on OBJECT").WithHint(ex)
 			}
-			// the same tier as GRANT and REVOKE in `db query` (sql-privileges)
+			// the same tier as GRANT and REVOKE in `database KIND query` (sql-privileges)
 			askTypes(cl, args[1:2], "users")
 			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-grant", "sql-privileges"},
 				Reasons: []string{"db " + verb + " for " + args[1] + ": " + driver.RuleReason("sql-privileges")}}

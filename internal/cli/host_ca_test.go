@@ -33,21 +33,21 @@ func caPub(t *testing.T) (string, ssh.PublicKey) {
 // dry run shows what would be kept and which servers it would match.
 func TestHostCAAddNeedsAPerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "--address", "web1.corp.example", "--user", "u")
-	mustRun(t, "host", "add", "db1", "--address", "db1.other.example", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "web1.corp.example", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "db1", "--address", "db1.other.example", "--user", "u")
 	p, k := caPub(t)
-	d := mustRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.Corp.example", "--dry-run")
+	d := mustRun(t, "credential", "certificate", "add", "corp", "--key", p, "--hosts", "*.Corp.example", "--dry-run")
 	items := d["items"].([]any)
 	row := items[0].(map[string]any)
 	if d["action"] != "would_add" || row["fingerprint"] != ssh.FingerprintSHA256(k) || row["hosts"].([]any)[0] != "*.corp.example" || len(row["would_match"].([]any)) != 1 || row["would_match"].([]any)[0] != "web1" {
 		t.Fatalf("dry run: %v", d)
 	}
-	_, e := invRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.corp.example")
+	_, e := invRun(t, "credential", "certificate", "add", "corp", "--key", p, "--hosts", "*.corp.example")
 	if e == nil || e.Code != "NEEDS_PERSON" || e.Exit != out.ExitPolicy {
 		t.Fatalf("a script added a CA: %+v", e)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
-	_, e = invRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.corp.example")
+	_, e = invRun(t, "credential", "certificate", "add", "corp", "--key", p, "--hosts", "*.corp.example")
 	if e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("an agent added a CA: %+v", e)
 	}
@@ -61,12 +61,12 @@ func TestHostCAAddRefusesWidePatterns(t *testing.T) {
 	invHome(t)
 	p, _ := caPub(t)
 	for _, h := range []string{"*", "*.com", "*.*", "!x.corp.example"} {
-		_, e := invRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", h, "--dry-run")
+		_, e := invRun(t, "credential", "certificate", "add", "corp", "--key", p, "--hosts", h, "--dry-run")
 		if e == nil || (e.Code != "CA_HOSTS_INVALID" && e.Code != "USAGE") {
 			t.Errorf("%q: %+v", h, e)
 		}
 	}
-	if _, e := invRun(t, "host", "ca", "add", "corp", "--key", p, "--dry-run"); e == nil || e.Code != "CA_HOSTS_INVALID" {
+	if _, e := invRun(t, "credential", "certificate", "add", "corp", "--key", p, "--dry-run"); e == nil || e.Code != "CA_HOSTS_INVALID" {
 		t.Errorf("no --hosts: %+v", e)
 	}
 }
@@ -85,7 +85,7 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 		t.Fatal(err)
 	}
 	asPerson(t, func(string) string { return "" }, func() {
-		d := mustRun(t, "host", "ca", "add", "corp", "--from", kh)
+		d := mustRun(t, "credential", "certificate", "add", "corp", "--from", kh)
 		if d["action"] != "added" || d["revoked"] != float64(1) {
 			t.Errorf("add: %v", d)
 		}
@@ -93,15 +93,15 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 	if rev, _ := sshx.HostKeyRevoked(old); !rev {
 		t.Error("the @revoked line was not read")
 	}
-	l := mustRun(t, "host", "ca", "list")["items"].([]any)
+	l := mustRun(t, "credential", "certificate", "list")["items"].([]any)
 	if len(l) != 1 || l[0].(map[string]any)["name"] != "corp" || l[0].(map[string]any)["fingerprint"] != ssh.FingerprintSHA256(k) {
 		t.Fatalf("list: %v", l)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
-	if d := mustRun(t, "host", "ca", "rm", "corp"); d["action"] != "removed" {
+	if d := mustRun(t, "credential", "certificate", "remove", "corp"); d["action"] != "removed" {
 		t.Errorf("rm: %v", d)
 	}
-	if _, e := invRun(t, "host", "ca", "rm", "corp"); e == nil || e.Code != "CA_NOT_FOUND" {
+	if _, e := invRun(t, "credential", "certificate", "remove", "corp"); e == nil || e.Code != "CA_NOT_FOUND" {
 		t.Errorf("rm twice: %+v", e)
 	}
 	p, k2 := caPub(t)
@@ -117,15 +117,15 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 // CA that vouches for a protected server.
 func TestHostCAShowAndDoctor(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "--address", "web1.corp.example", "--user", "u")
+	mustRun(t, "host", "ssh", "add", "web1", "--address", "web1.corp.example", "--user", "u")
 	_, k := caPub(t)
 	if err := sshx.AddHostCA(t.Context(), sshx.HostCA{Name: "corp", Key: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k))), Hosts: []string{"*.corp.example"}}); err != nil {
 		t.Fatal(err)
 	}
-	if d := mustRun(t, "host", "show", "web1"); d["host_ca"] != "corp" {
+	if d := mustRun(t, "host", "ssh", "show", "web1"); d["host_ca"] != "corp" {
 		t.Errorf("show: %v", d["host_ca"])
 	}
-	mustRun(t, "host", "edit", "web1", "--protected")
+	mustRun(t, "host", "ssh", "edit", "web1", "--protected")
 	d, _ := invRun(t, "doctor")
 	found := false
 	for _, c := range d["security"].([]any) {
@@ -183,7 +183,7 @@ func TestHostCAAddDryRunRecordsTheStop(t *testing.T) {
 	invHome(t)
 	p, _ := caPub(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
-	d, e := invRun(t, "host", "ca", "add", "corp", "--key", p, "--hosts", "*.corp.example", "--dry-run")
+	d, e := invRun(t, "credential", "certificate", "add", "corp", "--key", p, "--hosts", "*.corp.example", "--dry-run")
 	setGate(tcl, false, gateDryRun)
 	if e != nil || d["action"] != "would_add" || blockedCode(d) != "NEEDS_PERSON" {
 		t.Fatalf("dry run: %v %+v", d, e)

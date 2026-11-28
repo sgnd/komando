@@ -79,7 +79,7 @@ func runChange(t *testing.T, args ...string) (sessionChangeResult, error) {
 func TestExecSessionStop(t *testing.T) {
 	srv := stopServer(t, 0)
 	putRecord(t, attachID, "alice", false)
-	res, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes")
+	res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestExecSessionStop(t *testing.T) {
 	if !hasRecord(attachID) {
 		t.Fatal("the stop dropped the record")
 	}
-	if a := lastAudit(t); a["command"] != "exec" || a["ok"] != true || a["stop"] != "TERM" || a["pid"] != float64(4242) {
+	if a := lastAudit(t); a["command"] != "host.ssh.exec" || a["ok"] != true || a["stop"] != "TERM" || a["pid"] != float64(4242) {
 		t.Fatalf("audit %v", a)
 	}
 }
@@ -103,7 +103,7 @@ func TestExecSessionStop(t *testing.T) {
 func TestExecSessionStopPidAndSignal(t *testing.T) {
 	srv := stopServer(t, 0)
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4000, ProcStart: "proc 99"})
-	res, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--signal", "KILL", "--yes")
+	res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--signal", "KILL", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,10 +119,10 @@ func TestExecSessionStopPidAndSignal(t *testing.T) {
 func TestExecSessionStopSudo(t *testing.T) {
 	srv := stopServer(t, 0)
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4242, ProcStart: "proc 99", Sudo: true, SudoUser: "bob"})
-	if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
+	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
-	if e := srv.take(); len(e) != 1 || !strings.HasPrefix(e[0].cmd, "sudo -n -u 'bob' sh -c ") {
+	if e := srv.take(); len(e) != 1 || !strings.Contains(e[0].cmd, "; ( sudo -n -u 'bob' sh -c ") {
 		t.Fatalf("execs %+v", e)
 	}
 }
@@ -140,16 +140,16 @@ func TestExecSessionStopSudoPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4242, ProcStart: "proc 99", Sudo: true})
-	if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
+	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	e := srv.take()
-	if len(e) != 1 || strings.Contains(e[0].cmd, pw) || e[0].stdin != pw+"\n" || !strings.HasPrefix(e[0].cmd, "if sudo -n sh -c : 2>/dev/null; then sudo -n sh -c ") {
+	if len(e) != 1 || strings.Contains(e[0].cmd, pw) || e[0].stdin != pw+"\n" || !strings.Contains(e[0].cmd, "; ( if sudo -n sh -c : 2>/dev/null; then sudo -n sh -c ") {
 		t.Fatalf("execs %+v", e)
 	}
 	// a run without sudo is stopped without it, and the password stays here
 	putExecSession(t, &store.ExecSession{ID: attachID, Host: "dev", PID: 4242, PGID: 4242, ProcStart: "proc 99"})
-	if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
+	if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	if e := srv.take(); len(e) != 1 || e[0].stdin != "" || strings.Contains(e[0].cmd, "sudo") {
@@ -163,11 +163,11 @@ func TestExecSessionStopExits(t *testing.T) {
 	for _, tc := range []struct {
 		code int
 		want string
-	}{{92, "SESSION_PROCESS_MISSING"}, {1, "SESSION_STOP_FAILED"}} {
+	}{{92, "SESSION_PROCESS_MISSING"}, {96, "SESSION_STILL_BUSY"}, {1, "SESSION_STOP_FAILED"}} {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)
-			_, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--yes")
+			_, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--yes")
 			if errCode(err) != tc.want {
 				t.Fatalf("got %v", err)
 			}
@@ -190,6 +190,9 @@ func TestExecSessionStopRefusals(t *testing.T) {
 	}{
 		{[]string{"--attach", attachID, "--stop", "--signal", "USR1"}, "USAGE"},
 		{[]string{"--attach", attachID, "--stop", "--signal", "term"}, "USAGE"},
+		{[]string{"--attach", attachID, "--stop", "--signal", "INT"}, "USAGE"}, // T1: a run in the background ignores INT, QUIT and HUP
+		{[]string{"--attach", attachID, "--stop", "--signal", "QUIT"}, "USAGE"},
+		{[]string{"--attach", attachID, "--stop", "--signal", "HUP"}, "USAGE"},
 		{[]string{"--attach", attachID, "--stop", "--remove"}, "USAGE"},
 		{[]string{"--attach", attachID + ",c" + attachID[1:], "--stop"}, "USAGE"},
 		{[]string{"--attach", attachID + ",c" + attachID[1:], "--remove"}, "USAGE"},
@@ -202,10 +205,12 @@ func TestExecSessionStopRefusals(t *testing.T) {
 		{[]string{"--remove", "--", "uptime"}, "USAGE"},
 		{[]string{"--signal", "KILL", "--", "uptime"}, "USAGE"},
 		{[]string{"--attach", "../x", "--remove"}, "USAGE"},
+		{[]string{"--attach", attachID, "--stop", "--read-only"}, "USAGE"},
+		{[]string{"--attach", attachID, "--remove", "--read-only"}, "USAGE"},
 		{[]string{"--attach", attachID, "--stop"}, "SESSION_RECORD_MISSING"},
 		{[]string{"--attach", "b" + attachID[1:], "--stop"}, "SESSION_RECORD_MISSING"},
 	} {
-		if _, err := runChange(t, append([]string{"exec", "dev"}, tc.args...)...); errCode(err) != tc.want {
+		if _, err := runChange(t, append([]string{"host", "ssh", "exec", "dev"}, tc.args...)...); errCode(err) != tc.want {
 			t.Errorf("%v: got %v, want %s", tc.args, err, tc.want)
 		}
 	}
@@ -214,16 +219,20 @@ func TestExecSessionStopRefusals(t *testing.T) {
 	}
 }
 
-// U14: --stop and --remove are changes, as job kill is: a protected
+// U14: --stop and --remove are changes: a protected
 // server refuses them without --yes, before komando connects, and the
 // audit log records the refusal. (dev, the same address as prod, is
-// protected too: the other tests pass --yes.)
+// protected too: the other tests pass --yes.) An agent's line with
+// --read-only is still rated a change.
 func TestExecSessionChangeTier(t *testing.T) {
 	for _, flag := range []string{"--stop", "--remove"} {
 		t.Run(flag, func(t *testing.T) {
+			if r := riskOfLine([]string{"host", "ssh", "exec", "web", "--read-only", "--attach", attachID, flag}); r.tier < tierChange {
+				t.Fatalf("an agent's line is rated %s, want change or higher", r.tier)
+			}
 			srv := stopServer(t, 0)
 			putExecSession(t, &store.ExecSession{ID: attachID, Host: "prod", PID: 4242, PGID: 4242, ProcStart: "proc 99"})
-			if _, err := runChange(t, "exec", "prod", "--attach", attachID, flag); errCode(err) != "PROTECTED_TARGET" {
+			if _, err := runChange(t, "host", "ssh", "exec", "prod", "--attach", attachID, flag); errCode(err) != "PROTECTED_TARGET" {
 				t.Fatalf("want PROTECTED_TARGET, got %v", err)
 			}
 			if e := srv.take(); len(e) != 0 {
@@ -243,7 +252,7 @@ func TestExecSessionChangeTier(t *testing.T) {
 func TestExecSessionChangeDryRun(t *testing.T) {
 	srv := stopServer(t, 0)
 	putRecord(t, attachID, "alice", false)
-	res, err := runChange(t, "exec", "dev", "--attach", attachID, "--stop", "--dry-run", "--yes")
+	res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--stop", "--dry-run", "--yes")
 	if err != nil || !strings.Contains(res.Data.WouldRun, "kill -TERM -4242") {
 		t.Fatalf("result %+v, err %v", res.Data, err)
 	}
@@ -266,7 +275,7 @@ func TestExecSessionRemove(t *testing.T) {
 			if tc.host != "" {
 				putExecSession(t, &store.ExecSession{ID: attachID, Host: tc.host, PID: 4242, PGID: 4242, ProcStart: "proc 99", Actor: "bob", Agent: true})
 			}
-			res, err := runChange(t, "exec", "dev", "--attach", attachID, "--remove", "--yes")
+			res, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--remove", "--yes")
 			if err != nil || !res.Data.Removed || res.Data.Session != attachID {
 				t.Fatalf("result %+v, err %v", res.Data, err)
 			}
@@ -277,7 +286,7 @@ func TestExecSessionRemove(t *testing.T) {
 			if hasRecord(attachID) != (tc.host == "prod") {
 				t.Fatal("the record of this server stayed, or another server's went")
 			}
-			if a := lastAudit(t); a["command"] != "exec" || a["ok"] != true || a["remove"] != true {
+			if a := lastAudit(t); a["command"] != "host.ssh.exec" || a["ok"] != true || a["remove"] != true {
 				t.Fatalf("audit %v", a)
 			}
 		})
@@ -294,7 +303,7 @@ func TestExecSessionRemoveExits(t *testing.T) {
 		t.Run(tc.want, func(t *testing.T) {
 			stopServer(t, tc.code)
 			putRecord(t, attachID, "alice", false)
-			if _, err := runChange(t, "exec", "dev", "--attach", attachID, "--remove", "--yes"); errCode(err) != tc.want {
+			if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--remove", "--yes"); errCode(err) != tc.want {
 				t.Fatalf("got %v", err)
 			}
 			if !hasRecord(attachID) {
@@ -343,7 +352,7 @@ func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
 		{"an agent removes its own run", &store.ExecSession{Actor: "alice", Agent: true}, true, "--remove", false},
 		{"a script stops an agent's run", &store.ExecSession{Actor: "bob", Agent: true}, false, "--stop", false},
 		{"a script removes an agent's run", &store.ExecSession{Actor: "bob", Agent: true}, false, "--remove", false},
-		{"an agent removes without a record", nil, true, "--remove", false},
+		{"an agent removes without a record", nil, true, "--remove", true}, // audit A4: no starter known
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := stopServer(t, 0)
@@ -357,14 +366,14 @@ func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
 				rec.ID, rec.Host, rec.PID, rec.PGID, rec.ProcStart = attachID, "dev", 4242, 4242, "proc 99"
 				putExecSession(t, &rec)
 			}
-			args := []string{"exec", "dev", "--attach", attachID, tc.flag}
+			args := []string{"host", "ssh", "exec", "dev", "--attach", attachID, tc.flag}
 			if tc.agent { // a script needs no --yes here; with one it would pass any window check unseen
 				args = append(args, "--yes")
 			}
 			if _, err := runChange(t, args...); err != nil {
 				t.Fatal(err)
 			}
-			if asked := slices.ContainsFunc(*texts, func(s string) bool { return strings.Contains(s, "not by this AI agent") }); asked != tc.asks {
+			if asked := slices.ContainsFunc(*texts, func(s string) bool { return strings.Contains(s, "this AI agent") }); asked != tc.asks {
 				t.Fatalf("asked %v, want %v: %q", asked, tc.asks, *texts)
 			}
 			if e := srv.take(); len(e) != 1 {
@@ -394,7 +403,7 @@ func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
 			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
 			setCallerEnv(t, "KOMANDO_AGENT", "1")
 			putRecord(t, attachID, "alice", false)
-			args := []string{"exec", "dev", "--attach", attachID, "--stop"}
+			args := []string{"host", "ssh", "exec", "dev", "--attach", attachID, "--stop"}
 			if tc.yes {
 				args = append(args, "--yes")
 			}
@@ -415,6 +424,23 @@ func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
 	}
 }
 
+// An agent's --remove of a session this computer has no record of (another
+// alias of the server, or started elsewhere) asks the person: komando
+// cannot tell who started it (audit A4). Without a yes nothing connects.
+func TestExecSessionAgentRemovesUnknownSessionAsks(t *testing.T) {
+	srv := stopServer(t, 0)
+	otherActorSetup(t, true, true)
+	setCallerEnv(t, "KOMANDO_ACTOR", "bob")
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	_, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--remove")
+	if e := toErr(err); e == nil || e.Code != "CONFIRM_REQUIRED" || e.Exit != 6 || !strings.Contains(e.Message, "no record on this computer") {
+		t.Fatalf("want CONFIRM_REQUIRED exit 6, got %v", err)
+	}
+	if e := srv.take(); len(e) != 0 {
+		t.Fatalf("connected: %+v", e)
+	}
+}
+
 // On a protected server an agent that stops or removes another
 // actor's run sees ONE window that names the starter and the protected
 // server: the protected change's window must not answer for a starter it
@@ -430,7 +456,7 @@ func TestExecSessionAgentOtherStarterOnProtectedHost(t *testing.T) {
 			setCallerEnv(t, "KOMANDO_ACTOR", "bob")
 			setCallerEnv(t, "KOMANDO_AGENT", "1")
 			putRecord(t, attachID, "alice", false)
-			if _, err := runChange(t, "exec", "dev", "--attach", attachID, flag, "--yes"); err != nil {
+			if _, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, flag, "--yes"); err != nil {
 				t.Fatal(err)
 			}
 			if len(texts) != 1 || !strings.Contains(texts[0], "started by alice at a terminal or in a script") || !strings.Contains(texts[0], protChangePrefix+"host dev") {

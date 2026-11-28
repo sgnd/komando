@@ -43,6 +43,7 @@ const (
 
 // commandKinds is keyed by the command's (type, area, verb) (risk_keys.go).
 var commandKinds = map[safetyKey]cmdKind{
+	{"audit", "", ""}:      reads,
 	{"audit", "", "list"}:  reads,
 	{"audit", "", "check"}: reads,
 
@@ -111,11 +112,17 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"conn", "", "show"}:    reads,
 	{"conn", "", "test"}:    reads,
 
-	{"", "cp", "copy"}: dependsOn("changes the destination: a server or bucket when it is the DST, only this computer when it is the SRC"),
+	{"", "", "copy"}: dependsOn("changes the destination: a server or bucket when it is the DESTINATION, only this computer when it is the SOURCE"),
 
 	{"database", "", ""}:           reads,
 	{"database", "", "activity"}:   reads,
 	{"database", "", "backup"}:     reads,
+	{"database", "", "edit"}:       changes,
+	{"database", "", "list"}:       reads,
+	{"database", "", "remove"}:     changes,
+	{"database", "", "rename"}:     changes,
+	{"database", "", "show"}:       reads,
+	{"database", "", "test"}:       reads,
 	{"database", "", "explain"}:    dependsOn("only plans the query; --analyze runs it, and a write needs --write too"),
 	{"database", "", "grant"}:      changes,
 	{"database", "user", "show"}:   reads,
@@ -150,10 +157,9 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"host", "docker", "stats"}:   reads,
 	{"host", "docker", "stop"}:    changes,
 
-	{"", "", "doctor"}:       reads,
-	{"", "download", "copy"}: reads,
-	{"host", "", "exec"}:     dependsOn(unlessReadOnly),
-	{"", "", "export"}:       reads,
+	{"", "", "doctor"}:   reads,
+	{"host", "", "exec"}: dependsOn(unlessReadOnly),
+	{"", "", "export"}:   reads,
 
 	{"host", "file", ""}:        reads,
 	{"host", "file", "cat"}:     reads,
@@ -170,10 +176,12 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"group", "", ""}:       reads,
 	{"group", "", "create"}: changes,
 	{"group", "", "list"}:   reads,
+	{"group", "", "show"}:   reads,
 	{"group", "", "rename"}: changes,
 	{"group", "", "remove"}: changes,
 
 	{"agent", "", ""}:               reads,
+	{"agent", "skill", ""}:          reads,
 	{"agent", "skill", "install"}:   changes,
 	{"agent", "skill", "uninstall"}: changes,
 
@@ -194,15 +202,6 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"host", "", "trust"}:                   changes,
 
 	{"", "", "import"}: changes,
-
-	{"host", "job", ""}:       reads,
-	{"host", "job", "kill"}:   changes,
-	{"host", "job", "list"}:   reads,
-	{"host", "job", "logs"}:   reads,
-	{"host", "job", "rm"}:     changes,
-	{"host", "job", "start"}:  dependsOn(unlessReadOnly),
-	{"host", "job", "status"}: reads,
-	{"host", "job", "wait"}:   reads,
 
 	{"credential", "key", ""}:          reads,
 	{"credential", "key", "add"}:       changes,
@@ -244,6 +243,7 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"snippet", "", ""}:       reads,
 	{"snippet", "", "create"}: changes,
 	{"snippet", "", "list"}:   reads,
+	{"snippet", "", "show"}:   reads,
 	{"snippet", "", "remove"}: changes,
 	{"snippet", "", "exec"}:   dependsOn("decided by the recipe's command, like exec"),
 
@@ -267,13 +267,21 @@ var commandKinds = map[safetyKey]cmdKind{
 	{"credential", "", "run"}:         dependsOn(localProgram),
 	{"credential", "", "check"}:       reads,
 	{"credential", "", "cp"}:          changes,
-	{"credential", "", "show"}:        reads,
-	{"config", "vault", "keychain"}:   changes,
 	{"credential", "", "list"}:        reads,
-	{"credential", "", "rename"}:      changes,
+	{"config", "vault", ""}:           reads,
+	{"config", "vault", "keychain"}:   changes,
 	{"config", "vault", "passphrase"}: changes,
-	{"credential", "", "remove"}:      changes,
-	{"credential", "", "add"}:         changes,
+
+	{"credential", "password", ""}:       reads,
+	{"credential", "password", "add"}:    changes,
+	{"credential", "password", "show"}:   reads,
+	{"credential", "password", "rename"}: changes,
+	{"credential", "password", "remove"}: changes,
+	{"credential", "token", ""}:          reads,
+	{"credential", "token", "add"}:       changes,
+	{"credential", "token", "show"}:      reads,
+	{"credential", "token", "rename"}:    changes,
+	{"credential", "token", "remove"}:    changes,
 
 	{"host", "", "shell"}: dependsOn(shellNote),
 
@@ -283,32 +291,27 @@ var commandKinds = map[safetyKey]cmdKind{
 
 	{"", "", "status"}: reads,
 
-	{"storage", "", ""}:               reads,
-	{"storage", "", "edit"}:           changes,
-	{"storage", "", "list"}:           reads,
-	{"storage", "", "remove"}:         changes,
-	{"storage", "", "rename"}:         changes,
-	{"storage", "", "show"}:           reads,
-	{"storage", "", "test"}:           reads,
-	{"storage", "object", ""}:         reads,
-	{"storage", "object", "read"}:     reads,
-	{"storage", "object", "download"}: reads,
-	{"storage", "object", "link"}:     changes, // hands out access (OD-13)
-	{"storage", "object", "list"}:     reads,
-	{"storage", "object", "create"}:   changes,
-	{"storage", "object", "move"}:     changes,
-	{"storage", "object", "delete"}:   changes,
-	{"storage", "object", "upload"}:   changes,
+	{"storage", "", ""}:             reads,
+	{"storage", "", "edit"}:         changes,
+	{"storage", "", "list"}:         reads,
+	{"storage", "", "remove"}:       changes,
+	{"storage", "", "rename"}:       changes,
+	{"storage", "", "show"}:         reads,
+	{"storage", "", "test"}:         reads,
+	{"storage", "object", ""}:       reads,
+	{"storage", "object", "read"}:   reads,
+	{"storage", "object", "link"}:   changes, // hands out access (OD-13)
+	{"storage", "object", "list"}:   reads,
+	{"storage", "object", "create"}: changes,
+	{"storage", "object", "move"}:   changes,
+	{"storage", "object", "delete"}: changes,
 
-	{"", "sync", "copy"}: changes,
-	{"", "", "test"}:     reads,
+	{"", "", "test"}: reads,
 
 	{"host", "tunnel", ""}:      reads,
 	{"host", "tunnel", "list"}:  reads,
 	{"host", "tunnel", "start"}: changes,
 	{"host", "tunnel", "stop"}:  changes,
-
-	{"", "upload", "copy"}: changes,
 
 	{"", "", "update"}:  changes,
 	{"", "", "version"}: reads,

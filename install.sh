@@ -363,13 +363,13 @@ case "${SHELL:-}" in
 esac
 if [ -n "$prev" ]; then
   echo "Updated. Give your AI agents this version's skill too:"
-  echo "  komando guide install"
+  echo "  komando agent skill install"
 else
   echo "Next: add your first server, then check it:"
-  echo "  komando host add web1 ubuntu@203.0.113.10"
+  echo "  komando host ssh add web1 ubuntu@203.0.113.10"
   echo "  komando test web1"
   echo "Teach your AI agents (Claude Code, Codex, Cursor, Gemini CLI) to use komando:"
-  echo "  komando guide install"
+  echo "  komando agent skill install"
 fi
 echo "Tab completion of commands and server names: $completion"
 echo "Help: komando --help, or https://github.com/$REPO#your-first-five-minutes"

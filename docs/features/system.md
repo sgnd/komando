@@ -185,7 +185,7 @@ komando pkg update web1                         # only refresh the package index
   (`libssl3` takes openssh-server) stops with `POLICY_BLOCKED` before
   anything is removed.
 - Package names are exact names: no options, patterns or a trailing `-`.
-  For a local `.deb` or `.rpm`, use `komando upload` and `komando exec`.
+  For a local `.deb` or `.rpm`, use `komando copy` and `komando host ssh exec`.
 
 ### Security updates
 
@@ -332,13 +332,13 @@ komando cron list db1 --user root            # root's crontab
 ## Sudo
 
 Commands that change something use sudo unless you add `--no-sudo` (`svc`,
-`pkg`, `user`, `reboot`, `recipe run`): add it when you log in as root.
+`pkg`, `user`, `reboot`, `snippet exec`): add it when you log in as root.
 Commands that read use sudo only when you ask: `--sudo` for `logs`,
 `docker` and `net ports`, `--user` for another user's crontab.
 
 When sudo wants a password komando does not have, or the login user may not
 use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
-the fix (`komando host edit web1 --sudo-ref credential:web1-sudo`, see
+the fix (`komando host ssh edit web1 --sudo-credential web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
 no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
 holds for `pkg`, `user`, `cron --user`, every `docker` command with
@@ -373,7 +373,7 @@ komando cron list db1
 komando cron rm db1 nightly-backup
 
 # a full disk on a Docker server
-komando recipe run disk web1
+komando snippet exec disk web1
 komando docker prune web1 --older-than 30d --dry-run # what would go, and how much
 ```
 
@@ -388,7 +388,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
   repositories without security notices: komando cannot pick only the
   security updates there.
 - `pkg` takes exact package names only; for a local `.deb` or `.rpm`, use
-  `upload` and `exec`.
+  `copy` and `exec`.
 - komando never reboots as part of a patch round.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
   package (`useradd`, `usermod`, `userdel`).
@@ -401,13 +401,13 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
-| `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando exec TARGET -- systemctl list-units` |
+| `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando host ssh exec TARGET -- systemctl list-units` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
-| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: a person with sudo runs `komando exec TARGET --sudo -- loginctl enable-linger USER` |
-| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref credential:NAME` |
+| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: a person with sudo runs `komando host ssh exec TARGET --sudo -- loginctl enable-linger USER` |
+| `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host ssh edit SERVER --sudo-credential NAME` |
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |
-| `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando exec TARGET -- systemctl --failed`, then run again or add `--keep-going` |
+| `UNEXPECTED_CHANGE` | a server changed after patching (exit 8); the rest were not patched | check it with `komando docker ps` and `komando host ssh exec TARGET -- systemctl --failed`, then run again or add `--keep-going` |
 | `TIMEOUT` | a `--security` upgrade ran longer than `--timeout`; it goes on | run `komando pkg security` later to see what is left |
 | `POLICY_BLOCKED` | a delete, a reboot or removing an essential package without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
 

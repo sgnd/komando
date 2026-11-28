@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cli/kit/term"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -190,7 +191,7 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 		if one == "server" || one == "server, conn or VPN" {
 			return "", ""
 		}
-		what, use = "a server", "use it with `komando exec` and the other server commands"
+		what, use = "a server", "use it with `komando host ssh exec` and the other server commands"
 	case "conn":
 		c := st.Conns[name]
 		f := inventory.ConnFamily(c)
@@ -206,21 +207,56 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 	default:
 		return "", ""
 	}
-	// `conn edit web1` for a server: the same verb under host
+	// `conn edit web1` for a server: the same verb where a server has it
 	if top := topCommand(cmd); cmd.HasParent() && (top == "host" || top == "conn" || top == "vpn") && top != kind {
-		if c, rest, err := cmd.Root().Find([]string{kind, cmd.Name()}); err == nil && len(rest) == 0 && c.Name() == cmd.Name() {
-			use = "use `komando " + kind + " " + cmd.Name() + " " + name + "`"
+		if words := sameVerbPath(cmd.Root(), st, kind, name, cmd.Name()); words != nil {
+			use = "use `komando " + strings.Join(words, " ") + " " + name + "`"
 		}
 	}
 	return fmt.Sprintf("%s is %s, not a %s.", name, what, one), strings.ToUpper(use[:1]) + use[1:] + "."
 }
 
+// sameVerbPath is the command that does verb for the entry name of kind: a
+// server's under its provider (host ssh edit), a VPN's under its kind, a
+// conn's remove spelled rm. nil when there is none.
+func sameVerbPath(root *cobra.Command, st *store.State, kind, name, verb string) []string {
+	words := []string{kind}
+	switch kind {
+	case "host":
+		if h := st.Hosts[name]; h != nil {
+			words = append(words, hostProvider(h))
+		}
+	case "vpn":
+		if v := st.Vpns[name]; v != nil {
+			words = append(words, v.Kind)
+		}
+	}
+	if verb == "rm" && kind != "conn" {
+		verb = "remove"
+	} else if verb == "remove" && kind == "conn" {
+		verb = "rm"
+	}
+	path := append(words, verb)
+	if c, rest, err := root.Find(path); err == nil && len(rest) == 0 && c.Name() == verb {
+		return path
+	}
+	return nil
+}
+
+// addHintProviders is the provider addHint names for a moved type of conns,
+// as the empty-list hints of the prompter do (komando queue kafka add).
+var addHintProviders = map[string]string{"database": "postgres", "cache": "redis", "queue": "kafka", "storage": "s3",
+	"cluster": "kubernetes", "registry": "oci"}
+
 // addHint says how to add the first of what a command works with. A person
 // at a terminal can type the add command alone, which asks step by step.
 func addHint(cl *call, family, wanted string) string {
 	if cl.interactive() {
-		cmd := "host add"
+		cmd := "host ssh add"
+		first := addHintProviders[typeWord(family)] // the provider a moved type's add names
 		switch {
+		case first != "" && slices.Contains(movedTypes, typeWord(family)):
+			cmd = typeWord(family) + " " + first + " add"
 		case familyWord[family] != [2]string{}:
 			cmd = family + " add"
 		case family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
@@ -236,17 +272,17 @@ func addHint(cl *call, family, wanted string) string {
 	case family == "vpn" || wanted == "vpn":
 		return "add one with `komando vpn KIND add NAME` (`komando vpn --help` lists the kinds)"
 	}
-	return "add one with `komando host add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
+	return "add one with `komando host ssh add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"
 }
 
 // fillHint puts the target into the commands a hint names with a
 // placeholder: drivers and helpers that do not know the conn's name write
-// `komando test TARGET` or `komando exec TARGET`, and the next
+// `komando test TARGET` or `komando host ssh exec TARGET`, and the next
 // step should be one to copy (S-8.7). target is the command's first
 // argument. TARGET is filled with a server or conn, SERVER only with a
 // server, CONN only with a conn, and NAME only in a command of the
 // target's own noun (`komando conn edit NAME` with a conn), so `vpn up
-// corp` never turns into `komando exec corp`. `komando test TARGET` takes
+// corp` never turns into `komando host ssh exec corp`. `komando test TARGET` takes
 // any of them or a VPN. `komando conn test` becomes `komando test`, the
 // one spelling.
 func fillHint(e *out.Error, target string) {
@@ -254,7 +290,7 @@ func fillHint(e *out.Error, target string) {
 		return
 	}
 	e.Hint = strings.ReplaceAll(e.Hint, "`komando conn test ", "`komando test ")
-	if target == "" || !placeholder.MatchString(e.Hint) {
+	if target == "" || !placeholder.MatchString(e.Hint) && !strings.Contains(e.Hint, " KIND ") {
 		return // nothing to fill: no need to read the inventory
 	}
 	st, err := loadState()
@@ -271,13 +307,25 @@ func fillHint(e *out.Error, target string) {
 		if len(words) > 1 {
 			noun = words[1]
 		}
+		// a type moved to the table names its conns NAME, its provider KIND;
+		// only the conn's own type (credential moved too, and its NAME is a
+		// credential's)
+		typed := false
+		if kind == "conn" && slices.Contains(movedTypes, noun) {
+			if t, err := driver.Parse(st.Conns[name].URL); err == nil && typeWord(t.Kind.Family) == noun {
+				typed = true
+				if len(words) > 2 && words[2] == "KIND" {
+					c = strings.Replace(c, " KIND ", " "+providerWord(t.Kind)+" ", 1)
+				}
+			}
+		}
 		return placeholder.ReplaceAllStringFunc(c, func(p string) string {
 			word := strings.TrimSpace(p)
 			switch {
 			case word == "CONN" && kind != "conn",
 				word == "SERVER" && kind != "host",
 				word == "TARGET" && kind == "vpn" && noun != "test",
-				word == "NAME" && noun != kind && noun != "test":
+				word == "NAME" && noun != kind && noun != "test" && !typed:
 				return p
 			}
 			return p[:len(p)-len(word)] + name

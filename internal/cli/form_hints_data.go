@@ -19,9 +19,11 @@ func init() {
 // inventoryHints are the questions of the seven inventory verbs of one
 // provider of a type whose entries are conns: add asks the questions of
 // the form group (of one kind when kindLabel is set), the others ask for
-// the entry.
+// the entry. The pickers offer the conns of the type's family (db for
+// database).
 func inventoryHints(typ, provider, noun, group, kindLabel string) map[string]formHint {
-	pick := formArg{ask: "Which " + noun + "?", pick: typ, help: "A " + noun + " from your list. Add one first: komando " + typ + " " + provider + " add."}
+	fam := familyOfType(typ)
+	pick := formArg{ask: "Which " + noun + "?", pick: fam, help: "A " + noun + " from your list. Add one first: komando " + typ + " " + provider + " add."}
 	cmd := typ + " " + provider + " "
 	edit := invConnHints["conn edit"]
 	edit.hide = nil // the table has no -g and -t on edit: only --add-group and --add-tag
@@ -31,11 +33,11 @@ func inventoryHints(typ, provider, noun, group, kindLabel string) map[string]for
 		cmd + "add": {form: func(cl *call) []formGroup { return formKindOnly(cl, group, kindLabel) },
 			next: []string{cmd + "test {}", cmd + "show {}"}},
 		cmd + "edit": edit,
-		cmd + "list": {args: []formArg{{ask: "Which " + noun + "s? (leave empty for all)", pick: typ, free: true,
+		cmd + "list": {args: []formArg{{ask: "Which " + noun + "s? (leave empty for all)", pick: fam, free: true,
 			help: "Pick one, or type @group or several names separated by commas."}}},
-		cmd + "remove": {args: []formArg{{ask: "Which " + noun + "s should come off your list?", pick: typ, free: true,
+		cmd + "remove": {args: []formArg{{ask: "Which " + noun + "s should come off your list?", pick: fam, free: true,
 			help: "Only komando's list changes; the " + noun + " itself is not touched."}}},
-		cmd + "rename": {args: []formArg{{ask: "Which " + noun + " do you want to rename?", pick: typ,
+		cmd + "rename": {args: []formArg{{ask: "Which " + noun + " do you want to rename?", pick: fam,
 			help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 		cmd + "show": {args: []formArg{pick}},
 		cmd + "test": {args: []formArg{invConns}, flags: []formFlag{invWait}},

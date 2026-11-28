@@ -15,7 +15,7 @@ import (
 // into the vault.
 func TestKubeconfigFilesAreGuarded(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1") // the store exists
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1") // the store exists
 	own := filepath.Join(store.Home(), "store.db")
 	if _, err := os.Stat(own); err != nil {
 		t.Fatalf("no store file to point at: %v", err)

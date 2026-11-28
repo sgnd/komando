@@ -44,7 +44,7 @@ func TestSSHGateStrippedAgentCaller(t *testing.T) {
 	}
 	shellTerminal(t, "/dev/pts/3", true)
 	agentAbove(t)
-	ran, _, e := gateRun(t, "komando shell web", "--name", "ops", "--shell-access")
+	ran, _, e := gateRun(t, "komando host ssh shell web", "--name", "ops", "--shell-access")
 	if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "AI agent") {
 		t.Fatalf("ran %q, error %+v; want SSH_GATE_REFUSED for an AI agent", ran, e)
 	}

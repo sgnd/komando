@@ -27,13 +27,9 @@ func TestStandardRenamedIDs(t *testing.T) {
 		now, old []string
 		id       string
 	}{
-		{[]string{"host", "rename"}, []string{"host", "mv"}, "host.rename"},
 		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
 		{[]string{"vpn", "wireguard", "list"}, []string{"vpn", "wireguard", "ls"}, "vpn.wireguard.list"},
-		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.rename"},
-		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.rename"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.rename"},
-		{[]string{"secret", "show"}, []string{"secret", "get"}, "secret.show"},
 		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.list"},
 		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
 		{[]string{"queue", "kafka", "topic", "list"}, []string{"queue", "kafka", "topic", "ls"}, "queue.kafka.topic.list"},
@@ -57,14 +53,14 @@ func TestStandardRenamedIDs(t *testing.T) {
 // mv is a synonym of rename and prints the same command ID.
 func TestRenameMvSynonym(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	mustRun(t, "host", "mv", "web1", "web-01")
-	if d := mustRun(t, "host", "rename", "web-01", "web-02"); d["to"] != "web-02" {
-		t.Errorf("host rename: %v", d)
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "rename", "web1", "web-01")
+	if d := mustRun(t, "host", "ssh", "rename", "web-01", "web-02"); d["to"] != "web-02" {
+		t.Errorf("host ssh rename: %v", d)
 	}
-	code, outText := runMain(t, "host", "rename", "web-02", "web-03")
-	if code != 0 || !strings.Contains(outText, `"command":"host.rename"`) {
-		t.Errorf("host rename: exit %d, %s", code, outText)
+	code, outText := runMain(t, "host", "ssh", "rename", "web-02", "web-03")
+	if code != 0 || !strings.Contains(outText, `"command":"host.ssh.rename"`) {
+		t.Errorf("host ssh rename: exit %d, %s", code, outText)
 	}
 }
 
@@ -105,16 +101,14 @@ func TestStandardSynonyms(t *testing.T) {
 		args []string
 		id   string
 	}{
-		{[]string{"servers"}, "host"}, {[]string{"server", "list"}, "host.list"},
-		{[]string{"databases", "query"}, "db.query"}, {[]string{"files", "cat"}, "fs.cat"},
-		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
-		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
-		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
-		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
+		{[]string{"servers"}, "host"}, {[]string{"server", "ssh", "list"}, "host.ssh.list"},
+		{[]string{"databases", "postgres", "query"}, "database.postgres.query"}, {[]string{"files", "cat"}, "fs.cat"},
+		{[]string{"policies", "list"}, "policy.list"},
+		{[]string{"group", "show"}, "group.show"},
+		{[]string{"snippet", "show"}, "snippet.show"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
-		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
-		{[]string{"job", "stop"}, "job.kill"}, {[]string{"secret", "passwd"}, "secret.passphrase"},
+		{[]string{"secret", "copy"}, "secret.cp"},
 	} {
 		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {
 			t.Errorf("%v: ID %q, want %q", c.args, got, c.id)
@@ -123,27 +117,26 @@ func TestStandardSynonyms(t *testing.T) {
 }
 
 // The wrappers take their own argument rule and give the result of the
-// command they stand for.
+// command they stand for; group show and snippet show are commands of their own.
 func TestSynonymWrappers(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1", "--group", "web")
 	d := mustRun(t, "group", "show", "web")
 	if m := d["members"].([]any); len(m) != 1 || m[0] != "web1" {
 		t.Errorf("group show web: %v", d)
 	}
 	wantCode(t, "USAGE", "group", "show")
-	if d := mustRun(t, "recipe", "show", "disk"); d["count"].(float64) != 1 {
-		t.Errorf("recipe show disk: %v", d)
+	if d := mustRun(t, "snippet", "show", "disk"); d["count"].(float64) != 1 {
+		t.Errorf("snippet show disk: %v", d)
 	}
-	wantCode(t, "RECIPE_NOT_FOUND", "recipe", "show", "nope")
-	wantCode(t, "TUNNEL_NOT_FOUND", "tunnel", "show", "t-nope")
-	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.list"`) {
+	wantCode(t, "SNIPPET_NOT_FOUND", "snippet", "show", "nope")
+	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.show"`) {
 		t.Errorf("group show: exit %d %s", code, text)
 	}
 }
 
-// `komando schema NAME` describes the command NAME runs: an alias, a
-// command ID or a hidden synonym (G-03, S-9.8).
+// `komando schema NAME` describes the command NAME runs: an alias or a
+// command ID (G-03, S-9.8).
 func TestSchemaResolvesNames(t *testing.T) {
 	invHome(t)
 	for _, c := range []struct {
@@ -152,10 +145,10 @@ func TestSchemaResolvesNames(t *testing.T) {
 	}{
 		{[]string{"fs.list"}, "komando fs list"},
 		{[]string{"fs", "ls"}, "komando fs list"},
-		{[]string{"secret", "get"}, "komando secret show"},
-		{[]string{"secret.show"}, "komando secret show"},
-		{[]string{"host.rename"}, "komando host rename"},
-		{[]string{"group", "show"}, "komando group list"},
+		{[]string{"credential", "password", "show"}, "komando credential password show"},
+		{[]string{"credential.password.show"}, "komando credential password show"},
+		{[]string{"host.ssh.rename"}, "komando host ssh rename"},
+		{[]string{"group", "show"}, "komando group show"},
 		{[]string{"servers"}, "komando host"},
 		{[]string{"db.user.show"}, "komando db user show"},
 	} {
@@ -187,13 +180,14 @@ func TestDbUserShowReplacesGrants(t *testing.T) {
 }
 
 // The top-level `forward` (another name for tunnel, which read like
-// `cluster kubernetes tunnel start`) is gone; `pf` stays a synonym (C-V17).
+// `cluster kubernetes tunnel start`) is gone (C-V17), and so is `pf` since
+// tunnel is `host ssh tunnel` (C6; chief, 2026-11-28: a moved area takes
+// no second spelling).
 func TestForwardGone(t *testing.T) {
 	invHome(t)
-	if code, _ := runMain(t, "forward", "list"); code != out.ExitUsage {
-		t.Errorf("forward list: exit %d", code)
-	}
-	if code, text := runMain(t, "pf", "list"); code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) {
-		t.Errorf("pf list: exit %d %s", code, text)
+	for _, word := range []string{"forward", "pf"} {
+		if code, _ := runMain(t, word, "list"); code != out.ExitUsage {
+			t.Errorf("%s list: exit %d", word, code)
+		}
 	}
 }

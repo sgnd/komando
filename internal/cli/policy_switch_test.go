@@ -70,8 +70,8 @@ func TestPolicyHitsRuleOff(t *testing.T) {
 // before and after; --on undoes it; show, list and check read it.
 func TestPolicyOffOnShow(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--group", "web")
-	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--group", "web")
+	mustRun(t, "host", "ssh", "add", "db1", "deploy@10.0.0.2")
 	wantCode(t, "USAGE", "policy", "edit", "docker-prune")
 	wantCode(t, "USAGE", "policy", "edit", "docker-prune", "--off", "--rm-server", "web1", "--yes")
 	wantCode(t, "RULE_NOT_FOUND", "policy", "edit", "--off", "nonexistent", "--yes")
@@ -89,7 +89,7 @@ func TestPolicyOffOnShow(t *testing.T) {
 	if show["kind"] != "built-in" || fmt.Sprint(sw["hosts"], sw["groups"]) != "[web1] [web]" {
 		t.Errorf("policy show after two switches: %v", show)
 	}
-	a := mustRun(t, "audit", "--command", "policy.edit")
+	a := mustRun(t, "audit", "list", "--command", "policy.edit")
 	if a["count"].(float64) != 2 {
 		t.Errorf("policy edit is audited as policy.edit: %v", a)
 	}
@@ -116,7 +116,7 @@ func TestPolicyOffOnShow(t *testing.T) {
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
 		t.Errorf("policy edit --off=false: %v", sw)
 	}
-	mustRun(t, "policy", "deny", `kubectl\s+apply`)
+	mustRun(t, "policy", "create", `kubectl\s+apply`)
 	custom := policy.CustomID(`kubectl\s+apply`)
 	mustRun(t, "policy", "edit", "--off", custom, "--add-server", "db1", "--yes")
 	if show := mustRun(t, "policy", "show", custom); show["kind"] != "custom" || fmt.Sprint(show["switch"].(map[string]any)["hosts"]) != "[db1]" {
@@ -130,7 +130,7 @@ func TestPolicyOffOnShow(t *testing.T) {
 // the flag. --on makes a check stricter and needs no window.
 func TestPolicyEditOffAsksThePerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1")
 	shown := asAgent(t, false, true)
 	for _, args := range [][]string{
 		{"policy", "edit", "docker-prune", "--off", "--yes"},
@@ -212,22 +212,22 @@ func TestKeystoneRules(t *testing.T) {
 func TestPolicyEditOffReachesExec(t *testing.T) {
 	invHome(t)
 	addr := "deploy@" + closedAddr(t)
-	mustRun(t, "host", "add", "web1", addr, "--group", "lab")
-	mustRun(t, "host", "add", "db1", addr)
+	mustRun(t, "host", "ssh", "add", "web1", addr, "--group", "lab")
+	mustRun(t, "host", "ssh", "add", "db1", addr)
 	line := []string{"--", "docker system prune -f"}
-	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1"}, line...)...)
+	wantCode(t, "POLICY_BLOCKED", append([]string{"host", "ssh", "exec", "web1"}, line...)...)
 	mustRun(t, "policy", "edit", "docker-prune", "--off", "--add-group", "lab", "--yes")
 	// past the policy the line goes to the server, which is not there
-	if _, e := invRun(t, append([]string{"exec", "web1"}, line...)...); e == nil || e.Code == "POLICY_BLOCKED" {
+	if _, e := invRun(t, append([]string{"host", "ssh", "exec", "web1"}, line...)...); e == nil || e.Code == "POLICY_BLOCKED" {
 		t.Errorf("off on @lab: want the connection error, got %+v", e)
 	}
-	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1,db1"}, line...)...)
-	wantCode(t, "POLICY_BLOCKED", "exec", "web1", "--", "rm -rf /")
-	mustRun(t, "host", "add", "web9", addr, "--group", "lab")
-	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web9"}, line...)...)
-	mustRun(t, "host", "rm", "web1", "--yes")
-	mustRun(t, "host", "add", "web1", addr)
-	wantCode(t, "POLICY_BLOCKED", append([]string{"exec", "web1"}, line...)...)
+	wantCode(t, "POLICY_BLOCKED", append([]string{"host", "ssh", "exec", "web1,db1"}, line...)...)
+	wantCode(t, "POLICY_BLOCKED", "host", "ssh", "exec", "web1", "--", "rm -rf /")
+	mustRun(t, "host", "ssh", "add", "web9", addr, "--group", "lab")
+	wantCode(t, "POLICY_BLOCKED", append([]string{"host", "ssh", "exec", "web9"}, line...)...)
+	mustRun(t, "host", "ssh", "remove", "web1", "--yes")
+	mustRun(t, "host", "ssh", "add", "web1", addr)
+	wantCode(t, "POLICY_BLOCKED", append([]string{"host", "ssh", "exec", "web1"}, line...)...)
 	if sw := mustRun(t, "policy", "show", "docker-prune")["switch"].(map[string]any); sw["off"] != false {
 		t.Errorf("a removed server is still in the switch: %v", sw)
 	}
@@ -316,9 +316,9 @@ func TestPolicyEditTableNotWeaker(t *testing.T) {
 // rule went off stay in the switch until they are taken out by name.
 func TestPolicyEditRmGroupDropsEmptyLabel(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--group", "lab")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--group", "lab")
 	mustRun(t, "policy", "edit", "docker-prune", "--off", "--add-group", "lab", "--yes")
-	mustRun(t, "host", "edit", "web1", "--rm-group", "lab")
+	mustRun(t, "host", "ssh", "edit", "web1", "--rm-group", "lab")
 	wantCode(t, "GROUP_NOT_FOUND", "policy", "edit", "docker-prune", "--rm-group", "nope")
 	sw := mustRun(t, "policy", "edit", "docker-prune", "--rm-group", "lab")
 	if fmt.Sprint(sw["groups"], sw["hosts"]) != "[] [web1]" {

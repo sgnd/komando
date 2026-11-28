@@ -20,7 +20,7 @@ func TestQueuePubsubConn(t *testing.T) {
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "p", "pubsub://my-project?endpoint=http://pubsub.example.com:8085")
 	mustRun(t, "conn", "add", "pubsub", "pubsub://my-project")
 	mustRun(t, "conn", "add", "local", "pubsub://test-project?endpoint=http://127.0.0.1:9")
-	mustRun(t, "host", "add", "office", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "p-via", "pubsub://test-project?endpoint=http://pubsub:8085", "--via", "office")
 	mustRun(t, "conn", "add", "p-plain", "pubsub://test-project?endpoint=http://pubsub.example.com&insecure=1")
 	if got := plainConn(&store.Conn{Name: "p-plain", URL: "pubsub://test-project?endpoint=http://pubsub.example.com&insecure=1"}); !strings.Contains(got, "https endpoint") {

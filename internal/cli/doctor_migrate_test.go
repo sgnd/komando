@@ -2,9 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
+	"testing/iotest"
+	"time"
 
 	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/store"
@@ -152,6 +156,83 @@ func TestAskMoveOnce(t *testing.T) {
 			}
 			if s := e.String(); strings.Count(s, "Move the store to format 3 now? [y/N]") != 1 || strings.Count(s, "THE PLAN") != 1 {
 				t.Fatalf("the screen\n%s", s)
+			}
+		})
+	}
+}
+
+// Rule R3 (C606): before the move, doctor lists each v0.17 job record with
+// no end (ID, server, command name, start) and marks them ended on the
+// person's yes: all at once, or one by one. A caller the move refuses is
+// asked nothing.
+func TestDoctorOldJobs(t *testing.T) {
+	started := time.Date(2026, 11, 20, 9, 30, 0, 0, time.UTC)
+	jobs := []store.OldJob{
+		{ID: "j1", Host: "web", Name: "pg_dump", Started: started, Folder: "$HOME/.komando/jobs/j1"},
+		{ID: "j3", Host: "db", Name: "sleep\x1b[2J", Started: started, Folder: "$HOME/.komando/jobs/j3"},
+	}
+	saved, savedEnd := oldJobs, endOldJobs
+	t.Cleanup(func() { oldJobs, endOldJobs = saved, savedEnd })
+	for _, c := range []struct {
+		name  string
+		typed string
+		agent bool
+		want  []string // the IDs marked; nil: nothing is marked
+	}{
+		{"all at once", "y\n", false, []string{"j1", "j3"}},
+		{"one by one", "n\ny\nn\n", false, []string{"j1"}},
+		{"none", "n\nn\nn\n", false, nil},
+		{"an AI agent", "y\n", true, nil},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			listed := false
+			oldJobs = func(context.Context) ([]store.OldJob, error) { listed = true; return jobs, nil }
+			var marked []string
+			var markedBy string
+			endOldJobs = func(_ context.Context, ids []string, by string) error {
+				marked, markedBy = ids, by
+				return nil
+			}
+			vars := map[string]string{"KOMANDO_ACTOR": "alice"}
+			if c.agent {
+				vars["CLAUDECODE"] = "1"
+			}
+			env := func(k string) (string, bool) { v, ok := vars[k]; return v, ok }
+			var e bytes.Buffer
+			cl := newCall(engine.Call{
+				Program:   "komando",
+				LookupEnv: env,
+				Environ:   func() []string { return nil },
+				Terminal:  true,
+				Stdin:     iotest.OneByteReader(strings.NewReader(c.typed)), // a terminal gives a line per answer
+				Stderr:    &e,
+				Ancestors: func() string { return "" },
+			}, []string{"doctor"})
+			parsedGate(t, cl, "doctor")
+			if err := doctorOldJobs(cl, t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(marked, c.want) {
+				t.Fatalf("marked %v, want %v\n%s", marked, c.want, e.String())
+			}
+			// audit A3: the person who answered is on the mark, not komando
+			if len(c.want) > 0 && markedBy != "alice" {
+				t.Errorf("marked by %q, want the person who answered: alice", markedBy)
+			}
+			if c.agent {
+				if listed || e.Len() > 0 {
+					t.Fatalf("an agent was shown the jobs:\n%s", e.String())
+				}
+				return
+			}
+			for _, want := range []string{"j1", "web", "pg_dump", "2026-11-20 09:30", "j3", "db", "sleep", "Mark all 2 ended? [y/N]",
+				"komando cannot see whether one still runs on its server: look there first, by the server and the command below."} {
+				if !strings.Contains(e.String(), want) {
+					t.Errorf("the screen lacks %q:\n%s", want, e.String())
+				}
+			}
+			if strings.Contains(e.String(), "\x1b") {
+				t.Errorf("a control character reached the terminal: %q", e.String())
 			}
 		})
 	}

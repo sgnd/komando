@@ -55,13 +55,13 @@ func withSnippets(t *testing.T, list ...snippet.Builtin) {
 	t.Cleanup(func() { snippetsOn, builtinSnippets = wasOn, was })
 }
 
-// snippetData runs `recipe run` with -o json and returns the data of its
+// snippetData runs `snippet exec` with -o json and returns the data of its
 // envelope and the error.
 func snippetData(t *testing.T, args ...string) (json.RawMessage, *out.Error) {
 	t.Helper()
 	var err error
 	got := captureOutput(t, func() error {
-		err = runRoot(t, append([]string{"-o", "json", "recipe", "run"}, args...)...)
+		err = runRoot(t, append([]string{"-o", "json", "snippet", "exec"}, args...)...)
 		return err
 	})
 	var env struct {
@@ -102,7 +102,7 @@ func TestSnippetsOff(t *testing.T) {
 	rs := startReplayServerWith(t, nil, replayStep{stdout: "x"})
 	for _, name := range builtinSnippets.Names() {
 		if _, e := snippetData(t, name, "dev"); e == nil || e.Code != recipeNotFound(name).Code {
-			t.Errorf("recipe run %s with the engine off = %v, want %s", name, e, recipeNotFound(name).Code)
+			t.Errorf("snippet exec %s with the engine off = %v, want %s", name, e, recipeNotFound(name).Code)
 		}
 	}
 	r, err := snippet.New(samples)
@@ -114,7 +114,7 @@ func TestSnippetsOff(t *testing.T) {
 	t.Cleanup(func() { builtinSnippets = was })
 	_, e := snippetData(t, "svc-list", "dev")
 	if e == nil || e.Code != recipeNotFound("svc-list").Code {
-		t.Fatalf("recipe run svc-list with the engine off = %v, want %s", e, recipeNotFound("svc-list").Code)
+		t.Fatalf("snippet exec svc-list with the engine off = %v, want %s", e, recipeNotFound("svc-list").Code)
 	}
 	if len(rs.execs) != 0 {
 		t.Fatalf("the server ran %q with the engine off", rs.execs)
@@ -647,7 +647,7 @@ func likeTheCommand(t *testing.T, step replayStep, command []string, snip []stri
 		return strings.Join(rs.sent, "\n----\n"), string(env.Data)
 	}
 	wantSent, today := run(command...)
-	gotSent, mine := run(append([]string{"recipe", "run"}, snip...)...)
+	gotSent, mine := run(append([]string{"snippet", "exec"}, snip...)...)
 	if gotSent != wantSent {
 		t.Errorf("sent\n got:  %s\n want: %s", gotSent, wantSent)
 	}
@@ -713,7 +713,7 @@ func TestSnippetDockerLikeTheCommand(t *testing.T) {
 				t.Fatalf("got %v %s, want SNIPPET_PARSE_FAILED and no text", e, raw)
 			}
 		})
-		// recipe run has no --sudo: the hint names the command, which asks
+		// snippet exec has no --sudo: the hint names the command, which asks
 		// as today, and never steers to the docker group (root on that
 		// server)
 		t.Run(strings.Join(c, "-")+"/permission hint", func(t *testing.T) {
@@ -1135,5 +1135,39 @@ func TestBuiltinsThatRaiseThemselvesRefuseNoSudo(t *testing.T) {
 	want := []string{"facts", "pkg-upgradable"}
 	if !slices.Equal(self, want) {
 		t.Errorf("built-ins whose text raises itself: %v, want %v", self, want)
+	}
+}
+
+// notBuiltSnippets are the shaped built-ins the design counts (34: 19 host,
+// 5 database, 5 cache, 5 cluster) that no part has built yet (row of
+// 2026-11-28; the v2.8 tab: "34 to be proven at the cut").
+var notBuiltSnippets = []string{
+	"fs-list", "fs-cat", "fs-write", "fs-write-preview", "security-upgrade", "pkg-upgrade-all",
+	"db-info", "db-sizes", "db-activity", "db-locks", "db-schema",
+	"cache-get", "cache-keys", "cache-info", "cache-set", "cache-rm",
+	"cluster-status", "cluster-list", "cluster-events", "cluster-describe", "cluster-logs",
+}
+
+// The shaped built-in snippets komando has (15: 13 host, 2 cluster, the
+// Helm reads helm-list and helm-release) and the 24 text built-ins that stay saved-command recipes. The number is the contract
+// with the apps and the docs: a snippet added or taken out changes this
+// test and the design in the same change.
+func TestShapedSnippetCounts(t *testing.T) {
+	byType := map[string]int{}
+	for _, name := range builtinSnippets.Names() {
+		b, _ := builtinSnippets.Lookup(name)
+		byType[b.Type]++
+	}
+	want := map[string]int{"host": 13, "cluster": 2}
+	if !maps.Equal(byType, want) {
+		t.Errorf("shaped snippets by type: %v, want %v; the design's other %d are not built: %v", byType, want, len(notBuiltSnippets), notBuiltSnippets)
+	}
+	for _, n := range notBuiltSnippets {
+		if _, ok := builtinSnippets.Lookup(n); ok {
+			t.Errorf("%s is built now: take it out of notBuiltSnippets and raise the count", n)
+		}
+	}
+	if n := len(recipes); n != 24 {
+		t.Errorf("%d text built-ins, want 24", n)
 	}
 }

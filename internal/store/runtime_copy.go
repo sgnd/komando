@@ -30,6 +30,16 @@ type runtimeCopy struct {
 // runtimeOf2 is runtime.json read against the format-2 store d (its
 // mark), for the migration: no open through the gate.
 func runtimeOf2(ctx context.Context, d *sealdb.DB) (*Runtime, error) {
+	s, err := runtimeState2(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	return &s.Runtime, nil
+}
+
+// runtimeState2 is runtimeOf2 in a State that can save it back; the
+// runtime key is primed already.
+func runtimeState2(ctx context.Context, d *sealdb.DB) (*State, error) {
 	s := &State{}
 	err := d.View(ctx, func(tx *sealdb.Tx) error {
 		var err error
@@ -43,7 +53,7 @@ func runtimeOf2(ctx context.Context, d *sealdb.DB) (*Runtime, error) {
 		return nil, err
 	}
 	s.Runtime.init()
-	return &s.Runtime, nil
+	return s, nil
 }
 
 // putRuntimeCopy writes rt's carried records and a new runtime mark in

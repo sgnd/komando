@@ -13,8 +13,6 @@ var flagSynonyms = []struct {
 	now, old string
 }{
 	{[]string{"fs", "write"}, "content", "value"},
-	{[]string{"host", "edit"}, "add-group", "group"},
-	{[]string{"host", "edit"}, "add-tag", "tag"},
 	{[]string{"conn", "edit"}, "add-group", "group"},
 	{[]string{"conn", "edit"}, "add-tag", "tag"},
 }

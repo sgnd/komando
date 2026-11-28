@@ -23,7 +23,7 @@ func TestOracleConnsCheckTLS(t *testing.T) {
 	if url("erp") != "oracle://app@db.example.com/ERP?tls=true" || !strings.Contains(fmt.Sprint(d["warnings"]), "added tls=true") {
 		t.Errorf("oracle: %s, %v", url("erp"), d)
 	}
-	mustRun(t, "host", "add", "jump", "deploy@10.0.0.3")
+	mustRun(t, "host", "ssh", "add", "jump", "deploy@10.0.0.3")
 	for name, raw := range map[string]string{
 		"o-plain": "oracle://app@db.example.com/ERP?tls=false",
 		"o-local": "oracle://app@127.0.0.1/FREEPDB1",
@@ -63,8 +63,8 @@ func TestOracleConnsCheckTLS(t *testing.T) {
 		t.Errorf("weakTLS false: %v", w)
 	}
 	// what Oracle cannot do says so before connecting
-	wantCode(t, "NOT_SUPPORTED", "db", "dump", "erp", "--to", t.TempDir()+"/o.sql")
-	wantCode(t, "NOT_SUPPORTED", "db", "restore", "o-local", "--from", "x.sql", "--dry-run")
+	wantCode(t, "USAGE", "database", "oracle", "backup", "erp")      // no backup leaf+"/o.sql")
+	wantCode(t, "USAGE", "database", "oracle", "restore", "o-local") // no restore leaf
 	wantCode(t, "NOT_SUPPORTED", "db", "explain", "o-local", "select 1 from dual", "--analyze")
 }
 

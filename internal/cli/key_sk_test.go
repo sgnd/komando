@@ -39,11 +39,11 @@ func TestKeyAddSecurityKey(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "id_ed25519_sk")
 	os.WriteFile(p, pem.EncodeToMemory(&pem.Block{Type: "OPENSSH PRIVATE KEY", Bytes: body}), 0o600)
 	os.WriteFile(p+".pub", ssh.MarshalAuthorizedKey(pub), 0o644)
-	d := mustRun(t, "key", "add", "yubi", p)
+	d := mustRun(t, "credential", "key", "add", "yubi", p)
 	w, _ := d["warnings"].([]any)
 	if d["type"] != "sk-ssh-ed25519@openssh.com" || d["fingerprint"] != ssh.FingerprintSHA256(pub) || len(w) != 1 || !strings.Contains(w[0].(string), "ssh-add") {
 		t.Errorf("key add: %v", d)
 	}
 	os.Remove(p + ".pub")
-	wantCode(t, "KEY_INVALID", "key", "add", "yubi2", p) // without .pub it cannot be told apart
+	wantCode(t, "KEY_INVALID", "credential", "key", "add", "yubi2", p) // without .pub it cannot be told apart
 }

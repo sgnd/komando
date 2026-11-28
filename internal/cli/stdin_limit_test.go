@@ -27,7 +27,7 @@ func TestSecretSetStdinOverLimit(t *testing.T) {
 		}
 		w.Close()
 	}()
-	e := wantCode(t, "USAGE", "secret", "set", "big")
+	e := wantCode(t, "USAGE", "credential", "password", "add", "big")
 	if !strings.Contains(e.Message, "the value on stdin is more than 1.0 MiB") {
 		t.Errorf("message: %+v", e)
 	}

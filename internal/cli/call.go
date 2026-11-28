@@ -96,6 +96,7 @@ type call struct {
 	blockAudited    bool                // the command recorded its safety stop already (auditBlocked)
 	interrupted     bool                // the person pressed Ctrl-C at a question (ttyin.go)
 	personalCmd     bool                // this command, run by an AI agent, may hide personal data
+	preRan          bool                // the root's pre-run started: the output hides as this command needs
 	twinMask        map[string][]string // per conn: the mask_columns of other conns to the same resource
 	fsSudoRetry     string              // the hint of a permission error in an fs command: the line with --sudo
 	carriedSecrets  map[string]bool     // the secrets a sealed file being imported brings (import_sealed.go)
@@ -137,6 +138,15 @@ func newCall(c engine.Call, args []string) *call {
 	cl.sess = engine.NewSession()
 	cl.begin(nil)
 	return cl
+}
+
+// forgetLastCommand clears what the last command in cl recorded, before a
+// new tree binds its flags to cl.flags with their defaults (treeOf).
+func (cl *call) forgetLastCommand() {
+	cl.out.Reset()
+	cl.flags = globalFlags{}
+	cl.askedAbout, cl.blockAudited, cl.interrupted, cl.preRan = nil, false, false, false
+	cl.personalCmd, cl.fsSudoRetry = false, "retry with --sudo"
 }
 
 // eofReader is the input of a call that has none.

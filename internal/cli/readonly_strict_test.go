@@ -196,8 +196,8 @@ func TestReadOnlyUnknownCommandRefused(t *testing.T) {
 	refusedReadOnly(t, `mytool --status`, `./deploy.sh`, `cat f | mytool`, `sudo mytool`, `xargs mytool`,
 		`curl https://example.com`, `wget -qO- https://example.com`, `nc -z host 80`)
 	invHome(t)
-	mustRun(t, "host", "add", "web", "u@10.0.0.5")
-	wantCode(t, "READ_ONLY_VIOLATION", "exec", "web", "--read-only", "--", "mytool", "--status")
+	mustRun(t, "host", "ssh", "add", "web", "u@10.0.0.5")
+	wantCode(t, "READ_ONLY_VIOLATION", "host", "ssh", "exec", "web", "--read-only", "--", "mytool", "--status")
 }
 
 // cli-guard 25: cobra takes the word after -o as its value, `--` too, so
@@ -335,7 +335,7 @@ func TestReadOnlyEnvNames(t *testing.T) {
 
 // psql and mysql run in no read-only transaction under exec: a function a
 // SELECT calls may write, and their meta commands run a shell (\echo `id`).
-// komando db query runs SQL in a read-only transaction instead.
+// komando database KIND query runs SQL in a read-only transaction instead.
 func TestReadOnlySQLClientsRefused(t *testing.T) {
 	refusedReadOnly(t, `psql -c 'select 1'`, `psql app`, `sudo -u postgres psql -c 'select f()'`,
 		`mysql -e 'select 1'`, `mariadb app`, `psql -c '\echo `+"`id`"+`'`)

@@ -7,13 +7,13 @@ One page per feature, task by task. AI agents: run `komando guide`.
 New to komando? Do these in order:
 
 1. [Install komando](install.md).
-2. Add a server: type `komando host add` and answer one question per
+2. Add a server: type `komando host ssh add` and answer one question per
    line. komando then shows the full command, so next time you can type
    it yourself ([Servers](servers.md)). Already have a list of servers?
    [Import it](import.md).
 3. Check it and look around: `komando test web1`, then `komando facts web1`
    ([Health and network checks](health.md)).
-4. Connect your AI agent: `komando guide install`
+4. Connect your AI agent: `komando agent skill install`
    ([Running commands](commands.md) shows what an agent can do).
 
 Unsure about a word? See the [glossary](glossary.md).
@@ -25,25 +25,25 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Install, update, remove](install.md) | install komando on macOS, Linux or Windows, update it, tab completion, remove it | `update`, `completion` |
 | [Servers](servers.md) | add servers, log in with keys, passwords or your password manager | `host`, `key`, `secret`, `login` |
 | [Secrets](secrets.md) | save passwords and tokens once, use them as credential:NAME, read them from Vault, cloud secret managers, 1Password, Bitwarden or KeePass | `secret` |
-| [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
+| [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host ssh add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |
-| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, what komando asks at your terminal | `exec`, `job`, `recipe`, `shell` |
+| [Running commands](commands.md) | run commands and scripts, long tasks, saved commands, what komando asks at your terminal | `exec`, `recipe`, `shell` |
 | [Health and network checks](health.md) | what is this server, is it healthy, what can it reach | `facts`, `recipe`, `net` |
-| [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `upload`, `download`, `cp`, `sync` |
+| [Files](files.md) | read, edit and copy files safely; copy whole folders | `fs`, `copy` |
 | [Services, logs, Docker, packages, users](system.md) | day-to-day administration, security updates, restarts | `svc`, `logs`, `docker`, `pkg`, `user`, `cron`, `reboot` |
 | [Private servers and tunnels](tunnels.md) | reach servers and services that are not on the internet | `--via`, `tunnel` |
 | [VPNs](vpn.md) | reach targets behind WireGuard, OpenVPN, Tailscale, AnyConnect, IPsec and other VPNs, several at once | `vpn`, `--via` |
 | [Databases](databases.md) | query, back up and restore PostgreSQL and MySQL/MariaDB; query and back up SQLite; query SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB | `conn`, `db` |
 | [Caches](caches.md) | read and change Redis, Valkey and memcached | `cache` |
 | [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
-| [Storage](storage.md) | browse, download, upload and share files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `upload`, `download`, `sync` |
+| [Storage](storage.md) | browse, download, upload and share files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `copy` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
 | [Cloud logins](cloud.md) | log in to AWS SSO once; S3, SQS and ECR conns that use your AWS profile; a conn per S3 bucket | `login aws`, `import aws` |
 | [Container registries](registry.md) | list repositories and tags, inspect and copy images, delete old ones | `registry` |
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |
-| [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit verify` |
+| [Security standards](security-standards.md) | how komando measures up to OWASP, NIST, ISO 27001 and SLSA | `doctor`, `audit check` |
 | [Results and errors](output.md) | JSON and text output, exit codes, common errors, what is still running | `status`, `schema` |
 | [Error codes](error-codes.md) | every error code, its exit code and the usual next step | `schema` |
 | [Settings and files](settings.md) | settings, environment variables, where komando keeps its data | `config`, `doctor` |

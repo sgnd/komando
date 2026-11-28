@@ -21,7 +21,7 @@ func formFsSudo(what string) formFlag {
 var formFsBackup = formFlag{name: "backup", ask: "Keep a copy of the old file?", def: "true",
 	help: "Saved next to it as the same name plus .bak, so you can put it back."}
 
-// formCopyFrom and formCopyTo are the two sides of cp.
+// formCopyFrom and formCopyTo are the two sides of copy.
 var formCopyFrom = formArg{ask: "Copy from where?", example: "./site",
 	help: "A file or folder on this computer (./site), or on a server as SERVER:PATH (web1:/var/log/app)."}
 
@@ -123,46 +123,15 @@ var formFsHints = map[string]formHint{
 
 // formTransferHints copy files between this computer, servers and storage.
 var formTransferHints = map[string]formHint{
-	"upload": {args: []formArg{
-		{ask: "To which servers or file storage?", pick: "files", free: true,
-			help: "A server, a group like @web, all, or a file storage (S3, SFTP, FTP). Several servers: separate them with spaces or commas."},
-		{ask: "Which file or folder on this computer?", example: "./app.tar.gz", local: true,
-			help: "Its path here. ./ means the folder you are in, ~/ your home folder."},
-		{ask: "Where should it go?", example: "/tmp/app.tar.gz",
-			help: "The full path on the server, or the name in the storage. Empty uses the same name, in the login user's home folder."}},
+	"copy": {args: []formArg{formCopyFrom, formCopyTo},
 		flags: []formFlag{
-			{name: "recursive", ask: "Is it a folder? (copy everything in it)"},
-			{name: "sudo", ask: "Put it in place as root (sudo)?",
-				help: "Yes for system places, like /etc. Works for single files."},
-			{name: "parents", ask: "Make missing folders on the way?"},
-		}},
-	"download": {args: []formArg{
-		{ask: "From which servers or file storage?", pick: "files", free: true,
-			help: "A server, a group like @web (one folder per server), all, or a file storage (S3, SFTP, FTP)."},
-		{ask: "Which file or folder?", example: "/var/log/nginx/error.log",
-			help: "The full path on the server, or the name in the storage."}},
-		flags: []formFlag{
-			{name: "to", ask: "Where should it be saved on this computer?", example: "./logs/", local: true,
-				help: "A folder or file name here. Empty saves it in the folder you are in."},
-			{name: "recursive", ask: "Is it a folder? (download everything in it)"},
-			{name: "sudo", ask: "Read it as root (sudo)?",
-				help: "Yes for files only root can read. Works for single files."},
-			{name: "overwrite", ask: "Replace files that are already here?"},
-		}},
-	"cp": {args: []formArg{formCopyFrom, formCopyTo},
-		flags: []formFlag{
-			{name: "recursive", ask: "Is it a folder? (copy everything in it)",
+			{name: "sync", ask: "Send only what is new or changed? (a folder, like a deploy)",
+				help: "Compares size, mode and time, and leaves the rest alone. Try it with --dry-run first."},
+			{name: "recursive", show: func(a formAnswers) bool { return a["flag:sync"] != "true" }, ask: "Is it a folder? (copy everything in it)",
 				help: "Ending the source with / copies what is in the folder, not the folder itself."},
 			{name: "sudo", ask: "Run it with sudo (as root)?",
 				help: "Yes for system files, like /etc. Works for single files."},
-		}},
-	"sync": {args: []formArg{
-		{ask: "Copy from where?", example: "./site",
-			help: "A folder on this computer, SERVER:PATH on a server, or STORAGE:PREFIX in file storage."},
-		{ask: "Copy to where?", example: "web1:/var/www/site",
-			help: "The other side: SERVER:PATH (@web:/var/www/site for a group), STORAGE:PREFIX, or a folder here."}},
-		flags: []formFlag{
-			{name: "exclude", ask: "Skip some names?", example: ".git",
+			{name: "exclude", show: func(a formAnswers) bool { return a["flag:sync"] == "true" }, ask: "Skip some names?", example: ".git",
 				help: "Files or folders to leave out, like .git or *.log. Empty copies everything."},
 		}},
 }
@@ -175,7 +144,5 @@ func init() {
 		"fs restore": {next: []string{"fs cat {} PATH"}},
 		"fs rm":      {next: []string{"fs list {} PATH"}},
 		"fs list":    {next: []string{"fs cat {} PATH", "fs stat {} PATH"}},
-		"upload":     {next: []string{"fs stat {} PATH --sha256"}},
-		"download":   {next: []string{"fs cat {} PATH", "download {} PATH --overwrite"}},
 	})
 }

@@ -74,7 +74,7 @@ appear in komando's list, output or history.
   `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. Without a yes, a
   protected server, conn or VPN is skipped, in the dry run too.
-- A file cannot turn on what `host edit` and `vpn KIND edit` ask a person for:
+- A file cannot turn on what `host ssh edit` and `vpn KIND edit` ask a person for:
   `forward_agent` on a server that did not lend your ssh-agent before,
   `legacy_crypto` or `allow_pap` on a VPN, and, for a VPN it replaces, a CA
   it no longer checks the server against or `mfa` or protection turned
@@ -84,7 +84,7 @@ appear in komando's list, output or history.
   the result lists them in `settings_differ` with the command to run.
 - The result names the command that checks what came in in `data.next`,
   and a person sees it on stderr: `Next: komando test @shop`.
-- Servers are checked like `host add` (ports, users, `--via`). A bad one is
+- Servers are checked like `host ssh add` (ports, users, `--via`). A bad one is
   skipped, with the reason. A `csv` import is stricter: one bad row stops
   the whole import, and nothing is added.
 - Whatever komando cannot import is listed, with the reason. For example: a
@@ -107,11 +107,11 @@ komando import putty putty.reg --dry-run
 komando import putty putty.reg
 ```
 
-PuTTY keeps no passwords, so set them with `komando secret set` or use a
+PuTTY keeps no passwords, so set them with `komando credential password add` or use a
 key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
-`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
+`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando credential key add NAME
 KEY`. A session that reaches its server through a proxy is listed too: set
-the way there with `komando host edit NAME --via JUMP`.
+the way there with `komando host ssh edit NAME --via JUMP`.
 
 ### Coming from MobaXterm
 
@@ -125,7 +125,7 @@ komando import mobaxterm sessions.mxtsessions
 
 SSH sessions come in with their host, port and user, and the folder a
 session sits in becomes a group. MobaXterm keeps passwords apart, so set
-them with `komando secret set` or use a key.
+them with `komando credential password add` or use a key.
 
 ### Coming from SecureCRT
 
@@ -144,7 +144,7 @@ SSH2 sessions come in with their host, port, user and key file, and the
 folder a session sits in becomes a group. Telnet, serial and RDP sessions
 are listed. A key in PuTTY's format (`.ppk`) and a firewall or jump host
 are listed with what to do. komando never reads the passwords and key
-passphrases SecureCRT stores: set them with `komando secret set` or use a
+passphrases SecureCRT stores: set them with `komando credential password add` or use a
 key.
 
 ### Coming from Termius or TablePlus
@@ -166,7 +166,7 @@ included, once the vault has a passphrase.
 ### Export and import (no passwords)
 
 `export` saves your servers, conns and VPNs, and when you export everything
-also your saved recipes, your own deny rules (`policy deny`) and your
+also your saved recipes, your own deny rules (`policy create`) and your
 settings:
 
 ```bash
@@ -182,11 +182,11 @@ On the other computer:
 
 ```bash
 komando import komando komando-backup.json
-komando secret set prod-db-pass               # the import lists the passwords to set again
+komando credential password add prod-db-pass               # the import lists the passwords to set again
 ```
 
 The export file holds no passwords, only their names, so set them again
-with `komando secret set`. The import adds your deny rules (they only stop
+with `komando credential password add`. The import adds your deny rules (they only stop
 more), but changes no setting: it lists the settings that differ, each with
 the `komando config set` command that sets it, because a file from someone
 else must not turn a check off. When komando refuses something in the file,
@@ -194,29 +194,29 @@ the rest still comes in and the import ends with `IMPORT_INCOMPLETE` (exit 1):
 fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
-a key from `komando key`, `export` names the key (`keys_needed`) and its file
+a key from `komando credential key`, `export` names the key (`keys_needed`) and its file
 (`key_files`): copy that file to the other computer yourself. A key
-komando made (`key gen`) is sealed in komando and has no file
-(`keys_sealed`): make a new one on the other computer with `komando key gen
-NAME` and put it on the servers with `komando key deploy`. The import
+komando made (`credential key create`) is sealed in komando and has no file
+(`keys_sealed`): make a new one on the other computer with `komando credential key create
+NAME` and put it on the servers with `komando credential key install`. The import
 still adds the server, says which key it needs, and leaves the key out until
 you bring it (ssh-agent or your default key may log in meanwhile):
 
 ```bash
-komando key add deploy ~/Downloads/deploy     # the copied key file
-komando host edit db1 --key deploy
+komando credential key add deploy ~/Downloads/deploy     # the copied key file
+komando host ssh edit db1 --key deploy
 ```
 
 An export file may come from someone else, so komando imports it with
 these limits:
 
 - A `ProxyCommand` is dropped, because it would run on this computer. Set it
-  yourself with `komando host edit NAME --proxy-command ...`.
+  yourself with `komando host ssh edit NAME --proxy-command ...`.
 - A password reference is kept only if it names a `credential:` that does not
   exist here yet. Anything else is dropped, so a file cannot point your
   existing passwords at its servers.
 - Recipes marked read-only are imported as changes. Mark them read-only
-  again yourself with `komando recipe add NAME ... --read-only --overwrite`.
+  again yourself with `komando snippet create NAME ... --read-only --overwrite`.
 
 Each dropped setting is listed in the result.
 
@@ -260,7 +260,7 @@ The import keeps the limits of any export file (below). A password from the
 file goes into the vault when that name is not here yet. When the vault
 has that name with another value, it keeps its own, and the file's servers
 do not get it, unless you add `--overwrite` and say yes. A key from the
-file is kept in komando's store, as one `key gen` made; a key with a name
+file is kept in komando's store, as one `credential key create` made; a key with a name
 that is here already is left out.
 
 A wrong passphrase, or a file changed after it was sealed, stops with
@@ -303,15 +303,15 @@ folder whose key stayed in the old computer's keychain cannot open its
 secrets.
 
 ```bash
-komando secret passphrase                     # on the old computer: type a passphrase (15+ characters)
+komando config vault passphrase                     # on the old computer: type a passphrase (15+ characters)
 # copy ~/.komando to the new computer (a USB stick, scp), then there:
 export KOMANDO_VAULT_PASS='the passphrase'    # or type it when komando asks
 komando doctor                                # the vault opens, the servers are there
 ```
 
 On the new computer you can go back to a key file and move it into the
-keychain: `komando secret passphrase --off --yes`, then `komando secret
-keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
+keychain: `komando config vault passphrase --off --yes`, then `komando config
+vault keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 
 ### Restore from a backup (Time Machine, a new computer)
 
@@ -326,12 +326,12 @@ check it before you need the backup:
 | the OS keychain (the default) | opens: the keychain still has the key | does not open its secrets: the key stayed in the old computer's keychain |
 
 So for a backup you can take to a new computer, give the vault a
-passphrase first (`komando secret passphrase`), or keep an
+passphrase first (`komando config vault passphrase`), or keep an
 [export](#export-and-import-no-passwords) next to it and set the passwords
 again from your password manager.
 
-Put the folder back with komando running nothing (no VPN, tunnel or job
-started from it; `komando status` shows them), then:
+Put the folder back with komando running nothing (no VPN, tunnel or exec
+session started from it; `komando status` shows them), then:
 
 ```bash
 komando doctor                                # the vault opens, the servers are there
@@ -349,7 +349,7 @@ komando doctor --accept-old-copy
 ```
 
 Then check what changed since the backup: servers or rules you added
-later, and host keys pinned since (`komando host trust` asks again for a
+later, and host keys pinned since (`komando host ssh trust` asks again for a
 server it no longer knows).
 
 The store's settings row (its key mode, salt and scrypt cost) must stay

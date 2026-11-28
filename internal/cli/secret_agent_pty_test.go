@@ -43,11 +43,11 @@ func TestSecretSetAgentUnderPTYNeverAsks(t *testing.T) {
 		}
 		return result{}
 	}
-	if r := run("secret", "set", "web1-pass"); r.e == nil || r.e.Code != "NEEDS_PERSON" {
+	if r := run("credential", "password", "add", "web1-pass"); r.e == nil || r.e.Code != "NEEDS_PERSON" {
 		t.Errorf("want NEEDS_PERSON, got %+v", r.e)
 	}
 	// a dry run is never blocked: it previews and names what the real run needs
-	r := run("secret", "set", "web1-pass", "--dry-run")
+	r := run("credential", "password", "add", "web1-pass", "--dry-run")
 	if r.e != nil || r.d["would_set"] != true || r.d["replaced"] != false {
 		t.Fatalf("dry run: %v %+v", r.d, r.e)
 	}

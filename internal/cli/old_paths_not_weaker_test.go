@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"maps"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -24,6 +26,25 @@ var replacedByExec = func() map[string]bool {
 	return m
 }()
 
+// goneKinds are the kinds of today's keys whose every command moved to
+// leaves under other keys: commandKinds drops a key with its last command
+// (TestEveryCommandHasKind), and the floor of what those leaves carry is
+// read here. Each is the row commandKinds had before the move.
+var goneKinds = map[safetyKey]cmdKind{
+	{"credential", "", "show"}: reads, // secret show, split into credential password and token show
+}
+
+// TestGoneKindsReviewed: a goneKinds row lowers a floor, so the table holds
+// only the reviewed rows, each the kind main's
+// testdata/safety_tables_pinned.txt gave its command before the move
+// (secret.show kind=read at d6e40622).
+func TestGoneKindsReviewed(t *testing.T) {
+	reviewed := map[safetyKey]cmdKind{{"credential", "", "show"}: reads}
+	if !maps.Equal(goneKinds, reviewed) {
+		t.Errorf("goneKinds is %v, reviewed %v: a new row needs the kind main's safety_tables_pinned.txt had for its command, and a security review", goneKinds, reviewed)
+	}
+}
+
 // todayHighest is the highest tier c can have today: change unless its
 // kind is read, or the highest row for its key, whatever the condition.
 func todayHighest(c *cobra.Command) tier {
@@ -41,6 +62,11 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 	for _, c := range allCommands(newRoot(tcl)) {
 		byID[cmdID(c)] = c
 	}
+	for k := range goneKinds {
+		if _, ok := commandKinds[k]; ok {
+			t.Errorf("goneKinds has %v, which commandKinds still has: remove it from goneKinds", k)
+		}
+	}
 	for _, l := range capability.All() {
 		for _, id := range slices.Concat(l.Today, l.Carries) {
 			c, ok := byID[id]
@@ -55,17 +81,50 @@ func TestLeafFloorNotWeaker(t *testing.T) {
 					t.Errorf("%s: moved from %s, whose key was %v", l.Key, id, k)
 				}
 				base := tierChange
-				if kind, ok := commandKinds[key]; ok && kind.Kind == kindRead {
+				kind, ok := commandKinds[key]
+				if !ok {
+					kind = goneKinds[key]
+				}
+				if kind.Kind == kindRead {
 					base = tierRead
 				}
-				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want {
+				_, excepted := notWeakerExceptions[l.Key.String()+" | "+id]
+				if want, got := max(base, todayTier(key)), tier(capability.Highest(l.Key)); got < want && !excepted {
 					t.Errorf("%s: carries %s (%s today), but the leaf is at most %s", l.Key, id, want, got)
+				}
+				continue
+			}
+			if !ok && l.Type == "" && slices.Contains(movedTop, l.Verb) && slices.Contains(l.Carries, id) {
+				// a top-level leaf (copy) took the command's job and path: the leaf is at least as strict
+				if k := capability.TodayKeys()[id]; int(capability.Highest(l.Key)) < int(todayTier(safetyKey{k.Type, k.Area, k.Verb})) {
+					t.Errorf("%s: weaker than %s", l.Key, id)
+				}
+				continue
+			}
+			if !ok && slices.Contains(removedIDs, id) && !slices.Contains(l.Today, id) {
+				// removed in step D, its job carried by a leaf of a lower kind
+				// (status lists the exec sessions that replace job list): the
+				// leaf must not be weaker than the removed command was
+				k := capability.TodayKeys()[id]
+				if int(capability.Highest(l.Key)) < int(todayTier(safetyKey{k.Type, k.Area, k.Verb})) {
+					t.Errorf("%s: weaker than %s, which step D removed", l.Key, id)
 				}
 				continue
 			}
 			if !ok && replacedByExec[id] {
 				// removed in step D: exec carries it, and TestReplacedIDsNameTheirRules
 				// pins the rules and stops that keep its protection
+				continue
+			}
+			if !ok && slices.Contains(movedTypes, l.Type) {
+				// a command the moved leaf carries under another key (secret set,
+				// split into password and token) is gone too: its rows, read by
+				// today's key, must not be stricter than the leaf
+				k := capability.TodayKeys()[id]
+				want, got := todayTier(safetyKey{k.Type, k.Area, k.Verb}), capability.Highest(l.Key)
+				if _, ok := notWeakerExceptions[l.Key.String()+" | "+id]; int(got) < int(want) && !ok {
+					t.Errorf("%s: carries %s, which was %s, but the leaf is at most %s", l.Key, id, want, tier(got))
+				}
 				continue
 			}
 			if !ok {
@@ -181,8 +240,10 @@ func TestOldPathsNotWeaker(t *testing.T) {
 		}
 		gated++
 		kept := byID[l.Today[0]]
-		if kept == nil {
-			continue // the leaf has moved: its typed path is its own, today's is gone (step C)
+		if kept == nil || kept.HasSubCommands() {
+			// the leaf has moved: its typed path is its own, today's is gone
+			// (step C), or a bare noun keeps today's ID (audit)
+			continue
 		}
 		for _, k := range keys {
 			_, _, before := gateCheck(slices.Clone(typed), k)
@@ -241,4 +302,55 @@ func tableLeaf(words []string) (capability.Leaf, bool) {
 		}
 	}
 	return best, bestLen > 0
+}
+
+// TestOldPathsOfC8AreGone: the words of group, policy, snippet, audit and
+// agent before step C8 find no command, and no alias keeps them.
+func TestOldPathsOfC8AreGone(t *testing.T) {
+	root := newRoot(tcl)
+	for _, words := range [][]string{
+		{"group", "add"}, {"group", "rm"}, {"policy", "deny"}, {"policy", "add"}, {"policy", "rm"},
+		{"recipe"}, {"recipes"}, {"recipe", "list"}, {"audit", "verify"}, {"guide", "install"}, {"guide", "uninstall"},
+	} {
+		if _, rest, _ := root.Find(words); len(rest) == 0 {
+			t.Errorf("komando %s still finds a command", strings.Join(words, " "))
+		}
+	}
+	for _, words := range [][]string{{"snippets", "list"}, {"groups", "list"}, {"policies", "list"}, {"audit", "list"}, {"agent", "skill", "install"}} {
+		if _, rest, _ := root.Find(words); len(rest) != 0 {
+			t.Errorf("komando %s finds no command (rest %v)", strings.Join(words, " "), rest)
+		}
+	}
+	if c, _, _ := root.Find([]string{"audit"}); c.Runnable() && c.Name() == "audit" && c.Flags().Lookup("since") != nil {
+		t.Error("komando audit still runs the log: it is audit list now")
+	}
+}
+
+// A leaf given no argument and no flag runs its body with none: cobra reads
+// the process's own arguments when the list is nil, which would make a
+// body such as policy list refuse them.
+func TestLeafWithNoArgumentsIgnoresTheProcessArguments(t *testing.T) {
+	invHome(t)
+	saved := os.Args
+	os.Args = []string{"komando", "policy", "list", "--no-such-flag", "stray"}
+	t.Cleanup(func() { os.Args = saved })
+	for _, args := range [][]string{{"policy", "list"}, {"group", "list"}, {"snippet", "list"}, {"audit", "list"}, {"audit", "check"}} {
+		if _, e := invRun(t, args...); e != nil {
+			t.Errorf("%v: %s: %s", args, e.Code, e.Message)
+		}
+	}
+}
+
+// host ssh exec carries reads (fs cat, svc list, ...) that need no network and
+// exec itself, which does: a read key without --network must still be refused
+// (the reason wins over the reads the leaf carries).
+func TestHostExecKeepsItsNetworkRule(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	for _, provider := range []string{"ssh", "winrm"} {
+		_, _, e := gateCheck([]string{"host", provider, "exec", "web", "--read-only", "--", "uptime"}, readKey)
+		if e == nil || e.Code != "SSH_GATE_NETWORK_REQUIRED" {
+			t.Errorf("host %s exec --read-only for a read key: %v, want SSH_GATE_NETWORK_REQUIRED", provider, e)
+		}
+	}
 }

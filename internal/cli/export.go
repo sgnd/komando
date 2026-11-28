@@ -22,7 +22,7 @@ import (
 
 // exportFile is what `komando export` writes and `komando import komando`
 // reads. Secrets stay in the vault; refs are kept, so on a new computer
-// the same `komando secret set NAME` makes them work again.
+// the same `komando credential password add NAME` makes them work again.
 type exportFile struct {
 	Format  string           `json:"format"` // komando-export/1
 	Hosts   []*store.Host    `json:"hosts"`
@@ -30,7 +30,7 @@ type exportFile struct {
 	Vpns    []*store.Vpn     `json:"vpns"`
 	Recipes []*store.Snippet `json:"recipes"`
 	Secrets []string         `json:"secrets_needed"` // vault names the refs use
-	Keys    []string         `json:"keys_needed"`    // keys from `komando key` the hosts use (the key files are not in the file)
+	Keys    []string         `json:"keys_needed"`    // keys from `komando credential key` the hosts use (the key files are not in the file)
 	// whole exports only: your own deny rules and settings, so the safety
 	// rules come along (import adds the rules; it only reports settings)
 	DenyRules []string          `json:"deny_rules,omitempty"`
@@ -70,7 +70,7 @@ func importKomando(cl *call, path string) (*importPlan, error) {
 	}
 	p := planFromExport(cl, f)
 	if len(f.Secrets) > 0 {
-		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
+		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando credential password add NAME` for: "+strings.Join(f.Secrets, ", "))
 	}
 	return p, nil
 }
@@ -94,7 +94,7 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 	for _, h := range p.Hosts {
 		if h.ProxyCommand != "" {
 			// a proxy command runs on this computer: never take one from a file
-			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
+			p.Notes = append(p.Notes, fmt.Sprintf("%s: dropped proxy_command %q (it would run on this computer; set it yourself with `komando host ssh edit %s --proxy-command ...`)", h.Name, h.ProxyCommand, h.Name))
 			h.ProxyCommand = ""
 		}
 	}
@@ -118,7 +118,7 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 	for _, r := range p.Recipes {
 		if r.ReadOnly {
 			r.ReadOnly = false
-			p.Notes = append(p.Notes, r.Name+": imported as a change; mark it read-only yourself with `recipe add --read-only --overwrite`")
+			p.Notes = append(p.Notes, r.Name+": imported as a change; mark it read-only yourself with `snippet create --read-only --overwrite`")
 		}
 	}
 	return p
@@ -366,7 +366,7 @@ type exportResult struct {
 	SecretsNeeded []string `json:"secrets_needed"`
 	KeysNeeded    []string `json:"keys_needed"`
 	KeyFiles      []string `json:"key_files,omitempty"` // private keys: copied by hand, never put in an export file
-	// KeysSealed are keys komando made (key gen): sealed in store.db, so
+	// KeysSealed are keys komando made (credential key create): sealed in store.db, so
 	// there is no file to copy; the other computer makes its own
 	KeysSealed []string `json:"keys_sealed,omitempty"`
 	// A sealed export (--sealed, --for-phone): how it opens (passphrase or
@@ -401,14 +401,14 @@ func (r exportResult) Text() string {
 	}
 	t := "saved " + strings.Join(what, ", ") + " to " + r.File + " (no passwords)\n"
 	if len(r.SecretsNeeded) > 0 {
-		t += "set again on the other computer: " + strings.Join(r.SecretsNeeded, ", ") + " (`komando secret set NAME`)\n"
+		t += "set again on the other computer: " + strings.Join(r.SecretsNeeded, ", ") + " (`komando credential password add NAME`)\n"
 	}
 	if len(r.KeyFiles) > 0 {
 		t += "copy these key files too: " + strings.Join(r.KeyFiles, ", ") + "\n"
 	}
 	for _, k := range r.KeysSealed {
-		t += "key " + k + " was made by komando and stays sealed here: on the other computer run `komando key gen " + k +
-			"`, then put its public key on the servers from here (`komando key deploy FILE.pub TARGET`)\n"
+		t += "key " + k + " was made by komando and stays sealed here: on the other computer run `komando credential key create " + k +
+			"`, then put its public key on the servers from here (`komando credential key install FILE.pub TARGET`)\n"
 	}
 	return t
 }

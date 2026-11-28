@@ -33,7 +33,7 @@ func TestParseWinRMAddress(t *testing.T) {
 
 func TestHostAddWinRM(t *testing.T) {
 	startFakeServer(t)
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--password-ref", savedRef(t, "win2-pw", "x")); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win2", "winrm://Administrator@10.0.0.9?tls=skip-verify", "--credential", savedName(t, "win2-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -42,26 +42,26 @@ func TestHostAddWinRM(t *testing.T) {
 		t.Errorf("host = %+v %+v", h, h.WinRMOpts)
 	}
 	for args, code := range map[string][]string{
-		"WINRM_INSECURE": {"host", "add", "w3", "winrm://a@10.0.0.10?auth=basic&tls=off"},
-		"USAGE":          {"host", "add", "w4", "winrm://a@10.0.0.11?auth=kerberos"},
+		"WINRM_INSECURE": {"host", "winrm", "add", "w3", "winrm://a@10.0.0.10?auth=basic&tls=off"},
+		"USAGE":          {"host", "winrm", "add", "w4", "winrm://a@10.0.0.11?auth=kerberos"},
 	} {
 		if got := errCode(runRoot(t, code...)); got != args {
 			t.Errorf("%v: %s, want %s", code, got, args)
 		}
 	}
-	for _, args := range [][]string{{"shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "trust", "win2"}} {
-		if got := runCode(t, args...); got != "NOT_SUPPORTED" && got != "NEEDS_TERMINAL" {
+	for _, args := range [][]string{{"host", "winrm", "shell", "win2"}, {"host", "ssh-command", "win2"}, {"host", "ssh", "trust", "win2"}} {
+		if got := runCode(t, args...); got != "NOT_SUPPORTED" && got != "NEEDS_TERMINAL" && got != "WRONG_KIND" {
 			t.Errorf("%v: %s", args, got)
 		}
 	}
-	if err := runRoot(t, "host", "edit", "win2", "--address", "winrm://10.0.0.12:5985?tls=off"); err != nil {
+	if err := runRoot(t, "host", "winrm", "edit", "win2", "--address", "winrm://10.0.0.12:5985?tls=off"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()
 	if h := s.Hosts["win2"]; h.Address != "10.0.0.12" || h.EffectivePort() != 5985 || h.User != "Administrator" {
 		t.Errorf("after edit: %+v", h)
 	}
-	if err := runRoot(t, "host", "edit", "win2", "--unset", "transport,port"); err != nil {
+	if err := runRoot(t, "host", "winrm", "edit", "win2", "--unset", "transport,port"); err != nil {
 		t.Fatal(err)
 	}
 	s, _ = store.Load()
@@ -90,10 +90,10 @@ func TestExecOverWinRM(t *testing.T) {
 		_, _ = io.WriteString(w, `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell"><s:Body>`+body+`</s:Body></s:Envelope>`)
 	}))
 	defer srv.Close()
-	if err := runRoot(t, "host", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--password-ref", savedRef(t, "win2-pw", "x")); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win2", "winrm://Administrator@"+srv.Listener.Addr().String()+"?tls=skip-verify&auth=basic", "--credential", savedName(t, "win2-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
-	got := captureOutput(t, func() error { return runRoot(t, "exec", "win2", "--read-only", "--", "Get-Date") })
+	got := captureOutput(t, func() error { return runRoot(t, "host", "winrm", "exec", "win2", "--read-only", "--", "Get-Date") })
 	if !strings.Contains(got, "hello from winrm") {
 		t.Errorf("exec over WinRM: %s", got)
 	}
@@ -106,10 +106,10 @@ func TestExecOverWinRM(t *testing.T) {
 // --address takes a winrm:// address on add too, as its help says.
 func TestHostAddWinRMAddressFlag(t *testing.T) {
 	startFakeServer(t)
-	if err := runRoot(t, "host", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--password-ref", savedRef(t, "win5-pw", "x")); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win5", "--address", "winrm://Administrator@10.0.0.9:5999?tls=skip-verify", "--credential", savedName(t, "win5-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
-	if err := runRoot(t, "host", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--password-ref", savedRef(t, "win6-pw", "x")); err != nil {
+	if err := runRoot(t, "host", "winrm", "add", "win6", "--address", "winrm://Administrator@10.0.0.8", "--user", "ops", "--port", "5990", "--credential", savedName(t, "win6-pw", "x")); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := store.Load()
@@ -169,14 +169,14 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d := mustRun(t, "secret", "list")
+	d := mustRun(t, "credential", "list")
 	row := d["secrets"].([]any)[0].(map[string]any)
 	if u := row["used_by"].([]any); len(u) != 1 || u[0] != "host win2" {
 		t.Errorf("secret list used_by: %v", row)
 	}
-	wantCode(t, "SECRET_IN_USE", "secret", "rm", "corp-ca")
+	wantCode(t, "SECRET_IN_USE", "credential", "password", "remove", "corp-ca")
 
-	d = mustRun(t, "secret", "mv", "corp-ca", "win-ca")
+	d = mustRun(t, "credential", "password", "rename", "corp-ca", "win-ca")
 	if u := d["updated"].([]any); len(u) != 1 || u[0] != "host win2" {
 		t.Errorf("mv: %v", d)
 	}
@@ -185,8 +185,29 @@ func TestSecretRefInWinRMCA(t *testing.T) {
 		t.Errorf("CA after mv: %s", got)
 	}
 
-	d = mustRun(t, "host", "rm", "win2")
+	d = mustRun(t, "host", "winrm", "remove", "win2")
 	if u, _ := d["secrets_unused"].([]any); len(u) != 1 || u[0] != "win-ca" {
 		t.Errorf("host rm: %v", d)
 	}
+}
+
+// A selector that picks a server of another provider is WRONG_KIND under the
+// path that does not fit it, whether it names a group or a label, and the
+// hint names the path that does.
+func TestHostProviderPathSelectors(t *testing.T) {
+	invHome(t)
+	t.Setenv("WIN_PW", "x")
+	mustRun(t, "host", "ssh", "add", "s1", "u@10.0.0.1", "--group", "mixed", "--label", "k=v")
+	mustRun(t, "host", "winrm", "add", "w1", "Administrator@10.0.0.2", "--group", "mixed", "--label", "k=v", "--credential", savedName(t, "w1-pw", "x"))
+	for _, sel := range []string{"@mixed", "label:k=v", "s1,w1"} {
+		for _, provider := range []string{"ssh", "winrm"} {
+			e := wantCode(t, "WRONG_KIND", "host", provider, "edit", sel, "--notes", "x")
+			other := map[string]string{"ssh": "w1", "winrm": "s1"}[provider]
+			if !strings.Contains(e.Message, other) {
+				t.Errorf("host %s edit %s: %q does not name %s", provider, sel, e.Message, other)
+			}
+		}
+	}
+	mustRun(t, "host", "ssh", "edit", "s1", "--notes", "x")
+	mustRun(t, "host", "winrm", "edit", "w1", "--notes", "x")
 }

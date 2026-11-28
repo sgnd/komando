@@ -17,7 +17,7 @@ password goes in the vault, never in the URL: `--ask-password` asks for it
 (hidden), or store it first and point at it:
 
 ```bash
-komando secret set prod-redis-pass            # each password once, typed hidden
+komando credential password add prod-redis-pass            # each password once, typed hidden
 komando cache redis add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --credential prod-redis-pass
 ```
 
@@ -46,7 +46,7 @@ computer's trusted CAs, or against your own with `?ca=credential:NAME` (a
 private CA, or a cloud's own):
 
 ```bash
-komando secret set prod-redis-ca < ca.pem
+komando credential token add prod-redis-ca < ca.pem
 komando cache redis add prod-redis 'rediss://default@cache.internal:6380/1?ca=credential:prod-redis-ca' --credential prod-redis-pass
 ```
 
@@ -157,7 +157,7 @@ which you can then fetch from its server:
 
 ```bash
 komando cache redis raw prod-redis --write -- BGSAVE
-komando download web1 /var/lib/redis/dump.rdb --sudo --to ./
+komando copy web1:/var/lib/redis/dump.rdb ./ --sudo
 ```
 
 ## memcached

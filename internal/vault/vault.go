@@ -39,12 +39,14 @@ type entry struct {
 	Data      []byte    `json:"data"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	id string // its record in the sealed store
+	id   string // its record in the sealed store
+	kind string // its credential's kind (store.CredPassword ...); empty for the approval seed
 }
 
 type Info struct {
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Kind      string    `json:"-"` // the credential's kind: a key can hold a value too (C625)
 }
 
 var (
@@ -423,7 +425,7 @@ func List() ([]Info, error) {
 	}
 	out := []Info{}
 	for n, e := range f.Entries {
-		out = append(out, Info{Name: n, UpdatedAt: e.UpdatedAt})
+		out = append(out, Info{Name: n, UpdatedAt: e.UpdatedAt, Kind: e.kind})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil

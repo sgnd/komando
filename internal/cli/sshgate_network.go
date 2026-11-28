@@ -43,7 +43,7 @@ type gateKey struct {
 // reaches a place the key names, or "".
 var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"audit": nil, "audit.verify": nil, "version": nil, "status": nil, "schema": nil, "guide": nil, "doctor": nil,
-	"list": nil, "test": nil, "logs": nil, "export": nil, "download": nil, "ssh-gate.status": nil,
+	"list": nil, "test": nil, "logs": nil, "export": nil, "copy": nil, "ssh-gate.status": nil,
 	"cache": nil, "cache.run": nil,
 	"queue": nil, "queue.describe": nil, "queue.groups": nil, "queue.info": nil, "queue.lag": nil, "queue.list": nil, "queue.peek": nil,
 	"cluster": nil, "cluster.run": nil,
@@ -53,16 +53,15 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"db.schema": nil, "db.sizes": nil, "db.user": nil, "db.user.list": nil, "db.user.show": nil,
 	"docker": nil, "docker.images": nil, "docker.inspect": nil, "docker.logs": nil, "docker.ps": nil, "docker.stats": nil,
 	"fs": nil, "fs.cat": nil, "fs.list": nil, "fs.stat": nil,
-	"group": nil, "group.list": nil,
+	"group": nil, "group.list": nil, "group.show": nil,
 	"host": nil, "host.ca": nil, "host.ca.list": nil, "host.list": nil, "host.show": nil, "host.ssh-command": nil, "host.test": nil,
-	"job": nil, "job.list": nil, "job.logs": nil, "job.status": nil, "job.wait": nil,
 	"key": nil, "key.list": nil, "key.show": nil,
 	"pkg": nil, "pkg.installed": nil, "pkg.security": nil, "pkg.upgradable": nil,
 	"policy": nil, "policy.check": nil, "policy.list": nil, "policy.show": nil,
-	"recipe": nil, "recipe.list": nil,
+	"snippet": nil, "recipe.list": nil, "snippet.show": nil,
 	"registry": nil, "registry.inspect": nil, "registry.list": nil,
 	"secret": nil, "secret.list": nil, "secret.show": nil,
-	"storage": nil, "storage.cat": nil, "storage.download": nil, "storage.list": nil,
+	"storage": nil, "storage.cat": nil, "storage.list": nil,
 	"tunnel": nil, "tunnel.list": nil,
 	"vpn": nil, "vpn.list": nil, "vpn.show": nil, "vpn.status": nil, "vpn.test": nil,
 }
@@ -70,7 +69,6 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 // gateNetwork are the reads that may reach a place the key names, and why.
 var gateNetwork = map[string]string{
 	"exec":         "it runs a program of your choosing, which can connect anywhere",
-	"job.start":    "it runs a program of your choosing, which can connect anywhere",
 	"docker.exec":  "it runs a program of your choosing in a container, which can connect anywhere",
 	"cluster.exec": "it runs a program of your choosing in a pod, which can connect anywhere",
 	"recipe.run":   "a recipe is a shell command with blanks you fill in, which can connect anywhere",
@@ -132,7 +130,7 @@ func sshGateStatusCmd() *cobra.Command {
 may do: change things, or read only, whether its reads may reach the
 network (--network on its line), and whether it may open a login shell on
 a server (--shell-access on its line), and whether it acts on this server
-only (here: a phone's key on a server, see key deploy --public-key-file).
+only (here: a phone's key on a server, see credential key install --public-key-file).
 ssh-gate answers it itself, so an app can check what its key is before it
 sends anything else. Typed on the
 komando computer, it says the command did not come through a key.`,
@@ -243,7 +241,7 @@ func gateServerRoot() *out.Error {
 	if gateUID() != 0 {
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person removes this key's line from root's ~/.ssh/authorized_keys and pairs a user that is not root with `komando key deploy`",
+	return out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "a person removes this key's line from root's ~/.ssh/authorized_keys and pairs a user that is not root with `komando credential key install`",
 		"this server's key logs in as root (uid 0), and the gate runs nothing as root")
 }
 
@@ -280,7 +278,15 @@ func gateServerWords(c *cobra.Command) []string {
 // arguments, and each flag given as --name=value.
 func gateRiskWords(c *cobra.Command) []string {
 	w := slices.Clone(c.Flags().Args())
-	c.Flags().Visit(func(f *pflag.Flag) { w = append(w, "--"+f.Name+"="+f.Value.String()) })
+	c.Flags().Visit(func(f *pflag.Flag) {
+		if s, ok := f.Value.(pflag.SliceValue); ok { // a list's text has brackets and quotes
+			for _, v := range s.GetSlice() {
+				w = append(w, "--"+f.Name+"="+v)
+			}
+			return
+		}
+		w = append(w, "--"+f.Name+"="+f.Value.String())
+	})
 	return w
 }
 

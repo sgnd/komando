@@ -51,6 +51,8 @@ func TestMain(m *testing.M) {
 	realAskOnScreen, realAskMac, realAXTrust, realOwnerCheck = askOnScreen, askMac, axTrustOutput, ownerCheckOutput
 	askOnScreen = func(*call, string) (bool, bool) { panic("a test opened an approval window") }
 	askMac = func(approvalView, io.Writer) (macOutcome, bool) { panic("a test opened the macOS window") }
+	// an audit event outside the closed list is a bug to find here (audit A5)
+	auditEventBug = func(event string) { panic(fmt.Sprintf("%q is not in auditEvents", event)) }
 	// the window speaks English in tests, whatever the machine's language
 	approvalLang = func(*call) string { return "en" }
 	// no test runs the real Accessibility check (osascript)

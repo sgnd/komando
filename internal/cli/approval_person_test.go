@@ -35,7 +35,7 @@ func TestApprovalWindowPerson(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	st := &store.State{Hosts: map[string]*store.Host{"window-check": {Name: "window-check", Address: "192.0.2.10", Protected: true}}}
 	setGate(tcl, true, gateYes)
-	tcl.args = []string{"komando", "exec", "window-check", "--script", "./window-check.sh", "--yes"}
+	tcl.args = []string{"komando", "host", "ssh", "exec", "window-check", "--script", "./window-check.sh", "--yes"}
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n# a dummy script for checking the approval window; it never runs\n")
 	for i := 3; i <= 149; i++ {

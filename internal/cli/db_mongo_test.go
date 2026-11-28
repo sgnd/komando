@@ -23,41 +23,41 @@ func TestMongoLive(t *testing.T) {
 		t.Skip("KOMANDO_TEST_MONGO is not set")
 	}
 	invHome(t)
-	withStdin(t, "rootpw\n", func() { mustRun(t, "secret", "set", "mongo-pass") })
+	withStdin(t, "rootpw\n", func() { mustRun(t, "credential", "password", "add", "mongo-pass") })
 	mustRun(t, "conn", "add", "shop", "mongodb://root@"+addr+"/shop_e2e?authSource=admin", "--password-ref", "credential:mongo-pass")
-	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
+	mustRun(t, "database", "mongodb", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 
 	r := mustRun(t, "conn", "test", "shop")["results"].([]any)[0].(map[string]any)
 	if det, _ := r["detail"].(map[string]any); r["ok"] != true || det["check"] != "login" || !strings.Contains(fmt.Sprint(det["version"]), ".") {
 		t.Errorf("conn test logs in and reads the version: %v", r)
 	}
-	ins := mustRun(t, "db", "query", "shop", "--write", `{"insert": "users", "documents": [{"name": "Ada", "plan": "pro"}, {"name": "Bob", "plan": "free", "address": {"city": "Oslo"}}]}`)
+	ins := mustRun(t, "database", "mongodb", "query", "shop", "--write", `{"insert": "users", "documents": [{"name": "Ada", "plan": "pro"}, {"name": "Bob", "plan": "free", "address": {"city": "Oslo"}}]}`)
 	if ins["reply"].(map[string]any)["n"].(float64) != 2 || ins["risk"] != "write" {
 		t.Errorf("insert: %v", ins)
 	}
-	d := mustRun(t, "db", "query", "shop", `{"find": "users", "filter": {"plan": "pro"}, "projection": {"_id": 0}}`)
+	d := mustRun(t, "database", "mongodb", "query", "shop", `{"find": "users", "filter": {"plan": "pro"}, "projection": {"_id": 0}}`)
 	if docs := d["documents"].([]any); len(docs) != 1 || docs[0].(map[string]any)["name"] != "Ada" || d["risk"] != "read" {
 		t.Errorf("find: %v", d)
 	}
-	agg := mustRun(t, "db", "query", "shop", `{"aggregate": "users", "pipeline": [{"$group": {"_id": "$plan", "n": {"$sum": 1}}}, {"$sort": {"_id": 1}}], "cursor": {}}`)
+	agg := mustRun(t, "database", "mongodb", "query", "shop", `{"aggregate": "users", "pipeline": [{"$group": {"_id": "$plan", "n": {"$sum": 1}}}, {"$sort": {"_id": 1}}], "cursor": {}}`)
 	if agg["count"].(float64) != 2 {
 		t.Errorf("aggregate: %v", agg)
 	}
-	if d := mustRun(t, "db", "query", "shop", "-n", "1", `{"find": "users"}`); d["count"].(float64) != 1 || d["truncated"] != "documents" {
+	if d := mustRun(t, "database", "mongodb", "query", "shop", "-n", "1", `{"find": "users"}`); d["count"].(float64) != 1 || d["truncated"] != "documents" {
 		t.Errorf("--limit: %v", d)
 	}
 
-	wantCode(t, "WRITE_REQUIRES_FLAG", "db", "query", "shop", `{"insert": "users", "documents": [{"name": "Eve"}]}`)
-	wantCode(t, "WRITE_REQUIRES_FLAG", "db", "query", "shop", `{"aggregate": "users", "pipeline": [{"$out": "copy"}], "cursor": {}}`)
-	wantCode(t, "POLICY_BLOCKED", "db", "query", "shop", "--write", `{"delete": "users", "deletes": [{"q": {}, "limit": 0}]}`)
-	dry := mustRun(t, "db", "query", "shop", "--write", "--dry-run", `{"update": "users", "updates": [{"q": {"name": "Bob"}, "u": {"$set": {"plan": "pro"}}}]}`)
+	wantCode(t, "WRITE_REQUIRES_FLAG", "database", "mongodb", "query", "shop", `{"insert": "users", "documents": [{"name": "Eve"}]}`)
+	wantCode(t, "WRITE_REQUIRES_FLAG", "database", "mongodb", "query", "shop", `{"aggregate": "users", "pipeline": [{"$out": "copy"}], "cursor": {}}`)
+	wantCode(t, "POLICY_BLOCKED", "database", "mongodb", "query", "shop", "--write", `{"delete": "users", "deletes": [{"q": {}, "limit": 0}]}`)
+	dry := mustRun(t, "database", "mongodb", "query", "shop", "--write", "--dry-run", `{"update": "users", "updates": [{"q": {"name": "Bob"}, "u": {"$set": {"plan": "pro"}}}]}`)
 	if !strings.Contains(dry["note"].(string), "nothing was sent") {
 		t.Errorf("dry run: %v", dry)
 	}
-	if d := mustRun(t, "db", "query", "shop", `{"count": "users", "query": {"plan": "pro"}}`); d["reply"].(map[string]any)["n"].(float64) != 1 {
+	if d := mustRun(t, "database", "mongodb", "query", "shop", `{"count": "users", "query": {"plan": "pro"}}`); d["reply"].(map[string]any)["n"].(float64) != 1 {
 		t.Errorf("the dry run sent nothing: %v", d)
 	}
-	wantCode(t, "USAGE", "db", "query", "shop", "select * from users")
+	wantCode(t, "USAGE", "database", "mongodb", "query", "shop", "select * from users")
 
 	sch := mustRun(t, "db", "schema", "shop")["collections"].([]any)
 	if len(sch) != 1 || sch[0].(map[string]any)["name"] != "users" || sch[0].(map[string]any)["documents"].(float64) != 2 {
@@ -130,10 +130,10 @@ func TestMongoLive(t *testing.T) {
 	case <-time.After(15 * time.Second):
 		t.Error("the read still runs after db kill")
 	}
-	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
+	mustRun(t, "database", "mongodb", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 	mustRun(t, "conn", "edit", "shop", "--protected")
-	wantCode(t, "PROTECTED_TARGET", "db", "query", "shop", "--write", `{"insert": "users", "documents": [{"name": "Eve"}]}`)
-	mustRun(t, "db", "query", "shop", `{"find": "users"}`) // reading stays allowed
+	wantCode(t, "PROTECTED_TARGET", "database", "mongodb", "query", "shop", "--write", `{"insert": "users", "documents": [{"name": "Eve"}]}`)
+	mustRun(t, "database", "mongodb", "query", "shop", `{"find": "users"}`) // reading stays allowed
 }
 
 // TestMongoRefusals: what komando does not do for MongoDB says so before
@@ -150,8 +150,8 @@ func TestMongoRefusals(t *testing.T) {
 		{"db", "grant", "m", "app", "--role", "read"},
 		{"db", "revoke", "m", "app", "--role", "read"},
 	} {
-		if e := wantCode(t, "NOT_SUPPORTED", args...); e == nil || !strings.Contains(e.Hint, "db query") {
-			t.Errorf("%v: the hint names db query: %v", args, e)
+		if e := wantCode(t, "NOT_SUPPORTED", args...); e == nil || !strings.Contains(e.Hint, "database mongodb query") {
+			t.Errorf("%v: the hint names database mongodb query: %v", args, e)
 		}
 	}
 }

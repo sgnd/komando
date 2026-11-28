@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -280,12 +281,12 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 		line []string
 		want string // the command's path that must be prepared
 	}{
-		{[]string{"host", "list"}, "host list"},
-		{[]string{"-o", "json", "--timeout", "5s", "host", "list", "web1"}, "host list"},
-		{[]string{"host", "ls"}, "host list"},
+		{[]string{"host", "ssh", "list"}, "host ssh list"},
+		{[]string{"-o", "json", "--timeout", "5s", "host", "ssh", "list", "web1"}, "host ssh list"},
+		{[]string{"host", "ssh", "ls"}, "host ssh list"},
 		{[]string{cobra.ShellCompRequestCmd, "host", "li"}, "host"},
-		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "list", ""}, "host list"},
-		{[]string{"-o", "json", cobra.ShellCompRequestCmd, "host", "rm"}, "host rm"},
+		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "ssh", "list", ""}, "host ssh list"},
+		{[]string{"-o", "json", cobra.ShellCompRequestCmd, "host", "ssh", "remove"}, "host ssh remove"},
 		{[]string{"host", "lst"}, "host"},
 		{[]string{"nosuchword"}, ""},
 		{nil, ""},
@@ -312,9 +313,9 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 	cases := []struct {
 		cmd, tier string // tier: words of its Safety line, "" for a read
 	}{
-		{"host list", ""},
-		{"host rm", "a change"},
-		{"secret rm", "dangerous"},
+		{"host ssh list", ""},
+		{"host ssh remove", "a change"},
+		{"credential password remove", "dangerous"},
 	}
 	// the runs first: a whole tree built before them could hide a step
 	// that only the whole tree takes
@@ -349,7 +350,7 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 // command of their line too; the gate's tree, asked line after line, each.
 func TestReadTreesPrepareTheirCommand(t *testing.T) {
 	sc, gate := gateTree()
-	for _, line := range [][]string{{"host", "list"}, {"-o", "json", "db", "query", "x", "select 1"}, {"queue", "kafka", "topic", "delete", "q1", "t"}, {"host", "ls"}} {
+	for _, line := range [][]string{{"host", "ssh", "list"}, {"-o", "json", "database", "postgres", "query", "x", "select 1"}, {"queue", "kafka", "topic", "delete", "q1", "t"}, {"host", "ssh", "ls"}} {
 		if c, _, err := commandTree(line).Find(line); err != nil || !prepared(c) || !c.HasParent() {
 			t.Errorf("%q: the guard's tree finds %q, not prepared (%v)", line, c.CommandPath(), err)
 		}
@@ -395,19 +396,19 @@ func TestUnpreparedCommandRunsNothing(t *testing.T) {
 // does not name: it prepares that command before it runs it.
 func TestRenamePreparesTheKindsRename(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	line := []string{"--dry-run", "rename", "web1", "web-01"}
 	root := newRootFor(tcl, line)
-	if c, _, _ := root.Find([]string{"host", "rename"}); prepared(c) {
-		t.Fatal("host rename is prepared before rename runs")
+	if c, _, _ := root.Find([]string{"host", "ssh", "rename"}); prepared(c) {
+		t.Fatal("host ssh rename is prepared before rename runs")
 	}
 	root.SetArgs(line)
 	if _, err := root.ExecuteC(); err != nil {
 		t.Fatalf("rename web1: %v", err)
 	}
-	if c, _, _ := root.Find([]string{"host", "rename"}); !prepared(c) {
-		t.Error("rename ran host rename, not prepared")
+	if c, _, _ := root.Find([]string{"host", "ssh", "rename"}); !prepared(c) {
+		t.Error("rename ran host ssh rename, not prepared")
 	}
 }
 
@@ -465,5 +466,35 @@ func TestStartFlatWithMoreLeaves(t *testing.T) {
 		t.Errorf("500 leaves of another type: the tree of version grew by %.0f allocations, the whole tree by %.0f: want under half", grew, wholeGrew)
 	} else {
 		t.Logf("500 leaves of another type: the tree of version grew by %.0f allocations, the whole tree by %.0f", grew, wholeGrew)
+	}
+}
+
+// mountLeaves reads every ID of today's tree once per start, before any
+// command has its ID stamped: one string per command, the same IDs cmdID
+// gives (a withID annotation wins).
+func TestIdsInTreeAgreesWithCmdIDAtOneStringEach(t *testing.T) {
+	root := &cobra.Command{Use: "komando"}
+	for g := range 5 {
+		group := &cobra.Command{Use: fmt.Sprintf("group%d", g)}
+		root.AddCommand(group)
+		for a := range 5 {
+			area := &cobra.Command{Use: fmt.Sprintf("area%d", a)}
+			group.AddCommand(area)
+			for v := range 5 {
+				area.AddCommand(&cobra.Command{Use: fmt.Sprintf("verb%d ARG", v)})
+			}
+		}
+	}
+	withID(root.Commands()[0].Commands()[0], "wrapped.id")
+	want := map[string]bool{}
+	cmds := allCommands(root)[1:]
+	for _, c := range cmds {
+		want[cmdID(c)] = true
+	}
+	if got := idsInTree(root); !maps.Equal(got, want) {
+		t.Fatalf("idsInTree has %d IDs, cmdID of every command %d: they differ", len(got), len(want))
+	}
+	if n := testing.AllocsPerRun(5, func() { idsInTree(root) }); n > float64(2*len(cmds)) {
+		t.Errorf("idsInTree: %.0f allocations for %d commands, want at most two each", n, len(cmds))
 	}
 }

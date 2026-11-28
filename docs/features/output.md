@@ -6,9 +6,9 @@ and how to see what is still running. [All docs](README.md)
 ## Read a result
 
 ```bash
-komando exec web1 -- uptime              # readable text in a terminal
-komando exec web1 -o json -- uptime      # one JSON object (what agents get)
-komando status                           # VPNs, logins, tunnels and jobs still running
+komando host ssh exec web1 -- uptime              # readable text in a terminal
+komando host ssh exec web1 -o json -- uptime      # one JSON object (what agents get)
+komando status                           # VPNs, logins, tunnels and exec sessions still running
 komando doctor                           # check the local setup
 ```
 
@@ -18,7 +18,7 @@ instead. Force either with `-o text` or `-o json`, or set `KOMANDO_OUTPUT`.
 `--pretty` indents the JSON.
 
 An agent or script that only wants to read what ran on a server can ask
-for text too: `komando exec web1 --read-only -o text -- cat /etc/hosts`
+for text too: `komando host ssh exec web1 --read-only -o text -- cat /etc/hosts`
 prints the server's output as it is. komando's exit code stays its own (5
 when the command exits non-zero), not the command's. With several servers,
 each one gets a block headed `=== web1 [ok, exit 0]` (or `[failed: exit 1]`,
@@ -60,11 +60,11 @@ messages.
 | Field | Meaning |
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
-| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs, and those of v0.17 |
-| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
+| `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit list --command` takes the same IDs, and those of v0.17 |
+| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `copy` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
-| `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or `komando job start`) |
+| `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or a session: `komando host ssh exec TARGET -- COMMAND`) |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
 | `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run, `would_need` (every approval flag the real run needs) and `not_simulated` (steps the dry run could not try without making them, such as a MySQL DDL statement or sqlite's VACUUM); `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own; `truncated` when a list stopped at `--limit` and there is more (`--limit 0` shows all); `body_sha256` when the command sent a script or content: its full SHA-256, whose first 16 hex characters the approval window shows ([what each command's hash covers](safety.md#history)) |
 
@@ -87,7 +87,7 @@ machine-readable reference is `komando schema`.
 
 ## What is still running, and where am I?
 
-`komando status` lists the VPNs, logins, tunnels and jobs still running
+`komando status` lists the VPNs, logins, tunnels and exec sessions still running
 (see [See what is still running](commands.md#see-what-is-still-running)),
 and the line komando prints before `shell` and similar commands is in
 [Where am I?](commands.md#where-am-i-status-lines).
@@ -122,7 +122,7 @@ so it is not listed. See [What needs a yes](safety.md#what-needs-a-yes).
 
 The conn add commands also list the kinds they take, under `add_kinds`, so a
 program can build its add forms from them. `komando schema conn add` (and
-`db add`, `cache redis add`, `queue kafka add`, `storage s3 add`,
+`database KIND add`, `cache redis add`, `queue kafka add`, `storage s3 add`,
 `cluster kubernetes add`, `registry oci add` for their own kinds) gives each conn kind
 its `id`, `display_name`, `family`, `url_schemes`, `url_example`,
 `default_port`, the flags it needs (`required`, and `one_of`: groups where
@@ -148,22 +148,22 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 
 | Error | Usually means | Try |
 |-------|---------------|-----|
-| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host show NAME`; a changed password: `komando secret set NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
-| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando secret set NAME`, then `komando host edit NAME --password-ref credential:NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
-| `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando secret set NAME`, `komando key add NAME PATH --passphrase-ref credential:NAME`, then `komando host edit HOST --key NAME --unset identity` (for a `--key` key: `komando key edit NAME --passphrase-ref credential:NAME`) |
-| `KEY_EXISTS` | `key gen`, `key add` or `key rename` to a key name that is taken | choose another name, or `komando key rm NAME` first |
-| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT`, `DNS_ERROR` | the server is down, the address or port is wrong, a firewall drops the connection, or nothing listens on the port | `komando host show NAME` to check the address and port; a slow link: `--connect-timeout 30s`; a private server: add `--via BASTION` or a VPN |
-| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host trust NAME --reset` in a terminal, or `@group` for many at once (only a person replaces a key; an agent reports it and gets `NEEDS_PERSON`) |
-| `HOSTKEY_UNKNOWN` | host keys are strict and this server's key is not pinned yet; the message shows its fingerprint | compare it with what the server's owner sees, then `komando host trust NAME` |
+| `AUTH_FAILED` | wrong user, key or password; or the server asks for a two-factor code and no person is at a terminal to answer it (the message quotes its question) | `komando host ssh show NAME`; a changed password: `komando credential password add NAME`; a two-factor login: `komando login NAME` once in your terminal (it asks the code and keeps the login, 8h; an AI agent asks the user to run it) |
+| `NO_AUTH` | the server has no key, identity or password, ssh-agent holds no key, and no person is at a terminal to type a password (the message says if `~/.ssh/id_ed25519` is encrypted and not loaded) | `ssh-add` (or `ssh-add ~/.ssh/id_ed25519`), or save a password: `komando credential password add NAME`, then `komando host ssh edit NAME --credential NAME` (or `--key KEY`); start ssh-agent first if `SSH_AUTH_SOCK` is not set |
+| `KEY_PASSPHRASE_REQUIRED` | the server's key (`--key` or `--identity`) is encrypted, has no passphrase in the vault, and ssh-agent does not hold it (komando uses the agent's copy, as `ssh` does) | `ssh-add PATH`, or store the passphrase: `komando credential password add NAME`, `komando credential key add NAME PATH --passphrase-credential NAME`, then `komando host ssh edit HOST --key NAME --unset identity` (for a `--key` key: `komando credential key edit NAME --passphrase-credential NAME`) |
+| `KEY_EXISTS` | `credential key create`, `credential key add` or `credential key rename` to a key name that is taken | choose another name, or `komando credential key remove NAME` first |
+| `CONNECTION_REFUSED`, `CONNECT_TIMEOUT`, `DNS_ERROR` | the server is down, the address or port is wrong, a firewall drops the connection, or nothing listens on the port | `komando host ssh show NAME` to check the address and port; a slow link: `--connect-timeout 30s`; a private server: add `--via BASTION` or a VPN |
+| `HOSTKEY_MISMATCH` | the server was rebuilt, or someone is intercepting; the message shows the pinned fingerprint and the one the server shows now | compare the new fingerprint with the server's console or your provider first, then `komando host ssh trust NAME --reset` in a terminal, or `@group` for many at once (only a person replaces a key; an agent reports it and gets `NEEDS_PERSON`) |
+| `HOSTKEY_UNKNOWN` | host keys are strict and this server's key is not pinned yet; the message shows its fingerprint | compare it with what the server's owner sees, then `komando host ssh trust NAME` |
 | `HOSTKEY_REVOKED` | the server shows a host key on komando's list of revoked keys | treat the server as compromised and tell its owner; nothing was sent |
-| `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
-| `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret rename OLD NEW` |
-| `SECRET_EXISTS` | `secret rename` or `secret cp` to a name that is taken; `vpn KIND add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`secret rename`, `secret cp`); for `vpn KIND add`, pick another VPN name or move the secret away with `komando secret rename` |
-| `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
+| `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando credential list` |
+| `SECRET_IN_USE` | `credential password remove` of a secret that something still uses | point them elsewhere, or rename it with `komando credential password rename OLD NEW` |
+| `SECRET_EXISTS` | `credential password rename` or `secret cp` to a name that is taken; `vpn KIND add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`credential password rename`, `secret cp`); for `vpn add`, pick another VPN name or move the secret away with `komando credential password rename` |
+| `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando credential password add NAME` stores the right one |
 | `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
-| `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
-| `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
-| `sudo: a password is required` | sudo needs a password | `komando secret set NAME`, then `komando host edit HOST --sudo-ref credential:NAME` |
+| `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando credential list` |
+| `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group create NEW @OLD`, then `komando group remove OLD` |
+| `sudo: a password is required` | sudo needs a password | `komando credential password add NAME`, then `komando host ssh edit HOST --sudo-credential NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
 | `AWS_LOGIN_REQUIRED` | the AWS SSO login has expired | a person runs `komando login aws --profile NAME` |
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
@@ -172,7 +172,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` | a change to something marked protected | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | at your terminal komando asks; a script adds `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{credential:NAME}}`, `--env K=credential:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
-| `NEEDS_PERSON` | something only a person can do: type a password (`secret set`, `--ask-password`, a `--login ask` server), log in (`komando login`), compare a secret with `secret check`, set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
+| `NEEDS_PERSON` | something only a person can do: type a password (`credential password add`, `--ask-password`, a `--login ask` server), log in (`komando login`), compare a secret with `secret check`, set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
 | `DECLINED` | a person answered no to komando's question | nothing was changed; run it again to be asked again |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
@@ -185,9 +185,9 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`, or `COMMAND_FAILED` when its command exited non-zero) | read `data.results` for each server's exit code and stderr |
 | `USAGE` | a wrong command, flag or value; also `komando` alone or a group such as `komando db` without its sub-command, when piped | the message says what is wrong, often with "did you mean"; the hint gives an example or lists the sub-commands |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
-| `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster kubernetes exec` or `job` |
-| `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; use `komando job start` over a shaky link ([details](commands.md#when-the-connection-drops)) |
-| `TIMEOUT` | the command took too long | `--timeout 30m`, or `komando job start` for long work |
+| `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `host ssh exec` or `cluster kubernetes exec` |
+| `CONNECTION_LOST` | the link broke while the command ran; it may still be running, or may have finished | check with a read-only command before running it again; a run in a session goes on there: `komando host ssh exec TARGET --attach ID` reads it ([details](commands.md#when-the-connection-drops)) |
+| `TIMEOUT` | the command took too long | `--timeout 30m`; a run in a session goes on after `--wait` (`host ssh exec --attach ID`) |
 
 `komando doctor` checks your local setup, the inventory and its security.
 

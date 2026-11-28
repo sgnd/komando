@@ -159,7 +159,7 @@ func guardAgent(cl *call, agent string, b []byte, home string) guardDecision {
 	return allow()
 }
 
-// agentHooks are the harnesses `guide install` sets the guard up for, when
+// agentHooks are the harnesses `agent skill install` sets the guard up for, when
 // the person uses them (their folder exists).
 var agentHooks = []struct {
 	name, dir, file string

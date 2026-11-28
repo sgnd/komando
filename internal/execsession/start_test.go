@@ -18,7 +18,7 @@ import (
 )
 
 // startRun is Start for a plain command: its feed piped into sh -c, as
-// job start builds it for a run without sudo.
+// exec builds it for a run without sudo.
 func startRun(inner string) string { return Feed(false) + " | sh -c " + sshx.Q(inner) + " & w=$!" }
 
 // runStart runs the start script under sh (umask 022, as a login has)
@@ -205,8 +205,8 @@ func TestStartScriptLowSpace(t *testing.T) {
 	}
 }
 
-// --timeout stops the run's whole group and says why; no exit code is
-// written for a stopped run.
+// --timeout stops the run's whole group and says why; the root still writes
+// the run's exit code (T3), and killed decides how a read shows it.
 func TestStartScriptTimeout(t *testing.T) {
 	home := t.TempDir()
 	got, code := runStart(t, home, Start{ID: testID, Run: startRun("sleep 30"), Timeout: time.Second, LogMax: 1 << 20}, "")
@@ -223,9 +223,27 @@ func TestStartScriptTimeout(t *testing.T) {
 	if !gone(f.PID) {
 		t.Error("the run is still there")
 	}
-	time.Sleep(500 * time.Millisecond)
-	if _, err := os.Lstat(filepath.Join(sessionDir(home), "exit")); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("a stopped run has an exit file: %v", err)
+	if e := strings.TrimSpace(waitFile(t, home, "exit")); e == "" || e == "0" {
+		t.Errorf("exit %q after the timeout's TERM, want the run's code", e)
+	}
+}
+
+// C652: a run its --timeout stopped keeps the output it printed before:
+// the capper outlives the group's TERM and empties what it holds.
+func TestStartScriptTimeoutKeepsOutput(t *testing.T) {
+	home := t.TempDir()
+	if got, code := runStart(t, home, Start{ID: testID, Run: startRun("echo a; sleep 30"), Timeout: time.Second, LogMax: 1 << 20}, "", fakeSetsid(t, "0", true)); code != 0 {
+		t.Fatalf("exit %d, %q", code, got)
+	}
+	waitFile(t, home, "killed")
+	for range 50 {
+		if _, err := os.Lstat(filepath.Join(sessionDir(home), ".o")); errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if o, _ := os.ReadFile(filepath.Join(sessionDir(home), "out.log")); string(o) != "a\n" {
+		t.Errorf("out.log %q, want the output before the timeout", o)
 	}
 }
 
@@ -258,6 +276,38 @@ func fakeSetsid(t *testing.T, delay string, group bool) string {
 		t.Fatal(err)
 	}
 	return dir
+}
+
+// fakeBusyboxPs is a folder with a ps that, like busybox's, has no -p.
+func fakeBusyboxPs(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	script := "#!/bin/sh\nfor a; do case $a in -p) echo 'ps: unrecognized option: p' >&2; exit 1;; esac; done\nexec /bin/ps \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "ps"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// C653: where ps has no -p (busybox: Alpine, docker:dind) the run's group
+// comes from /proc: the start does not fail, and the facts name the group.
+func TestStartScriptBusyboxPs(t *testing.T) {
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc here: ps -p is the only way to read a group")
+	}
+	home := t.TempDir()
+	got, code := runStart(t, home, Start{ID: testID, Run: startRun("echo hi"), LogMax: 1 << 20}, "", fakeBusyboxPs(t))
+	if code != 0 {
+		t.Fatalf("exit %d, %q", code, got)
+	}
+	f, err := ParseFacts(got, testID)
+	if err != nil || f.PGID != f.PID {
+		t.Fatalf("%+v, %v: want the run to lead its own group", f, err)
+	}
+	waitFile(t, home, "exit")
+	if o := waitFile(t, home, "out.log"); o != "hi\n" {
+		t.Errorf("out.log %q", o)
+	}
 }
 
 // A setsid that is slow to make the group still gives a run that leads

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 		return append([]string{"vpn", "socks", "add", name, "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
 	// a script: no terminal
-	if e := wantCode(t, "NEEDS_PERSON", socks("lab")...); !strings.Contains(e.Hint, "komando secret set lab-pass") {
+	if e := wantCode(t, "NEEDS_PERSON", socks("lab")...); !strings.Contains(e.Hint, "komando credential password add lab-pass") {
 		t.Errorf("script hint: %q", e.Hint)
 	}
 	// an agent
@@ -52,6 +53,16 @@ func TestVpnAddAskPassword(t *testing.T) {
 	}
 	if v, err := vault.Get("lab-pass"); err != nil || v != "Typed-Vpn-1" {
 		t.Errorf("vault: %q %v", v, err)
+	}
+	var rec map[string]any // the stored password's record: vpn add with the event secret.set (rule R1)
+	for _, line := range strings.Split(auditText(t), "\n") {
+		var r map[string]any
+		if json.Unmarshal([]byte(line), &r) == nil && r["secret"] == "lab-pass" {
+			rec = r
+		}
+	}
+	if rec["command"] != "vpn.socks.add" || rec["event"] != "secret.set" || rec["for"] != "vpn lab" || strings.Contains(fmtAny(rec), "Typed-Vpn-1") {
+		t.Errorf("the password's audit record: %v", rec)
 	}
 	// an l2tp login: the password is stored, so no person is needed at vpn up
 	setSecret(t, "office-psk", "k3y-0ffice-psk")

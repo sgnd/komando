@@ -22,9 +22,9 @@ func sayCmd(t *testing.T, path ...string) *cobra.Command {
 
 func TestNotFoundSayScopedWithNearMatch(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "host %q not found", "wbe1").ForKind("host")
-	notFoundSay(tcl, e, sayCmd(t, "exec"))
+	notFoundSay(tcl, e, sayCmd(t, "host", "ssh", "exec"))
 	if got := e.TextMessage(); got != `No server named "wbe1". Did you mean web1?` {
 		t.Errorf("message: %q", got)
 	}
@@ -35,7 +35,7 @@ func TestNotFoundSayScopedWithNearMatch(t *testing.T) {
 		t.Errorf("JSON message changed: %q", e.Message)
 	}
 	e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "target %q picked no conns", "nosuch").ForKind("conn")
-	notFoundSay(tcl, e, sayCmd(t, "db", "query"))
+	notFoundSay(tcl, e, sayCmd(t, "database", "postgres", "query"))
 	if e.TextMessage() != `No database named "nosuch".` || !strings.Contains(e.TextHint(), "no database yet") {
 		t.Errorf("no databases: %q / %q", e.TextMessage(), e.TextHint())
 	}
@@ -45,7 +45,7 @@ func TestNotFoundSayScopedWithNearMatch(t *testing.T) {
 // mean" itself; a lookup of every kind suggests from every kind.
 func TestNotFoundSayOtherKind(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "pg2", "postgres://u@127.0.0.1:5/db")
 	for _, c := range []struct {
 		path      []string
@@ -53,10 +53,10 @@ func TestNotFoundSayOtherKind(t *testing.T) {
 		say, hint string
 	}{
 		{[]string{"conn", "edit"}, "conn", `conn "web1" not found`,
-			"web1 is a server, not a conn.", "Use `komando host edit web1`."},
-		{[]string{"host", "rm"}, "host", `host "pg2" not found`,
+			"web1 is a server, not a conn.", "Use `komando host ssh edit web1`."},
+		{[]string{"host", "ssh", "remove"}, "host", `host "pg2" not found`,
 			"pg2 is a postgres conn, not a server.", "Use `komando conn rm pg2`."},
-		{[]string{"exec"}, "host", `host "pg2" not found`,
+		{[]string{"host", "ssh", "exec"}, "host", `host "pg2" not found`,
 			"pg2 is a postgres conn, not a server.", "Use it with `komando db`."},
 		{[]string{"list"}, "", `no server, conn or VPN named "pgg"`,
 			`No server, conn or VPN named "pgg". Did you mean pg2?`, "Your servers, conns and VPNs: pg2, web1."},
@@ -76,8 +76,8 @@ func TestNotFoundSayOtherKind(t *testing.T) {
 func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	invHome(t)
 	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "host %q not found", "bastion").ForKind("host")
-	notFoundSay(tcl, e, sayCmd(t, "host", "show"))
-	if h := e.TextHint(); strings.Contains(h, "pick Add") || !strings.Contains(h, "komando host add NAME user@address") {
+	notFoundSay(tcl, e, sayCmd(t, "host", "ssh", "show"))
+	if h := e.TextHint(); strings.Contains(h, "pick Add") || !strings.Contains(h, "komando host ssh add NAME user@address") {
 		t.Errorf("hint: %q", h)
 	}
 	// a person at a terminal gets the add command to type alone (it asks
@@ -85,9 +85,9 @@ func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = true
 	t.Cleanup(func() { tcl.terminal = saved })
-	for _, c := range [][2]string{{"host", "`komando host add`"}, {"conn", "`komando conn add`"}, {"vpn", "`komando vpn KIND add`"}} {
+	for _, c := range [][2]string{{"host", "`komando host ssh add`"}, {"conn", "`komando conn add`"}, {"vpn", "`komando vpn KIND add`"}} {
 		e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "%q not found", "nosuch").ForKind(c[0])
-		cmd := map[string][]string{"host": {"host", "show"}, "conn": {"conn", "show"}, "vpn": {"vpn", "socks", "start"}}[c[0]]
+		cmd := map[string][]string{"host": {"host", "ssh", "show"}, "conn": {"conn", "show"}, "vpn": {"vpn", "socks", "start"}}[c[0]]
 		notFoundSay(tcl, e, sayCmd(t, cmd...))
 		if h := e.TextHint(); strings.Contains(h, "pick Add") || strings.Contains(h, "menu") || !strings.Contains(h, c[1]) {
 			t.Errorf("%s at a terminal: %q", c[0], h)
@@ -128,29 +128,29 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "run `komando test pg` to check reachability" {
 		t.Errorf("got %q", e.Hint)
 	}
-	e = out.Errf(out.ExitRemote, "TOOL_FAILED", "read stderr; `komando conn show TARGET` shows more; `komando secret set NAME`", "x")
+	e = out.Errf(out.ExitRemote, "TOOL_FAILED", "read stderr; `komando conn show TARGET` shows more; `komando credential password add NAME`", "x")
 	fillHint(e, "pg")
-	if e.Hint != "read stderr; `komando conn show pg` shows more; `komando secret set NAME`" {
+	if e.Hint != "read stderr; `komando conn show pg` shows more; `komando credential password add NAME`" {
 		t.Errorf("got %q", e.Hint)
 	}
 	// a VPN fills neither TARGET nor CONN, a server fills TARGET but not CONN
 	mustRun(t, "vpn", "socks", "add", "corp", "--proxy-address", "127.0.0.1:1080")
-	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
-	e = out.Errf(out.ExitConnect, "VPN_DOWN", "run `komando exec TARGET -- true` or `komando test NAME`", "x")
+	mustRun(t, "host", "ssh", "add", "web1", "u@192.0.2.10")
+	e = out.Errf(out.ExitConnect, "VPN_DOWN", "run `komando host ssh exec TARGET -- true` or `komando test NAME`", "x")
 	fillHint(e, "corp")
-	if e.Hint != "run `komando exec TARGET -- true` or `komando test corp`" {
+	if e.Hint != "run `komando host ssh exec TARGET -- true` or `komando test corp`" {
 		t.Errorf("vpn: got %q", e.Hint)
 	}
-	e = out.Errf(out.ExitConnect, "X", "`komando exec TARGET -- true`; `komando db query CONN \"select 1\"`", "x")
+	e = out.Errf(out.ExitConnect, "X", "`komando host ssh exec TARGET -- true`; `komando database KIND query NAME \"select 1\"`", "x")
 	fillHint(e, "web1")
-	if e.Hint != "`komando exec web1 -- true`; `komando db query CONN \"select 1\"`" {
+	if e.Hint != "`komando host ssh exec web1 -- true`; `komando database KIND query NAME \"select 1\"`" {
 		t.Errorf("server: got %q", e.Hint)
 	}
 	// S-8.7: SERVER only with a server, NAME only in a command of the
 	// target's own noun, CONN in `komando test CONN`
-	e = out.Errf(out.ExitConnect, "X", "`komando fs stat SERVER ~/.ssh`; `komando host edit NAME --key K`; `komando conn edit NAME --via HOST`", "x")
+	e = out.Errf(out.ExitConnect, "X", "`komando fs stat SERVER ~/.ssh`; `komando host ssh edit NAME --key K`; `komando conn edit NAME --via HOST`", "x")
 	fillHint(e, "web1")
-	if e.Hint != "`komando fs stat web1 ~/.ssh`; `komando host edit web1 --key K`; `komando conn edit NAME --via HOST`" {
+	if e.Hint != "`komando fs stat web1 ~/.ssh`; `komando host ssh edit web1 --key K`; `komando conn edit NAME --via HOST`" {
 		t.Errorf("server: got %q", e.Hint)
 	}
 	e = out.Errf(out.ExitConnect, "X", "`komando test CONN`; `komando fs stat SERVER ~/.ssh`; `komando conn edit NAME --via HOST`", "x")

@@ -27,7 +27,7 @@ In JSON, `config show` gives each setting in `data.keys`.
 
 | Key | What it controls | Values | Default |
 |-----|------------------|--------|---------|
-| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it and show its fingerprint), `strict` (refuse it until you run `komando host trust`), `off` (turns a check off) | `accept-new` |
+| `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it and show its fingerprint), `strict` (refuse it until you run `komando host ssh trust`), `off` (turns a check off) | `accept-new` |
 | `default_user` | login name when a server has none | a login name; empty = the account komando runs as (from the system, not `$USER`) | (empty) |
 | `default_timeout` | how long a command may run on each server | a duration above 0 (`30s`, `5m`, `1h`) | `5m` |
 | `connect_timeout` | how long to wait for a server to answer | a duration above 0 | `15s` |
@@ -60,7 +60,7 @@ local log stays the record: when the log server does not answer, komando
 says so once on stderr and the command goes on. A copy on another machine keeps the
 history even if someone with your user account rewrites the local file.
 
-Negative values are refused. Every change is recorded in `komando audit`
+Negative values are refused. Every change is recorded in `komando audit list`
 with the old and the new value.
 
 Most settings also have a flag for one run: `--timeout`,
@@ -126,9 +126,9 @@ run the command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 | Variable | What it does |
 |----------|--------------|
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`, on Windows `%USERPROFILE%\.komando`). For an AI agent, every command with another folder stops, a dry run too (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
-| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see [below](#a-passphrase-instead-of-the-keychain)) |
+| `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando config vault passphrase` adds or changes it later (see [below](#a-passphrase-instead-of-the-keychain)) |
 | `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain, for the store's key and its change count. An AI agent cannot move the keychain: its `off` does not move the change count (the old-copy check), and its path is not used at all, so an agent's call keeps the key and the count in the login keychain. A store whose key is in your own keychain file is opened only by your commands, not an agent's. The other way round, a store an agent made keeps its key in the login keychain, so your commands with `KOMANDO_KEYCHAIN` set to a file do not find it there |
-| `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
+| `KOMANDO_ACTOR` | the name recorded in `komando audit list` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
 | `KOMANDO_NO_DIALOG` | any value: never show the approval window, as over SSH. An AI agent's `--yes`, `--allow-dangerous` or `--reveal` is then refused, and the agent asks you to run the command in your own terminal |
@@ -167,7 +167,7 @@ komando keeps your data sealed in one file:
 | `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
 | `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `store.made` | a note that this folder has had a store. komando writes it with the store and keeps it, so a lost `store.db` is noticed (below). It holds no secret |
-| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the runtime key, made from the store's key; it opens only with the mark store.db keeps for it, so an old copy put back reads as empty) |
+| `runtime.json` | the exec sessions, tunnels, server logins and VPN sessions komando started (sealed with the runtime key, made from the store's key; it opens only with the mark store.db keeps for it, so an old copy put back reads as empty) |
 | `runtime.pids` | only the process IDs of komando's own background work, so it can tell whether they still run without opening the store |
 | `vpn/`, `tunnels/`, `login/` | VPN, tunnel and server login logs (one that nothing running uses is removed after a week), and the state of built-in VPN clients |
 
@@ -203,7 +203,7 @@ is missing. If you restored the folder on purpose, run
 
 With the key in `store.key` or a passphrase, the store is compared only
 when the keychain keeps a count for this folder: then it is a backup from
-before `komando secret keychain`. When the keychain cannot say whether it
+before `komando config vault keychain`. When the keychain cannot say whether it
 keeps one (locked, or no answer), komando reads such a store but changes
 nothing (`KEYCHAIN_FAILED`, or `KEYCHAIN_SLOW`): it may be that backup.
 Unlock the keychain and run it again. On a computer with no working
@@ -273,7 +273,7 @@ before the update.
 
 The store's key is kept in one of three ways: in the OS keychain, in
 `store.key`, or made from a passphrase. `komando doctor` says which one is
-in use, and `komando secret keychain` and `komando secret passphrase` move
+in use, and `komando config vault keychain` and `komando config vault passphrase` move
 and change it (see [Secrets](secrets.md#where-they-are-kept-and-the-key)).
 
 A new vault keeps its key in the OS keychain, so a copy of this folder does
@@ -342,7 +342,7 @@ answer within a second):
   aside.
 
 A vault whose key is in `store.key` keeps it there until you move it: run
-`komando secret keychain`. It works before or after your first secret: the
+`komando config vault keychain`. It works before or after your first secret: the
 vault gets a new key as it moves, kept only in the keychain, so a copy of
 `store.key` made before (in a backup or a synced folder's history) opens
 nothing, not even the secrets you had then (`--off` moves the key back into
@@ -368,11 +368,11 @@ computer without a keychain (a Linux server without `secret-tool`). A new
 vault takes its mode at your first secret: with the variable set to 15 or
 more characters, it gets that passphrase. Setting or changing the variable
 on its own does nothing to a vault that exists already;
-`komando secret passphrase` does that. A passphrase vault needs the same
+`komando config vault passphrase` does that. A passphrase vault needs the same
 passphrase in every shell and background process.
 
 To change the passphrase, or to give a passphrase to a vault whose key is in
-`store.key` or the keychain, run `komando secret passphrase` in your terminal.
+`store.key` or the keychain, run `komando config vault passphrase` in your terminal.
 It asks for the new passphrase twice (hidden, 15 or more characters) and
 re-encrypts every secret under it; if one cannot be decrypted, nothing
 changes. When `KOMANDO_VAULT_PASS` holds the new value already, it asks for
@@ -426,7 +426,7 @@ To update komando itself, see [Install, update, remove](install.md#update).
 |-------|---------------|------------|
 | `SAFETY_SETTING` (exit 6) | the change turns one of komando's checks off | at your terminal komando asks first; an AI agent or a script adds `--yes` after a person agrees |
 | `STORE_OLD_COPY` (exit 6) | an older copy of `store.db` was put back, `store.db` is missing while the keychain remembers its change count, or the keychain cannot say whether it does | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
-| `STATE_CORRUPT` (exit 1) | `store.db` is missing in a folder that had a store, or does not open with the key, or its settings row was changed outside komando; or `runtime.json` does not open | for `store.db`: put the folder back from a backup, then `komando doctor --accept-old-copy` in your own terminal; for `runtime.json`: move it away and connect again (it holds only running VPNs, logins, jobs and tunnels); for a changed settings row: `komando doctor --reseal-meta` in your own terminal (see [Import](import.md)) |
+| `STATE_CORRUPT` (exit 1) | `store.db` is missing in a folder that had a store, or does not open with the key, or its settings row was changed outside komando; or `runtime.json` does not open | for `store.db`: put the folder back from a backup, then `komando doctor --accept-old-copy` in your own terminal; for `runtime.json`: move it away and connect again (it holds only running VPNs, logins, exec sessions and tunnels); for a changed settings row: `komando doctor --reseal-meta` in your own terminal (see [Import](import.md)) |
 | `POLICY_MAC_FAILED` (exit 1) | a safety row (a protection, deny rule, safety setting, pinned host key, host CA or the settings row's sealed copy) was changed outside komando, or the store lost its policy MAC; the message names the row | find out what changed it, then put the folder back from a backup made before the change (see [Safety rows](#safety-rows)) |
 | `KEYCHAIN_SLOW` (exit 1) | the keychain did not answer in time, so nothing was changed | run it again in a moment; `komando doctor` if it keeps happening |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` (exit 1) | the vault does not open | see [Secrets](secrets.md#troubleshooting) |

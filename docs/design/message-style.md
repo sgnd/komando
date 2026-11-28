@@ -50,7 +50,7 @@ plus "a hint never starts with `nothing was`"]
 
 - A *fragment* starts lower-case and has no full stop: `error.message`,
   `error.hint`, warning text, `meta.*` notes, result headlines on stdout
-  (`added web2`, `` no SSH keys yet: `komando key gen NAME` ``), table cells,
+  (`added web2`, `` no SSH keys yet: `komando credential key create NAME` ``), table cells,
   the text after a label. Clauses join with `:` or `;`. A proper name,
   code or flag keeps its own case (`Swarm keeps …`, `KOMANDO_OUTPUT=…`).
 - A *sentence* starts with a capital and ends with `.`, or `?` for a
@@ -95,7 +95,7 @@ a capital, `komando:`, two spaces, `$ komando` or a newline]
 | a vault value | secret (a login password stays "password") | credential, saved password |
 | an SSH key komando knows | key / SSH key | keypair, identity |
 | `@name` | group | set, collection |
-| `job start` work | job | task, background command |
+| a long `exec` run on a server | session (exec session) | job, task, background command |
 | a deny rule a person added | your deny rule | custom deny pattern |
 | a folder | folder | directory |
 
@@ -183,7 +183,7 @@ go through `Say`, as sentences (M-3). An agent's hint says "ask the user",
 never "you". [review]
 
 **M-15 Other programs' words are data.** The API's own errors in kctl
-("Error from server ..."), db shell's psql-style lines, cache redis raw replies,
+("Error from server ..."), database shell's psql-style lines, cache redis raw replies,
 server output and strings matched against other programs' errors keep their
 own words. kctl's own errors keep kubectl's framing (`error: ` on stderr,
 exit 1) but their words follow these rules, and the tests read them

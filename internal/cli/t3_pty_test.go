@@ -24,21 +24,22 @@ var t3Cases = []struct {
 	{"storage.s3.object.delete", "the name k", []string{"storage", "sftp", "object", "delete", "st1", "k"}},
 	{"registry.oci.image.delete", "the name a:1", []string{"registry", "oci", "image", "delete", "reg1", "a:1"}},
 	{"registry.oci.image.prune", "the name a", []string{"registry", "oci", "image", "prune", "reg1", "a", "--keep", "5"}},
-	{"db.restore", "the name db1", []string{"db", "restore", "db1", "--from", "testdata/golden_restore.sql"}},
+	{"database.postgres.restore", "the name db1", []string{"database", "postgres", "restore", "db1", "--from", "testdata/golden_restore.sql"}},
 	{"db.user.rm", "the name bob", []string{"db", "user", "rm", "db1", "bob"}},
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x"}},
 	{"fs.rm", "the name /tmp/x", []string{"fs", "rm", "web1", "/tmp/x", "--recursive"}},
 	{"docker.rm", "the name c1", []string{"docker", "rm", "web1", "c1"}},
 	{"docker.prune", "the name web1", []string{"docker", "prune", "web1"}},
-	{"secret.rm", "the name gsec", []string{"secret", "rm", "gsec"}},
-	{"key.rm", "the name gkey", []string{"key", "rm", "gkey", "--delete-file"}},
+	{"credential.password.remove", "the name gsec", []string{"credential", "password", "remove", "gsec"}},
+	{"credential.token.remove", "the name gsec", []string{"credential", "token", "remove", "gsec"}}, // one saved value for both kinds until step E
+	{"credential.key.remove", "the name gkey", []string{"credential", "key", "remove", "gkey", "--delete-file"}},
 	{"pkg.rm", "the name openssh-server", []string{"pkg", "rm", "web1", "openssh-server"}},
-	{"sync", "the name web1", []string{"sync", "testdata", "web1:/tmp/x", "--delete"}},
+	{"copy", "the name web1", []string{"copy", "testdata", "web1:/tmp/x", "--sync", "--delete"}},
 	// what user rm, svc stop and user lock asked before the cut (D1): exec
 	// on a server that is not protected asks for its name
-	{"host.exec", "the name web1", []string{"exec", "web1", "--", "userdel", "bob"}},
-	{"host.exec", "the name web1", []string{"exec", "web1", "--", "systemctl", "stop", "sshd"}},
-	{"host.exec", "the name web1", []string{"exec", "web1", "--", "usermod", "-L", "root"}},
+	{"host.exec", "the name web1", []string{"host", "ssh", "exec", "web1", "--", "userdel", "bob"}},
+	{"host.exec", "the name web1", []string{"host", "ssh", "exec", "web1", "--", "systemctl", "stop", "sshd"}},
+	{"host.exec", "the name web1", []string{"host", "ssh", "exec", "web1", "--", "usermod", "-L", "root"}},
 }
 
 // Every T3 row a command always has (not one decided at run time) asks a
@@ -63,15 +64,15 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	t.Setenv("T3_SECRET", "t3-value")
 	l := newLabCluster(t)
 	for _, a := range [][]string{
-		{"host", "add", "web1", "u@127.0.0.1:1"},
+		{"host", "ssh", "add", "web1", "u@127.0.0.1:1"},
 		{"conn", "add", "cache1", "redis://127.0.0.1:1/0"},
 		{"conn", "add", "db1", "postgres://u@127.0.0.1:1/app"},
 		{"conn", "add", "q1", "kafka://127.0.0.1:1"},
 		{"conn", "add", "st1", "sftp://u@127.0.0.1:1/up"},
 		{"conn", "add", "reg1", "registry://u@127.0.0.1:1?tls=false"},
 		{"import", "kubeconfig", l.kubeconfigFile(t, "    token: test-token-abcdef")},
-		{"secret", "set", "gsec", "--from-env", "T3_SECRET"},
-		{"key", "gen", "gkey"},
+		{"credential", "password", "add", "gsec", "--from-env", "T3_SECRET"},
+		{"credential", "key", "create", "gkey"},
 	} {
 		mustRun(t, a...)
 	}
@@ -89,9 +90,9 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	}
 	// on a protected server the one typed question says so and covers the
 	// protection too: no [y/N] after it (S-7.4, C-C04)
-	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	mustRun(t, "host", "ssh", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	t.Run("protected", func(t *testing.T) {
-		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "exec", "prod1", "--", "reboot")
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "ssh", "exec", "prod1", "--", "reboot")
 		p.answer(" to continue: ", "prod1\r")
 		code := p.exit()
 		shown := p.shown()
@@ -103,7 +104,7 @@ func TestT3AsksTheTypedName(t *testing.T) {
 	if _, err := os.Stat(os.Getenv("KOMANDO_HOME")); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "secret", "show", "gsec")
+	mustRun(t, "credential", "password", "show", "gsec")
 	if st, _ := loadState(); st == nil || st.Keys["gkey"] == nil {
 		t.Error("a wrong answer deleted the key")
 	}

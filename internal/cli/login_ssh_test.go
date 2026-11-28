@@ -71,7 +71,12 @@ func twoFactorSSHD(t *testing.T) (port string, logins *atomic.Int32) {
 							_ = r.Reply(true, nil)
 							var p struct{ Cmd string }
 							_ = ssh.Unmarshal(r.Payload, &p)
-							_, _ = ch.Write([]byte("ran on web1\n"))
+							const ran = "ran on web1\n"
+							o, _, ok := sessionAnswer(p.Cmd, ran, true, 0)
+							if !ok {
+								o = ran
+							}
+							_, _ = ch.Write([]byte(o))
 							_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{0}))
 							_ = ch.Close()
 						}
@@ -126,12 +131,12 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, logins := twoFactorSSHD(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
 	t.Cleanup(func() { _, _ = invRun(t, "logout", "--all") })
 
 	// an AI agent cannot answer the code, and cannot log in for itself
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
-	_, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime")
+	_, e := invRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 	if e == nil || !strings.Contains(e.Hint, "`komando test web1`") {
 		t.Fatalf("an agent without a login: %+v", e)
 	}
@@ -156,7 +161,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	// now the agent's commands use that login: no code, no new login
 	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	for range 2 {
-		d := mustRun(t, "exec", "web1", "--read-only", "--", "uptime")
+		d := mustRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime")
 		if !strings.Contains(asJSON(d), "ran on web1") {
 			t.Fatalf("exec through the kept login: %v", d)
 		}
@@ -174,7 +179,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 
 	// logout ends it: the agent is back to needing a person
 	mustRun(t, "logout", "web1")
-	if _, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime"); e == nil {
+	if _, e := invRun(t, "host", "ssh", "exec", "web1", "--read-only", "--", "uptime"); e == nil {
 		t.Fatal("exec worked after logout")
 	}
 	if n := logins.Load(); n != 1 {
@@ -195,7 +200,7 @@ func TestLoginWrongCodeSaysWhy(t *testing.T) {
 	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
 	p := startPTY(t, "login", "web1")
 	p.answer("Password: ", "pw\r")
 	p.answer("Verification code: ", "000000\r")
@@ -221,7 +226,7 @@ func TestLoginCtrlCAtTheCode(t *testing.T) {
 	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
-	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
 	p := startPTY(t, "login", "web1")
 	p.answer("Password: ", "pw\r")
 	p.answer("Verification code: ", "\x03")

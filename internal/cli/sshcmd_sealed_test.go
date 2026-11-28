@@ -14,11 +14,11 @@ import (
 
 // On a sealed home, OpenSSH needs files komando keeps sealed: an agent is
 // refused, a person gets a private known_hosts copy, and a sealed key
-// stops it with a hint to use komando shell.
+// stops it with a hint to use komando host ssh shell.
 func TestSSHCommandSealedHome(t *testing.T) {
 	setHome(t, t.TempDir())
 	noAgent(t)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1")
 	d := mustRun(t, "host", "ssh-command", "web1")
 	cmd, _ := d["command"].(string)
 	i := strings.Index(cmd, "UserKnownHostsFile=")
@@ -30,10 +30,10 @@ func TestSSHCommandSealedHome(t *testing.T) {
 		t.Fatalf("known_hosts copy %s: %v", kh, err)
 	}
 
-	mustRun(t, "key", "gen", "k1")
-	mustRun(t, "host", "edit", "web1", "--key", "k1")
+	mustRun(t, "credential", "key", "create", "k1")
+	mustRun(t, "host", "ssh", "edit", "web1", "--key", "k1")
 	t.Setenv("SSH_AUTH_SOCK", "")
-	if _, e := invRun(t, "host", "ssh-command", "web1"); e == nil || e.Code != "SSH_AGENT_NEEDED" || !strings.Contains(e.Hint, "komando shell") {
+	if _, e := invRun(t, "host", "ssh-command", "web1"); e == nil || e.Code != "SSH_AGENT_NEEDED" || !strings.Contains(e.Hint, "komando host ssh shell") {
 		t.Fatalf("sealed key, no ssh-agent: %+v", e)
 	}
 
@@ -46,7 +46,7 @@ func TestSSHCommandSealedHome(t *testing.T) {
 // config show and doctor name the sealed store on a sealed home.
 func TestSealedConfigAndDoctor(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1")
 	c := mustRun(t, "config", "show")
 	files := c["files"].(map[string]any)
 	for _, k := range []string{"state", "vault", "known_hosts", "audit"} {
@@ -99,9 +99,9 @@ func TestSSHCommandSealedKeyGoesToAgent(t *testing.T) {
 	}
 	t.Cleanup(func() { openAgent = saved })
 
-	mustRun(t, "key", "gen", "k1")
-	mustRun(t, "host", "add", "bastion", "ops@10.0.0.9", "--key", "k1")
-	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1", "--key", "k1", "--via", "bastion")
+	mustRun(t, "credential", "key", "create", "k1")
+	mustRun(t, "host", "ssh", "add", "bastion", "ops@10.0.0.9", "--key", "k1")
+	mustRun(t, "host", "ssh", "add", "web1", "deploy@10.0.0.1", "--key", "k1", "--via", "bastion")
 	d := mustRun(t, "host", "ssh-command", "web1")
 	cmd, _ := d["command"].(string)
 	if !strings.Contains(cmd, "IdentityAgent=/tmp/agent.sock") || !strings.Contains(cmd, "IdentitiesOnly=yes") {
