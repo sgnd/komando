@@ -106,6 +106,28 @@ func TestTestEndAll(t *testing.T) {
 	}
 }
 
+// An AI agent's test of a server that only a person can log in to (no key,
+// no stored password) stops before anything leaves this computer: NO_AUTH
+// from the login methods (sshx authMethods), no connection, no login try,
+// and the hint names the person step. The retired `komando login` gave an
+// agent NEEDS_PERSON; a server with a stored password still gets its
+// password tried, as for any command of an agent.
+func TestAgentTestOfAPersonStepServerSendsNothing(t *testing.T) {
+	invHome(t)
+	port, _, saw := twoFactorSSHDCount(t)
+	mustRun(t, "host", "ssh", "add", "web1", "u@127.0.0.1:"+port)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	for _, args := range [][]string{{"test", "web1"}, {"host", "ssh", "test", "web1"}} {
+		e := wantCode(t, "NO_AUTH", args...)
+		if !strings.Contains(e.Hint, "`komando test web1`") {
+			t.Errorf("%v: the hint does not name the person step: %+v", args, e)
+		}
+	}
+	if saw.conns.Load() != 0 || saw.tries.Load() != 0 {
+		t.Errorf("the server saw %d connections and %d login tries, want none", saw.conns.Load(), saw.tries.Load())
+	}
+}
+
 // `test NAME --end` of a server with no session ends nothing; a name that
 // is neither a server nor a kept session is an error.
 func TestTestEndArgs(t *testing.T) {

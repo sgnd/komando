@@ -24,10 +24,22 @@ import (
 // logins counts the logins it took.
 func twoFactorSSHD(t *testing.T) (port string, logins *atomic.Int32) {
 	t.Helper()
-	logins = &atomic.Int32{}
+	port, logins, _ = twoFactorSSHDCount(t)
+	return port, logins
+}
+
+// serverSaw is what a fake server was sent: connections reached it, and
+// tries are the passwords and codes it was asked to check.
+type serverSaw struct{ conns, tries atomic.Int32 }
+
+// twoFactorSSHDCount is twoFactorSSHD that also counts what reached it.
+func twoFactorSSHDCount(t *testing.T) (port string, logins *atomic.Int32, saw *serverSaw) {
+	t.Helper()
+	logins, saw = &atomic.Int32{}, &serverSaw{}
 	_, priv, _ := ed25519.GenerateKey(rand.Reader)
 	signer, _ := ssh.NewSignerFromKey(priv)
 	cfg := &ssh.ServerConfig{KeyboardInteractiveCallback: func(_ ssh.ConnMetadata, ask ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+		saw.tries.Add(1)
 		if a, err := ask("", "", []string{"Password: "}, []bool{false}); err != nil || len(a) != 1 || a[0] != "pw" {
 			return nil, errors.New("wrong password")
 		}
@@ -49,6 +61,7 @@ func twoFactorSSHD(t *testing.T) (port string, logins *atomic.Int32) {
 			if err != nil {
 				return
 			}
+			saw.conns.Add(1)
 			go func() {
 				defer c.Close()
 				_, chans, reqs, err := ssh.NewServerConn(c, cfg)
@@ -85,7 +98,7 @@ func twoFactorSSHD(t *testing.T) (port string, logins *atomic.Int32) {
 		}
 	}()
 	_, port, _ = net.SplitHostPort(ln.Addr().String())
-	return port, logins
+	return port, logins, saw
 }
 
 // TestHolderChild is `komando login-holder` in the kept-session tests: the
