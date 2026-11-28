@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -29,8 +30,11 @@ import (
 // files here (COPY TO PROGRAM, pg_read_file, CONFIG SET dir, a hostPath
 // volume). So every key, read-only too, is refused every command, reads
 // included, on a file conn or a target at a loopback address
-// (gateLocalAddr). A target the gate cannot find is refused too, for a
-// read as for a change: the gate fails closed. This
+// (gateLocalAddr). A target the gate cannot find, or whose name it cannot
+// resolve, is refused too, for a read as for a change: the gate fails
+// closed. The komando it runs dials only addresses it judged the same way
+// (gateDial), so DNS cannot answer this check one address and the
+// connection another. This
 // computer under another name or address is found by its pinned host key,
 // which is one of this computer's own (gateSameHostKey), or by an address
 // that is one of this computer's network addresses (gateLocalAddr).
@@ -120,8 +124,14 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if st.Hosts[h.Name] != h {
 				return fmt.Sprintf("%q is not in the inventory; a key runs commands only on servers a person added", e)
 			}
-			if why := gateAt(cl, st, h.Address, h.Via, 0); why != "" {
-				return "the server " + h.Name + " is on this computer (" + why + ")"
+			if h.ProxyCommand != "" {
+				// the program connects and resolves what it names (an SSM
+				// instance ID resolves nowhere): a lookup error does not count
+				if here, _ := gateLocalAddr(h.Address); here {
+					return "the server " + h.Name + " is on this computer (" + h.Address + ")"
+				}
+			} else if why := gateAt(cl, st, "the server "+h.Name, h.Address, h.Via, 0); why != "" {
+				return why
 			}
 			if gateSameHostKey(h) {
 				return "the server " + h.Name + " is on this computer (its host key is this computer's own)"
@@ -133,8 +143,8 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 				return cn.Name + " is a file on this computer (or its URL cannot be read)"
 			}
 			for _, a := range append(append([]string{t.Address, t.Resolve}, t.Sentinels...), gateURLHosts(cn.URL)...) {
-				if why := gateAt(cl, st, a, cn.Via, 0); why != "" {
-					return cn.Name + " is on this computer (" + why + ")"
+				if why := gateAt(cl, st, cn.Name, a, cn.Via, 0); why != "" {
+					return why
 				}
 			}
 		}
@@ -175,21 +185,28 @@ func gateURLHosts(raw string) []string {
 	return hosts
 }
 
-// gateAt says why addr, reached through via, may be this computer, or "".
-func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
-	if !gateLocalAddr(addr) {
+// gateAt says why subject, at addr reached through via, may be this
+// computer, or "". A name the gate cannot resolve may be too, unless a
+// jump host that is not this computer resolves it.
+func gateAt(cl *call, st *store.State, subject, addr, via string, depth int) string {
+	here, err := gateLocalAddr(addr)
+	if !here && err == nil {
 		return ""
 	}
+	at := addr
 	steps := inventory.ViaChain(via)
-	if len(steps) == 0 {
-		return addr
+	if len(steps) > 0 {
+		last := steps[len(steps)-1]
+		h, ferr := findHost(cl, st, last)
+		if ferr == nil && depth <= 8 {
+			return gateAt(cl, st, subject, h.Address, h.Via, depth+1)
+		}
+		at += " through " + last // a VPN, or not found
 	}
-	last := steps[len(steps)-1]
-	h, err := findHost(cl, st, last)
-	if err != nil || depth > 8 {
-		return addr + " through " + last // a VPN, or not found
+	if err != nil {
+		return "the gate cannot resolve " + at
 	}
-	return gateAt(cl, st, h.Address, h.Via, depth+1)
+	return subject + " is on this computer (" + at + ")"
 }
 
 // gateLocalAddr: a name or address, with or without a port, is this
@@ -197,26 +214,32 @@ func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
 // computer's addresses, or this computer's name, as written or as the
 // name resolves (ip6-localhost, localtest.me: any address it resolves to
 // counts). A number in another form (127.1, 0x7f000001), which a C
-// resolver reads its own way, counts too. A name that does not resolve
-// is judged as written.
-func gateLocalAddr(a string) bool {
+// resolver reads its own way, counts too. err: the name does not resolve,
+// so the gate cannot tell (C655).
+func gateLocalAddr(a string) (bool, error) {
 	if gateLocalAsWritten(a) {
-		return true
+		return true, nil
 	}
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
 	a, _, _ = strings.Cut(inventory.NormAddr(a), "%")
 	if a == "" || net.ParseIP(a) != nil {
-		return false
+		return false, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ips, _ := gateLookup(ctx, a)
-	return slices.ContainsFunc(ips, gateLocalIP)
+	ips, err := gateLookup(ctx, a)
+	if err == nil && len(ips) == 0 {
+		err = errGateNoAddress
+	}
+	return slices.ContainsFunc(ips, gateLocalIP), err
 }
 
-// gateLookup resolves a name for gateLocalAddr; tests answer for it.
+var errGateNoAddress = errors.New("the name has no address")
+
+// gateLookup resolves a name for the gate (gateLocalAddr, gateDial); tests
+// answer for it.
 var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 	return net.DefaultResolver.LookupIP(ctx, "ip", host)
 }

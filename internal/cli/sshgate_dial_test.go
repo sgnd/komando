@@ -67,6 +67,12 @@ func gateOwnAddr() string {
 	return ""
 }
 
+// gateHereOrUnknown: the gate refuses a, as here or as a name it cannot resolve.
+func gateHereOrUnknown(a string) bool {
+	here, err := gateLocalAddr(a)
+	return here || err != nil
+}
+
 // The gate's own check fails closed (C655): a name it cannot resolve, or
 // whose answers hold any address of this computer, counts as here.
 func TestGateLocalAddrFailsClosed(t *testing.T) {
@@ -98,7 +104,7 @@ func TestGateLocalAddrFailsClosed(t *testing.T) {
 		want["own.example"] = true
 	}
 	for a, w := range want {
-		if got := gateLocalAddr(a); got != w {
+		if got := gateHereOrUnknown(a); got != w {
 			t.Errorf("%q: %v, want %v", a, got, w)
 		}
 	}
@@ -116,6 +122,8 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 			"nxhost": {Address: "nx.example"}, "errhost": {Address: "err.example"}, "mixedhost": {Address: "mixed.example"},
 			"pubhost": {Address: "web.example"}, "inner": {Address: "db.internal", Via: "bastion"},
 			"innerme": {Address: "db.internal", Via: "me"}, "vpninner": {Address: "db.internal", Via: "office"},
+			"ssmhost": {Address: "i-0abc123", ProxyCommand: "aws ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p"},
+			"pcloop":  {Address: "localhost", ProxyCommand: "nc %h %p"},
 		} {
 			h.Name, h.User = n, "u"
 			st.Hosts[n] = &h
@@ -137,6 +145,8 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 		"logs innerme":             R, // the jump host is this computer
 		"logs pubhost":             "",
 		"logs inner":               "", // the jump host bastion resolves it, far from here
+		"logs pcloop":              R,
+		"logs ssmhost":             "", // its proxy command connects: an instance ID resolves nowhere
 	} {
 		for _, readOnly := range []bool{true, false} {
 			if got := gateAnswer(t, line, readOnly); got != want {
@@ -241,7 +251,7 @@ func TestGateDialPinsTheJudgedAnswer(t *testing.T) {
 		"rebind.example": {ips("203.0.113.5"), ips("127.0.0.1")},
 		"two.example":    {ips("203.0.113.5", "2001:db8::6")},
 	})
-	if gateLocalAddr("rebind.example") {
+	if gateHereOrUnknown("rebind.example") {
 		t.Fatal("rebind.example: the gate's first answer is public")
 	}
 	d := &gateDialStub{}
@@ -308,9 +318,10 @@ func TestGateDialOnlyForKeys(t *testing.T) {
 // for a key dials only through gateDial; a new site must say how it stays
 // there before this count changes. Why each is safe:
 var reviewedDialSites = map[string]int{
-	// the gate's dialer, put in by these two for a key's run
-	"cli/common.go":      1, // sshOpts: sshx's first step
-	"cli/conn_access.go": 1, // openAccess: a conn without --via
+	// the gate's dialer, and the two that put it in for a key's run
+	"cli/sshgate_dial.go": 1,
+	"cli/common.go":       1, // sshOpts: sshx's first step
+	"cli/conn_access.go":  1, // openAccess: a conn without --via
 	// the default when the caller gives no dialer; a key's run always gives
 	// one (sshOpts, openAccess), so these dial for a person only
 	"sshx/shared.go": 1, "cli/conn_resolve.go": 1, "cli/conn.go": 1,

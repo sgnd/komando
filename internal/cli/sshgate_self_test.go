@@ -55,13 +55,13 @@ func TestGateSeesOwnAddresses(t *testing.T) {
 	addrs, _ := net.InterfaceAddrs()
 	for _, a := range addrs {
 		if n, ok := a.(*net.IPNet); ok && !n.IP.IsLoopback() && !n.IP.IsLinkLocalUnicast() {
-			if !gateLocalAddr(n.IP.String()) || !gateLocalAddr(net.JoinHostPort(n.IP.String(), "22")) {
+			if !gateHereOrUnknown(n.IP.String()) || !gateHereOrUnknown(net.JoinHostPort(n.IP.String(), "22")) {
 				t.Errorf("%s is this computer's own address", n.IP)
 			}
 			break
 		}
 	}
-	if gateLocalAddr("203.0.113.10") {
+	if gateHereOrUnknown("203.0.113.10") {
 		t.Error("a documentation address is not this computer")
 	}
 }

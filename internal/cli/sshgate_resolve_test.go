@@ -30,7 +30,7 @@ func TestGateLocalAddrResolvesNames(t *testing.T) {
 		"ip6-localhost": true, "ip6-localhost:8443": true, "localtest.me": true, "mixed.example": true,
 		"nope.example": true, "web.example": false, "203.0.113.5": false,
 	} {
-		if got := gateLocalAddr(a); got != want {
+		if got := gateHereOrUnknown(a); got != want {
 			t.Errorf("%q: %v, want %v", a, got, want)
 		}
 	}

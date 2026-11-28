@@ -426,7 +426,7 @@ func TestGateLocalAddr(t *testing.T) {
 		"fe80::1%en0": false, "10.0.0.5": false, "db.example.com": false,
 		"10.0.0.5:5432": false, "": false, "localhost.example.com": false, "web1": false,
 	} {
-		if got := gateLocalAddr(a); got != want {
+		if got := gateHereOrUnknown(a); got != want {
 			t.Errorf("%q: %v, want %v", a, got, want)
 		}
 	}
