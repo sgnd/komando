@@ -545,10 +545,10 @@ func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 		t.Fatalf("vault: %v %q", err, kc)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
-	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "/bin/sh -c") {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "/bin/sh -c") {
 		t.Errorf("an agent's read runs the program without a yes: %+v", e)
 	}
-	if d, e := cliRun(t, "--dry-run", "cluster", "ls", "prod", "pods"); e != nil || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
+	if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run: %v %+v", d, e)
 	}
 	if d, e := cliRun(t, "--dry-run", "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil || d["would_run"] == nil {
@@ -562,13 +562,13 @@ func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 	}
 	// with the person's yes it runs
 	asAgent(t, true, true)
-	if _, e := cliRun(t, "--yes", "cluster", "ls", "prod", "pods"); e != nil || !ran() {
+	if _, e := cliRun(t, "--yes", "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil || !ran() {
 		t.Errorf("approved: %+v ran=%v", e, ran())
 	}
 	// a person's own commands run it as they wired it
 	os.Remove(marker)
 	noAgent(t)
-	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e != nil || !ran() {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil || !ran() {
 		t.Errorf("a person: %+v ran=%v", e, ran())
 	}
 }
@@ -940,7 +940,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 	plugin := "    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: /bin/sh\n      args: [\"-c\", \"echo '{\\\"status\\\":{\\\"token\\\":\\\"t\\\"}}'\"]\n"
 	mustRun(t, "import", "kubeconfig", l.kubeconfigFile(t, plugin)) // a person
 	windows := asAgent(t, false, false)
-	for _, args := range [][]string{{"cluster", "ls", "prod", "pods"}, {"cluster", "kubernetes", "raw", "prod", "--", "get", "pods"}} {
+	for _, args := range [][]string{{"cluster", "kubernetes", "raw", "prod", "--", "get", "pods"}} {
 		if _, e := cliRun(t, args...); e != nil {
 			t.Errorf("%v on a trusted conn: %+v", args, e)
 		}
@@ -954,7 +954,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 	for _, changed := range []string{strings.Replace(kc, "echo", "id; echo", 1), strings.Replace(kc, l.srv.URL, "https://attacker.example:6443", 1)} {
 		vault.Set(store.Save(), "prod-kubeconfig", changed)
 		setCallerEnv(t, "CLAUDECODE", "1")
-		if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "read-only commands too") {
+		if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "read-only commands too") {
 			t.Errorf("a changed kubeconfig runs without a yes: %+v", e)
 		}
 		for _, args := range [][]string{

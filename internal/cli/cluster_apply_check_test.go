@@ -97,8 +97,8 @@ func TestRawApplyChecksTheWholeFileFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
-	if e == nil || !strings.Contains(e.Message, "K8S_INVALID") || !strings.Contains(e.Message, "nothing was applied") || !strings.Contains(e.Message, "configmap/bad") {
-		t.Fatalf("want K8S_INVALID naming configmap/bad and saying nothing was applied, got %+v", e)
+	if e == nil || e.Code != "TOOL_FAILED" || !strings.Contains(e.Message, `ConfigMap "bad" is invalid`) {
+		t.Fatalf("want the cluster refusing ConfigMap bad (kubectl's words), got %+v", e)
 	}
 	if len(l.real) != 0 {
 		t.Errorf("a file with a refused object applied %v for real", l.real)

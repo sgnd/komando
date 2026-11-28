@@ -87,7 +87,7 @@ func TestRawDescribeSecretHasNoData(t *testing.T) {
 		if e != nil {
 			t.Fatalf("%s: %s %s", who, e.Code, e.Message)
 		}
-		if so, _ := res["stdout"].(string); !strings.Contains(so, "app-db") || !strings.Contains(so, "Secret") {
+		if so, _ := res["stdout"].(string); !strings.Contains(so, "secret/app-db") {
 			t.Errorf("%s: describe shows no Secret: %v", who, res)
 		}
 		b := jsonOf(res)

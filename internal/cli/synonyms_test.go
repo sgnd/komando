@@ -38,7 +38,7 @@ func TestSynonymsPrintNothing(t *testing.T) {
 	}
 }
 
-// TestSynonymsGetEveryCheck: a synonym wrapper (cluster info, group show,
+// TestSynonymsGetEveryCheck: a synonym wrapper (group show,
 // tunnel show, recipe show) is hidden but typed by a person or an agent, so
 // it gets every check of the command it names: guardHome and the
 // store-writable check do not skip it as a background command, and the
@@ -54,7 +54,7 @@ func TestSynonymsGetEveryCheck(t *testing.T) {
 			t.Errorf("%s: a synonym is skipped as a background command", c.CommandPath())
 		}
 	}
-	if n < 4 {
-		t.Errorf("found %d synonym wrappers, want at least 4", n)
+	if n < 3 {
+		t.Errorf("found %d synonym wrappers, want at least 3", n)
 	}
 }

@@ -23,9 +23,11 @@ func TestRiskOfLineTable(t *testing.T) {
 		// pins today; C353 may lower it with Audit
 		{"a bool flag before a positional", "exec --read-only web1 -- df -h", nil, tierDangerous, "the command matches a destructive rule"},
 		{"fs rm", "fs rm web1 /tmp/x", nil, tierDangerous, "deletes the files"},
-		{"cache raw DEL", "cache redis raw c1 --write -- DEL k", nil, tierDangerous, "deletes the keys"},
-		{"cluster raw scale to 0", "cluster kubernetes raw prod --write -- scale deploy/app --replicas=0", nil, tierDangerous, "stops every copy of the app"},
-		{"cluster raw scale to 3", "cluster kubernetes raw prod --write -- scale deploy/app --replicas=3", nil, tierChange, ""},
+		// raw is rated for the whole command, not per verb: the guard rates the
+		// words after -- when it runs (TestRawScaleToZeroDangerous)
+		{"cache raw DEL", "cache redis raw c1 --write -- DEL k", nil, tierDangerous, "the cache command deletes data (DEL, FLUSHALL, ...)"},
+		{"cluster raw scale to 0", "cluster kubernetes raw prod --write -- scale deploy/app --replicas=0", nil, tierDangerous, "the cluster command deletes something or scales to 0"},
+		{"cluster raw scale to 3", "cluster kubernetes raw prod --write -- scale deploy/app --replicas=3", nil, tierDangerous, "the cluster command deletes something or scales to 0"},
 		{"a --yes on a host rm does not change the tier", "host rm web1 --yes", nil, tierChange, ""},
 		{"protection off", "host edit web1 --protected=false", nil, tierSafety, "turns protection off"},
 		{"an alias", "host ls", nil, tierRead, ""},

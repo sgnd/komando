@@ -117,7 +117,7 @@ func TestTrustedPluginIsTheProgramImported(t *testing.T) {
 
 	// the trusted file is swapped (its folder is the user's to write)
 	tokenProgram(t, real, "swapped", log)
-	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Errorf("a changed program runs without a yes: %+v", e)
 	}
 	if got := runs(); got != "" {
@@ -128,7 +128,7 @@ func TestTrustedPluginIsTheProgramImported(t *testing.T) {
 	saved := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }
 	t.Cleanup(func() { askOnScreen = saved })
-	if _, e := cliRun(t, "--yes", "cluster", "ls", "prod", "pods"); e != nil {
+	if _, e := cliRun(t, "--yes", "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil {
 		t.Fatalf("approved: %+v", e)
 	}
 	if len(texts) != 1 || !strings.Contains(texts[0], filepath.Join(fake, "mytoken")) {
@@ -142,7 +142,7 @@ func TestTrustedPluginIsTheProgramImported(t *testing.T) {
 	// a person's own command runs what their PATH finds, as before
 	noAgent(t)
 	t.Setenv("PATH", personPath)
-	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e != nil || !strings.Contains(runs(), "swapped --client-secret") {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e != nil || !strings.Contains(runs(), "swapped --client-secret") {
 		t.Errorf("a person: %+v", e)
 	}
 }
@@ -204,7 +204,7 @@ func TestAgentImportIsNotTrusted(t *testing.T) {
 		t.Errorf("the agent's import left trust: %+v", c)
 	}
 	asAgent(t, false, false)
-	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--", "get", "pods"); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Errorf("the agent's next command: %+v", e)
 	}
 }
