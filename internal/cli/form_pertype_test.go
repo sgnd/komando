@@ -191,3 +191,16 @@ func TestFormRemoveCmdFollowsTheAdd(t *testing.T) {
 		t.Errorf("an import has no remove: %v", got)
 	}
 }
+
+// A question about several entries names them in the plural a person says.
+func TestEntryQuestionsUseTheRightPlural(t *testing.T) {
+	for noun, want := range map[string]string{"registry": "registries", "cache": "caches", "database": "databases", "queue": "queues"} {
+		if got := formPlural(noun); got != want {
+			t.Errorf("%s: %q, want %q", noun, got, want)
+		}
+	}
+	h, ok := hintOf("registry oci remove")
+	if !ok || len(h.args) == 0 || !strings.Contains(h.args[0].ask, "registries") {
+		t.Errorf("registry oci remove asks %+v", h.args)
+	}
+}
