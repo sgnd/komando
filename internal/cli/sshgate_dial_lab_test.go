@@ -22,8 +22,9 @@ import (
 // The lab checks of C663: a library a key's conn uses connects to each
 // address a server hands back through the gate's dialer, which refuses
 // one at this computer. Here with a test server: Kafka (kfake) and FTP
-// (ftptest); Redis Cluster and NATS in their own packages
-// (TestRedisClusterNodesUseTheDialer, TestNatsIgnoresHandedBackServers).
+// (ftptest); Redis Cluster, Redis Sentinel and NATS in their own packages
+// (TestRedisClusterNodesUseTheDialer, TestRedisSentinelMasterUsesTheDialer,
+// TestNatsIgnoresHandedBackServers).
 // Mongo, SQL Server and Oracle have no test server here: the e2e lab
 // checks them.
 
@@ -42,10 +43,14 @@ type gateLab struct {
 
 // newGateLab is a key's gate dialer whose network has one server,
 // lab.example at gateLabIP, which is the test server on 127.0.0.1.
-func newGateLab(t *testing.T) (*gateLab, func(context.Context, string, string) (net.Conn, error)) {
+// answers, when given, are what lab.example resolves to in turn.
+func newGateLab(t *testing.T, answers ...[]net.IP) (*gateLab, func(context.Context, string, string) (net.Conn, error)) {
 	t.Helper()
+	if len(answers) == 0 {
+		answers = [][]net.IP{ips(gateLabIP)}
+	}
 	gateStubInterfaces(t)
-	gateStubDNS(t, map[string][][]net.IP{"lab.example": {ips(gateLabIP)}})
+	gateStubDNS(t, map[string][][]net.IP{"lab.example": answers})
 	l := &gateLab{}
 	gate := gateDial(func(ctx context.Context, network, addr string) (net.Conn, error) {
 		l.mu.Lock()
@@ -151,6 +156,33 @@ func TestGateLabFTP(t *testing.T) {
 	lab.mu.Unlock()
 	if len(asked) < 2 || asked[0] != tg.Address || !strings.HasPrefix(asked[1], "lab.example:") || asked[1] == tg.Address {
 		t.Errorf("asked the gate for %q, want the control connection, then a data connection, both by the server's name", asked)
+	}
+	lab.onlyLab(t)
+}
+
+// A data connection asks the gate for the server's name again: a name that
+// answered public for the control connection and answers this computer for
+// the data connection is refused.
+func TestGateLabFTPRebind(t *testing.T) {
+	s := ftptest.New(t)
+	_, port, _ := net.SplitHostPort(s.Ln.Addr().String())
+	lab, dial := newGateLab(t, ips(gateLabIP), ips("127.0.0.1"))
+	tg := s.Target()
+	tg.Address = "lab.example:" + port
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	b, err := storex.OpenFTP(ctx, tg, "pw", dial, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	_, _, err = b.List(ctx, "", false, 10)
+	lab.mu.Lock()
+	refused := slices.ContainsFunc(lab.refused, func(a string) bool { return strings.HasPrefix(a, "lab.example:") && a != tg.Address })
+	asked := slices.Clone(lab.asked)
+	lab.mu.Unlock()
+	if err == nil || !refused {
+		t.Errorf("list: %v; asked the gate for %q, want a data connection refused", err, asked)
 	}
 	lab.onlyLab(t)
 }
