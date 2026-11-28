@@ -60,8 +60,12 @@ func TestSwappedLine(t *testing.T) {
 		{[]string{"host", "ssh", "exce", "web1", "--", "mysql", "-pS3cret"}, "exce", "komando host ssh exec web1 -- …"},
 		{[]string{"host", "ssh", "exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando host ssh exec web1 --via bast,web1"},
 		{[]string{"host", "ssh", "exec", "--limt=5", "web1"}, "--limt", "komando host ssh exec --limit=5 web1"},
+		// T4: a leaf that reads a secret's value: no argument is repeated (the
+		// value may come first)
+		{[]string{"-o", "json", "credentail", "password", "add", "db-pass", "hunter22"}, "credentail", "komando -o json credential password add NAME"},
+		{[]string{"credential", "password", "ad", "hunter22", "db-pass"}, "ad", "komando credential password add NAME"},
 	} {
-		right := map[string]string{"exce": "exec", "wbe1": "web1", "--limt": "--limit"}[c.wrong]
+		right := map[string]string{"exce": "exec", "wbe1": "web1", "--limt": "--limit", "credentail": "credential", "ad": "add"}[c.wrong]
 		if got, ok := swappedLine(c.args, c.wrong, right); !ok || got != c.want {
 			t.Errorf("%v: %q", c.args, got)
 		}
