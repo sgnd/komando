@@ -18,7 +18,7 @@ check "an agent with HOME and KOMANDO_HOME moved together is stopped" NEEDS_PERS
 q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{credential:ops-pass}}'
 check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[credential:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
 check "an agent's guess of a vault value gets the answer any value gets" True "$(A host ssh exec direct --read-only -- echo opspass | jget 'd["ok"]' || true)"
-check "the guess is in the audit log" True "$($K audit --limit 5 | jget '"secret_value_in_input" in json.dumps(d) and "opspass" not in json.dumps(d)')"
+check "the guess is in the audit log" True "$($K audit list --limit 5 | jget '"secret_value_in_input" in json.dumps(d) and "opspass" not in json.dumps(d)')"
 check "agent cannot copy .env here" SENSITIVE_FILE "$(A copy direct:/home/agent/app/.env "$TMP/" | jget 'd["error"]["code"]' || true)"
 q A copy direct:/home/agent/app "$TMP/agentcopy" -r
 check "agent folder copy leaves .env behind" "False True" "$(python3 -c "import os; print(os.path.exists('$TMP/agentcopy/.env'), os.path.exists('$TMP/agentcopy/readme.txt'))")"

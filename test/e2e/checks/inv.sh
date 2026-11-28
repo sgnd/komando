@@ -5,9 +5,9 @@
 
 code() { jget 'd["error"]["code"] if d.get("error") else "ok"' || true; }
 
-# audit -n
-set +e; $K audit -n -1 >/dev/null; check "audit -n -1 is a usage error" 2 $?; set -e
-check "audit text is one line per entry" True "$($K audit -n 3 -o text | head -1 | grep -q '^TIME *ACTOR *COMMAND *TARGETS *OK' && echo True || echo False)"
+# audit list -n
+set +e; $K audit list -n -1 >/dev/null; check "audit list -n -1 is a usage error" 2 $?; set -e
+check "audit text is one line per entry" True "$($K audit list -n 3 -o text | head -1 | grep -q '^TIME *ACTOR *COMMAND *TARGETS *OK' && echo True || echo False)"
 
 # host ssh add/edit validation
 check "port out of range" USAGE "$($K host ssh add t-e2einv1 'agent@127.0.0.1:99999' | code)"
@@ -97,7 +97,7 @@ check "secret rm takes many" ok "$($K credential password remove t-e2einvs1 t-e2
 check "config get" 10 "$($K config get parallel | jget 'd["data"]["default"]')"
 check "tiny max_output_bytes" USAGE "$($K config set max_output_bytes 1 | code)"
 check "negative value names the fix" True "$($K config set parallel -3 | jget '"--" in d["error"]["hint"]')"
-check "config set is audited" True "$($K config set connect_timeout 15s >/dev/null; $K audit -n 1 --command config.set | jget 'd["data"]["entries"][0]["new"] == "15s"')"
+check "config set is audited" True "$($K config set connect_timeout 15s >/dev/null; $K audit list -n 1 --command config.set | jget 'd["data"]["entries"][0]["new"] == "15s"')"
 
 # policy
 check "built-in rule cannot be removed" BUILTIN_RULE "$($K policy remove rm-root | code)"

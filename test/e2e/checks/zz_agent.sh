@@ -34,7 +34,7 @@ aok "credential list" credential list
 aok "config show" config show
 aok "policy list" policy list
 check "agent: policy check names the rule" True "$(ag policy check 'rm -rf /' | jget '"rm-root" in json.dumps(d)' || true)"
-aok "audit" audit --limit 5
+aok "audit list" audit list --limit 5
 aok "audit check" audit check
 aok "doctor" doctor
 aok "status" status

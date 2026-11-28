@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # The audit chain, the sealed store and doctor.
 check "audit chain intact" True "$($K audit check | jget 'd["data"]["ok"]')"
-check "audit names the agent" True "$($K audit -n 200 | jget 'any(e.get("agent") == "Claude Code" for e in d["data"]["entries"])')"
+check "audit names the agent" True "$($K audit list -n 200 | jget 'any(e.get("agent") == "Claude Code" for e in d["data"]["entries"])')"
 # a record removed from the middle of the store's audit table
 cp "$KOMANDO_HOME/store.db" "$TMP/store.bak"
 python3 - "$KOMANDO_HOME/store.db" <<'PY'

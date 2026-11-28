@@ -93,7 +93,7 @@ OTHER="$(mktemp -d)"; chmod 700 "$OTHER"
 check "import adds the exported deny rule" "['e2e-forbidden-word']" "$(KOMANDO_HOME="$OTHER" "$K" import komando "$EXP" | jget 'd["data"]["deny_rules_added"]')"
 rm -rf "$OTHER" "$(dirname "$EXP")"
 $K policy remove 'e2e-forbidden-word' --yes >/dev/null
-check "audit --actor finds the e2e actor" True "$($K audit --actor e2e -n 5 | jget 'd["data"]["count"] > 0')"
+check "audit list --actor finds the e2e actor" True "$($K audit list --actor e2e -n 5 | jget 'd["data"]["count"] > 0')"
 set -e
 echo "==> secret managers, built in (no vault or aws CLI)"
 for _ in $(seq 1 30); do curl -sf "http://127.0.0.1:$E2E_BAO/v1/sys/health" >/dev/null && curl -s "http://127.0.0.1:$E2E_MOTO/" >/dev/null && break; sleep 1; done
@@ -250,4 +250,4 @@ check "open bind needs --yes" OPEN_BIND "$($K host ssh tunnel start target -L 0.
 
 echo "==> modules"
 check "test results carry host" direct "$($K test direct | jget 'd["data"]["results"][0]["host"]')"
-check "audit recorded" True "$($K audit -n 200 | jget 'd["data"]["count"] > 10')"
+check "audit recorded" True "$($K audit list -n 200 | jget 'd["data"]["count"] > 10')"

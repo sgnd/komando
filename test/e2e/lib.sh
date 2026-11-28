@@ -38,7 +38,7 @@ sprov() {
   esac
 }
 # the audit log and the inventory as text, from the sealed store
-audit_text() { "$K" audit -n 0 -o json 2>/dev/null; }
+audit_text() { "$K" audit list -n 0 -o json 2>/dev/null; }
 inventory_text() { "$K" export -o json 2>/dev/null; }
 # this script is a script, even when an AI agent starts it; the agent
 # checks say so on purpose (and never open an approval window)
