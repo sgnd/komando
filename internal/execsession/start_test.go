@@ -205,8 +205,8 @@ func TestStartScriptLowSpace(t *testing.T) {
 	}
 }
 
-// --timeout stops the run's whole group and says why; no exit code is
-// written for a stopped run.
+// --timeout stops the run's whole group and says why; the root still writes
+// the run's exit code (T3), and killed decides how a read shows it.
 func TestStartScriptTimeout(t *testing.T) {
 	home := t.TempDir()
 	got, code := runStart(t, home, Start{ID: testID, Run: startRun("sleep 30"), Timeout: time.Second, LogMax: 1 << 20}, "")
@@ -223,9 +223,8 @@ func TestStartScriptTimeout(t *testing.T) {
 	if !gone(f.PID) {
 		t.Error("the run is still there")
 	}
-	time.Sleep(500 * time.Millisecond)
-	if _, err := os.Lstat(filepath.Join(sessionDir(home), "exit")); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("a stopped run has an exit file: %v", err)
+	if e := strings.TrimSpace(waitFile(t, home, "exit")); e == "" || e == "0" {
+		t.Errorf("exit %q after the timeout's TERM, want the run's code", e)
 	}
 }
 

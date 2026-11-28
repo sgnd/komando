@@ -100,8 +100,7 @@ func StopCommand(rec *store.ExecSession, sig string, password bool) (string, err
 }
 
 // markStopped writes killed ("TERM stop") in the session's folder as the
-// login user, before the signal: the run's root then writes no exit, and a
-// read says how it ended. Only in a folder of the login user that is no
+// login user, before the signal: a read then says how it ended. Only in a folder of the login user that is no
 // link, and with noclobber, never through a link the run left there; m is
 // set when this stop wrote the mark, so a stop that signals nothing takes
 // it back. No folder there: the stop still signals.

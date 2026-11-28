@@ -81,7 +81,9 @@ func StartScript(s Start) (string, error) {
 // login's umask comes back, so its files stay private. exit is written
 // through exit.tmp once the capper is done (or 3 s after the run, when a
 // child the run left still holds the output open), and after the input
-// files and the fifo are gone: a reader that sees exit sees them gone.
+// files and the fifo are gone: a reader that sees exit sees them gone. It
+// is written also after a stop's killed mark, which a stop that signalled
+// nothing takes back (the run ended on its own meanwhile).
 func wrapper(start string, timeout time.Duration, max int64) string {
 	watch, end := watcher(timeout)
 	// the group's TERM (a stop, the timeout) ends the run, not its ending: the
@@ -92,7 +94,7 @@ func wrapper(start string, timeout time.Duration, max int64) string {
 		`{ trap '' TERM; head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
 		`exec > "$d/.o" 2>&1; umask "$1"; ` + start + `; umask 077; ` + watch + end +
 		`exec > /dev/null 2>&1; i=0; while kill -0 $k 2>/dev/null && [ $i -lt 3 ]; do sleep 1; i=$((i+1)); done; ` +
-		`rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"; [ -f "$d/killed" ] || { echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"; }`
+		`rm -f "$d/env" "$d/in" "$d/pw" "$d/.o"; echo $c > "$d/exit.tmp" && mv "$d/exit.tmp" "$d/exit"`
 }
 
 // ErrNoFolder: no session folder can be made on the server (a read-only or

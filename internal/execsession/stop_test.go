@@ -309,7 +309,7 @@ func readSession(t *testing.T, home string) (Status, string) {
 
 // C652: a stop marks the run killed with its signal before it signals, the
 // output up to the stop stays in the log, and the run's own ending still
-// runs: no exit file, no lost mark, the fifo gone.
+// runs: its exit written (T3), no lost mark, the fifo gone.
 func TestStopCommandKeepsOutputAndMarksTheSignal(t *testing.T) {
 	home := t.TempDir()
 	rec := startStoppable(t, home, `echo a; sleep 30; echo late`)
@@ -324,10 +324,13 @@ func TestStopCommandKeepsOutputAndMarksTheSignal(t *testing.T) {
 	if data != "a\n" {
 		t.Errorf("the log holds %q, want the output up to the stop", data)
 	}
-	for _, f := range []string{"exit", "lost", ".o"} {
+	for _, f := range []string{"lost", ".o"} {
 		if _, err := os.Lstat(filepath.Join(sessionDir(home), f)); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s after a stop: %v", f, err)
 		}
+	}
+	if _, err := os.Lstat(filepath.Join(sessionDir(home), "exit")); err != nil {
+		t.Errorf("no exit after the run's ending: %v", err)
 	}
 }
 
@@ -410,6 +413,42 @@ func TestStopKeepsTheRootWhileTheRunIgnoresTERM(t *testing.T) {
 	}
 	if !gone(rec.PID) {
 		t.Error("the root is still there after KILL")
+	}
+}
+
+// T3: the run ends on its own after the stop wrote its mark and before
+// its start check (a slow ps or sed here): the stop finds no process and
+// takes its mark back, and the run's exit code is still there, so the
+// session reads as ended with it, not as lost.
+func TestStopRaceKeepsTheExitCode(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `sleep 2`)
+	slow := t.TempDir()
+	for _, tool := range []string{"ps", "sed"} {
+		real, err := exec.LookPath(tool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stub := "#!/bin/sh\nsleep 3\nexec " + real + " \"$@\"\n"
+		if err := os.WriteFile(filepath.Join(slow, tool), []byte(stub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	text, err := StopCommand(rec, "TERM", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", "-c", text)
+	cmd.Env = []string{"HOME=" + home, "PATH=" + slow + ":/usr/bin:/bin"}
+	if got, err := cmd.Output(); exitOf(err) != ExitNotRunning {
+		t.Fatalf("stop exit %d, %q; want %d", exitOf(err), got, ExitNotRunning)
+	}
+	st, _ := readSession(t, home)
+	if !st.Ended() || st.Lost || st.Killed != "" || st.Exit != 0 {
+		t.Errorf("status %+v, want ended with exit 0, no killed mark, not lost", st)
+	}
+	if _, err := os.Lstat(filepath.Join(sessionDir(home), "exit")); err != nil {
+		t.Errorf("no exit file: %v", err)
 	}
 }
 
