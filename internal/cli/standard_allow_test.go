@@ -18,13 +18,12 @@ var (
 		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"pkg install/uninstall",
 	}
-	// S-5.1 exceptions: --wait is a bool on cluster commands; --config a file on vpn add, KEY=VALUE on queue create;
+	// S-5.1 exceptions: --config a file on vpn add, KEY=VALUE on queue create;
 	// --new a bool on secret set (create only), the replacement text on fs replace
 	allowFlagTypes = []string{
 		"--attach", // host ssh shell (a tmux session) and host ssh exec (session IDs): the v0.18.0 flag review gives them one word each
 		"--config",
 		"--new",
-		"--wait",
 	}
 	// S-5.11: flags whose usage text still differs per command
 	allowSharedUsage = []string{
@@ -47,9 +46,6 @@ var (
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
-		"cluster helm history",
-		"cluster helm status",
-		"cluster history",
 		"conn kinds",
 		"conn show",
 		"db info",

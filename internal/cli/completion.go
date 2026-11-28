@@ -109,7 +109,7 @@ func addCompletion(c *cobra.Command) {
 }
 
 // commandFamily is the conn family a command works with: "cache" for
-// `cache info`, "db" for `db user grants`; "" for other commands.
+// `cache redis raw`, "db" for `db user grants`; "" for other commands.
 func commandFamily(c *cobra.Command) string {
 	for ; c.HasParent(); c = c.Parent() {
 		if !c.Parent().HasParent() {
@@ -123,7 +123,7 @@ func commandFamily(c *cobra.Command) string {
 }
 
 // connsOfFamily leaves out the conns another command works with, so
-// `cache info <Tab>` offers caches, not databases. Groups, tags, all and
+// `cache redis raw <Tab>` offers caches, not databases. Groups, tags, all and
 // kind: stay: they pick the right conns when the command runs.
 func connsOfFamily(names []string, family string) []string {
 	if family == "" {

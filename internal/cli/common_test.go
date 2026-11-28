@@ -69,20 +69,14 @@ func TestPolicyMACStopsCommands(t *testing.T) {
 // A new caller must be added here on purpose, after review.
 func TestGuardScriptCallers(t *testing.T) {
 	// code lines only: common.go defines GuardScript, the others call it
-	// with lines komando wrote (swarmApply and swarmDo judge the stack file
-	// and their own tier); runOps (modules_run.go) uses Guard
-	want := map[string]int{"common.go": 1, "pkg_security.go": 1, "docker_prune.go": 2, "cluster_apply.go": 1, "cluster_swarm.go": 1}
+	// with lines komando wrote; runOps (modules_run.go) uses Guard
+	want := map[string]int{"common.go": 1, "pkg_security.go": 1, "docker_prune.go": 2}
 	wantCheckScript := map[string]int{"common.go": 1}
-	// swarmDo and swarmChange take their words from the caller: every
-	// operand must be quoted and validated at the entry (checkSwarmName)
-	wantSwarmDo := map[string]int{"cluster_swarm.go": 2, "cluster_apply.go": 1, "cluster_run.go": 1}
-	wantSwarmChange := map[string]int{"cluster_swarm.go": 1, "cluster_deploy.go": 2, "cluster_objects.go": 2}
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, gotCheckScript := map[string]int{}, map[string]int{}
-	gotSwarmDo, gotSwarmChange := map[string]int{}, map[string]int{}
 	for _, f := range files {
 		if strings.HasSuffix(f, "_test.go") {
 			continue
@@ -97,25 +91,15 @@ func TestGuardScriptCallers(t *testing.T) {
 			}
 			got[f] += strings.Count(line, "GuardScript(")
 			gotCheckScript[f] += strings.Count(line, "policy.CheckScript")
-			gotSwarmDo[f] += strings.Count(line, "swarmDo(")
-			gotSwarmChange[f] += strings.Count(line, "swarmChange(")
 		}
 		maps.DeleteFunc(got, func(_ string, n int) bool { return n == 0 })
 		maps.DeleteFunc(gotCheckScript, func(_ string, n int) bool { return n == 0 })
-		maps.DeleteFunc(gotSwarmDo, func(_ string, n int) bool { return n == 0 })
-		maps.DeleteFunc(gotSwarmChange, func(_ string, n int) bool { return n == 0 })
 	}
 	if !maps.Equal(got, want) {
 		t.Errorf("GuardScript is used in %v, want only %v (komando's own scripts)", got, want)
 	}
 	if !maps.Equal(gotCheckScript, wantCheckScript) {
 		t.Errorf("policy.CheckScript is used in %v, want only %v (GuardScript)", gotCheckScript, wantCheckScript)
-	}
-	if !maps.Equal(gotSwarmDo, wantSwarmDo) {
-		t.Errorf("swarmDo is used in %v, want only %v: a new caller validates every operand first", gotSwarmDo, wantSwarmDo)
-	}
-	if !maps.Equal(gotSwarmChange, wantSwarmChange) {
-		t.Errorf("swarmChange is used in %v, want only %v: a new caller validates every operand first", gotSwarmChange, wantSwarmChange)
 	}
 }
 

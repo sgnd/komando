@@ -30,8 +30,6 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
 		{[]string{"vpn", "wireguard", "list"}, []string{"vpn", "wireguard", "ls"}, "vpn.wireguard.list"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.rename"},
-		{[]string{"cluster", "list"}, []string{"cluster", "ls"}, "cluster.list"},
-		{[]string{"cluster", "helm", "list"}, []string{"cluster", "helm", "ls"}, "cluster.helm.list"},
 		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.list"},
 		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
 		{[]string{"queue", "kafka", "topic", "list"}, []string{"queue", "kafka", "topic", "ls"}, "queue.kafka.topic.list"},
@@ -106,13 +104,11 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"servers"}, "host"}, {[]string{"server", "ssh", "list"}, "host.ssh.list"},
 		{[]string{"databases", "postgres", "query"}, "database.postgres.query"}, {[]string{"files", "cat"}, "fs.cat"},
 		{[]string{"policies", "list"}, "policy.list"},
-		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
 		{[]string{"group", "show"}, "group.show"},
 		{[]string{"snippet", "show"}, "snippet.show"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
 		{[]string{"secret", "copy"}, "secret.cp"},
-		{[]string{"cluster", "info"}, "cluster.status"},
 	} {
 		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {
 			t.Errorf("%v: ID %q, want %q", c.args, got, c.id)
@@ -153,7 +149,6 @@ func TestSchemaResolvesNames(t *testing.T) {
 		{[]string{"credential.password.show"}, "komando credential password show"},
 		{[]string{"host.ssh.rename"}, "komando host ssh rename"},
 		{[]string{"group", "show"}, "komando group show"},
-		{[]string{"cluster", "info"}, "komando cluster status"},
 		{[]string{"servers"}, "komando host"},
 		{[]string{"db.user.show"}, "komando db user show"},
 	} {

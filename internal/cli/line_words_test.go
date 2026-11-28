@@ -55,7 +55,7 @@ func TestLineWordsReadsWordsAndFlags(t *testing.T) {
 		words   []string
 		pos     []string
 	}{
-		{"positional words", "cache rm c1 k", "komando cache rm", []string{"c1", "k"}, []string{"c1", "k"}},
+		{"positional words", "queue kafka topic delete q1 t", "komando queue kafka topic delete", []string{"q1", "t"}, []string{"q1", "t"}},
 		{"a flag becomes --name=value", "host ssh edit web1 --protected=false", "komando host ssh edit", []string{"web1", "--protected=false"}, []string{"web1"}},
 		{"a bare bool flag becomes =true", "host ssh exec web1 --read-only -- df -h", "komando host ssh exec", []string{"web1", "--read-only=true", "--", "df", "-h"}, []string{"web1"}},
 		{"words after -- are kept apart", "host ssh exec web1 -- uptime", "komando host ssh exec", []string{"web1", "--", "uptime"}, []string{"web1"}},
@@ -83,8 +83,8 @@ func TestLineWordsNoCommand(t *testing.T) {
 }
 
 func TestLineWordsBadFlagKeepsTheCommand(t *testing.T) {
-	c, words, _ := lineWords([]string{"cache", "rm", "c1", "--nosuchflag"})
-	if c == nil || c.CommandPath() != "komando cache rm" {
+	c, words, _ := lineWords([]string{"queue", "kafka", "topic", "delete", "q1", "--nosuchflag"})
+	if c == nil || c.CommandPath() != "komando queue kafka topic delete" {
 		t.Fatalf("a bad flag lost the command: %v", c)
 	}
 	if !slices.Contains(words, "--nosuchflag") {

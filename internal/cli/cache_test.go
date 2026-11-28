@@ -250,27 +250,6 @@ func TestCacheRunMemcachedLineInjection(t *testing.T) {
 	}
 }
 
-// --limit 0 used to list nothing yet say more keys match (cache keys) or
-// quietly show 100 items (cache get); it is a usage error before connecting.
-func TestCacheLimitMustBePositive(t *testing.T) {
-	setHome(t, t.TempDir())
-	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
-		t.Fatal(err)
-	}
-	for _, args := range [][]string{
-		{"cache", "keys", "c", "--limit", "0"},
-		{"cache", "keys", "c", "*", "-n", "-5"},
-		{"cache", "get", "c", "k", "--limit", "0"},
-	} {
-		_, err := runCache(t, append([]string{"-o", "json"}, args...)...)
-		var e *out.Error
-		if !errors.As(err, &e) || e.Code != "USAGE" {
-			t.Errorf("%q: %v", args, err)
-		}
-	}
-}
-
 // In a Redis Cluster, FLUSHALL, SCAN and the other whole-key-space commands
 // reach one master only; cache run refuses them before any approval or
 // connection (the conn has no server).
@@ -291,56 +270,6 @@ func TestCacheRunClusterWide(t *testing.T) {
 	var e *out.Error
 	if _, err := runCache(t, "-o", "json", "cache", "redis", "raw", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
 		t.Errorf("DBSIZE is summed over the masters, so it is sent: %v", err)
-	}
-}
-
-// cache keys gives each key's type and time to live in items, next to the
-// plain keys list, and shows them as columns.
-func TestCacheKeysTypeAndTTL(t *testing.T) {
-	setHome(t, t.TempDir())
-	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	addr, lines := fakeMemcached(t)
-	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
-		t.Fatal(err)
-	}
-	s, err := runCache(t, "-o", "json", "cache", "keys", "m", "s:*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var res struct {
-		Data struct {
-			Keys  []string `json:"keys"`
-			Count int      `json:"count"`
-			Items []struct {
-				Key  string  `json:"key"`
-				Type *string `json:"type"`
-				TTL  *int64  `json:"ttl_seconds"`
-			} `json:"items"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(s), &res); err != nil {
-		t.Fatalf("%v\n%s", err, s)
-	}
-	d := res.Data
-	if strings.Join(d.Keys, ",") != "s:1,s:2" || d.Count != 2 || len(d.Items) != 2 {
-		t.Fatalf("keys %v, items %+v", d.Keys, d.Items)
-	}
-	for i, want := range []int64{30, -1} {
-		it := d.Items[i]
-		if it.Key != d.Keys[i] || it.Type == nil || *it.Type != "string" || it.TTL == nil || *it.TTL != want {
-			t.Errorf("item %d: %+v, want ttl %d", i, it, want)
-		}
-	}
-	if !slices.Contains(lines(), "lru_crawler metadump all") {
-		t.Errorf("sent %q", lines())
-	}
-	text, err := runCache(t, "-o", "text", "cache", "keys", "m", "s:*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "KEY  TYPE    TTL\ns:1  string  30s\ns:2  string  none\n"
-	if text != want {
-		t.Errorf("text:\n%s\nwant:\n%s", text, want)
 	}
 }
 

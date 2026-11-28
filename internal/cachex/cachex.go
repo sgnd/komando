@@ -100,7 +100,7 @@ func redisDialer(dial DialFunc, tc *tls.Config, timeout time.Duration) func(ctx 
 // rules are the named command checks, listed by `komando policy`.
 var rules = []driver.Rule{
 	{ID: "redis-flush", Reason: "deletes every key (FLUSHALL, FLUSHDB, SWAPDB)"},
-	{ID: "redis-blocking", Reason: "blocks the server on large data sets (KEYS, SAVE, DEBUG); use `cache keys` for SCAN"},
+	{ID: "redis-blocking", Reason: "blocks the server on large data sets (KEYS, SAVE, DEBUG); use SCAN instead"},
 	{ID: "redis-server-config", Reason: "changes server, replication or cluster configuration"},
 	{ID: "redis-kill", Reason: "kills clients or shuts the server down"},
 	{ID: "redis-acl", Reason: "changes users or permissions"},
@@ -315,7 +315,7 @@ func Classify(args []string) driver.Verdict {
 		return flag(id)
 	}
 	if cmd == "DEL" || cmd == "UNLINK" || cmd == "GETDEL" || cmd == "RENAME" || expiresNow(cmd, args) || dropsDocs(cmd, args) {
-		// same as `cache rm`: the key (or RENAME's target) is gone afterwards
+		// same as DEL: the key (or RENAME's target) is gone afterwards
 		return driver.DataDelete()
 	}
 	if cmd == "ACL" && sub == "LOG" && len(args) > 2 && strings.EqualFold(args[2], "RESET") {
@@ -425,7 +425,7 @@ func Get(ctx context.Context, c redis.UniversalClient, key string, limit int64, 
 		return nil, cmdErr(err)
 	}
 	if typ == "none" {
-		return nil, out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "no cache key named %q", key)
+		return nil, out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache redis raw NAME -- SCAN 0 MATCH 'pattern*'`", "no cache key named %q", key)
 	}
 	v := &Value{Key: key, Type: typ}
 	if ttl, err := c.TTL(ctx, key).Result(); err == nil && ttl >= 0 {

@@ -86,7 +86,7 @@ komando copy ./dump.sql.gz backups:
   on (`host ssh exec web1 -- uptime`), so komando never reads them as its own flags.
 - **One cluster command.** Verbs every engine has sit under `cluster` and
   work on any cluster; a feature only one engine has says so on the other
-  (`cluster helm` is for Kubernetes). `docker` is for one server.
+  (`cluster kubernetes` is for Kubernetes). `docker` is for one server.
 - **No legacy.** A rename is clean: the old name stops working, and help,
   examples, the guide, the skill and these docs change in the same change.
   A few plain synonyms (`ls` for `list`) are accepted; docs show only the
@@ -315,8 +315,7 @@ Examples in place: `test` (`host ssh test` and `conn test` call it), `list`,
 komando is as strong as the original tool through three paths, the same
 in every area:
 
-1. **Commands komando understands** (`db schema`, `cache get`,
-   `storage ls`): structured output, safe. For most daily work.
+1. **Commands komando understands** (`db schema`, `storage ls`): structured output, safe. For most daily work.
 2. **A raw path in the native language**, still classified, read-only by
    default and audited: `exec`, `database KIND query`, `cache redis raw`,
    `cluster kubernetes raw -- <kubectl args>`.

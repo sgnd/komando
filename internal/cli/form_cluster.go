@@ -96,8 +96,8 @@ func kubeconfigNames(path string) []string {
 }
 
 // kubeconfigBuild imports the file, protects what it adds when asked, and
-// ends with cluster status, which logs in to each cluster (komando test
-// only checks that its port answers).
+// ends with komando test, which only checks that the port of each cluster
+// answers (it does not log in).
 func kubeconfigBuild(st *store.State, a formAnswers) [][]string {
 	file := cmp.Or(a["file"], kubeconfigDefault)
 	args := []string{"import", "kubeconfig"}
@@ -129,7 +129,7 @@ func kubeconfigBuild(st *store.State, a formAnswers) [][]string {
 	case len(names) > 0 && len(names) <= 5 && sure == len(names): // else a name may be another cluster's
 		target = strings.Join(names, ",")
 	}
-	return append(cmds, []string{"cluster", "status", target})
+	return append(cmds, []string{"test", target})
 }
 
 // kubeconfigAddsAs: the import adds the cluster named name under that very
@@ -153,8 +153,7 @@ func kubeconfigAddsAs(st *store.State, name string, overwrite bool) bool {
 	return !slices.Contains(secretNames(), name+"-kubeconfig")
 }
 
-// swarmForm is the server form for a swarm manager, ending with cluster
-// status (which logs in and asks docker) instead of a plain test.
+// swarmForm is the server form for a swarm manager.
 func swarmForm(cl *call) formSpec {
 	sp := serverForm(cl)
 	sp.title = "Add a Docker Swarm"
@@ -167,11 +166,7 @@ func swarmForm(cl *call) formSpec {
 		// removed by the C cluster row: the store makes the swarm service of a
 		// server with this tag (store/format3_swarm.go)
 		cmds[0] = append(cmds[0], "--tag", "swarm")
-		status := []string{"cluster", "status", a["name"]}
-		if a["code"] == "yes" { // komando login first, then look
-			return append(cmds, status)
-		}
-		return append(cmds[:len(cmds)-1], status)
+		return cmds
 	}
 	return sp
 }
@@ -181,66 +176,18 @@ func swarmForm(cl *call) formSpec {
 var (
 	clusterTargetArg = formArg{ask: "Which cluster?", pick: "cluster", free: true,
 		help: "A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several."}
-	clusterRefArg = formArg{ask: "Which workload?", example: "deployment/api",
-		help: "Its kind and name, like deployment/api or statefulset/db. komando cluster list shows them."}
-	clusterTypeArg = formArg{ask: "What kind of object?", example: "deployment",
-		help: "pod, deployment, service, node, ingress, configmap ... On a Swarm: service, task, node, stack."}
-	clusterNameArg = formArg{ask: "Its name?", example: "api",
-		help: "komando cluster list shows the names."}
 	clusterPodArg = formArg{ask: "Which pod or workload?", example: "deployment/api or api-7d9f8c6b5-x2k4q",
 		help: "A pod's name, or a kind and name like deployment/api (komando picks one of its pods)."}
-	clusterWaitFlag = formFlag{name: "wait", ask: "Wait until it is done?",
-		help: "Yes: komando stays until every copy runs the new version, or says what went wrong."}
-	clusterReleaseArg = formArg{ask: "Which Helm release?", example: "ingress-nginx",
-		help: "komando cluster helm list shows the releases."}
 )
 
 func init() {
-	addFormHints(clusterReadHints())
 	addFormHints(clusterChangeHints())
 }
 
-// clusterReadHints are the cluster commands that only look.
-func clusterReadHints() map[string]formHint {
-	t := clusterTargetArg
-	return map[string]formHint{
-		"cluster status": {args: []formArg{t, {ask: "One workload to check its rollout? (leave empty for the whole cluster)", example: "deployment/api",
-			help: "Empty: the whole cluster, its nodes and what is not healthy."}}},
-		"cluster list": {args: []formArg{t, {ask: "What do you want to list?", def: "pods",
-			help: "pods, deployments, services, nodes, ingresses, configmaps ... On a Swarm: services, tasks, nodes, stacks."}},
-			flags: []formFlag{{name: "all-namespaces", ask: "From every namespace?",
-				help: "No: only the cluster's usual namespace (a namespace is a folder of objects in the cluster)."}}},
-		"cluster get":      {args: []formArg{t, clusterTypeArg, clusterNameArg}},
-		"cluster describe": {args: []formArg{t, clusterTypeArg, clusterNameArg}},
-		"cluster events":   {args: []formArg{t}, flags: []formFlag{{name: "warnings", ask: "Only problems (Warning events)?"}}},
-		"cluster logs": {args: []formArg{t, clusterPodArg},
-			flags: []formFlag{{name: "since", ask: "Only lines newer than? (leave empty for the last lines)", example: "10m or 2h",
-				help: "Empty: the last lines of each pod."}, {name: "follow", ask: "Keep showing new lines? (Ctrl-C stops)"}}},
-		"cluster history": {args: []formArg{t, {ask: "Which deployment?", example: "deployment/api",
-			help: "Written deployment/NAME. komando cluster list TARGET deployments shows them."}}},
-		"cluster helm list":    {args: []formArg{t}},
-		"cluster helm status":  {args: []formArg{t, clusterReleaseArg}},
-		"cluster helm history": {args: []formArg{t, clusterReleaseArg}},
-		"cluster helm values": {args: []formArg{t, clusterReleaseArg},
-			flags: []formFlag{{name: "all", ask: "Also the chart's own default values?"}}},
-	}
-}
-
-// clusterChangeHints are the cluster commands that change something.
+// clusterChangeHints are the questions of the cluster kubernetes commands with a pod or a cluster to run on.
 func clusterChangeHints() map[string]formHint {
 	t := clusterTargetArg
 	return map[string]formHint{
-		"cluster deploy": {args: []formArg{t, clusterRefArg},
-			flags: []formFlag{{name: "image", ask: "Which image should it run now?", required: true, example: "ghcr.io/acme/api:1.4.3",
-				help: "The full image name with its new tag, as in docker pull."}, clusterWaitFlag}},
-		"cluster rollback": {args: []formArg{t, clusterRefArg}, flags: []formFlag{clusterWaitFlag}},
-		"cluster restart":  {args: []formArg{t, clusterRefArg}, flags: []formFlag{clusterWaitFlag}},
-		"cluster scale": {args: []formArg{t, clusterRefArg, {ask: "How many copies (replicas) should run?", example: "3",
-			help: "0 stops every copy, and the app is down until you scale it up again. komando asks a person first."}}, flags: []formFlag{clusterWaitFlag}},
-		"cluster apply": {args: []formArg{t}, flags: []formFlag{{name: "file", ask: "Which YAML file on this computer?", required: true,
-			example: "./k8s/app.yaml", help: "The objects in it are created, or changed to match it."},
-			{name: "stack", ask: "Swarm only: the stack's name (empty on Kubernetes)", example: "shop"}}},
-		"cluster rm": {args: []formArg{t, clusterTypeArg, clusterNameArg}},
 		"cluster kubernetes exec": {args: []formArg{t, clusterPodArg, {ask: "Which command should run in the pod?", example: "env"}},
 			flags: []formFlag{{name: "read-only", ask: "Does the command only look, changing nothing?"}}},
 		"cluster kubernetes shell": {args: []formArg{t, clusterPodArg, {ask: "A command instead of a shell? (leave empty for the usual shell)", example: "bash",
@@ -268,14 +215,4 @@ func init() {
 			{ask: "Which docker command? (without docker in front)", example: "service ls", help: "It runs as docker would run it on the manager."}},
 		flags: []formFlag{{name: "write", ask: "Does it change the Swarm?",
 			help: "No: komando refuses a command that would change something."}}}})
-	addFormHints(map[string]formHint{
-		"cluster status":   {next: []string{"cluster list {} pods", "cluster events {} --warnings"}},
-		"cluster list":     {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},
-		"cluster deploy":   {next: []string{"cluster status {} TYPE/NAME --wait", "cluster rollback {} TYPE/NAME"}},
-		"cluster rollback": {next: []string{"cluster history {} TYPE/NAME"}},
-		"cluster apply":    {next: []string{"cluster status {}"}},
-		"cluster rm":       {next: []string{"cluster list {} TYPE"}},
-		"cluster scale":    {next: []string{"cluster status {} TYPE/NAME --wait"}},
-		"cluster logs":     {next: []string{"cluster describe {} TYPE NAME", "cluster events {} --for TYPE/NAME"}},
-	})
 }

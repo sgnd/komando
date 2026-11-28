@@ -231,11 +231,6 @@ func sortedKeys(m map[string]any) []string {
 	return keys
 }
 
-// InfoSections are the sections INFO accepts.
-var InfoSections = []string{"server", "clients", "memory", "persistence", "threads", "stats", "replication", "cpu",
-	"commandstats", "latencystats", "sentinel", "cluster", "modules", "keyspace", "errorstats", "keysizes",
-	"all", "default", "everything"}
-
 // Summary is the INFO reply boiled down to what people check first.
 type Summary struct {
 	Version        string           `json:"version"`

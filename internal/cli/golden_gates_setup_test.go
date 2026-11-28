@@ -111,8 +111,7 @@ var goldenGates = [][]string{
 	{"fs", "rm", "web1", "/tmp/x", "--recursive"},
 	{"fs", "rm", "web1", "/"},
 	{"copy", "testdata", "web1:/tmp/x", "--sync", "--delete"},
-	{"cache", "rm", "cache1", "k"},
-	{"cache", "rm", "pcache", "k"},
+	{"cache", "redis", "raw", "cache1", "--write", "--", "DEL", "k"},
 	{"cache", "redis", "raw", "cache1", "--write", "--", "FLUSHALL"},
 	{"database", "postgres", "query", "db1", "--write", "DROP TABLE x"},
 	{"database", "postgres", "query", "pdb", "--write", "UPDATE x SET a=1"},
@@ -136,7 +135,6 @@ var goldenGates = [][]string{
 	{"host", "ssh", "remove", "prod1"},
 	{"host", "ssh", "edit", "prod1", "--protected=false"},
 	// PROTECTED_TARGET: a change on a protected conn (--yes)
-	{"cache", "set", "pcache", "k", "v"},
 	{"cache", "redis", "raw", "pcache", "--write", "--", "SET", "k", "v"},
 	{"db", "kill", "pdb", "1"},
 	{"conn", "rm", "pcache"},

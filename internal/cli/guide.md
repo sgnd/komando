@@ -122,7 +122,7 @@ stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 | Ports / connectivity         | `komando net ports TARGET` · `komando net check TARGET db:5432` |
 | Containers                   | `komando docker ps TARGET` · `komando logs TARGET --container api --since 10m` |
 | Docker disk space            | `komando docker prune TARGET --older-than 30d --dry-run` (lists what goes, with sizes) |
-| Clusters                     | `komando cluster status CONN` · `komando cluster logs CONN deploy/api` |
+| Clusters                     | `komando cluster kubernetes raw CONN -- get pods -A` · `komando cluster kubernetes raw CONN -- logs deploy/api` |
 | More diagnostics             | `komando snippet list`, then `komando snippet exec NAME TARGET` |
 
 ## 4. Change things safely
@@ -246,10 +246,9 @@ need `--allow-dangerous`: ask the human first. Scripts (`DECLARE`,
 activity`. There is no `database bigquery backup` or `restore`, and
 `db locks`, `db user` and `db grant` are not available (`NOT_SUPPORTED`).
 
-**Caches** (Redis, Valkey, memcached): `cache get|keys|info CONN` read, `cache set`
-changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache redis raw
-CONN -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
-`cache keys` uses SCAN.
+**Caches** (Redis, Valkey, memcached): `komando cache redis raw CONN -- CMD ...`
+only reads unless you add `--write`; a command that deletes keys also needs
+`--allow-dangerous`. Never use `KEYS`; list keys with `SCAN 0 MATCH pattern*`.
 
 **Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue PROVIDER info|topic list|topic show|consumer list|consumer show
 NAME` read (PROVIDER is kafka, rabbitmq, nats, sqs or pubsub; consumer: kafka and
@@ -284,19 +283,14 @@ MODE` (SFTP only) change;
 names are relative to the conn's folder. On a versioned bucket `rm` keeps the old
 versions. The conn itself: `komando test CONN`, `conn edit`, `conn rm`.
 
-**Clusters** (Kubernetes, Docker Swarm): `komando cluster status|list|get|logs
-CONN` read; `apply` (try `--dry-run` first, the cluster checks it),
-`restart` and `scale` change; `rm` and scaling to 0 need
-`--allow-dangerous`. To release a new image, use `komando cluster deploy
-CONN deployment/NAME --image IMAGE --wait`; if it goes wrong, `cluster
-rollback CONN deployment/NAME --wait` puts the earlier images back
-(`cluster history` lists the revisions). For anything else, `komando cluster kubernetes raw CONN --
-KUBECTL_ARGS...` (needs `--write` to change). Pick a namespace with
-`--namespace` (`-n`); how many is `--limit` (a number after `-n` is
-refused). `status`, `list`, `events` and `helm list` also take a group
-(`@prod`): one row per cluster in `data.results`. Read Helm releases with
-`komando cluster helm list|status|history|values` (no helm needed; install
-and upgrade stay with helm).
+**Clusters** (Kubernetes, Docker Swarm): `komando cluster kubernetes raw CONN --
+KUBECTL_ARGS...` runs the kubectl command itself (no kubectl needed) and only
+reads unless you add `--write`; `delete`, `drain` and scaling to 0 also need
+`--allow-dangerous`. `komando cluster swarm raw MANAGER -- DOCKER_ARGS...` does
+the same for a Swarm. Pick a namespace with `--namespace` (`-n`); how many is
+`--limit` (a number after `-n` is refused). Read Helm releases with the
+built-in snippets `helm-list` and `helm-release` (no helm needed; install and
+upgrade stay with helm).
 
 **Registries**: `komando registry oci image list|inspect CONN` read, `registry oci image copy`
 changes, `registry oci image delete` and `registry oci image prune` delete (need

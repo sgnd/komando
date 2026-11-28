@@ -47,8 +47,6 @@ func TestShorthandDidYouMean(t *testing.T) {
 		{[]string{"docker", "exec", "web1", "api", "-it", "--", "sh"}, "`komando host ssh shell TARGET`"},
 		{[]string{"cluster", "kubernetes", "exec", "k", "api", "-it", "--", "sh"}, "`komando cluster kubernetes shell NAME POD`"},
 		{[]string{"host", "ssh", "exec", "web1", "-L", "8080:localhost:80", "--", "true"}, "`komando host ssh tunnel start TARGET -L SPEC`"},
-		{[]string{"cluster", "restart", "k", "api", "-w", "10s"}, "did you mean --wait?"},
-		{[]string{"cache", "get", "c1", "k", "-x"}, ""},
 		{[]string{"fs", "replace", "web1", "/etc/x", "-b"}, "did you mean --backup?"},
 		{[]string{"queue", "kafka", "topic", "list", "q1", "-j"}, ""},
 	} {
@@ -89,13 +87,13 @@ func TestStandardShorthands(t *testing.T) {
 		n := path[strings.LastIndex(path, " ")+1:]
 		return n == "add" || n == "edit" || n == "import"
 	}
-	logStreamers := []string{"logs", "docker logs", "cluster logs"}
+	logStreamers := []string{"logs", "docker logs"}
 	// letter -> long flag -> where it may be (nil: everywhere)
 	table := map[string]map[string]func(path string) bool{
 		"o": {"output": nil}, "P": {"parallel": nil}, "y": {"yes": nil}, "h": {"help": nil},
 		"v": {"version": func(p string) bool { return p == "komando" }},
 		"a": {"all": func(p string) bool {
-			return in(p, "docker ps", "docker prune", "fs list", "db activity", "cache info", "cluster helm values", "guide")
+			return in(p, "docker ps", "docker prune", "fs list", "db activity", "guide")
 		}},
 		"A": {"all-namespaces": cluster},
 		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "host ssh exec", "host winrm exec") }},
@@ -150,8 +148,8 @@ func TestStandardShorthands(t *testing.T) {
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) { check(c.CommandPath(), c, f) })
 	}
 	// the parser's own -n in cluster is the namespace with the number check
-	c, _, _ := root.Find([]string{"cluster", "ls"})
+	c, _, _ := root.Find([]string{"cluster", "kubernetes", "exec"})
 	if f := c.Flags().ShorthandLookup("n"); f == nil || f.Value.Type() != "string" {
-		t.Errorf("cluster ls: the parser's -n is %+v", f)
+		t.Errorf("cluster kubernetes exec: the parser's -n is %+v", f)
 	}
 }

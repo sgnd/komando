@@ -27,7 +27,6 @@ check "host ssh exec --dry-run runs nothing" "True no" "$(dry host ssh exec dire
 # databases, caches, storage
 check "database postgres query --write --dry-run rolls back" "True 0" \
   "$(dry database postgres query pg --write "create table $D (id int)") $(nat pg psql -U app -d app -At -c "select count(*) from information_schema.tables where table_name = '$D'")"
-check "cache set --dry-run" "True 0" "$(dry cache set cache "$D:k" v) $(nat redis redis-cli -a redispass --no-auth-warning EXISTS "$D:k")"
 echo data >"$TMP/$D.obj"
 check "storage upload --dry-run" "True no" "$(dry copy "$TMP/$D.obj" "files-sftp:$D.obj") $(nat sftp sh -c "[ -e /home/deploy/uploads/$D.obj ] && echo yes || echo no")"
 
@@ -38,10 +37,6 @@ fi
 if in_area swarm; then
 # docker and clusters
 check "docker stop --dry-run" True "$(dry docker stop swarm1 nothing-runs-here)"
-fi
-
-if in_area k8s; then
-check "cluster scale --dry-run" "True 1" "$(dry cluster scale lab-k3s deploy/coredns 3 --namespace kube-system) $(nat k3s kubectl get deploy coredns -n kube-system -o jsonpath='{.spec.replicas}')"
 fi
 
 if in_area data; then

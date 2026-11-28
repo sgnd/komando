@@ -160,7 +160,7 @@ func fakeKind(t *testing.T, id string, kind cmdKind) {
 // whenProbes are command lines that meet the condition of each rule row
 // that has one (TestSafetyTablesPinned pins what they give).
 var whenProbes = []string{
-	"cluster scale c1 web 0",
+	"cluster kubernetes raw c1 -- scale deploy/web --replicas=0",
 	"credential key remove k1 --delete-file",
 	"pkg rm web1 openssh-server",
 	"copy ./site web1:/srv --sync --delete",

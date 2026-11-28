@@ -6,9 +6,6 @@ audit	kind=read|	target=""
 audit.check	kind=read|	target=""	
 audit.list	kind=read|	target=""	
 cache	kind=read|	target=""	
-cache.get	kind=read|	target=""	
-cache.info	kind=read|	target=""	
-cache.keys	kind=read|	target=""	
 cache.memcached	kind=read|	target=""	
 cache.memcached.add	kind=change|	target=""	
 cache.memcached.edit	kind=change|	target=""	safety|with --protected=false or --unset protected|turns protection off||||
@@ -27,20 +24,7 @@ cache.redis.remove	kind=change|	target=""
 cache.redis.rename	kind=change|	target=""	
 cache.redis.show	kind=read|	target=""	
 cache.redis.test	kind=read|	target=""	
-cache.rm	kind=change|	target=""	dangerous||deletes the keys||||
-cache.set	kind=change|	target=""	
 cluster	kind=read|	target="clusters"	
-cluster.apply	kind=change|	target="clusters"	
-cluster.deploy	kind=change|	target="clusters"	
-cluster.describe	kind=read|	target="clusters"	
-cluster.events	kind=read|	target="clusters"	
-cluster.get	kind=read|	target="clusters"	
-cluster.helm	kind=read|	target="clusters"	
-cluster.helm.history	kind=read|	target="clusters"	
-cluster.helm.list	kind=read|	target="clusters"	
-cluster.helm.status	kind=read|	target="clusters"	
-cluster.helm.values	kind=read|	target="clusters"	
-cluster.history	kind=read|	target="clusters"	
 cluster.kubernetes	kind=read|	target="clusters"	
 cluster.kubernetes.add	kind=change|	target="clusters"	
 cluster.kubernetes.edit	kind=change|	target="clusters"	safety|with --protected=false or --unset protected|turns protection off||||
@@ -54,13 +38,6 @@ cluster.kubernetes.show	kind=read|	target="clusters"
 cluster.kubernetes.test	kind=read|	target="clusters"	
 cluster.kubernetes.tunnel	kind=read|	target="clusters"	
 cluster.kubernetes.tunnel.start	kind=change|	target="clusters"	
-cluster.list	kind=read|	target="clusters"	
-cluster.logs	kind=read|	target="clusters"	
-cluster.restart	kind=change|	target="clusters"	
-cluster.rm	kind=change|	target="clusters"	dangerous||deletes it from the cluster||||
-cluster.rollback	kind=change|	target="clusters"	
-cluster.scale	kind=change|	target="clusters"	dangerous|REPLICAS is 0|stops every copy of the app||||
-cluster.status	kind=read|	target="clusters"	
 cluster.swarm	kind=read|	target="clusters"	
 cluster.swarm.raw	kind=depends|only reads unless --write	target="clusters"	dangerous|||the cluster command deletes something or scales to 0|||
 completion	kind=none	target=""	
@@ -317,7 +294,7 @@ policy.remove	kind=change|	target=""	safety||removes a deny rule||||
 policy.show	kind=read|	target=""	
 probe cache redis edit prod-redis --protected=false	safety|turns protection off||
 probe cluster kubernetes edit prod-k8s --protected=false	safety|turns protection off||
-probe cluster scale c1 web 0	dangerous|stops every copy of the app||
+probe cluster kubernetes raw c1 -- scale deploy/web --replicas=0	dangerous||the cluster command deletes something or scales to 0|
 probe config vault keychain	person|moves the key into the keychain||
 probe conn edit app-db --protected=false	safety|turns protection off||
 probe copy ./site web1:/srv --sync --delete	dangerous|deletes the files in the destination that the source does not have||

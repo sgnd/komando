@@ -129,7 +129,6 @@ var foreignWords = map[string]string{
 	"get":        "list",
 	"ps":         "docker ps TARGET",
 	"kubectl":    "cluster kubernetes raw NAME -- ...",
-	"helm":       "cluster helm list TARGET",
 	"psql":       "database postgres query NAME",
 	"mysql":      "database mysql query NAME",
 	"redis-cli":  "cache redis raw NAME -- ...",

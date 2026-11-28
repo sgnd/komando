@@ -277,7 +277,7 @@ func addHint(cl *call, family, wanted string) string {
 
 // fillHint puts the target into the commands a hint names with a
 // placeholder: drivers and helpers that do not know the conn's name write
-// `komando test TARGET` or `komando cluster events TARGET`, and the next
+// `komando test TARGET` or `komando host ssh exec TARGET`, and the next
 // step should be one to copy (S-8.7). target is the command's first
 // argument. TARGET is filled with a server or conn, SERVER only with a
 // server, CONN only with a conn, and NAME only in a command of the

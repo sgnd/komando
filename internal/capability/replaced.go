@@ -40,6 +40,10 @@ const (
 	o24Lost           = "validate, back up and undo, O-24 (Audit K4); accepted as a loss at v0.18.0: nothing writes a credential reference into a config line and an agent cannot change a [hidden] line; a ready-made change snippet is planned after v0.18.0 (row C374)"
 	queryPasswordLost = "a password set through query is on the command line; use a person's terminal"
 	keyLost           = "the safe key write of --key: the key went in as the user, so a link in their home could not point the write at a root file; write authorized_keys as the user (`su USER -c ...`)"
+	memcachedSetLost  = "memcached: a store command needs a data block and `cache memcached raw` does not send one, so a memcached value cannot be set (Redis SET works through raw); found when D4 removed cache set (row C496)"
+	manyClustersLost  = "one row per cluster for a group (@prod): raw runs on one cluster at a time; run it on each (found when D4 removed it, row C496)"
+	swarmStackLost    = "Swarm: the stack file went over standard input; raw cannot, so the file must be on the manager and `stack deploy -c FILE` reads it there (found when D4 removed it, row C496)"
+	helmLost          = "a Secret read through raw is masked, so the Helm releases are read by the built-in snippets helm-list and helm-release, which decode them (row C631)"
 	typedLost         = "the typed-name confirm of a person (the raw path asks only for --allow-dangerous); pin: protected --yes through guardConns, a test per type (row C363) (Audit K4)"
 )
 
@@ -175,26 +179,26 @@ var rawReplaced = []Replaced{
 	byValue("cache.info", cacheRaw, nil, ""),
 	byValue("cache.keys", cacheRaw, nil, ""),
 	byValue("cache.rm", cacheRaw, nil, typedLost),
-	byValue("cache.set", cacheRaw, nil, ""),
+	byValue("cache.set", cacheRaw, nil, memcachedSetLost),
 
-	byValue("cluster.apply", clusterRaw, kubeRaw, ""),
+	byValue("cluster.apply", clusterRaw, kubeRaw, swarmStackLost),
 	byValue("cluster.deploy", clusterRaw, kubeRaw, ""),
 	byValue("cluster.describe", clusterRaw, kubeRaw, ""),
-	byValue("cluster.events", clusterRaw, kubeRaw, ""),
+	byValue("cluster.events", clusterRaw, kubeRaw, manyClustersLost),
 	byValue("cluster.get", clusterRaw, kubeRaw, ""),
-	byValue("cluster.helm.history", clusterRaw, kubeRaw, ""),
-	byValue("cluster.helm.list", clusterRaw, kubeRaw, ""),
-	byValue("cluster.helm.status", clusterRaw, kubeRaw, ""),
-	byValue("cluster.helm.values", clusterRaw, kubeRaw, ""),
+	byValue("cluster.helm.history", clusterRaw, kubeRaw, helmLost),
+	byValue("cluster.helm.list", clusterRaw, kubeRaw, helmLost),
+	byValue("cluster.helm.status", clusterRaw, kubeRaw, helmLost),
+	byValue("cluster.helm.values", clusterRaw, kubeRaw, helmLost),
 	byValue("cluster.history", clusterRaw, kubeRaw, ""),
-	byValue("cluster.list", clusterRaw, kubeRaw, ""),
+	byValue("cluster.list", clusterRaw, kubeRaw, manyClustersLost),
 	byValue("cluster.logs", clusterRaw, kubeRaw, ""),
 	byValue("cluster.restart", clusterRaw, kubeRaw, ""),
 	byValue("cluster.rm", clusterRaw, kubeRaw, typedLost),
 	byValue("cluster.rollback", clusterRaw, kubeRaw, ""),
 	{Today: "cluster.scale", Rows: []Key{clusterRaw}, Rules: names("kubectl-scale-zero"), Tests: names("TestRuleKubectlScaleZero"),
 		Stops: kubeRaw, Lost: typedLost},
-	byValue("cluster.status", clusterRaw, kubeRaw, ""),
+	byValue("cluster.status", clusterRaw, kubeRaw, manyClustersLost),
 }
 
 // sshExecCarries are the commands of today that host ssh exec does now.

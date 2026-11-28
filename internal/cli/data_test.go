@@ -61,20 +61,6 @@ func TestSQLFlagError(t *testing.T) {
 	}
 }
 
-func TestParseTTL(t *testing.T) {
-	for in, want := range map[string]int64{"": 0, "0": 0, "30m": 1800, "2d": 172800} {
-		d, err := parseTTL(in)
-		if err != nil || int64(d.Seconds()) != want {
-			t.Errorf("%q: %v %v", in, d, err)
-		}
-	}
-	for _, bad := range []string{"-5s", "-1d", "soon"} {
-		if _, err := parseTTL(bad); err == nil {
-			t.Errorf("%q accepted", bad)
-		}
-	}
-}
-
 func TestUploadKeyAndDownloadDest(t *testing.T) {
 	if got := uploadKey("/tmp/a.txt", "dir/"); got != "dir/a.txt" {
 		t.Errorf("folder key: %s", got)

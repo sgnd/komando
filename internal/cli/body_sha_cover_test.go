@@ -53,20 +53,3 @@ func TestBodySHA256UploadFolderIsTheList(t *testing.T) {
 		t.Errorf("body_sha256 is not of the file list %q: %+v", list, tcl.body)
 	}
 }
-
-// cluster apply on Kubernetes: a hash of the YAML file, comments and all,
-// though each object is sent as JSON.
-func TestBodySHA256ClusterApplyIsTheYAML(t *testing.T) {
-	invHome(t)
-	mustRun(t, "conn", "add", "kube", "kubernetes://127.0.0.1:2")
-	y := []byte("# the app\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app\n")
-	p := filepath.Join(t.TempDir(), "app.yaml")
-	if err := os.WriteFile(p, y, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { tcl.body = nil })
-	invRun(t, "cluster", "apply", "kube", "--file", p, "--dry-run")
-	if tcl.body == nil || tcl.body.sha256() != sumHex(y) {
-		t.Errorf("body_sha256 is not of the YAML file: %+v", tcl.body)
-	}
-}

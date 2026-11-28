@@ -33,7 +33,7 @@ func TestManifestEscalatesC113(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if why := manifestEscalates(docs); (why != "") != c.esc {
+		if why := manifestEscalatesIn(docs, ""); (why != "") != c.esc {
 			t.Errorf("%s: escalates %q, want %v", name, why, c.esc)
 		}
 	}
@@ -71,7 +71,7 @@ func TestC113ReviewRound(t *testing.T) {
 		t.Errorf("create configmap aws-auth: %v", got)
 	}
 	docs, _ := splitYAML([]byte("apiVersion: argoproj.io/v1alpha1\nkind: Workflow\nmetadata: {name: w}\n"))
-	if manifestEscalates(docs) == "" {
+	if manifestEscalatesIn(docs, "") == "" {
 		t.Error("argo Workflow")
 	}
 }
@@ -80,7 +80,7 @@ func TestC113ReviewRound(t *testing.T) {
 // be kube-system), and create configmap in every word order.
 func TestAwsAuthForms(t *testing.T) {
 	docs, _ := splitYAML([]byte("apiVersion: v1\nkind: ConfigMap\nmetadata: {name: aws-auth}\ndata: {mapRoles: x}\n"))
-	if manifestEscalates(docs) == "" {
+	if manifestEscalatesIn(docs, "") == "" {
 		t.Error("aws-auth without a namespace")
 	}
 	for _, cmd := range []string{"create cm aws-auth", "create configmap -n kube-system aws-auth", "create configmap --namespace=kube-system aws-auth --from-literal=a=b"} {

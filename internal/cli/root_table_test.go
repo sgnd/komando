@@ -151,7 +151,7 @@ func TestBuildRefusesWhatItCannotBuild(t *testing.T) {
 		groups map[string]string
 		want   string
 	}{
-		"a path today's tree has": {capability.Leaf{Key: capability.Key{Type: "cache", Verb: "get"}, Short: "x"}, nil, "already"},
+		"a path today's tree has": {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "redis", Verb: "raw"}, Short: "x"}, nil, "already"},
 		"no text":                 {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "probe"}}, probeGroups, "Short"},
 		"a group with no text":    {capability.Leaf{Key: capability.Key{Type: "cache", Provider: "other", Verb: "probe"}, Short: "x"}, probeGroups, "group"},
 		"a global flag":           {capability.Leaf{Key: probeLeaf.Key, Short: "x", Options: []capability.Option{{Name: "dry-run", Kind: capability.Bool}}}, probeGroups, "global flag"},
@@ -280,14 +280,14 @@ func TestHideWaitsForEveryCarrier(t *testing.T) {
 	h := func(*call, context.Context, leafInput) error { return nil }
 	a := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "kinds"}, Short: "x", Carries: []string{"conn.kinds"}}
 	b := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "kinds2"}, Short: "x", Carries: []string{"conn.kinds"}}
-	r := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "rawish"}, Short: "x", Carries: []string{"cache.get"}}
+	r := capability.Leaf{Key: capability.Key{Type: "cache", Provider: "probeprov", Verb: "rawish"}, Short: "x", Carries: []string{"db.info"}}
 	has := func(id string) bool { return commandWithID(newRoot(tcl), id) != nil }
 	withTable(t, []capability.Leaf{a, b, r}, map[capability.Key]handler{a.Key: h, r.Key: h}, probeGroups)
 	if !has("conn.kinds") {
 		t.Error("conn kinds went while one of its carriers has no handler")
 	}
-	if !has("cache.get") {
-		t.Error("cache get went before cut step D: raw replaces it")
+	if !has("db.info") {
+		t.Error("db info went before cut step D: query replaces it")
 	}
 	withTable(t, nil, map[capability.Key]handler{b.Key: h}, nil)
 	if has("conn.kinds") {
@@ -504,11 +504,11 @@ func TestSafetyTablesFollowTheLeaf(t *testing.T) {
 		}
 	})
 	// the check bites: a leaf whose ID no table knows yet differs from
-	// today's cache keys, which hides personal data
+	// cache redis raw, which hides personal data
 	var in leafInput
 	root := probeRoot(t, &in)
 	probe, _, _ := root.Find([]string{"cache", "probeprov", "probe"})
-	keys, _, _ := root.Find([]string{"cache", "keys"})
+	keys, _, _ := root.Find([]string{"cache", "redis", "raw"})
 	if d := tablesFollow(keys, probe); !slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "personalCmds") }) {
 		t.Errorf("the check missed the masking switch: %v", d)
 	}

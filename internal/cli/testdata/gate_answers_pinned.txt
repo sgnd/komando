@@ -66,30 +66,6 @@
 "cache --help"	netread	cache	runs
 "cache --help"	read	cache	runs
 "cache --help"	shell	cache	runs
-"cache get --help"	full	cache.get	runs
-"cache get --help"	netread	cache.get	runs
-"cache get --help"	read	cache.get	runs
-"cache get --help"	shell	cache.get	runs
-"cache get"	full	cache.get	runs
-"cache get"	netread	cache.get	runs
-"cache get"	read	cache.get	runs
-"cache get"	shell	cache.get	runs
-"cache info --help"	full	cache.info	runs
-"cache info --help"	netread	cache.info	runs
-"cache info --help"	read	cache.info	runs
-"cache info --help"	shell	cache.info	runs
-"cache info"	full	cache.info	runs
-"cache info"	netread	cache.info	runs
-"cache info"	read	cache.info	runs
-"cache info"	shell	cache.info	runs
-"cache keys --help"	full	cache.keys	runs
-"cache keys --help"	netread	cache.keys	runs
-"cache keys --help"	read	cache.keys	runs
-"cache keys --help"	shell	cache.keys	runs
-"cache keys"	full	cache.keys	runs
-"cache keys"	netread	cache.keys	runs
-"cache keys"	read	cache.keys	runs
-"cache keys"	shell	cache.keys	runs
 "cache memcached --help"	full	cache.memcached	runs
 "cache memcached --help"	netread	cache.memcached	runs
 "cache memcached --help"	read	cache.memcached	runs
@@ -266,22 +242,6 @@
 "cache redis"	netread	cache.redis	runs
 "cache redis"	read	cache.redis	runs
 "cache redis"	shell	cache.redis	runs
-"cache rm --help"	full	cache.rm	runs
-"cache rm --help"	netread	cache.rm	runs
-"cache rm --help"	read	cache.rm	runs
-"cache rm --help"	shell	cache.rm	runs
-"cache rm"	full	cache.rm	runs
-"cache rm"	netread	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
-"cache rm"	read	cache.rm	SSH_GATE_READ_ONLY|komando cache rm is refused for a read-only key: it changes something
-"cache rm"	shell	cache.rm	runs
-"cache set --help"	full	cache.set	runs
-"cache set --help"	netread	cache.set	runs
-"cache set --help"	read	cache.set	runs
-"cache set --help"	shell	cache.set	runs
-"cache set"	full	cache.set	runs
-"cache set"	netread	cache.set	SSH_GATE_READ_ONLY|komando cache set is refused for a read-only key: it changes something
-"cache set"	read	cache.set	SSH_GATE_READ_ONLY|komando cache set is refused for a read-only key: it changes something
-"cache set"	shell	cache.set	runs
 "cache"	full	cache	runs
 "cache"	netread	cache	runs
 "cache"	read	cache	runs
@@ -290,102 +250,6 @@
 "cluster --help"	netread	cluster	runs
 "cluster --help"	read	cluster	runs
 "cluster --help"	shell	cluster	runs
-"cluster apply --help"	full	cluster.apply	runs
-"cluster apply --help"	netread	cluster.apply	runs
-"cluster apply --help"	read	cluster.apply	runs
-"cluster apply --help"	shell	cluster.apply	runs
-"cluster apply"	full	cluster.apply	runs
-"cluster apply"	netread	cluster.apply	SSH_GATE_READ_ONLY|komando cluster apply is refused for a read-only key: it changes something
-"cluster apply"	read	cluster.apply	SSH_GATE_READ_ONLY|komando cluster apply is refused for a read-only key: it changes something
-"cluster apply"	shell	cluster.apply	runs
-"cluster deploy --help"	full	cluster.deploy	runs
-"cluster deploy --help"	netread	cluster.deploy	runs
-"cluster deploy --help"	read	cluster.deploy	runs
-"cluster deploy --help"	shell	cluster.deploy	runs
-"cluster deploy"	full	cluster.deploy	runs
-"cluster deploy"	netread	cluster.deploy	SSH_GATE_READ_ONLY|komando cluster deploy is refused for a read-only key: it changes something
-"cluster deploy"	read	cluster.deploy	SSH_GATE_READ_ONLY|komando cluster deploy is refused for a read-only key: it changes something
-"cluster deploy"	shell	cluster.deploy	runs
-"cluster describe --help"	full	cluster.describe	runs
-"cluster describe --help"	netread	cluster.describe	runs
-"cluster describe --help"	read	cluster.describe	runs
-"cluster describe --help"	shell	cluster.describe	runs
-"cluster describe"	full	cluster.describe	runs
-"cluster describe"	netread	cluster.describe	runs
-"cluster describe"	read	cluster.describe	runs
-"cluster describe"	shell	cluster.describe	runs
-"cluster events --help"	full	cluster.events	runs
-"cluster events --help"	netread	cluster.events	runs
-"cluster events --help"	read	cluster.events	runs
-"cluster events --help"	shell	cluster.events	runs
-"cluster events"	full	cluster.events	runs
-"cluster events"	netread	cluster.events	runs
-"cluster events"	read	cluster.events	runs
-"cluster events"	shell	cluster.events	runs
-"cluster get --help"	full	cluster.get	runs
-"cluster get --help"	netread	cluster.get	runs
-"cluster get --help"	read	cluster.get	runs
-"cluster get --help"	shell	cluster.get	runs
-"cluster get"	full	cluster.get	runs
-"cluster get"	netread	cluster.get	runs
-"cluster get"	read	cluster.get	runs
-"cluster get"	shell	cluster.get	runs
-"cluster helm --help"	full	cluster.helm	runs
-"cluster helm --help"	netread	cluster.helm	runs
-"cluster helm --help"	read	cluster.helm	runs
-"cluster helm --help"	shell	cluster.helm	runs
-"cluster helm history --help"	full	cluster.helm.history	runs
-"cluster helm history --help"	netread	cluster.helm.history	runs
-"cluster helm history --help"	read	cluster.helm.history	runs
-"cluster helm history --help"	shell	cluster.helm.history	runs
-"cluster helm history"	full	cluster.helm.history	runs
-"cluster helm history"	netread	cluster.helm.history	runs
-"cluster helm history"	read	cluster.helm.history	runs
-"cluster helm history"	shell	cluster.helm.history	runs
-"cluster helm list --help"	full	cluster.helm.list	runs
-"cluster helm list --help"	netread	cluster.helm.list	runs
-"cluster helm list --help"	read	cluster.helm.list	runs
-"cluster helm list --help"	shell	cluster.helm.list	runs
-"cluster helm list"	full	cluster.helm.list	runs
-"cluster helm list"	netread	cluster.helm.list	runs
-"cluster helm list"	read	cluster.helm.list	runs
-"cluster helm list"	shell	cluster.helm.list	runs
-"cluster helm status --help"	full	cluster.helm.status	runs
-"cluster helm status --help"	netread	cluster.helm.status	runs
-"cluster helm status --help"	read	cluster.helm.status	runs
-"cluster helm status --help"	shell	cluster.helm.status	runs
-"cluster helm status"	full	cluster.helm.status	runs
-"cluster helm status"	netread	cluster.helm.status	runs
-"cluster helm status"	read	cluster.helm.status	runs
-"cluster helm status"	shell	cluster.helm.status	runs
-"cluster helm values --help"	full	cluster.helm.values	runs
-"cluster helm values --help"	netread	cluster.helm.values	runs
-"cluster helm values --help"	read	cluster.helm.values	runs
-"cluster helm values --help"	shell	cluster.helm.values	runs
-"cluster helm values"	full	cluster.helm.values	runs
-"cluster helm values"	netread	cluster.helm.values	runs
-"cluster helm values"	read	cluster.helm.values	runs
-"cluster helm values"	shell	cluster.helm.values	runs
-"cluster helm"	full	cluster.helm	runs
-"cluster helm"	netread	cluster.helm	runs
-"cluster helm"	read	cluster.helm	runs
-"cluster helm"	shell	cluster.helm	runs
-"cluster history --help"	full	cluster.history	runs
-"cluster history --help"	netread	cluster.history	runs
-"cluster history --help"	read	cluster.history	runs
-"cluster history --help"	shell	cluster.history	runs
-"cluster history"	full	cluster.history	runs
-"cluster history"	netread	cluster.history	runs
-"cluster history"	read	cluster.history	runs
-"cluster history"	shell	cluster.history	runs
-"cluster info --help"	full	cluster.status	runs
-"cluster info --help"	netread	cluster.status	runs
-"cluster info --help"	read	cluster.status	runs
-"cluster info --help"	shell	cluster.status	runs
-"cluster info"	full	cluster.status	runs
-"cluster info"	netread	cluster.status	runs
-"cluster info"	read	cluster.status	runs
-"cluster info"	shell	cluster.status	runs
 "cluster kubernetes --help"	full	cluster.kubernetes	runs
 "cluster kubernetes --help"	netread	cluster.kubernetes	runs
 "cluster kubernetes --help"	read	cluster.kubernetes	runs
@@ -522,54 +386,6 @@
 "cluster kubernetes"	netread	cluster.kubernetes	runs
 "cluster kubernetes"	read	cluster.kubernetes	runs
 "cluster kubernetes"	shell	cluster.kubernetes	runs
-"cluster list --help"	full	cluster.list	runs
-"cluster list --help"	netread	cluster.list	runs
-"cluster list --help"	read	cluster.list	runs
-"cluster list --help"	shell	cluster.list	runs
-"cluster list"	full	cluster.list	runs
-"cluster list"	netread	cluster.list	runs
-"cluster list"	read	cluster.list	runs
-"cluster list"	shell	cluster.list	runs
-"cluster logs --help"	full	cluster.logs	runs
-"cluster logs --help"	netread	cluster.logs	runs
-"cluster logs --help"	read	cluster.logs	runs
-"cluster logs --help"	shell	cluster.logs	runs
-"cluster logs"	full	cluster.logs	runs
-"cluster logs"	netread	cluster.logs	runs
-"cluster logs"	read	cluster.logs	runs
-"cluster logs"	shell	cluster.logs	runs
-"cluster restart --help"	full	cluster.restart	runs
-"cluster restart --help"	netread	cluster.restart	runs
-"cluster restart --help"	read	cluster.restart	runs
-"cluster restart --help"	shell	cluster.restart	runs
-"cluster restart"	full	cluster.restart	runs
-"cluster restart"	netread	cluster.restart	SSH_GATE_READ_ONLY|komando cluster restart is refused for a read-only key: it changes something
-"cluster restart"	read	cluster.restart	SSH_GATE_READ_ONLY|komando cluster restart is refused for a read-only key: it changes something
-"cluster restart"	shell	cluster.restart	runs
-"cluster rm --help"	full	cluster.rm	runs
-"cluster rm --help"	netread	cluster.rm	runs
-"cluster rm --help"	read	cluster.rm	runs
-"cluster rm --help"	shell	cluster.rm	runs
-"cluster rm"	full	cluster.rm	runs
-"cluster rm"	netread	cluster.rm	SSH_GATE_READ_ONLY|komando cluster rm is refused for a read-only key: it changes something
-"cluster rm"	read	cluster.rm	SSH_GATE_READ_ONLY|komando cluster rm is refused for a read-only key: it changes something
-"cluster rm"	shell	cluster.rm	runs
-"cluster rollback --help"	full	cluster.rollback	runs
-"cluster rollback --help"	netread	cluster.rollback	runs
-"cluster rollback --help"	read	cluster.rollback	runs
-"cluster rollback --help"	shell	cluster.rollback	runs
-"cluster rollback"	full	cluster.rollback	runs
-"cluster rollback"	netread	cluster.rollback	SSH_GATE_READ_ONLY|komando cluster rollback is refused for a read-only key: it changes something
-"cluster rollback"	read	cluster.rollback	SSH_GATE_READ_ONLY|komando cluster rollback is refused for a read-only key: it changes something
-"cluster rollback"	shell	cluster.rollback	runs
-"cluster scale --help"	full	cluster.scale	runs
-"cluster scale --help"	netread	cluster.scale	runs
-"cluster scale --help"	read	cluster.scale	runs
-"cluster scale --help"	shell	cluster.scale	runs
-"cluster scale"	full	cluster.scale	runs
-"cluster scale"	netread	cluster.scale	SSH_GATE_READ_ONLY|komando cluster scale is refused for a read-only key: it changes something
-"cluster scale"	read	cluster.scale	SSH_GATE_READ_ONLY|komando cluster scale is refused for a read-only key: it changes something
-"cluster scale"	shell	cluster.scale	runs
 "cluster swarm --help"	full	cluster.swarm	runs
 "cluster swarm --help"	netread	cluster.swarm	runs
 "cluster swarm --help"	read	cluster.swarm	runs

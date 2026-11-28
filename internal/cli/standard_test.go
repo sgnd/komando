@@ -156,10 +156,10 @@ var (
 		"grant", "revoke", "deploy", "gen", "trust", "lock", "unlock", "passwd",
 		"remove", "raw", "copy", "delete", "read", "move", "link"} // the v2.7 verbs join as their type moves (step C)
 	toolWords = []string{"docker ps", "docker images", "docker pull", "docker compose", "docker raw", "docker inspect",
-		"registry oci image show", "registry oci image copy", "cache keys", "db user add", "db grant", "db revoke",
+		"registry oci image show", "registry oci image copy", "db user add", "db grant", "db revoke",
 		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
-		"cluster scale", "cluster apply", "cluster rollback", "cluster kubernetes tunnel start", "cluster helm values",
+		"cluster kubernetes tunnel start",
 		"credential key create", "credential key install", "host trust", "host ssh-command",
 		"ssh-gate line", "conn kinds", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
@@ -310,7 +310,7 @@ func TestStandardRequiredInUse(t *testing.T) {
 // requiredByCode are flags a command requires with its own check (a USAGE
 // error that says how), not cobra's.
 var requiredByCode = []string{"database postgres restore --from", "database mysql restore --from", "db user add --password-ref", "db user passwd --password-ref",
-	"fs replace --old", "fs replace --new", "cluster deploy --image", "cluster apply --file"}
+	"fs replace --old", "fs replace --new"}
 
 // S-5.1, S-5.6: one type per flag name, except the S-5.1 exceptions.
 func TestStandardFlagTypes(t *testing.T) {

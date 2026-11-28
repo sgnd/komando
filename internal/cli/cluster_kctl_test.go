@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -217,5 +218,31 @@ func TestQuantities(t *testing.T) {
 	}
 	if bytesOf("128Mi") != 128<<20 || bytesOf("1Gi") != 1<<30 || bytesOf("1000") != 1000 {
 		t.Error("memory")
+	}
+}
+
+func TestPickRollback(t *testing.T) {
+	rs := func(rev int, img string, history string) map[string]any {
+		ann := map[string]any{revisionKey: strconv.Itoa(rev)}
+		if history != "" {
+			ann["deployment.kubernetes.io/revision-history"] = history
+		}
+		return map[string]any{"metadata": map[string]any{"annotations": ann},
+			"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"image": img}}}}}}
+	}
+	// deploy good (1), restart (2, same image), deploy bad (3): go to 2
+	sets := []map[string]any{rs(3, "bad", ""), rs(2, "good", ""), rs(1, "good", "")}
+	if got, err := pickRollback(sets, 3); err != nil || rsRevision(got) != 2 {
+		t.Errorf("first rollback: %v %v", got, err)
+	}
+	// after that rollback, 2 became 4 (history "2"); 3 is the bad one: do not go back to it
+	sets = []map[string]any{rs(4, "good", "2"), rs(3, "bad", ""), rs(1, "good", "")}
+	if _, err := pickRollback(sets, 4); err == nil || !strings.Contains(toErr(err).Message, "3 (rolled back from)") {
+		t.Errorf("a second rollback must not bring the bad version back: %v", err)
+	}
+	// a newer deploy after the rollback: back to the good one
+	sets = []map[string]any{rs(5, "v2", ""), rs(4, "good", "2"), rs(3, "bad", "")}
+	if got, err := pickRollback(sets, 5); err != nil || rsRevision(got) != 4 {
+		t.Errorf("rollback after a new deploy: %v %v", got, err)
 	}
 }

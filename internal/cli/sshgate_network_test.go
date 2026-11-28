@@ -65,11 +65,11 @@ func TestGateNoNetwork(t *testing.T) {
 	allowed := []string{
 		"", "list", "version", "status", "ssh-gate status", "test web", "host ssh test web", "logs web --unit nginx",
 		"fs cat web /etc/hosts", "fs list web /var/log", "docker ps web",
-		"docker logs web app", "database postgres query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
-		"cache info c", "cluster kubernetes raw k8s get pods", "cluster status k8s", "cluster logs k8s api-1",
+		"docker logs web app", "database postgres query pg 'select 1'", "db schema pg", "db activity pg", "cache redis raw c GET a",
+		"cluster kubernetes raw k8s get pods",
 		"pkg security web", "pkg installed web", "copy s3:a.txt -",
 		"storage s3 object list s3", "audit list", "export", "conn test pg", "vpn socks list",
-		"host ssh exec --help", "cluster info k8s", "registry oci image list reg",
+		"host ssh exec --help", "registry oci image list reg",
 		"group show web", "group list", "snippet show disk", "snippet list", // a read key keeps the reads of groups and snippets
 	}
 	for _, line := range allowed {

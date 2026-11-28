@@ -537,7 +537,7 @@ func testConn(cl *call, ctx context.Context, st *store.State, c *store.Conn) con
 
 // loginCheck logs in to db, cache, queue and registry conns with their stored
 // password and reads the server version where that is cheap. Other kinds
-// keep the reachability check (`cluster status` logs in to clusters).
+// keep the reachability check (a cluster check logs in to clusters).
 func loginCheck(cl *call, ctx context.Context, st *store.State, c *store.Conn, a *access, r *connTestResult) error {
 	cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 	defer cancel()

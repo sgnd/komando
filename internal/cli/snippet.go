@@ -456,7 +456,7 @@ var builtinSnippets = mustSnippets(builtinLists()...)
 // replace. Each list lives in that command's file and moves with its
 // package (M5 cache, M9 database, M10 cluster, M11 host).
 func builtinLists() [][]snippet.Builtin {
-	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets(), logsSnippets(), pkgSnippets(), pkgSecSnippets()}
+	return [][]snippet.Builtin{factsSnippets(), factsOnlySnippets(), svcSnippets(), dockerSnippets(), dockerPruneSnippets(), logsSnippets(), pkgSnippets(), pkgSecSnippets(), helmSnippets()}
 }
 
 func mustSnippets(lists ...[]snippet.Builtin) *snippet.Registry {

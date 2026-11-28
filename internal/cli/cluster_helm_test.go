@@ -38,12 +38,23 @@ func helmSecret(t *testing.T, ns, name string, rev int, status, chart, chartVer,
 }
 
 // helmLab is a cluster API that holds Helm release Secrets; status other
-// than 200 refuses every request with it.
+// than 200 refuses every request with it. Any request that is not a GET
+// fails the test: the helm snippets only read.
 func helmLab(t *testing.T, ctxName string, status int, secrets ...map[string]any) string {
+	t.Helper()
+	return helmLabDeny(t, ctxName, func(*http.Request) int { return status }, secrets...)
+}
+
+// helmLabDeny is helmLab where deny gives each request's status, so an
+// account scoped to one namespace can be refused the cluster-wide list only.
+func helmLabDeny(t *testing.T, ctxName string, deny func(*http.Request) int, secrets ...map[string]any) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if status != http.StatusOK {
+		if r.Method != http.MethodGet {
+			t.Errorf("a helm snippet sent %s %s: they only read", r.Method, r.URL)
+		}
+		if status := deny(r); status != http.StatusOK {
 			w.WriteHeader(status)
 			io.WriteString(w, `{"reason":"Forbidden","message":"secrets is forbidden"}`)
 			return
@@ -76,108 +87,126 @@ func helmLab(t *testing.T, ctxName string, status int, secrets ...map[string]any
 	return srv.URL
 }
 
-func TestHelmReadOnly(t *testing.T) {
+// helmResult runs a helm snippet through `snippet exec` and returns its result.
+func helmResult(t *testing.T, args ...string) (map[string]any, *out.Error) {
+	t.Helper()
+	raw, e := snippetData(t, args...)
+	var d struct {
+		Result map[string]any `json:"result"`
+	}
+	_ = json.Unmarshal(raw, &d)
+	return d.Result, e
+}
+
+// The helm reads stay after `cluster helm` goes: two snippets decode the
+// release Secrets (row C631).
+func TestHelmSnippets(t *testing.T) {
 	invHome(t)
-	cfg := map[string]any{"replicas": 3, "image": map[string]any{"tag": "v2"}, "db": map[string]any{"password": "s3cret-pw"}}
+	withSnippets(t, helmSnippets()...)
+	cfg := map[string]any{"replicas": 3, "image": map[string]any{"tag": "v2"}, "db": map[string]any{"password": "s3cret-pw"},
+		"apiKey": "k-s3cret-1", "authToken": "k-s3cret-2", "clientSecret": "k-s3cret-3", "private_key": "k-s3cret-4",
+		"smtp": map[string]any{"adminPassword": "k-s3cret-5"}, "dsn": "postgres://app:k-s3cret-6@db/app"}
 	helmLab(t, "prod", http.StatusOK,
 		helmSecret(t, "shop", "api", 1, "superseded", "api", "1.0.0", "1.0", map[string]any{"replicas": 2}),
 		helmSecret(t, "shop", "api", 2, "deployed", "api", "1.1.0", "1.1", cfg),
 		helmSecret(t, "ops", "grafana", 1, "deployed", "grafana", "8.5.0", "11.3.0", nil))
 
-	d := mustRun(t, "cluster", "helm", "ls", "prod", "-A")
-	rels := d["releases"].([]any)
-	if len(rels) != 2 {
-		t.Fatalf("releases: %v", d)
+	d, e := helmResult(t, "helm-list", "prod")
+	if e != nil {
+		t.Fatalf("helm-list: %v", e)
 	}
-	api := rels[1].(map[string]any) // ops/grafana sorts first
+	rels := d["releases"].([]any)
+	if len(rels) != 1 || d["count"].(float64) != 1 || d["namespace"] != "shop" {
+		t.Fatalf("the conn's namespace (shop) by default: %v", d)
+	}
+	api := rels[0].(map[string]any)
 	if api["name"] != "api" || api["revision"].(float64) != 2 || api["status"] != "deployed" || api["chart"] != "api-1.1.0" || api["app_version"] != "1.1" {
 		t.Errorf("newest revision of api: %v", api)
 	}
-	if d := mustRun(t, "cluster", "helm", "ls", "prod"); d["count"].(float64) != 1 || d["namespace"] != "shop" {
-		t.Errorf("the context's namespace: %v", d)
+	if d, _ := helmResult(t, "helm-list", "prod", "--var", "namespace=ops"); d["count"].(float64) != 1 || d["namespace"] != "ops" {
+		t.Errorf("another namespace: %v", d)
+	}
+	if d, _ := helmResult(t, "helm-list", "prod", "--var", "all-namespaces=1"); d["count"].(float64) != 2 || d["namespace"] != nil {
+		t.Errorf("every namespace when asked: %v", d)
+	}
+	if _, e := helmResult(t, "helm-list", "prod", "--var", "all-namespaces=1", "--var", "namespace=shop"); e == nil || e.Code != "USAGE" {
+		t.Errorf("a namespace and all namespaces together: %v", e)
 	}
 
-	st := mustRun(t, "cluster", "helm", "status", "prod", "api")
-	if st["revision"].(float64) != 2 || st["notes"] != "visit https://api.example.com" || st["chart"] != "api-1.1.0" {
-		t.Errorf("status: %v", st)
+	r, e := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop")
+	if e != nil {
+		t.Fatalf("helm-release: %v", e)
 	}
-	if st := mustRun(t, "cluster", "helm", "status", "prod", "api", "--revision", "1"); st["status"] != "superseded" {
-		t.Errorf("--revision 1: %v", st)
+	if r["revision"].(float64) != 2 || r["notes"] != "visit https://api.example.com" || r["chart"] != "api-1.1.0" || r["status"] != "deployed" {
+		t.Errorf("the newest revision: %v", r)
 	}
-	wantCode(t, "HELM_REVISION_NOT_FOUND", "cluster", "helm", "status", "prod", "api", "--revision", "9")
-	wantCode(t, "HELM_RELEASE_NOT_FOUND", "cluster", "helm", "status", "prod", "nope")
-
-	h := mustRun(t, "cluster", "helm", "history", "prod", "api")
-	if revs := h["revisions"].([]any); len(revs) != 2 || revs[0].(map[string]any)["revision"].(float64) != 1 {
-		t.Errorf("history, oldest first: %v", h)
+	if revs := r["history"].([]any); len(revs) != 2 || revs[0].(map[string]any)["revision"].(float64) != 1 {
+		t.Errorf("history, oldest first: %v", r["history"])
 	}
-
-	v := mustRun(t, "cluster", "helm", "values", "prod", "api")["values"].(map[string]any)
+	v := r["values"].(map[string]any)
 	if v["replicas"].(float64) != 3 || v["image"].(map[string]any)["pullPolicy"] != nil {
 		t.Errorf("values are the user's only: %v", v)
 	}
-	all := mustRun(t, "cluster", "helm", "values", "prod", "api", "--all")["values"].(map[string]any)
-	if img := all["image"].(map[string]any); img["tag"] != "v2" || img["pullPolicy"] != "IfNotPresent" || all["replicas"].(float64) != 3 {
-		t.Errorf("--all merges the chart's defaults under them: %v", all)
+	if img := r["values_all"].(map[string]any)["image"].(map[string]any); img["tag"] != "v2" || img["pullPolicy"] != "IfNotPresent" {
+		t.Errorf("values_all merges the chart's defaults under them: %v", r["values_all"])
+	}
+	if r, _ := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop", "--var", "revision=1"); r["status"] != "superseded" {
+		t.Errorf("revision 1: %v", r)
+	}
+	if _, e := helmResult(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop", "--var", "revision=9"); e == nil || e.Code != "HELM_REVISION_NOT_FOUND" {
+		t.Errorf("revision 9: %v", e)
+	}
+	if _, e := helmResult(t, "helm-release", "prod", "--var", "release=nope", "--var", "namespace=shop"); e == nil || e.Code != "HELM_RELEASE_NOT_FOUND" {
+		t.Errorf("no such release: %v", e)
+	}
+	// a name that is not a Kubernetes name never reaches the label selector
+	if _, e := helmResult(t, "helm-release", "prod", "--var", "release=api,owner!=helm"); e == nil || e.Code == "HELM_RELEASE_NOT_FOUND" {
+		t.Errorf("a release value that is a selector: %v", e)
 	}
 
 	setCallerEnv(t, "KOMANDO_AGENT", "1") // an agent does not see a password in values
-	b, _ := json.Marshal(mustRun(t, "cluster", "helm", "values", "prod", "api"))
-	if strings.Contains(string(b), "s3cret-pw") {
-		t.Errorf("values show a password to an agent: %s", b)
+	raw, _ := snippetData(t, "helm-release", "prod", "--var", "release=api", "--var", "namespace=shop")
+	if strings.Contains(string(raw), "s3cret-pw") {
+		t.Errorf("values show a password to an agent: %s", raw)
+	}
+	// the mask goes by the key's name and the value's shape, not by "password" alone
+	for i := 1; i <= 6; i++ {
+		if leak := "k-s3cret-" + string(rune('0'+i)); strings.Contains(string(raw), leak) {
+			t.Errorf("values show %s to an agent: %s", leak, raw)
+		}
+	}
+	if !strings.Contains(string(raw), `"replicas"`) {
+		t.Errorf("the masking left no values: %s", raw)
 	}
 }
 
-func TestClusterReadsManyClusters(t *testing.T) {
+// An account scoped to one namespace reads its releases by default: the
+// removed `cluster helm list` read the conn's namespace, not the cluster.
+// Asking for every namespace is refused with K8S_FORBIDDEN.
+func TestHelmListScopedAccount(t *testing.T) {
 	invHome(t)
-	helmLab(t, "eu", http.StatusOK, helmSecret(t, "shop", "api", 1, "deployed", "api", "1.0.0", "1.0", nil))
-	helmLab(t, "us", http.StatusOK, helmSecret(t, "shop", "api", 3, "failed", "api", "1.2.0", "1.2", nil))
-	mustRun(t, "group", "create", "prod", "eu,us")
-
-	d := mustRun(t, "cluster", "helm", "ls", "@prod")
-	res := d["results"].([]any)
-	if len(res) != 2 || d["summary"].(map[string]any)["ok"].(float64) != 2 {
-		t.Fatalf("two clusters: %v", d)
-	}
-	for i, want := range []string{"eu", "us"} {
-		r := res[i].(map[string]any)
-		if r["cluster"] != want || r["engine"] != "k8s" || r["ok"] != true || r["data"].(map[string]any)["count"].(float64) != 1 {
-			t.Errorf("row %d: %v", i, r)
+	withSnippets(t, helmSnippets()...)
+	helmLabDeny(t, "scoped", func(r *http.Request) int {
+		if strings.Contains(r.URL.Path, "/namespaces/shop/") {
+			return http.StatusOK
 		}
+		return http.StatusForbidden
+	}, helmSecret(t, "shop", "api", 1, "deployed", "api", "1.0.0", "1.0", nil))
+	d, e := helmResult(t, "helm-list", "scoped")
+	if e != nil || d["count"].(float64) != 1 {
+		t.Fatalf("a namespace-scoped account by default: %v %v", d, e)
 	}
-
-	helmLab(t, "ap", http.StatusForbidden)
-	mustRun(t, "group", "create", "prod", "ap")
-	d, e := invRun(t, "cluster", "helm", "ls", "@prod")
-	if e == nil || e.Code != "PARTIAL_FAILURE" || !strings.Contains(e.Message, "ap") {
-		t.Fatalf("one cluster refuses: %+v", e)
+	if _, e := helmResult(t, "helm-list", "scoped", "--var", "all-namespaces=1"); e == nil || e.Code != "K8S_FORBIDDEN" || !strings.Contains(e.Hint, "--var namespace=NAME") {
+		t.Errorf("every namespace is refused with K8S_FORBIDDEN and a hint that names the variable: %v", e)
 	}
-	if d != nil {
-		for _, r := range d["results"].([]any) {
-			if r := r.(map[string]any); r["cluster"] == "ap" && (r["ok"] != false || r["error"].(map[string]any)["code"] != "K8S_FORBIDDEN") {
-				t.Errorf("ap row: %v", r)
-			}
-		}
-	}
-
-	// one cluster: its own output, not a list
-	if d := mustRun(t, "cluster", "helm", "ls", "eu"); d["results"] != nil || d["count"].(float64) != 1 {
-		t.Errorf("one cluster: %v", d)
-	}
-	// a rollout and the commands that change a cluster stay on one cluster
-	wantCode(t, "USAGE", "cluster", "status", "@prod", "deployment/api")
-	wantCode(t, "USAGE", "cluster", "restart", "@prod", "deployment/api")
 }
 
-func TestClusterManyText(t *testing.T) {
-	m := clusterMany{Results: []clusterRow{
-		{Cluster: "eu", Engine: "k8s", OK: true, Data: helmList{"releases": []map[string]any{{"name": "api", "namespace": "shop", "revision": 1, "status": "deployed", "chart": "api-1.0.0", "app_version": "1.0", "updated": "now"}}}},
-		{Cluster: "ap", Engine: "k8s", Error: &out.Error{Code: "K8S_FORBIDDEN", Message: "no", Hint: "ask for access"}},
-	}, Summary: clusterSummary{Total: 2, OK: 1, Failed: 1}}
-	got := m.Text()
-	for _, want := range []string{"● eu (k8s)  ok\n", "  NAME", "  api ", "● ap (k8s)  failed\n", "  K8S_FORBIDDEN: no\n", "  Hint: ask for access\n", "1 ok, 1 failed"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in\n%s", want, got)
-		}
+// A Forbidden answer names the Secrets the kubeconfig's user may not list.
+func TestHelmSnippetForbidden(t *testing.T) {
+	invHome(t)
+	withSnippets(t, helmSnippets()...)
+	helmLab(t, "ap", http.StatusForbidden)
+	if _, e := helmResult(t, "helm-list", "ap"); e == nil || e.Code != "K8S_FORBIDDEN" {
+		t.Errorf("a refused list: %v", e)
 	}
 }

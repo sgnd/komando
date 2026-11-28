@@ -749,7 +749,7 @@ var meanings = map[string]string{
 	"REMOTE_ERROR":           "an error from outside komando with no more specific code (its words follow)",
 	"RESTORE_FAILED":         "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it",
 	"RESTORE_SPACE_MISSING":  "too little free space in komando's run folder for the restore's checked copy; the database was not touched",
-	"REVISION_NOT_FOUND":     "the deployment has no revision with that number (cluster history lists them)",
+	"REVISION_NOT_FOUND":     "the deployment has no revision with that number (`rollout history` lists them)",
 	"REVOKE_FAILED":          "the key could not be removed from a server's authorized_keys",
 	"SECRET_MISMATCH":        "secret check: the value typed is not the stored one",
 	"KEYCHAIN_TAKEN":         "another vault's key is already in the keychain under this folder's name, so komando does not replace it",
@@ -801,7 +801,6 @@ var catalogSite = map[string]string{
 	"WRONG_PASSPHRASE":    "that passphrase does not open the vault; nothing was changed",
 	"NO_FOLDER":           "cannot find the folder: …",
 	"RENAME_FAILED":       "the vault cannot rename the VPN's secrets: …; nothing was renamed",
-	"ROLLOUT_TIMEOUT":     "not rolled out after … (replicas …)…",
 	// the entry of one provider or type used on another's path, and a URL
 	// given to another provider's add
 	"WRONG_KIND": "… is a … …, not a … …",

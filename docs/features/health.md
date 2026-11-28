@@ -143,9 +143,9 @@ Checks that have their own command are not recipes:
 | pending updates | `komando pkg upgradable TARGET` |
 | security updates | `komando pkg security TARGET` |
 | containers | `komando docker ps TARGET --all` |
-| a Kubernetes cluster | `komando cluster status CLUSTER` |
+| a Kubernetes cluster | `komando test CLUSTER` |
 | database sessions | `komando db activity CONN` |
-| a cache | `komando cache info CONN` |
+| a cache | `komando test CONN` |
 | Docker clean-up | `komando docker prune TARGET --dry-run` |
 
 To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).

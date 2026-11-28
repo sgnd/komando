@@ -70,8 +70,7 @@ check "tunnel list" True "$($K host ssh tunnel list | ok)"
 
 # data
 check "db explain" True "$($K db explain pg 'select 1' | ok)"
-q $K cache set cache "$C:k" v
-check "cache keys" True "$($K cache keys cache "$C:*" | has "$C:k")"
+q $K cache redis raw cache --write -- SET "$C:k" v
 q $K copy "$TMP/hosts.json" "bucket:$C/hosts.json"
 check "storage s3 object link" True "$($K storage s3 object link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
 check "storage s3 object link --endpoint signs for that address" True "$($K storage s3 object link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"

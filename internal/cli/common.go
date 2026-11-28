@@ -725,3 +725,6 @@ func checkRegex(s string) error {
 	_, err := regexp.Compile(s)
 	return err
 }
+
+// oneOf says whether v is one of in.
+func oneOf(v string, in ...string) bool { return slices.Contains(in, v) }

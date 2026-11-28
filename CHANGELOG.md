@@ -52,6 +52,7 @@ its highlights; the sections below them give the details. Versions follow
 - The macOS approval window now shows a script of up to 200 lines whole; it scrolls and allows only after the last line. Windows and Linux keep 40 lines.
 - A script too long for the window ends with its own error code, `SHORTER_SCRIPT_REQUIRED`, and the message names the counted number of shown lines and the script's own line count.
 - The agent guard (`komando guide guard`) refuses a tool call larger than 4 MiB, which it cannot check whole, in each agent tool's own format.
+- **Breaking:** `komando cluster kubernetes raw` ends with the codes the removed `cluster` commands had, as every other cluster path does: a cluster that does not answer within `--timeout` is `TIMEOUT` (exit 7), a login program that is not on this computer is `TOOL_MISSING` (exit 3, with the kubeconfig's install hint), a login that fails is `LOGIN_FAILED` (exit 4). Before, raw said `TOOL_FAILED` (exit 5) for all three. A change that timed out is in the audit log, as a broken connection is.
 - An AI agent's `db dump` stops with `NEEDS_PERSON` on every database, not only where personal data is hidden: the file holds every row as it is, passwords and tokens included. No flag lifts it; a person runs the dump in their own terminal.
 
 ### Fixed

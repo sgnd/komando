@@ -34,9 +34,7 @@ func TestStandardEmptyLines(t *testing.T) {
 	for name, x := range map[string]interface{ Text() string }{
 		"group list": groupList{}, "db schema": schemaData{}, "db activity": activityData{},
 		"storage s3 object list": objectList{Conn: "backups"}, "storage s3 object list PREFIX": objectList{Conn: "backups", Prefix: "logs/"},
-		"cluster list": kubeList{"type": "Pod"}, "fs list": lsResult{Path: "/tmp/x"},
-		"cluster history": historyData{}, "cluster helm history": helmHistory{}, "cluster helm list": helmList{},
-		"cluster events": eventList{}, "cache keys": keyList{}, "cache keys PATTERN": keyList{Pattern: "user:*"},
+		"fs list": lsResult{Path: "/tmp/x"}, "cluster events": eventList{},
 		"queue kafka topic list": queueTopics{Conn: "prod-kafka"}, "queue kafka consumer list": queueGroups{}, "registry oci image list": lsData{},
 		"audit list": auditList{},
 	} {

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -84,10 +83,11 @@ func (l *applyLab) kubeconfig(t *testing.T, user string) string {
 	return p
 }
 
-// A real apply checks the whole file with the server first: when one
-// object is refused, nothing in the file is applied (before, the objects
-// above it were, and the file was left half applied).
-func TestClusterApplyChecksTheWholeFileFirst(t *testing.T) {
+// A real `cluster kubernetes raw -- apply -f` checks the whole file with
+// the server first: when one object is refused, nothing in the file is
+// applied (otherwise the objects above it would be, and the file left half
+// applied).
+func TestRawApplyChecksTheWholeFileFirst(t *testing.T) {
 	invHome(t)
 	l := newApplyLab(t)
 	mustRun(t, "import", "kubeconfig", l.kubeconfig(t, "    token: test-token-abcdef"))
@@ -96,9 +96,9 @@ func TestClusterApplyChecksTheWholeFileFirst(t *testing.T) {
 	if err := os.WriteFile(file, []byte(yaml), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, e := cliRun(t, "cluster", "apply", "prod", "--file", file)
-	if e == nil || e.Code != "K8S_INVALID" || !strings.Contains(e.Message, "nothing was applied") || !strings.Contains(e.Message, "configmap/bad") {
-		t.Fatalf("want K8S_INVALID naming configmap/bad and saying nothing was applied, got %+v", e)
+	_, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
+	if e == nil || e.Code != "TOOL_FAILED" || !strings.Contains(e.Message, `ConfigMap "bad" is invalid`) {
+		t.Fatalf("want the cluster refusing ConfigMap bad (kubectl's words), got %+v", e)
 	}
 	if len(l.real) != 0 {
 		t.Errorf("a file with a refused object applied %v for real", l.real)
@@ -107,24 +107,22 @@ func TestClusterApplyChecksTheWholeFileFirst(t *testing.T) {
 	if err := os.WriteFile(file, []byte(strings.ReplaceAll(yaml, "name: bad", "name: also-good")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	d, e := cliRun(t, "cluster", "apply", "prod", "--file", file)
+	d, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
 	if e != nil {
 		t.Fatalf("%s %s", e.Code, e.Message)
 	}
 	if got := strings.Join(l.real, ","); got != "good,also-good" {
 		t.Errorf("applied for real: %q", got)
 	}
-	if b, _ := json.Marshal(d["applied"]); string(b) != `["configmap/good","configmap/also-good"]` {
-		t.Errorf("applied: %s", b)
+	if so, _ := d["stdout"].(string); !strings.Contains(so, "configmap/good") || !strings.Contains(so, "configmap/also-good") {
+		t.Errorf("stdout: %q", so)
 	}
 }
 
-// apply leaves fields another field manager owns alone: a conflict stops
-// it with K8S_CONFLICT naming that manager and nothing is applied (before,
-// it always sent force=true and took them over). --force-conflicts takes
-// them over, and on a protected cluster it is still a change a person
-// says yes to.
-func TestClusterApplyConflictNeedsForceConflicts(t *testing.T) {
+// raw apply leaves fields another field manager owns alone: a conflict
+// stops it with K8S_CONFLICT naming that manager and nothing is applied.
+// --force-conflicts takes them over.
+func TestRawApplyConflictNeedsForceConflicts(t *testing.T) {
 	invHome(t)
 	l := newApplyLab(t)
 	mustRun(t, "import", "kubeconfig", l.kubeconfig(t, "    token: test-token-abcdef"))
@@ -133,25 +131,16 @@ func TestClusterApplyConflictNeedsForceConflicts(t *testing.T) {
 	if err := os.WriteFile(file, []byte(yaml), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, e := cliRun(t, "cluster", "apply", "prod", "--file", file)
-	if e == nil || e.Code != "K8S_CONFLICT" || e.Exit != 8 || !strings.Contains(e.Message, "nothing was applied") ||
-		!strings.Contains(e.Message, "configmap/owned") || !strings.Contains(e.Message, `"kubectl-edit"`) ||
-		!strings.Contains(e.Hint, "--force-conflicts") {
-		t.Fatalf("want K8S_CONFLICT naming configmap/owned and kubectl-edit, hint --force-conflicts, got %+v", e)
+	_, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file)
+	if e == nil || !strings.Contains(e.Message, "K8S_CONFLICT") || !strings.Contains(e.Message, "nothing was applied") ||
+		!strings.Contains(e.Message, "configmap/owned") || !strings.Contains(e.Message, `"kubectl-edit"`) {
+		t.Fatalf("want K8S_CONFLICT naming configmap/owned and kubectl-edit, got %+v", e)
 	}
 	if len(l.real) != 0 || len(l.forced) != 0 {
 		t.Fatalf("without --force-conflicts: applied %v, forced %v", l.real, l.forced)
 	}
-	// the same through `cluster kubernetes raw -- apply`, which fails as kubectl does
-	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file); e == nil || !strings.Contains(e.Message, "K8S_CONFLICT") {
-		t.Fatalf("cluster kubernetes raw -- apply: want K8S_CONFLICT, got %+v", e)
-	}
-	if len(l.real) != 0 || len(l.forced) != 0 {
-		t.Fatalf("cluster kubernetes raw -- apply: applied %v, forced %v", l.real, l.forced)
-	}
 
-	d, e := cliRun(t, "cluster", "apply", "prod", "--file", file, "--force-conflicts")
-	if e != nil {
+	if _, e := cliRun(t, "cluster", "kubernetes", "raw", "prod", "--write", "--", "apply", "-f", file, "--force-conflicts"); e != nil {
 		t.Fatalf("--force-conflicts: %s %s", e.Code, e.Message)
 	}
 	if got := strings.Join(l.real, ","); got != "good,owned" {
@@ -159,19 +148,5 @@ func TestClusterApplyConflictNeedsForceConflicts(t *testing.T) {
 	}
 	if got := strings.Join(l.forced, ","); got != "good,owned,good,owned" { // the check pass, then the real one
 		t.Errorf("sent with force=true: %q", got)
-	}
-	if b, _ := json.Marshal(d["applied"]); string(b) != `["configmap/good","configmap/owned"]` {
-		t.Errorf("applied: %s", b)
-	}
-
-	// a protected cluster still guards it: a person's yes, as without it
-	mustRun(t, "conn", "edit", "prod", "--protected")
-	d, e = cliRun(t, "--dry-run", "cluster", "apply", "prod", "--file", file, "--force-conflicts")
-	if e != nil {
-		t.Fatalf("%+v", e)
-	}
-	wb, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any)
-	if wb["code"] != "PROTECTED_TARGET" {
-		t.Errorf("--force-conflicts on a protected conn: %v", d)
 	}
 }

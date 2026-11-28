@@ -9,7 +9,13 @@ import "slices"
 // (TestSafetyKeys, TestSafetyTablesPinned). The list goes with the fate
 // tables after the release.
 var removedIDs = []string{
-	"cert", "cert.check", "cron", "cron.list", "cron.rm", "cron.set", "environment", "exit-codes", "facts", "help",
+	"cache.get", "cache.info", "cache.keys", "cache.rm", "cache.set",
+	"cert", "cert.check",
+	"cluster.apply", "cluster.deploy", "cluster.describe", "cluster.events", "cluster.get",
+	"cluster.helm", "cluster.helm.history", "cluster.helm.list", "cluster.helm.status", "cluster.helm.values",
+	"cluster.history", "cluster.list", "cluster.logs", "cluster.restart", "cluster.rm", "cluster.rollback",
+	"cluster.scale", "cluster.status",
+	"cron", "cron.list", "cron.rm", "cron.set", "environment", "exit-codes", "facts", "help",
 	"job", "job.kill", "job.list", "job.logs", "job.rm", "job.start", "job.status", "job.wait",
 	"net", "net.check", "net.dns", "net.http", "net.ports", "output", "reboot", "safety",
 	"svc", "svc.daemon-reload", "svc.disable", "svc.enable", "svc.list", "svc.logs", "svc.reload",

@@ -76,12 +76,6 @@ func cutMap[V any](cl *call, m map[string]V, n int) map[string]V {
 	return keep
 }
 
-// clusterLimitFlag is limitFlag for cluster commands: there -n is
-// --namespace, so --limit has no short form.
-func clusterLimitFlag(c *cobra.Command, n *int, def int, what string) {
-	c.Flags().IntVar(n, "limit", def, "show at most this many "+what+" (0 = all)")
-}
-
 // cutLast keeps the last n rows (n <= 0: all), for lists that end with the
 // newest, and notes a cut.
 func cutLast[T any](cl *call, rows []T, n int) []T {

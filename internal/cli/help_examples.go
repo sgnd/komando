@@ -46,10 +46,6 @@ var examples = map[string]string{
 		"  komando docker restart web1 api\n" +
 		"  komando docker compose web1 --dir /srv/shop -- up -d\n" +
 		"  komando docker prune web1 --dry-run               # what would be freed",
-	"komando cluster helm": "  komando cluster helm list prod-k8s -A\n" +
-		"  komando cluster helm status prod-k8s shop --namespace shop\n" +
-		"  komando cluster helm history prod-k8s shop --namespace shop\n" +
-		"  komando cluster helm values prod-k8s shop --namespace shop",
 	"komando config": "  komando config show\n" +
 		"  komando config get default_timeout\n" +
 		"  komando config set default_timeout 10m --dry-run\n" +
@@ -180,19 +176,15 @@ var examples = map[string]string{
 // cut to fit 80 columns: the full sentence stays in --help. A command that
 // sets its own Long keeps it.
 var details = map[string]string{
-	"komando cluster describe": "One object in short: state, images, conditions, its pods or tasks, and recent events.",
-	"komando cluster events":   "Recent events, oldest first (--warnings for problems only, --for TYPE/NAME for one object).",
-	"komando cluster list":     "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks).",
-	"komando cluster rm":       "Delete an object (Kubernetes) or a service or stack (Swarm); needs --allow-dangerous.",
-	"komando db activity":      "Sessions running something now (pid, user, how long, what); --all includes idle ones.",
-	"komando export":           "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
-	"komando fs replace":       "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
-	"komando guide":            "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
-	"komando host ssh remove":  "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
-	"komando list":             "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
-	"komando logs":             "Read logs from journald (--unit), a file (--file) or a container (--container).",
-	"komando pkg":              "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
-	"komando policy check":     "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
-	"komando snippet":          "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
-	"komando schema":           "Machine-readable reference of every command, flag, exit code and selector.",
+	"komando db activity":     "Sessions running something now (pid, user, how long, what); --all includes idle ones.",
+	"komando export":          "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
+	"komando fs replace":      "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
+	"komando guide":           "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
+	"komando host ssh remove": "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
+	"komando list":            "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
+	"komando logs":            "Read logs from journald (--unit), a file (--file) or a container (--container).",
+	"komando pkg":             "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",
+	"komando policy check":    "Test whether a shell command would be blocked (exit 6), or rate SQL, Redis or memcached commands with --conn-kind KIND.",
+	"komando snippet":         "Ready-made and saved commands: health, disk, oom, ... plus your own ({{blank}} to fill in).",
+	"komando schema":          "Machine-readable reference of every command, flag, exit code and selector.",
 }
