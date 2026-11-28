@@ -16022,30 +16022,6 @@ exit 6
 Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
 (code POLICY_BLOCKED, exit 6)
-### komando -o json cache redis raw pcache --write -- DEL k (agent json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"cache.redis.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache redis raw pcache --write -- DEL k (agent text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
-Hint: check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous and --yes (komando then asks them in a window on their screen)
-(code POLICY_BLOCKED, exit 6)
-### komando -o json cache redis raw pcache --write -- DEL k (script json, gate inventory)
-exit 6
---- stdout
-{"ok":false,"command":"cache.redis.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [data-delete]: deletes data that cannot be recovered (cache keys, stored objects)","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes (before the --)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
---- stderr
-### komando -o text cache redis raw pcache --write -- DEL k (script text, gate inventory)
-exit 6
---- stdout
---- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
-Hint: If you mean it, run it again in a terminal and type the name to confirm, or add --allow-dangerous in a script. Try --dry-run first.
-(code POLICY_BLOCKED, exit 6)
 ### komando -o json cache redis raw cache1 --write -- FLUSHALL (agent json, gate inventory)
 exit 6
 --- stdout

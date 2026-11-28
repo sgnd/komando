@@ -23057,7 +23057,7 @@
         "code": "SWARM_MANAGER_NOT_FOUND",
         "exit": 3,
         "example": "swarm service …: its manager server … is not in your list",
-        "hint": "add the manager server again (`komando host add NAME ADDRESS`), or remove the swarm service"
+        "hint": "add the manager server again (`komando host ssh add NAME ADDRESS`), or remove the swarm service"
       },
       {
         "code": "SYMLINK_LOOP",
