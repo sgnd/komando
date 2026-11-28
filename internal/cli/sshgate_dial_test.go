@@ -291,6 +291,8 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"[fd00:ec2::254]:80":          "fd00:ec2::254 is this computer",
 		"[fd20:ce::254]:80":           "fd20:ce::254 is this computer",
 		"[fd00:ec2::23]:80":           "fd00:ec2::23 is this computer",
+		"[fd00:ec2::1]:80":            "fd00:ec2::1 is this computer", // all of fd00:ec2::/32 is AWS's
+		"[fd00:ec2:0:ffff::123]:80":   "fd00:ec2:0:ffff::123 is this computer",
 		"[fd00:c1::a9fe:a9fe]:80":     "fd00:c1::a9fe:a9fe is this computer",
 		"100.100.100.200:80":          "100.100.100.200 is this computer",
 		"168.63.129.16:80":            "168.63.129.16 is this computer",
@@ -381,7 +383,7 @@ func TestGateDialJudgesItsOwnLookup(t *testing.T) {
 	if asked["two.example"] != 1 {
 		t.Errorf("two.example looked up %d times, want once", asked["two.example"])
 	}
-	for _, addr := range []string{"203.0.113.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22", "100.64.0.9:22", "[fd00:ec2::253]:22", "[64:ff9b::cb00:7105]:22", "[2001:db8:0:1::9]:22"} {
+	for _, addr := range []string{"203.0.113.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22", "100.64.0.9:22", "[fd00:ec3::253]:22", "[64:ff9b::cb00:7105]:22", "[2001:db8:0:1::9]:22"} {
 		d := &gateDialStub{}
 		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err != nil || !slices.Equal(d.asked, []string{"tcp " + addr}) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)
