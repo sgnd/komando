@@ -438,7 +438,7 @@ func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host
 	// the starter's window comes first and names the protected server too,
 	// so the protected change's check never answers for a starter it did
 	// not show
-	err := guardOtherStarter(cl, st, h, rec)
+	err := guardOtherStarter(cl, st, h, id, rec)
 	if err == nil {
 		err = Guard(cl, st, []*store.Host{h}, "", true)
 	}
@@ -468,21 +468,25 @@ func changeSession(cl *call, ctx context.Context, st *store.State, h *store.Host
 }
 
 // guardOtherStarter: an AI agent that stops or removes a run another
-// actor started (a person, a script, or another agent) asks the person
-// in the window first, as guardSafety does. Its own runs, a
-// caller that is not an agent, and a removal without a record (no starter
-// known) stay at the change tier. On a protected server the one window
-// names the protection too, as Guard would, so Guard's --yes check that
-// follows is the same question already answered.
-func guardOtherStarter(cl *call, st *store.State, h *store.Host, rec *store.ExecSession) error {
-	if rec == nil || !cl.isAgent() || ownRun(cl, rec) {
+// actor started (a person, a script, or another agent), or one this
+// computer has no record of (no starter known: another alias of the
+// server, or started elsewhere), asks the person in the window first, as
+// guardSafety does. Its own runs and a caller that is not an agent stay at
+// the change tier. On a protected server the one window names the
+// protection too, as Guard would, so Guard's --yes check that follows is
+// the same question already answered.
+func guardOtherStarter(cl *call, st *store.State, h *store.Host, id string, rec *store.ExecSession) error {
+	if !cl.isAgent() || rec != nil && ownRun(cl, rec) {
 		return nil
 	}
-	starter := rec.Actor + " at a terminal or in a script"
-	if rec.Agent {
-		starter = rec.Actor + "'s AI agent"
+	why := fmt.Sprintf("session %s on %s has no record on this computer: komando cannot tell whether this AI agent started it", id, h.Name)
+	if rec != nil {
+		starter := rec.Actor + " at a terminal or in a script"
+		if rec.Agent {
+			starter = rec.Actor + "'s AI agent"
+		}
+		why = fmt.Sprintf("session %s on %s was started by %s, not by this AI agent", rec.ID, rec.Host, starter)
 	}
-	why := fmt.Sprintf("session %s on %s was started by %s, not by this AI agent", rec.ID, rec.Host, starter)
 	reasons := []string{why}
 	if protectedHost(st, h) {
 		reasons = append(reasons, protWhy([]string{h.Name}), targetsWhy(st, []*store.Host{h}))

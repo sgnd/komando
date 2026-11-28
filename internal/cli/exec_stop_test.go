@@ -349,7 +349,7 @@ func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
 		{"an agent removes its own run", &store.ExecSession{Actor: "alice", Agent: true}, true, "--remove", false},
 		{"a script stops an agent's run", &store.ExecSession{Actor: "bob", Agent: true}, false, "--stop", false},
 		{"a script removes an agent's run", &store.ExecSession{Actor: "bob", Agent: true}, false, "--remove", false},
-		{"an agent removes without a record", nil, true, "--remove", false},
+		{"an agent removes without a record", nil, true, "--remove", true}, // audit A4: no starter known
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := stopServer(t, 0)
@@ -370,7 +370,7 @@ func TestExecSessionAgentChangesAnotherActorsRun(t *testing.T) {
 			if _, err := runChange(t, args...); err != nil {
 				t.Fatal(err)
 			}
-			if asked := slices.ContainsFunc(*texts, func(s string) bool { return strings.Contains(s, "not by this AI agent") }); asked != tc.asks {
+			if asked := slices.ContainsFunc(*texts, func(s string) bool { return strings.Contains(s, "this AI agent") }); asked != tc.asks {
 				t.Fatalf("asked %v, want %v: %q", asked, tc.asks, *texts)
 			}
 			if e := srv.take(); len(e) != 1 {
@@ -418,6 +418,23 @@ func TestExecSessionAgentStopsAnotherActorsRunRefused(t *testing.T) {
 				t.Fatal("the record is gone")
 			}
 		})
+	}
+}
+
+// An agent's --remove of a session this computer has no record of (another
+// alias of the server, or started elsewhere) asks the person: komando
+// cannot tell who started it (audit A4). Without a yes nothing connects.
+func TestExecSessionAgentRemovesUnknownSessionAsks(t *testing.T) {
+	srv := stopServer(t, 0)
+	otherActorSetup(t, true, true)
+	setCallerEnv(t, "KOMANDO_ACTOR", "bob")
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	_, err := runChange(t, "host", "ssh", "exec", "dev", "--attach", attachID, "--remove")
+	if e := toErr(err); e == nil || e.Code != "CONFIRM_REQUIRED" || e.Exit != 6 || !strings.Contains(e.Message, "no record on this computer") {
+		t.Fatalf("want CONFIRM_REQUIRED exit 6, got %v", err)
+	}
+	if e := srv.take(); len(e) != 0 {
+		t.Fatalf("connected: %+v", e)
 	}
 }
 
