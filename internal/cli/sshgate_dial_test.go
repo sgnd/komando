@@ -608,10 +608,20 @@ func TestGateDialSitesFindsEachForm(t *testing.T) {
 
 import (
 	"crypto/tls"
+	"database/sql"
 	stdnet "net"
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/jlaffaye/ftp"
+	"github.com/minio/minio-go/v7"
+	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
+	kafka "github.com/twmb/franz-go/pkg/kgo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/proxy"
+	"google.golang.org/grpc"
 )
 
 var pkgDialer stdnet.Dialer
@@ -624,7 +634,26 @@ func tlsDialer()        { _ = tls.Dialer{} }
 func tlsDial()          { tls.Dial("tcp", "a:1", nil) }
 func transport()        { _ = &http.Transport{} }
 func newTransport()     { _ = new(http.Transport) }
-func ownDial()          { _ = &http.Transport{DialContext: nil} }
+func ownDial(d dialer)  { _ = &http.Transport{DialContext: d} }
+func nilDial()          { _ = &http.Transport{DialContext: nil} }
+func otherDial()        { _ = &http.Transport{DialContext: proxy.Dial} }
+func setAfter(d dialer) { t := &http.Transport{DialContext: d}; t.DialContext = nil }
+func setOther(t *tr)    { t.Dial = proxy.Dial }
+func client()           { _ = &http.Client{} }
+func clientNil()        { _ = &http.Client{Transport: nil} }
+func clientOwn(t *tr)   { _ = &http.Client{Transport: t} }
+func newClient()        { _ = new(http.Client) }
+func sshDial()          { ssh.Dial("tcp", "a:22", nil) }
+func ftpDial()          { ftp.Dial("a:21") }
+func minioNew()         { minio.New("a", nil) }
+func redisNew()         { redis.NewClient(nil) }
+func mongoConnect()     { mongo.Connect() }
+func kgoNew()           { kafka.NewClient() }
+func natsConnect()      { nats.Connect("a") }
+func sqlOpen()          { sql.Open("pgx", "postgres://a") }
+func sqliteOpen()       { sql.Open("sqlite", "f.db") }
+func grpcNew()          { grpc.NewClient("a:1") }
+func socks()            { proxy.SOCKS5("tcp", "a:1", nil, nil) }
 func defaultClient()    { _ = http.DefaultClient }
 func defaultTransport() { _ = http.DefaultTransport }
 func get()              { http.Get("https://a") }
@@ -643,7 +672,9 @@ func (*c) method() { _ = &stdnet.Dialer{}; _ = stdnet.JoinHostPort("a", "1") }
 	}
 	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "tlsDialer": 1, "tlsDial": 1,
 		"transport": 1, "newTransport": 1, "defaultClient": 1, "defaultTransport": 1, "get": 1, "wsDialer": 1, "wsDefault": 1,
-		"gate": 1, "*c.method": 1}
+		"gate": 1, "*c.method": 1, "nilDial": 1, "otherDial": 1, "setAfter": 1, "setOther": 1, "client": 1, "clientNil": 1,
+		"newClient": 1, "sshDial": 1, "ftpDial": 1, "minioNew": 1, "redisNew": 1, "mongoConnect": 1, "kgoNew": 1,
+		"natsConnect": 1, "sqlOpen": 1, "grpcNew": 1, "socks": 1}
 	if got := gateDialSites(f); !maps.Equal(got, want) {
 		t.Errorf("found %v, want %v", got, want)
 	}
