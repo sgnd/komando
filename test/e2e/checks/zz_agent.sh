@@ -113,14 +113,14 @@ acode "an agent gets no pod shell" NEEDS_TERMINAL cluster kubernetes shell lab-k
 fi
 
 if in_area data; then
-acode "an agent cannot change the vault passphrase" NEEDS_PERSON secret passphrase
-check "agent: secret passphrase --dry-run previews" "True NEEDS_PERSON" "$(ag config vault passphrase --dry-run | jget 'd["data"]["dry_run"], d["meta"]["would_be_blocked"]["code"]' || true)"
+acode "an agent cannot change the vault passphrase" NEEDS_PERSON config vault passphrase
+check "agent: config vault passphrase --dry-run previews" "True NEEDS_PERSON" "$(ag config vault passphrase --dry-run | jget 'd["data"]["dry_run"], d["meta"]["would_be_blocked"]["code"]' || true)"
 # secrets: the user types a password, never the agent
-acode "an agent does not type a password" NEEDS_PERSON secret set t-agent-pass
-check "agent: secret set --dry-run previews" "True NEEDS_PERSON" "$(ag credential password add t-agent-pass --dry-run | jget 'd["data"]["would_set"], d["meta"]["would_be_blocked"]["code"]' || true)"
-acode "a value on the command line is refused" SECRET_IN_ARGS secret set t-agent-pass hunter22
+acode "an agent does not type a password" NEEDS_PERSON credential password add t-agent-pass
+check "agent: credential password add --dry-run previews" "True NEEDS_PERSON" "$(ag credential password add t-agent-pass --dry-run | jget 'd["data"]["would_set"], d["meta"]["would_be_blocked"]["code"]' || true)"
+acode "a value on the command line is refused" SECRET_IN_ARGS credential password add t-agent-pass hunter22
 export T_AGENT_EMPTY=
-acode "an empty --from-env is refused" USAGE secret set t-agent-pass --from-env T_AGENT_EMPTY
+acode "an empty --from-env is refused" USAGE credential password add t-agent-pass --from-env T_AGENT_EMPTY
 unset T_AGENT_EMPTY
 acode "only a person compares a value" NEEDS_PERSON secret check ops-pass
 check "agent: a generated token can come on stdin" True "$(echo gen-token-123 | A credential token add t-agent-token | jget 'd["ok"]' || true)"

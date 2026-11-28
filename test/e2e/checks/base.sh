@@ -48,7 +48,7 @@ check "import csv --dry-run adds nothing" 2 "$($K import csv "$CSV" --dry-run | 
 check "import csv" 2 "$($K import csv "$CSV" | jget 'len(d["data"]["hosts"])')"
 rm -f "$CSV"
 check "host ssh edit @group stops at a protected server" PROTECTED_TARGET "$($K host ssh edit @bulk --user agent2 | jget 'd["error"]["code"]' || true)"
-check "host ssh edit @group --yes changes both" 2 "$($K host ssh edit @bulk -t bulked --user agent --yes | jget 'len(d["data"]["changed"])')"
+check "host ssh edit @group --yes changes both" 2 "$($K host ssh edit @bulk --add-tag bulked --user agent --yes | jget 'len(d["data"]["changed"])')"
 $K host ssh rename bulk1 bulk-one --yes >/dev/null # same address as the protected target
 check "host ssh rename keeps the server working" target "$($K host ssh exec bulk-one --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host ssh remove bulk-one bulk2 --yes >/dev/null

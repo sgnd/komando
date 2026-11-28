@@ -22,7 +22,7 @@ check "cp --dry-run" True "$(dry copy "$TMP/$D.src" "direct:/tmp/$D.cp")"
 check "nothing written on the server" "keep 644 no no no no" \
   "$(nat direct sh -c "cat /tmp/$D.keep; echo; stat -c %a /tmp/$D.keep; for f in /tmp/$D.txt /tmp/$D.dir /tmp/$D.moved /tmp/$D.cp; do [ -e \$f ] && echo yes || echo no; done" | tr '\n' ' ' | sed 's/ *$//')"
 check "download --dry-run writes nothing here" "True no" "$(dry copy "direct:/tmp/$D.keep" "$TMP/$D.down") $([ -e "$TMP/$D.down" ] && echo yes || echo no)"
-check "exec --dry-run runs nothing" "True no" "$(dry exec direct -- touch "/tmp/$D.exec") $(nat direct sh -c "[ -e /tmp/$D.exec ] && echo yes || echo no")"
+check "host ssh exec --dry-run runs nothing" "True no" "$(dry host ssh exec direct -- touch "/tmp/$D.exec") $(nat direct sh -c "[ -e /tmp/$D.exec ] && echo yes || echo no")"
 
 # databases, caches, storage
 check "database postgres query --write --dry-run rolls back" "True 0" \

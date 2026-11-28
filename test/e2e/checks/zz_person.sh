@@ -8,11 +8,11 @@ set +e
 tty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; } # tty ANSWER ARGS...
 
 # a change to a protected server: [y/N]
-O=$(tty 'n\n' exec target -- touch "/tmp/$P1"); RC=$?
+O=$(tty 'n\n' host ssh exec target -- touch "/tmp/$P1"); RC=$?
 check "person: a protected server asks first" 1 "$(grep -c 'target (protected): this command changes it. Continue? \[y/N\]' <<<"$O")"
 check "person: no to a protected server stops (6)" 6 "$RC"
 check "person: no changed nothing" False "$($K fs stat target "/tmp/$P1" | jget 'd["data"]["exists"]')"
-tty 'y\n' exec target -- touch "/tmp/$P1" >/dev/null
+tty 'y\n' host ssh exec target -- touch "/tmp/$P1" >/dev/null
 check "person: yes to a protected server runs it" True "$($K fs stat target "/tmp/$P1" | jget 'd["data"]["exists"]')"
 q $K fs rm target "/tmp/$P1" --yes --allow-dangerous
 
@@ -47,15 +47,15 @@ check "person: yes deletes the group" TARGET_EMPTY "$($K list "@$P1" | jget 'd["
 q $K host ssh remove "$P1-1" "$P1-2" "$P1-3" "$P1-4"
 
 # a secret typed hidden: never shown on the screen
-O=$(tty 'personpass\n' secret set "$P1-pass"); RC=$?
-check "person: secret set asks for the value" 0 "$RC"
+O=$(tty 'personpass\n' credential password add "$P1-pass"); RC=$?
+check "person: credential password add asks for the value" 0 "$RC"
 check "person: the typed value is not echoed" 0 "$(grep -c personpass <<<"$O")"
 check "person: the typed value was stored" True "$(echo personpass | $K secret check "$P1-pass" | jget 'd["data"]["match"]')"
 O=$(tty 'wrongpass1\n' secret check "$P1-pass"); RC=$?
 check "person: secret check says a value differs (1)" 1 "$RC"
 check "person: secret check shows neither value" 0 "$(grep -c -E 'wrongpass1|personpass' <<<"$O")"
 check "person: secret check says how they differ" 1 "$(grep -c 'characters' <<<"$O")"
-O=$(tty '\n' secret set "$P1-empty"); RC=$?
+O=$(tty '\n' credential password add "$P1-empty"); RC=$?
 check "person: an empty answer stores nothing (2)" 2 "$RC"
 check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K credential password show "$P1-empty" | jget 'd["error"]["code"]' || true)"
 q $K credential password remove "$P1-pass" --allow-dangerous
@@ -76,7 +76,7 @@ q $K host ssh remove "$P1-login"
 # can neither make the first connection nor move the server
 q $K host ssh add "$P1-ask" "agent@127.0.0.1:$E2E_SSH_DIRECT" --login ask
 check "person: an agent cannot meet a login-ask server" NEEDS_PERSON "$(A host ssh exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
-O=$(tty 'agentpass\n' exec "$P1-ask" --read-only -- echo typed-ok); RC=$?
+O=$(tty 'agentpass\n' host ssh exec "$P1-ask" --read-only -- echo typed-ok); RC=$?
 check "person: login ask asks the password" 1 "$(grep -c 'Password' <<<"$O")"
 check "person: login ask logs in" 0 "$RC"
 check "person: login ask runs the command" 1 "$(grep -c typed-ok <<<"$O")"
