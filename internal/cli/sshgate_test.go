@@ -426,7 +426,8 @@ func TestGateLocalAddr(t *testing.T) {
 		"0x7f000001": true, "2130706433": true, me: true, "fe80::1%lo0": true, "[fe80::1%lo]:22": true,
 		"fe80::aaaa%en0": true, "fe80::1%1": true, "fe80::bbbb%en9": true, "169.254.7.7": true,
 		"db.example.com%en9": true, "db.example.com%lo0": true, "db.example.com%en0": false, // a name with a zone: the zone's link
-		"fe80::1%en0": false, "169.254.9.9": false, "10.0.0.5": false, "db.example.com": false,
+		"fe80::1%en0": true, "169.254.9.9": true, "169.254.169.254": true, "fe80::5": true, // any link-local, the cloud metadata
+		"10.0.0.5": false, "db.example.com": false,
 		"10.0.0.5:5432": false, "": false, "localhost.example.com": false, "web1": false,
 	} {
 		if got := gateHereOrUnknown(a); got != want {

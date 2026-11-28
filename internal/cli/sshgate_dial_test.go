@@ -111,9 +111,11 @@ func TestGateLocalAddrFailsClosed(t *testing.T) {
 	gateStubInterfaces(t)
 	answers["own.example"] = [][]net.IP{ips(gateOwn)}
 	answers["ownll.example"] = [][]net.IP{ips("169.254.7.7")}
+	answers["imds.example"] = [][]net.IP{ips("169.254.169.254")}
+	answers["router.example"] = [][]net.IP{ips("fe80::bbbb")}
 	gateStubDNS(t, answers)
 	want := map[string]bool{
-		"own.example": true, "ownll.example": true,
+		"own.example": true, "ownll.example": true, "imds.example": true, "router.example": true, "169.254.169.254": true,
 		"nx.example": true, "err.example": true, "empty.example": true, // cannot tell
 		"mixed.example": true, "mixed6.example": true, "mapped.example": true, "zero.example": true, "unspec.example": true,
 		"mixed.example:5432": true,
@@ -231,6 +233,8 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"unspec.example": {ips("::")},
 		"mcast.example":  {ips("203.0.113.5", "239.1.1.1")},
 		"empty.example":  {nil},
+		"imds.example":   {ips("203.0.113.5", "169.254.169.254")},
+		"ll6.example":    {ips("fe80::5")},
 	}
 	gateStubInterfaces(t)
 	answers["own.example"] = [][]net.IP{ips(gateOwn)}
@@ -269,6 +273,19 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"[::127.0.0.1]:22":      "::127.0.0.1 is this computer",   // IPv4-compatible
 		"0.1.2.3:22":            "0.1.2.3 is this computer",
 		"mcast.example:22":      "mcast.example is this computer",
+		// any link-local address, and a cloud's metadata service, which hands
+		// out this machine's own credentials
+		"169.254.9.9:22":              "169.254.9.9 is this computer",
+		"169.254.169.254:80":          "169.254.169.254 is this computer",
+		"[::ffff:169.254.169.254]:80": "::ffff:169.254.169.254 is this computer",
+		"[fe80::bbbb]:22":             "fe80::bbbb is this computer",
+		"[fd00:ec2::254]:80":          "fd00:ec2::254 is this computer",
+		"[fd20:ce::254]:80":           "fd20:ce::254 is this computer",
+		"100.100.100.200:80":          "100.100.100.200 is this computer",
+		"168.63.129.16:80":            "168.63.129.16 is this computer",
+		"192.0.0.192:80":              "192.0.0.192 is this computer",
+		"imds.example:80":             "imds.example is this computer",
+		"ll6.example:22":              "ll6.example is this computer",
 	}
 	for addr, msg := range refused {
 		d := &gateDialStub{}
@@ -335,8 +352,7 @@ func TestGateDialJudgesItsOwnLookup(t *testing.T) {
 	if asked["two.example"] != 1 {
 		t.Errorf("two.example looked up %d times, want once", asked["two.example"])
 	}
-	// fe80::1 is lo0's here, and on en0 a router's: the zone says which
-	for _, addr := range []string{"203.0.113.9:22", "[fe80::1%en0]:22", "[fe80::bbbb%4]:22", "169.254.9.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22"} {
+	for _, addr := range []string{"203.0.113.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22", "100.64.0.9:22", "[fd00:ec2::253]:22"} {
 		d := &gateDialStub{}
 		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err != nil || !slices.Equal(d.asked, []string{"tcp " + addr}) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)
