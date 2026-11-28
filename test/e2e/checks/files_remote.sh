@@ -37,11 +37,11 @@ SUM=$(shasum -a 256 "$TMP/e2eops.bin" | cut -c1-64)
 q $K copy "$TMP/e2eops.bin" direct:/tmp/e2eops/src.bin -p
 check "cp --dry-run names both sides" "direct:/tmp/e2eops/src.bin bastion:/tmp/e2eops/" "$($K copy direct:/tmp/e2eops/src.bin bastion:/tmp/e2eops/ --dry-run | jget 'd["data"]["src"] + " " + d["data"]["dst"]')"
 check "cp server to server" "$SUM" "$($K copy direct:/tmp/e2eops/src.bin bastion:/tmp/e2eops/ -p | jget 'd["data"]["results"][0]["sha256"]')"
-check "cp server to server arrived" "$SUM" "$($K -o text exec bastion --read-only -- sha256sum /tmp/e2eops/src.bin | cut -c1-64)"
+check "cp server to server arrived" "$SUM" "$($K -o text host ssh exec bastion --read-only -- sha256sum /tmp/e2eops/src.bin | cut -c1-64)"
 check "cp server to bucket" "$SUM" "$($K copy direct:/tmp/e2eops/src.bin bucket:t-e2eops/src.bin | jget 'd["data"]["results"][0]["sha256"]')"
 check "cp bucket to sftp conn" "$SUM" "$($K copy bucket:t-e2eops/src.bin files-sftp:t-e2eops/src.bin | jget 'd["data"]["results"][0]["sha256"]')"
 check "cp sftp conn to server" "$SUM" "$($K copy files-sftp:t-e2eops/src.bin direct:/tmp/e2eops/back.bin | jget 'd["data"]["results"][0]["sha256"]')"
-check "cp bucket to server arrived" "$SUM" "$($K -o text exec direct --read-only -- sha256sum /tmp/e2eops/back.bin | cut -c1-64)"
+check "cp bucket to server arrived" "$SUM" "$($K -o text host ssh exec direct --read-only -- sha256sum /tmp/e2eops/back.bin | cut -c1-64)"
 mkdir -p "$TMP/e2eops-tree/sub" && echo one > "$TMP/e2eops-tree/a.txt" && echo two > "$TMP/e2eops-tree/sub/b.txt"
 q $K copy "$TMP/e2eops-tree" direct:/tmp/e2eops/tree -r
 check "cp -r server to bucket" 2 "$($K copy -r direct:/tmp/e2eops/tree bucket:t-e2eops/ | jget 'd["data"]["results"][0]["files"]')"
@@ -76,9 +76,9 @@ check "cp TARGET:PATH - is the file" "$SUM" "$($K copy direct:/tmp/e2eops/src.bi
 check "a missing file: nothing on stdout" 0 "$($K copy direct:/tmp/e2eops/nope - 2>/dev/null | wc -c | tr -d ' ')"
 check "a missing file: the error on stderr" PATH_NOT_FOUND "$($K copy direct:/tmp/e2eops/nope - 2>&1 >/dev/null | jget 'd["error"]["code"]' || true)"
 check "upload - to a server" "$SUM" "$($K copy - direct:/tmp/e2eops/stdin.bin --size "$(wc -c < "$TMP/e2eops.bin" | tr -d ' ')" < "$TMP/e2eops.bin" | jget 'd["data"]["results"][0]["sha256"]')"
-check "upload - to a server arrived" "$SUM" "$($K -o text exec direct --read-only -- sha256sum /tmp/e2eops/stdin.bin | cut -c1-64)"
+check "upload - to a server arrived" "$SUM" "$($K -o text host ssh exec direct --read-only -- sha256sum /tmp/e2eops/stdin.bin | cut -c1-64)"
 check "upload - with a short stream" SIZE_CONFLICT "$(head -c 1000 "$TMP/e2eops.bin" | $K copy - direct:/tmp/e2eops/stdin.bin --size 5000 | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
-check "a short stream replaced nothing" "$SUM" "$($K -o text exec direct --read-only -- sha256sum /tmp/e2eops/stdin.bin | cut -c1-64)"
+check "a short stream replaced nothing" "$SUM" "$($K -o text host ssh exec direct --read-only -- sha256sum /tmp/e2eops/stdin.bin | cut -c1-64)"
 for c in bucket files-sftp files-ftps; do
   check "$c storage upload -" "$SUM" "$($K copy - "$c:t-e2eops/stdin.bin" < "$TMP/e2eops.bin" | jget 'd["data"]["sha256"]')"
   check "$c storage upload - arrived" "$SUM" "$($K copy "$c:t-e2eops/stdin.bin" - 2>/dev/null | shasum -a 256 | cut -c1-64)"

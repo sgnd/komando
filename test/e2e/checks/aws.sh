@@ -17,7 +17,7 @@ AWSK() { PATH="$TMP/fakeaws:$PATH" $K "$@"; }
 
 q $K host ssh add t-ssm agent@i-0abc123def --ssm --credential agent-pass
 check "SSM: login and run a command through aws ssm start-session" direct \
-  "$(AWSK exec t-ssm --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
+  "$(AWSK host ssh exec t-ssm --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "SSM: files over the same path" True "$(AWSK fs ls t-ssm /tmp | jget 'd["ok"]')"
 check "SSM: without the aws CLI, komando's own client says what it needs" SSM_FAILED \
   "$(env PATH=/usr/bin:/bin AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true AWS_ACCESS_KEY_ID= AWS_PROFILE= \
