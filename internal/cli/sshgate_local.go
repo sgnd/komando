@@ -136,7 +136,14 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if err != nil || t.Kind.File {
 				return cn.Name + " is a file on this computer (or its URL cannot be read)"
 			}
-			dials := append([]string{t.Address, t.Resolve}, t.Sentinels...)
+			dials := append([]string{t.Address}, t.Sentinels...)
+			if t.Resolve != "" {
+				// the dial goes to Resolve (pinDial): the name counts only as written
+				if gateLocalAsWritten(t.Address) {
+					return cn.Name + " is on this computer (" + t.Address + ")"
+				}
+				dials[0] = t.Resolve
+			}
 			for i, a := range append(dials, gateURLHosts(cn.URL)...) {
 				if why := gateAt(cl, st, cn.Name, a, cn.Via, i < len(dials), 0); why != "" {
 					return why

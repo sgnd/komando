@@ -147,6 +147,10 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 		st.Conns["pgnx"] = &store.Conn{Name: "pgnx", Kind: "postgres", URL: "postgres://u@nx.example/x"}
 		// the bucket sits where a host would: no host to resolve
 		st.Conns["s3pub"] = &store.Conn{Name: "s3pub", Kind: "s3", URL: "s3://AKID@nxbucket?endpoint=https://web.example:9000"}
+		// ?resolve=: the dial goes to that IP, and the name has no DNS here
+		st.Conns["s3res"] = &store.Conn{Name: "s3res", Kind: "s3", URL: "s3://AKID@b?endpoint=https://nx.example:9000&resolve=203.0.113.5"}
+		st.Conns["s3resloop"] = &store.Conn{Name: "s3resloop", Kind: "s3", URL: "s3://AKID@b?endpoint=https://nx.example:9000&resolve=127.0.0.1"}
+		st.Conns["s3resname"] = &store.Conn{Name: "s3resname", Kind: "s3", URL: "s3://AKID@b?endpoint=https://localhost:9000&resolve=203.0.113.5"}
 		return nil
 	})
 	if err != nil {
@@ -168,6 +172,9 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 		"logs innerssm":                       "", // the same for a jump host
 		"logs innerpc":                        R,  // a jump host on this computer, through its proxy command
 		"storage download s3pub a.txt --to -": "",
+		"storage download s3res a.txt --to -": "",
+		"storage download s3resloop a.txt --to -": R,
+		"storage download s3resname a.txt --to -": R, // the name as written
 	} {
 		for _, readOnly := range []bool{true, false} {
 			if got := gateAnswer(t, line, readOnly); got != want {
