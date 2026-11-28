@@ -850,8 +850,10 @@ func TestGateRefusesUnknownLine(t *testing.T) {
 	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg",
 		// removed in step D5a: these lines used to run, for every key
 		"help", "help safety", "safety", "__help", "cert check https://evil.example",
-		// a removed path with a flag only the removed command knew: no usage error may pass as allowed
-		"host ca revoke --key x.pub"} {
+		// the removed paths of step D5c, and one with a flag only the removed command knew:
+		// no usage error may pass as allowed
+		"secret check db", "secret cp a b", "vault cp a b", "rename x y", "conn kinds",
+		"host ssh-command web1", "host ca revoke --key x.pub"} {
 		for _, key := range []gateKey{readKey, netReadKey, fullKey} {
 			words, _ := gateWords(line)
 			_, _, e := gateCheck(words, key)
