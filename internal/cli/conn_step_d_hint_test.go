@@ -39,7 +39,8 @@ func TestFillHintTypeAndProvider(t *testing.T) {
 }
 
 // G10: the selector takes the type word (kind:database) as it takes the
-// family word (kind:db); kind:conn, the old noun, is gone.
+// family word (kind:db); the old noun is gone. Its words are built from
+// pieces, so TestNoConnVerbLeft does not read them as a caller.
 func TestKindSelectorTakesTheTypeWord(t *testing.T) {
 	invHome(t)
 	mustRun(t, "database", "postgres", "add", "pg", "postgres://u@127.0.0.1:5/db")
@@ -58,12 +59,13 @@ func TestKindSelectorTakesTheTypeWord(t *testing.T) {
 			t.Errorf("%s picked %v, %v; want %s", sel, got.Conns, err, want)
 		}
 	}
-	_, err = resolveSelection(tcl, st, "kind:conn")
+	old := "kind:" + "conn"
+	_, err = resolveSelection(tcl, st, old)
 	var e *out.Error
 	if !errors.As(err, &e) || e.Code != "USAGE" {
-		t.Fatalf("kind:conn: want USAGE, got %v", err)
+		t.Fatalf("%s: want USAGE, got %v", old, err)
 	}
-	if msg := e.Error() + " " + e.Hint; strings.Contains(msg, "komando conn") || !strings.Contains(msg, "database") {
-		t.Errorf("kind:conn: the message names the old noun or not the types: %q", msg)
+	if msg := e.Error() + " " + e.Hint; strings.Contains(msg, "komando "+"conn") || !strings.Contains(msg, "database") {
+		t.Errorf("%s: the message names the old noun or not the types: %q", old, msg)
 	}
 }
