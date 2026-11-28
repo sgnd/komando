@@ -9,6 +9,7 @@ import (
 	"go/types"
 	"maps"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,8 +25,9 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// gateStubDNS answers for gateLookup: each name's answers in turn (the
-// last one again when they run out), an error for "err.example", and
+// gateStubDNS answers for gateLookup: an IP literal, also an IPv6 one with
+// a zone, as itself (as Go's resolver does); each name's answers in turn
+// (the last one again when they run out), an error for "err.example", and
 // NXDOMAIN for every other name. It counts the lookups per name.
 func gateStubDNS(t *testing.T, answers map[string][][]net.IP) map[string]int {
 	t.Helper()
@@ -39,6 +41,9 @@ func gateStubDNS(t *testing.T, answers map[string][][]net.IP) map[string]int {
 		host = strings.ToLower(strings.TrimSuffix(host, "."))
 		n := asked[host]
 		asked[host]++
+		if ip, err := netip.ParseAddr(host); err == nil {
+			return []net.IP{ip.AsSlice()}, nil
+		}
 		if host == "err.example" {
 			return nil, &net.DNSError{Err: "server misbehaving", Name: host, IsTemporary: true}
 		}
@@ -119,7 +124,9 @@ func TestGateLocalAddrFailsClosed(t *testing.T) {
 		"nx.example": true, "err.example": true, "empty.example": true, // cannot tell
 		"mixed.example": true, "mixed6.example": true, "mapped.example": true, "zero.example": true, "unspec.example": true,
 		"mixed.example:5432": true,
-		"web.example":        false, "two.example": false, "public6.example": false, "web.example:22": false,
+		// a zone names a link here; the resolver would answer the bare address
+		"2001:db8:5::9%en0": true, "[2001:db8:5::9%4]:22": true, "203.0.113.9%en0": true,
+		"web.example": false, "two.example": false, "public6.example": false, "web.example:22": false,
 		"rebind.example": false, // its first answer: the dial judges its own (TestGateDialJudgesItsOwnLookup)
 	}
 	for a, w := range want {
