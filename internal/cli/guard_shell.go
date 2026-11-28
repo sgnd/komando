@@ -716,14 +716,10 @@ func shellWordsFlags(s string) (words []string, globs, bare []bool) {
 
 // dropRedirects is the simple command seg without its redirects (2>/dev/null,
 // >out, <in, <<<text, <<EOF): the words its program is given. A file
-// descriptor written right before the operator goes with it.
+// descriptor written right before the operator goes with it. No blank
+// follows the last word: in NAME="$(...) the segment ends inside a quote.
 func dropRedirects(seg string) string {
-	var b strings.Builder
-	for _, w := range rawWords(seg) {
-		b.WriteString(w)
-		b.WriteByte(' ')
-	}
-	return b.String()
+	return strings.Join(rawWords(seg), " ")
 }
 
 // rawWords are the words of dropRedirects, quotes and all.
