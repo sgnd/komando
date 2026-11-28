@@ -113,6 +113,7 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 // and still lands in the audit log, as a broken connection does.
 func TestClusterRunTimedOutWriteIsAudited(t *testing.T) {
 	invHome(t)
+	release := make(chan struct{}) // the server never answers the write until the test ends
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1":
@@ -120,10 +121,10 @@ func TestClusterRunTimedOutWriteIsAudited(t *testing.T) {
 		case r.Method == http.MethodGet && r.URL.Path == "/apis":
 			w.Write([]byte(`{"groups":[]}`))
 		default:
-			<-r.Context().Done()
+			<-release
 		}
 	}))
-	t.Cleanup(func() { srv.CloseClientConnections(); srv.Close() })
+	t.Cleanup(func() { close(release); srv.CloseClientConnections(); srv.Close() })
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
 	if _, e := invRun(t, "--timeout", "500ms", "cluster", "kubernetes", "raw", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout {
 		t.Fatalf("run: %+v", e)
