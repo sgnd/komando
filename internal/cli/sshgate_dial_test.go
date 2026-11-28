@@ -489,7 +489,8 @@ var reviewedDialSites = map[string]int{
 	"netx/httpproxy.go openHTTPProxy": 1, "openvpn/client.go Connect": 1, "ipsec/transport.go newTransport": 1,
 	"ipsec/transport.go *udpTransport.startNATT": 1, "sslvpn/sslvpn.go dialTLSWith": 1, "sslvpn/sslvpn.go httpClient": 1,
 	"cli/vpn_status.go vpnReachable": 1, "cli/vpn_session.go listening": 1,
-	"netx/tailscale.go newTailscale": 1, // dials through its own tailnet
+	"netx/tailscale.go newTailscale":             1, // dials through its own tailnet
+	"netx/wireguard.go StartWG":                  1, // UDP to the peer's endpoint
 	"sslvpn/anyconnect_dtls.go *acTun.startDTLS": 2, // UDP to the DTLS address the gateway hands back
 	// no target a key names: the audit sink, cloud sign-in, a test proxy
 	"cli/audit_syslog.go deliver": 2, "transport/http.go HTTP": 1, "cloud/azure.go ": 1, "cloud/ssm.go SSMDial": 1,
@@ -704,6 +705,7 @@ var gateLibDials = map[string]struct {
 	"go.mongodb.org/mongo-driver/v2/mongo": {"mongo", []string{"Connect"}},
 	"golang.org/x/crypto/ssh":              {"ssh", []string{"Dial"}},
 	"golang.org/x/net/proxy":               {"proxy", []string{"Dial", "FromEnvironment", "FromEnvironmentUsing", "FromURL", "SOCKS5"}},
+	"golang.zx2c4.com/wireguard/conn":      {"conn", []string{"NewDefaultBind", "NewStdNetBind"}},
 	"google.golang.org/grpc":               {"grpc", []string{"Dial", "DialContext", "NewClient"}},
 }
 
