@@ -78,7 +78,7 @@ title: Show a saved memcached cache's settings (credentials as names)
 - arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache memcached add. |  | choices,check
 ### komando cache memcached test
 title: Check that a saved memcached cache answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which caches? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando cache redis
@@ -136,7 +136,7 @@ title: Show a saved redis cache's settings (credentials as names)
 - arg0 | Name | Which cache? | A cache from your list. Add one first: komando cache redis add. |  | choices,check
 ### komando cache redis test
 title: Check that a saved redis cache answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which caches? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando cluster
@@ -211,7 +211,7 @@ title: Show a saved kubernetes cluster's settings (credentials as names)
 - arg0 | Name | Which cluster? | A cluster from your list. Add one first: komando cluster kubernetes add. |  | choices,check
 ### komando cluster kubernetes test
 title: Check that a saved kubernetes cluster answers and lets you in
-- arg0 | Target (clusters) | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target (clusters) | Which clusters? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando cluster kubernetes tunnel
@@ -505,7 +505,7 @@ title: Show a saved bigquery database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database bigquery add. |  | choices,check
 ### komando database bigquery test
 title: Check that a saved bigquery database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database clickhouse
@@ -570,7 +570,7 @@ title: Show a saved clickhouse database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database clickhouse add. |  | choices,check
 ### komando database clickhouse test
 title: Check that a saved clickhouse database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database mongodb
@@ -631,7 +631,7 @@ title: Show a saved mongodb database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database mongodb add. |  | choices,check
 ### komando database mongodb test
 title: Check that a saved mongodb database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database mysql
@@ -707,7 +707,7 @@ title: Show a saved mysql database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database mysql add. |  | choices,check
 ### komando database mysql test
 title: Check that a saved mysql database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database oracle
@@ -772,7 +772,7 @@ title: Show a saved oracle database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database oracle add. |  | choices,check
 ### komando database oracle test
 title: Check that a saved oracle database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database postgres
@@ -850,7 +850,7 @@ title: Show a saved postgres database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database postgres add. |  | choices,check
 ### komando database postgres test
 title: Check that a saved postgres database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database snowflake
@@ -915,7 +915,7 @@ title: Show a saved snowflake database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database snowflake add. |  | choices,check
 ### komando database snowflake test
 title: Check that a saved snowflake database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database sqlite
@@ -982,7 +982,7 @@ title: Show a saved sqlite database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database sqlite add. |  | choices,check
 ### komando database sqlite test
 title: Check that a saved sqlite database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando database sqlserver
@@ -1047,7 +1047,7 @@ title: Show a saved sqlserver database's settings (credentials as names)
 - arg0 | Name | Which database? | A database from your list. Add one first: komando database sqlserver add. |  | choices,check
 ### komando database sqlserver test
 title: Check that a saved sqlserver database answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which databases? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando db
@@ -1739,7 +1739,7 @@ title: Show a saved kafka queue's settings (credentials as names)
 - arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue kafka add. |  | choices,check
 ### komando queue kafka test
 title: Check that a saved kafka queue answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which queues? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando queue kafka topic
@@ -1853,7 +1853,7 @@ title: Show a saved nats queue's settings (credentials as names)
 - arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue nats add. |  | choices,check
 ### komando queue nats test
 title: Check that a saved nats queue answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which queues? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando queue nats topic
@@ -1963,7 +1963,7 @@ title: Show a saved pubsub queue's settings (credentials as names)
 - arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue pubsub add. |  | choices,check
 ### komando queue pubsub test
 title: Check that a saved pubsub queue answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which queues? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando queue pubsub topic
@@ -2067,7 +2067,7 @@ title: Show a saved rabbitmq queue's settings (credentials as names)
 - arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue rabbitmq add. |  | choices,check
 ### komando queue rabbitmq test
 title: Check that a saved rabbitmq queue answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which queues? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando queue rabbitmq topic
@@ -2171,7 +2171,7 @@ title: Show a saved sqs queue's settings (credentials as names)
 - arg0 | Name | Which queue? | A queue from your list. Add one first: komando queue sqs add. |  | choices,check
 ### komando queue sqs test
 title: Check that a saved sqs queue answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which queues? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando queue sqs topic
@@ -2262,11 +2262,11 @@ title: Show an image: its digest, size, platforms and tags
 - arg1 | Image | Which image? | The repository and its tag, without the registry's address. komando registry oci image list shows them. | acme/api:1.4.3 | check
 ### komando registry oci list
 title: List the saved oci registrys
-- arg0 | Target | Which registrys? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
+- arg0 | Target | Which registries? (leave empty for all) | Pick one, or type @group or several names separated by commas. |  | optional,free,choices,check
 - flag:limit | --limit | Show at most this many (0 = all) |  |  | optional,advanced,check
 ### komando registry oci remove
 title: Forget a saved oci registry (the registry is not touched)
-- arg0 | Target | Which registrys should come off your list? | Only komando's list changes; the registry itself is not touched. |  | free,choices,check
+- arg0 | Target | Which registries should come off your list? | Only komando's list changes; the registry itself is not touched. |  | free,choices,check
 ### komando registry oci rename
 title: Rename a saved oci registry and every reference to it
 - arg0 | Name | Which registry do you want to rename? | Groups, notes and everything else that names it are changed too. |  | choices,check
@@ -2276,7 +2276,7 @@ title: Show a saved oci registry's settings (credentials as names)
 - arg0 | Name | Which registry? | A registry from your list. Add one first: komando registry oci add. |  | choices,check
 ### komando registry oci test
 title: Check that a saved oci registry answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which registries? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando rename
@@ -2434,7 +2434,7 @@ title: Show a saved azblob storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage azblob add. |  | choices,check
 ### komando storage azblob test
 title: Check that a saved azblob storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage ftp
@@ -2522,7 +2522,7 @@ title: Show a saved ftp storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage ftp add. |  | choices,check
 ### komando storage ftp test
 title: Check that a saved ftp storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage gcs
@@ -2616,7 +2616,7 @@ title: Show a saved gcs storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage gcs add. |  | choices,check
 ### komando storage gcs test
 title: Check that a saved gcs storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage s3
@@ -2710,7 +2710,7 @@ title: Show a saved s3 storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage s3 add. |  | choices,check
 ### komando storage s3 test
 title: Check that a saved s3 storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage sftp
@@ -2798,7 +2798,7 @@ title: Show a saved sftp storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage sftp add. |  | choices,check
 ### komando storage sftp test
 title: Check that a saved sftp storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage smb
@@ -2886,7 +2886,7 @@ title: Show a saved smb storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage smb add. |  | choices,check
 ### komando storage smb test
 title: Check that a saved smb storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando storage webdav
@@ -2974,7 +2974,7 @@ title: Show a saved webdav storage's settings (credentials as names)
 - arg0 | Name | Which storage? | A storage from your list. Add one first: komando storage webdav add. |  | choices,check
 ### komando storage webdav test
 title: Check that a saved webdav storage answers and lets you in
-- arg0 | Target | Which conns? | Pick one from your list, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
+- arg0 | Target | Which storages? | Pick one, or type @group, tag:prod or several names separated by commas. |  | free,choices,check
 - flag:wait | --wait | Keep trying for how long? | Like 2m: it tests again every few seconds until everything answers, handy right after a server starts. Leave empty to test once. | 2m | optional,check
 - flag:end | --end | End the session a person's login keeps open |  |  | advanced,default,choices
 ### komando test
@@ -3955,8 +3955,7 @@ title: Add a Snowflake database
 - account | Account | What is the account identifier? | In Snowsight: your name at the bottom left, Account, View account details. It is also the first part of your link, before .snowflakecomputing.com. | myorg-myaccount | check
 - user | User | Which Snowflake user do you log in as? | A user for komando that may only read is safest. Names are usually in capitals. | APP_RO | check
 - login | Login | How does this user log in? | Snowflake takes no passwords here: a key pair or a programmatic access token. Browser sign-in (SSO) does not work. |  | default,choices
-- keyfile | Key file | Where is the private key file? | A .p8 or .pem file without a passphrase. komando reads it each time, so leave it where it is. | ~/keys/rsa_key.p8 | show,check
-- secret | Saved key | Which saved secret holds the key or the token? | A name from komando credential list, or credential:NAME. |  | free,choices,show,check
+- secret | Saved key | Which saved secret holds the key or the token? | A name from komando credential list. Save a key file first: komando credential token add NAME < rsa_key.p8 (a .p8 or .pem file without a passphrase). |  | free,choices,show,check
 - warehouse | Warehouse | Which warehouse runs the queries? | Most queries need one. Empty is fine for a first test. | REPORTING | optional,check
 - database | Database | Which database should commands use? | Empty for none: then write DATABASE.SCHEMA.TABLE in queries. | ANALYTICS | optional,check
 - schema | Schema | Which schema inside it? | Empty for none. | PUBLIC | optional,show,check
@@ -3972,7 +3971,7 @@ title: Add a Google BigQuery database
 - dataset | Dataset | Which dataset should table names use? | Then orders means analytics.orders. Empty: write DATASET.TABLE in queries. | analytics | optional,check
 - location | Location | Where is the data kept? | EU, US or a region like europe-west1, as the dataset's details show. Empty lets BigQuery find it from the tables. | EU | optional,check
 - login | Login | How does komando log in to Google Cloud? | No password: your Google login. A service account is a login for programs; its key is a JSON file you download once. |  | default,choices
-- keyfile | Key file | Where is the key file? | The JSON file from IAM, Service accounts, Keys. komando reads it each time, so leave it where it is. | ~/keys/komando-sa.json | show,check
+- secret | Saved key | Which saved secret holds the key? | A name from komando credential list. Save the JSON file first: komando credential token add NAME < KEY.json |  | free,choices,show,check
 - protected | Production | Can a mistake on this database hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - via | Reached | How does this computer reach the database? | Pick a server when the database only answers on that server or inside its network. |  | advanced,default,choices,when
 - group | Group | Put it in a group? | A group lets one command reach many, like komando test @web. Empty for none. | web | optional,advanced,check
@@ -4087,7 +4086,7 @@ title: Add Google Cloud Pub/Sub
 - name | Name | What do you want to call this Pub/Sub project? | A short name you type later, like komando test pubsub. Letters, digits, dot, dash, underscore. | pubsub | check
 - project | Project | Which Google Cloud project are the topics in? | The project ID (not its name), from the project picker in the Google Cloud console. | my-project | check
 - login | Login | How does komando log in to Google Cloud? | No password: your Google login. A service account is a login for programs; its key is a JSON file you download once. |  | default,choices
-- keyfile | Key file | Where is the key file? | The JSON file from IAM, Service accounts, Keys. komando reads it each time, so leave it where it is. | ~/keys/komando-sa.json | show,check
+- secret | Saved key | Which saved secret holds the key? | A name from komando credential list. Save the JSON file first: komando credential token add NAME < KEY.json |  | free,choices,show,check
 - protected | Production | Can a mistake on this project hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - endpoint | Address | Use an emulator or another address? | Only for the emulator, a regional or a private endpoint. Empty uses Google Cloud. | http://localhost:8085 | optional,advanced,check
 - via | Reached | How does this computer reach the project? | Pick a server when the project only answers on that server or inside its network. |  | advanced,default,choices,when
@@ -4119,7 +4118,7 @@ title: Add a Google Cloud Storage bucket
 - name | Name | What do you want to call this bucket? | A short name you type later, like komando test media. Letters, digits, dot, dash, underscore. | media | check
 - bucket | Bucket | What is the bucket's name? | The name shown in the Cloud Storage page of the Google Cloud console. Only the name, not a link. | my-backups | check
 - login | Login | How does komando log in? | A service account is a login for programs; its key is a JSON file you download once. |  | default,choices
-- keyfile | Key file | Where is the key file? | The JSON file from IAM, Service accounts, Keys. komando reads it each time, so leave it where it is. | ~/keys/media-sa.json | show,check
+- secret | Saved key | Which saved secret holds the key? | A name from komando credential list. Save the JSON file first: komando credential token add NAME < KEY.json |  | free,choices,show,check
 - protected | Production | Can a mistake on this bucket hurt real users or real data? | Production: komando asks you before every change, and an AI agent needs your yes in a window. |  | default,choices
 - folder | Folder | Start in a folder inside the bucket? | Empty for the whole bucket. komando cannot reach files outside this folder. | db/backups | optional,advanced,check
 - endpoint | Address | Use an emulator or another address? | Only for a local emulator or testing. Empty uses Google Cloud. | http://127.0.0.1:4443 | optional,advanced,check

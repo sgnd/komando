@@ -13257,9 +13257,10 @@ are left alone, so a second run changes nothing.
 Renaming protected servers and conns needs --yes once, for all of them (an
 AI agent's --yes opens one window for a person). See what would change with
 --dry-run first. --kind renames only some kinds; references still follow. To
-rename one entry, use `komando host ssh rename`, `komando conn rename`, each
-VPN kind's rename (`komando vpn socks rename`), `komando credential password
-rename`, `komando credential key rename` or `komando group rename`.
+rename one entry, use `komando host ssh rename`, `komando database postgres
+rename` (or the rename of another provider), each VPN kind's rename
+(`komando vpn socks rename`), `komando credential password rename`, `komando
+credential key rename` or `komando group rename`.
 
 Usage:
   komando rename OLD NEW [flags]
