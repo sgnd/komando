@@ -16,11 +16,12 @@ func Feed(pw bool) string {
 	return f + `[ ! -f "$d/env" ] || { cat "$d/env"; rm -f "$d/env"; }; [ ! -f "$d/in" ] || { cat "$d/in"; rm -f "$d/in"; }; }`
 }
 
-// watcher is the wait for the run (w) that sets c to its exit code. With a
-// timeout, a watcher stops the run after it, the whole process group
+// watcher is the wait for the run (w) that sets c to its exit code. A
+// trapped signal ends a wait early, so it waits again while the run lives.
+// With a timeout, a watcher stops the run after it, the whole process group
 // (setsid) or else the command, and notes "TERM timeout" in killed.
 func watcher(timeout time.Duration) (watch, end string) {
-	end = `wait $w 2>/dev/null; c=$?; `
+	end = `wait $w 2>/dev/null; c=$?; while kill -0 $w 2>/dev/null; do wait $w 2>/dev/null; c=$?; done; `
 	if timeout > 0 {
 		secs := strconv.Itoa(int((timeout + time.Second - 1) / time.Second))
 		watch = `( trap 'kill $t 2>/dev/null; exit 0' TERM; sleep ` + secs + ` & t=$!; wait $t; ` +

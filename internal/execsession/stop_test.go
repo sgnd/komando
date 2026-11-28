@@ -389,6 +389,30 @@ func TestStopCommandSaysTheRunStillRuns(t *testing.T) {
 	}
 }
 
+// T2: a run that ignores TERM goes on after a TERM stop, and so does its
+// root: the root's wait returns when its own trap runs, and it waits for
+// the run again, so the session does not read as ended, and a KILL stop
+// still finds the recorded root.
+func TestStopKeepsTheRootWhileTheRunIgnoresTERM(t *testing.T) {
+	home := t.TempDir()
+	rec := startStoppable(t, home, `trap '' TERM; sleep 30`)
+	if got, code := runStopIn(t, home, rec, "TERM"); code != ExitStillRunning {
+		t.Fatalf("TERM stop exit %d, %q; want %d", code, got, ExitStillRunning)
+	}
+	if syscall.Kill(rec.PID, 0) != nil {
+		t.Fatal("the root ended while the run goes on")
+	}
+	if st, _ := readSession(t, home); st.Ended() {
+		t.Errorf("status %+v while the run goes on, want not ended", st)
+	}
+	if got, code := runStopIn(t, home, rec, "KILL"); code != 0 {
+		t.Fatalf("KILL stop exit %d, %q; want 0", code, got)
+	}
+	if !gone(rec.PID) {
+		t.Error("the root is still there after KILL")
+	}
+}
+
 // noSetsidPath is a PATH folder with every program of /bin and /usr/bin but
 // setsid, as on a BSD server.
 func noSetsidPath(t *testing.T) string {
