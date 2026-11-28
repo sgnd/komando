@@ -55,8 +55,7 @@ func TestOldJobsListed(t *testing.T) {
 // is carried with its mark.
 func TestOldJobMarkedThenMoved(t *testing.T) {
 	oldJobsHome(t)
-	dead := func(int, string) bool { return false }
-	if err := EndOldJobs(context.Background(), []string{"j1", "j3"}, dead); err != nil {
+	if err := EndOldJobs(context.Background(), []string{"j1", "j3"}); err != nil {
 		t.Fatal(err)
 	}
 	Close()
@@ -78,38 +77,12 @@ func TestOldJobMarkedThenMoved(t *testing.T) {
 	}
 }
 
-// A record whose process the alive check says still runs is never marked:
-// the refusal names its server and folder, the others are marked.
-func TestOldJobAliveRefused(t *testing.T) {
-	oldJobsHome(t)
-	alive := func(pid int, _ string) bool { return pid == 4242 }
-	err := EndOldJobs(context.Background(), []string{"j1", "j3"}, alive)
-	var e *out.Error
-	if !errors.As(err, &e) || e.Code != "STORE_IN_USE" {
-		t.Fatalf("want STORE_IN_USE, got %v", err)
-	}
-	for _, want := range []string{"job j1", "on web", "$HOME/.komando/jobs/j1"} {
-		if !strings.Contains(e.Message, want) {
-			t.Errorf("message %q lacks %q", e.Message, want)
-		}
-	}
-	if strings.Contains(e.Message+e.Hint, sentinel) {
-		t.Errorf("the refusal holds a secret value: %s %s", e.Message, e.Hint)
-	}
-	Close()
-	jobs, err := OldJobs(context.Background())
-	if err != nil || len(jobs) != 1 || jobs[0].ID != "j1" {
-		t.Fatalf("after the refusal: %+v %v (j1 must stay, j3 must be marked)", jobs, err)
-	}
-}
-
 // Only records with no end are marked; an ID the store does not hold, or
 // one that ended, is refused and nothing is written.
 func TestEndOldJobsUnknownID(t *testing.T) {
 	oldJobsHome(t)
-	dead := func(int, string) bool { return false }
 	for _, ids := range [][]string{{"j9"}, {"j2"}, {"j1", "j9"}} {
-		err := EndOldJobs(context.Background(), ids, dead)
+		err := EndOldJobs(context.Background(), ids)
 		var e *out.Error
 		if !errors.As(err, &e) || e.Code != "STORE_IN_USE" {
 			t.Fatalf("%v: want STORE_IN_USE, got %v", ids, err)

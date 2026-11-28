@@ -188,10 +188,7 @@ func TestDoctorOldJobs(t *testing.T) {
 			listed := false
 			oldJobs = func(context.Context) ([]store.OldJob, error) { listed = true; return jobs, nil }
 			var marked []string
-			endOldJobs = func(_ context.Context, ids []string, alive func(int, string) bool) error {
-				if alive == nil {
-					t.Error("marked with no alive check")
-				}
+			endOldJobs = func(_ context.Context, ids []string) error {
 				marked = ids
 				return nil
 			}
@@ -223,7 +220,8 @@ func TestDoctorOldJobs(t *testing.T) {
 				}
 				return
 			}
-			for _, want := range []string{"j1", "web", "pg_dump", "2026-11-20 09:30", "j3", "db", "sleep", "Mark all 2 ended? [y/N]"} {
+			for _, want := range []string{"j1", "web", "pg_dump", "2026-11-20 09:30", "j3", "db", "sleep", "Mark all 2 ended? [y/N]",
+				"komando cannot see whether one still runs on its server: look there first, by the server and the command below."} {
 				if !strings.Contains(e.String(), want) {
 					t.Errorf("the screen lacks %q:\n%s", want, e.String())
 				}

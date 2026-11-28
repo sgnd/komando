@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"maps"
 	"path"
 	"slices"
@@ -54,13 +52,10 @@ func OldJobs(ctx context.Context) ([]OldJob, error) {
 }
 
 // EndOldJobs marks each named record ended in the format-2 store, so the
-// move goes ahead. Each must be a record with no end. A record whose
-// process alive says still runs is not marked: the refusal names its
-// server and folder, and the others are marked.
-func EndOldJobs(ctx context.Context, ids []string, alive func(pid int, procStart string) bool) error {
-	if alive == nil {
-		return errors.New("store: no way to check for running processes was given")
-	}
+// move goes ahead. Each must be a record with no end. A job runs on its
+// server, which this computer cannot see: the person who marks it looked
+// there (doctor says so).
+func EndOldJobs(ctx context.Context, ids []string) error {
 	unlock, err := Lock(storeLock)
 	if err != nil {
 		return err
@@ -88,27 +83,10 @@ func EndOldJobs(ctx context.Context, ids []string, alive func(pid int, procStart
 				"no v0.17 job %s without an end in %s any more; nothing was marked", id, Path(StoreFile))
 		}
 	}
-	var still []string
-	marked := 0
 	for _, id := range ids {
-		j := s.Runtime.Jobs[id]
-		if alive(j.PID, "") {
-			still = append(still, fmt.Sprintf("job %s on %s, folder %s", id, j.Host, oldJobFolder(j)))
-			continue
-		}
-		j.Ended = jobMarked
-		marked++
+		s.Runtime.Jobs[id].Ended = jobMarked
 	}
-	if marked > 0 {
-		if err := s.saveRuntime(); err != nil {
-			return err
-		}
-	}
-	if len(still) > 0 {
-		return out.Errf(out.ExitConflict, "STORE_IN_USE", "let it end on its server, or stop it there, then run `komando doctor` again",
-			"still runs, so it was not marked ended: %s", strings.Join(still, "; "))
-	}
-	return nil
+	return s.saveRuntime()
 }
 
 // openRuntime2 opens the format-2 store and reads its runtime file.
@@ -162,3 +140,4 @@ func commandName(cmd string) string {
 	}
 	return ""
 }
+

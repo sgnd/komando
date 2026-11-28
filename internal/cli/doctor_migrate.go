@@ -148,14 +148,15 @@ func doctorOldJobs(cl *call, ctx context.Context) error {
 	if len(ids) == 0 {
 		return nil // the move then stops and names them
 	}
-	return endOldJobs(ctx, ids, c.Alive)
+	return endOldJobs(ctx, ids)
 }
 
 // oldJobsText lists the records: never the command's arguments, which may
 // hold secret values.
 func oldJobsText(jobs []store.OldJob) string {
 	var b strings.Builder
-	b.WriteString("v0.17 jobs komando has not seen end (this version cannot read or stop them; the move waits until each is marked ended):\n")
+	b.WriteString("v0.17 jobs komando has not seen end (this version cannot read or stop them; the move waits until each is marked ended).\n" +
+		"komando cannot see whether one still runs on its server: look there first, by the server and the command below.\n")
 	for _, j := range jobs {
 		started := "unknown"
 		if !j.Started.IsZero() {
