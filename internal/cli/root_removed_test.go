@@ -95,7 +95,7 @@ func TestRemovedGone(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			rel := filepath.ToSlash(strings.TrimPrefix(p, "../../"))
+			rel := removedRel(p)
 			if d.IsDir() {
 				if d.Name() == ".git" || d.Name() == "node_modules" || d.Name() == "fuzz" {
 					return filepath.SkipDir
@@ -123,6 +123,30 @@ func TestRemovedGone(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// removedRel is the repo-relative, slash-joined name of a walked path, the key
+// of removedGoneAllowed. Windows walks `..\..\dir\file`: the separators are
+// turned into slashes before the prefix is cut.
+func removedRel(p string) string {
+	return strings.TrimPrefix(strings.ReplaceAll(p, `\`, "/"), "../../")
+}
+
+// The skip list is keyed by slash paths; a Windows path must find the same key.
+func TestRemovedRelFindsAllowedFilesOnEveryOS(t *testing.T) {
+	for p, want := range map[string]string{
+		`..\..\internal\cli\root_removed_test.go`: "internal/cli/root_removed_test.go",
+		`..\..\CHANGELOG.md`:                      "CHANGELOG.md",
+		"../../internal/cli/root_removed.go":      "internal/cli/root_removed.go",
+	} {
+		got := removedRel(p)
+		if got != want || !removedGoneAllowed[got] {
+			t.Errorf("removedRel(%q) = %q (allowed %v), want %q allowed", p, got, removedGoneAllowed[got], want)
+		}
+	}
+	if removedRel(`..\..\docs\guide.md`) != "docs/guide.md" || removedGoneAllowed["docs/guide.md"] {
+		t.Errorf("a doc file must keep its key and stay out of the skip list")
 	}
 }
 
