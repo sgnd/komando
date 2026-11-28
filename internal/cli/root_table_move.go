@@ -82,12 +82,17 @@ func noCheck(v any) bool {
 // changes, so every provider of a type gets the same entries. Only then do
 // the old IDs lose theirs, so no table names a command that is gone; an ID
 // that a type not moved yet still names keeps them.
-func moveType(typ string) { moveLeaves(typ, capability.All()) }
+func moveType(typ string) { moveLeaves(typ, allLeaves) }
+
+// allLeaves is the table, copied once: capability.All copies it on every
+// call, and the start moves one type at a time (scripts/start-time.sh).
+// Read it, never change it; clipped, so an append copies it.
+var allLeaves = slices.Clip(capability.All())
 
 // moveTop is moveType for a top-level leaf (copy): what it carries leaves the tables.
 func moveTop(verb string) {
 	movedTop = append(movedTop, verb)
-	moveWhere("", capability.All(), func(l capability.Leaf) bool { return l.Type == "" && l.Verb == verb })
+	moveWhere("", allLeaves, func(l capability.Leaf) bool { return l.Type == "" && l.Verb == verb })
 }
 
 // leafMoved says whether l's type, or l itself when it is a top-level leaf, has moved.
@@ -118,9 +123,11 @@ func moveLeaves(typ string, leaves []capability.Leaf) {
 // moveWhere moves the built leaves pick selects.
 func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) bool) {
 	tables := idTables()
-	carried := map[string][]map[string]any{} // per new ID, per table, the entries it carries
+	// per new ID, per table, the entries it carries; nil when it carries none
+	carried := map[string][]map[string]any{}
 	var built []capability.Leaf
 	var order []int
+	var paths [][]string
 	stays := map[string]bool{}
 	carriedAway := carriedByMovedIn(leaves)
 	for n, l := range leaves {
@@ -128,21 +135,33 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 			continue
 		}
 		if !leafMoved(l) {
-			for _, id := range slices.Concat(l.Today, l.Carries) {
-				stays[id] = true
+			for _, ids := range [2][]string{l.Today, l.Carries} {
+				for _, id := range ids {
+					stays[id] = true
+				}
 			}
 		}
 		if !pick(l) {
 			continue
 		}
-		id := strings.Join(l.Key.Path(), ".")
+		words := l.Key.Path()
+		id := strings.Join(words, ".")
 		stays[id] = true
-		built, order = append(built, l), append(order, n)
-		got := make([]map[string]any, len(tables))
-		for i, tb := range tables {
-			got[i] = map[string]any{}
-			for _, old := range slices.Concat(l.Today, l.Carries) {
-				if v, ok := tb.get(old); ok {
+		built, order, paths = append(built, l), append(order, n), append(paths, words)
+		var got []map[string]any
+		for _, ids := range [2][]string{l.Today, l.Carries} {
+			for _, old := range ids {
+				for i, tb := range tables {
+					v, ok := tb.get(old)
+					if !ok {
+						continue
+					}
+					if got == nil {
+						got = make([]map[string]any, len(tables))
+					}
+					if got[i] == nil {
+						got[i] = map[string]any{}
+					}
 					got[i][old] = v
 				}
 			}
@@ -151,7 +170,7 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 	}
 	var gone []string
 	for k, l := range built {
-		words := l.Key.Path()
+		words := paths[k]
 		id := strings.Join(words, ".")
 		providerOrder[id] = order[k]
 		cmdKeys[id] = safetyKey{l.Type, l.Area, l.Verb}
@@ -167,6 +186,9 @@ func moveWhere(typ string, leaves []capability.Leaf, pick func(capability.Leaf) 
 			}
 		}
 		for i, tb := range tables {
+			if len(carried[id]) == 0 || len(carried[id][i]) == 0 {
+				continue
+			}
 			// the leaf's own commands of today first: their entry is the one a
 			// reason or a list keeps when the carried commands have others
 			var own, rest []string
@@ -219,7 +241,7 @@ var connVerbsUntilStepD = []string{"conn.add", "conn.edit", "conn.list", "conn.r
 
 // carriedByMoved says whether every built leaf that carries id is of a moved
 // type (hideCarried then takes the command out of the tree).
-func carriedByMoved(id string) bool { return carriedByMovedIn(capability.All())(id) }
+func carriedByMoved(id string) bool { return carriedByMovedIn(allLeaves)(id) }
 
 // carriedByMovedIn is carriedByMoved over leaves, read once: moveLeaves asks
 // for every carried ID of a type at start, so a scan for each ID would cost

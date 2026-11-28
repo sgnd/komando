@@ -273,7 +273,11 @@ Good to know:
   running session (`SESSION_BUSY`): stop it first.
 - A stopped run keeps its output up to the stop, and `--attach ID` says it
   was stopped and with which signal. `--signal KILL` gives the run no
-  ending: output the server still held can be lost.
+  ending: output the server still held can be lost. `--signal` takes TERM
+  or KILL: a run in a session ignores INT and QUIT (it runs in the
+  background) and HUP (nohup). A run that traps or ignores TERM and is
+  still running 5 seconds after the stop gives `SESSION_STILL_RUNNING`:
+  stop it with `--signal KILL`.
 - The session merges stdout and stderr into one output: a single-server
   `exec` result has no separate stderr.
 - `--sudo` uses the server's `--sudo-credential` password when it has one. The

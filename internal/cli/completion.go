@@ -188,9 +188,9 @@ func targetCompletions(toComplete string) []string {
 }
 
 func kindValues() []string {
-	seen := map[string]bool{"kind:host": true, "kind:conn": true, "kind:vpn": true}
+	seen := map[string]bool{"kind:host": true, "kind:vpn": true}
 	for _, k := range driver.Kinds() {
-		seen["kind:"+k.Name], seen["kind:"+k.Family] = true, true
+		seen["kind:"+k.Name], seen["kind:"+k.Family], seen["kind:"+typeWord(k.Family)] = true, true, true
 	}
 	for k := range netx.Kinds {
 		seen["kind:"+k] = true

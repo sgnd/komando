@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"cmp"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -65,6 +67,59 @@ func TestEntryCmd(t *testing.T) {
 	} {
 		if got := entryCmd(tc.words, tc.verb, tc.name); got != tc.want {
 			t.Errorf("entryCmd(%q, %q, %q) = %q, want %q", tc.words, tc.verb, tc.name, got, tc.want)
+		}
+	}
+}
+
+var sampleEntryHead = regexp.MustCompile(`^(TYPE|[a-z]+) (KIND|PROVIDER)\b`)
+
+// sampleProviders stand for an unfilled provider in the reference checks.
+var sampleProviders = map[string]string{"database": "postgres", "cache": "redis", "queue": "kafka",
+	"storage": "s3", "cluster": "kubernetes", "registry": "oci"}
+
+// sampleEntryPath writes an entry's path that a hint leaves for fillHint
+// (TYPE, and KIND or PROVIDER after a type) with a sample provider, so the
+// reference checks see a command: TYPE is a database.
+func sampleEntryPath(ref string) string {
+	m := sampleEntryHead.FindStringSubmatch(ref)
+	if m == nil {
+		return ref
+	}
+	typ := cmp.Or(strings.TrimPrefix(m[1], "TYPE"), "database")
+	if p, ok := sampleProviders[typ]; ok {
+		return typ + " " + p + ref[len(m[0]):]
+	}
+	return ref // a VPN's KIND is its own Use word
+}
+
+// Every conn type has a sample provider, and it is one of the type's.
+func TestSampleProvidersAreProviders(t *testing.T) {
+	types := map[string]bool{}
+	for _, k := range driver.Kinds() {
+		w := entryWordsOfKind(k)
+		types[w[0]] = true
+		if p := sampleProviders[w[0]]; p == "" {
+			t.Errorf("type %s has no sample provider", w[0])
+		}
+	}
+	for typ, p := range sampleProviders {
+		if !types[typ] || !slices.ContainsFunc(driver.Kinds(), func(k driver.Kind) bool { return slices.Equal(entryWordsOfKind(k), []string{typ, p}) }) {
+			t.Errorf("sample %s %s is no provider of a conn type", typ, p)
+		}
+	}
+}
+
+func TestSampleEntryPath(t *testing.T) {
+	for ref, want := range map[string]string{
+		"database KIND query NAME":         "database postgres query NAME",
+		"TYPE PROVIDER show NAME":          "database postgres show NAME",
+		"cache PROVIDER edit NAME --url U": "cache redis edit NAME --url U",
+		"vpn KIND start NAME":              "vpn KIND start NAME",
+		"test NAME":                        "test NAME",
+		"database PROVIDERS":               "database PROVIDERS",
+	} {
+		if got := sampleEntryPath(ref); got != want {
+			t.Errorf("sampleEntryPath(%q) = %q, want %q", ref, got, want)
 		}
 	}
 }

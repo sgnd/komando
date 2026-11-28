@@ -22761,6 +22761,12 @@
         "hint": "the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo`"
       },
       {
+        "code": "SESSION_STILL_RUNNING",
+        "exit": 8,
+        "example": "session … on …: the signal was sent, and the run still runs",
+        "hint": "the run traps or ignores TERM; stop it hard with `komando host ssh exec TARGET --attach ID --stop --signal KILL`"
+      },
+      {
         "code": "SESSION_STOP_FAILED",
         "exit": 5,
         "example": "…: session … was not stopped (exit …): …",

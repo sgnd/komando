@@ -640,7 +640,7 @@ func init() {
 	providers := []string{"postgres", "mysql", "sqlserver", "oracle", "sqlite", "mongodb", "clickhouse", "snowflake", "bigquery"}
 	inventoryHandlers("database", providers...)
 	backups := map[string]bool{}
-	for _, l := range capability.All() { // one pass: a provider has only the verbs the table builds
+	for _, l := range allLeaves { // one pass: a provider has only the verbs the table builds
 		if l.Type == "database" && l.Verb == "backup" && l.State == capability.Built {
 			backups[l.Provider] = true
 		}
