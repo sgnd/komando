@@ -74,3 +74,14 @@ func secretValueInArgs(id, path string, args []string) error {
 	}
 	return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `"+path+" "+args[0]+"` and type it (hidden), or pipe it in (stdin)", why)
 }
+
+// hideBeforeStart is the pre-run's hiding for an error that comes before it
+// (an argument or flag error, a typo under a group), whose answer may repeat
+// what was typed: the stored values for all, and the mask for an AI agent.
+func hideBeforeStart(cl *call, cmd *cobra.Command) {
+	if cmd != nil && leavesHomeNow(cmd) {
+		return // its output holds no secrets, and the vault is in ~/.komando
+	}
+	cl.out.SetSecrets(vaultValues)
+	cl.out.Mask = cl.io.Caller().IsAgent()
+}

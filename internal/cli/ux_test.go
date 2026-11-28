@@ -108,3 +108,32 @@ func TestCountWords(t *testing.T) {
 		}
 	}
 }
+
+// A typo under a group fails before the pre-run sets the stored secrets
+// and the agent mask (audit A1): its answer repeats no word after -- and
+// hides a stored value, for a person and for an AI agent.
+func TestGroupTypoAnswerHidesSecrets(t *testing.T) {
+	for _, who := range []string{"person", "agent"} {
+		t.Run(who, func(t *testing.T) {
+			invHome(t)
+			t.Setenv("PW", "Zq7-vault-value-91")
+			mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
+			if who == "agent" {
+				setCallerEnv(t, "CLAUDECODE", "1")
+			}
+			var code int
+			got := captureOutput(t, func() error {
+				code = executeArgs([]string{"host", "ssh", "exce", "web1", "Zq7-vault-value-91", "--", "mysql", "-pAfter-dash-91"})
+				return nil
+			})
+			if code != 2 || !strings.Contains(got, "did you mean exec") {
+				t.Fatalf("exit %d:\n%s", code, got)
+			}
+			for _, v := range []string{"Zq7-vault-value-91", "After-dash-91"} {
+				if strings.Contains(got, v) {
+					t.Errorf("the typo's answer shows %q:\n%s", v, got)
+				}
+			}
+		})
+	}
+}

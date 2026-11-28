@@ -165,6 +165,9 @@ func execute(cl *call, ctx context.Context, args []string) int {
 	if cmd != nil && streamsToStdout(cl, cmd) {
 		cl.out.W = cl.out.Stderr() // stdout is the file's: what komando says goes to stderr
 	}
+	if !cl.preRan {
+		hideBeforeStart(cl, cmd)
+	}
 	return cl.out.Fail(name, err)
 }
 
@@ -491,7 +494,7 @@ func newRootFor(cl *call, line []string) *cobra.Command {
 func treeOf(cl *call) *cobra.Command {
 	cl.out.Reset()
 	cl.flags = globalFlags{} // the flags below bind to it with their defaults
-	cl.askedAbout, cl.blockAudited, cl.interrupted = nil, false, false
+	cl.askedAbout, cl.blockAudited, cl.interrupted, cl.preRan = nil, false, false, false
 	cl.personalCmd, cl.fsSudoRetry = false, "retry with --sudo"
 	root := &cobra.Command{
 		Use:           "komando",
@@ -502,6 +505,7 @@ func treeOf(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			cl.preRan = true
 			dropHelpCommand(cmd) // for the shell's completion request
 			if err := notPrepared(cmd); err != nil {
 				return err

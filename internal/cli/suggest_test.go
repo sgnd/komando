@@ -50,13 +50,14 @@ func TestUnknownCommandWords(t *testing.T) {
 }
 
 // TestSwappedLine: the suggested word replaces the wrong one, also inside
-// a list or after =, never after --.
+// a list or after =, never after --; the words after -- are not repeated
+// (they may hold a password: audit A1).
 func TestSwappedLine(t *testing.T) {
 	for _, c := range []struct {
 		args        []string
 		wrong, want string
 	}{
-		{[]string{"host", "ssh", "exce", "web1", "--", "uptime"}, "exce", "komando host ssh exec web1 -- uptime"},
+		{[]string{"host", "ssh", "exce", "web1", "--", "mysql", "-pS3cret"}, "exce", "komando host ssh exec web1 -- …"},
 		{[]string{"host", "ssh", "exec", "web1", "--via", "bast,wbe1"}, "wbe1", "komando host ssh exec web1 --via bast,web1"},
 		{[]string{"host", "ssh", "exec", "--limt=5", "web1"}, "--limt", "komando host ssh exec --limit=5 web1"},
 	} {

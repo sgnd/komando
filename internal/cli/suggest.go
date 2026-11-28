@@ -75,6 +75,10 @@ func swappedLine(args []string, wrong, right string) (string, bool) {
 	if !found {
 		return "", false
 	}
+	// the remote command's words may hold a password: the line ends at --
+	if i := slices.Index(w, "--"); i >= 0 {
+		w = append(w[:i:i], "--", "…")
+	}
 	return commandLineOf(w), true
 }
 
