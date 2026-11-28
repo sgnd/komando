@@ -18357,8 +18357,10 @@ exit 0
 komando storage s3 object link kind=change confirm=[{"tier":"change"},{"flag":"--yes","tier":"safety","when":"when an AI agent makes a link (a person allows --reveal)"}]
   --endpoint type=string
   --expires type=duration default=1h
-### komando schema cluster kubernetes host ssh tunnel start (schema values)
-exit 3
+### komando schema cluster kubernetes tunnel start (schema values)
+exit 0
+komando cluster kubernetes tunnel start kind=change confirm=[{"tier":"change"}]
+  --namespace shorthand=n type=string
 ### komando schema host ssh add (schema values)
 exit 0
 komando host ssh add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"},{"flag":"--yes","tier":"safety","when":"with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"}]

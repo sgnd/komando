@@ -77,6 +77,9 @@ func TestAgentGolden(t *testing.T) {
 	// help text, which the cases above already pin
 	for _, path := range goldenSchema {
 		stdout, _, code := goldenRun(t, false, append([]string{"-o", "json", "schema"}, path...))
+		if code != 0 { // a renamed command would pin its error, not its values
+			t.Errorf("komando schema %s: exit %d, want a command of the tree", strings.Join(path, " "), code)
+		}
 		fmt.Fprintf(&b, "### komando schema %s (schema values)\nexit %d\n%s", strings.Join(path, " "), code, schemaValues(t, stdout))
 	}
 	got := b.String()
@@ -188,7 +191,7 @@ var goldenGateKeys = []string{
 // goldenSchema are commands whose schema values the release notes list
 // (changes.md 11a), one or more per row.
 var goldenSchema = [][]string{
-	{"storage", "s3", "object", "link"}, {"cluster", "kubernetes", "host", "ssh", "tunnel", "start"}, // C-C08: kind read -> change
+	{"storage", "s3", "object", "link"}, {"cluster", "kubernetes", "tunnel", "start"}, // C-C08: kind read -> change
 	{"host", "ssh", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
 	{"cache", "set"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01
