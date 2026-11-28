@@ -25,8 +25,7 @@ func inventoryHints(typ, provider, noun, group, kindLabel string) map[string]for
 	fam := familyOfType(typ)
 	pick := formArg{ask: "Which " + noun + "?", pick: fam, help: "A " + noun + " from your list. Add one first: komando " + typ + " " + provider + " add."}
 	cmd := typ + " " + provider + " "
-	edit := invConnHints["conn edit"]
-	edit.hide = nil // the table has no -g and -t on edit: only --add-group and --add-tag
+	edit := invEntryEdit
 	edit.args = []formArg{pick}
 	return map[string]formHint{
 		typ + " " + provider: {},

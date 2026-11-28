@@ -2,19 +2,17 @@ package cli
 
 import (
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/sgnd/komando/internal/inventory"
 	"github.com/sgnd/komando/internal/store"
 )
 
 // The Add forms for SQL Server, Oracle, ClickHouse, Snowflake and BigQuery.
 // Like the PostgreSQL form they build a conn URL from plain answers; a
 // password or a token is never typed here (--ask-password asks it hidden
-// when the command runs), and a key stays in its file (--password-ref
-// file:PATH).
+// when the command runs), and a key is saved first and named (--credential
+// NAME).
 
 var (
 	dbOracleNameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.$#-]{0,127}$`)
@@ -200,22 +198,15 @@ func snowflakeForm(_ *call) formSpec {
 			check: func(_ *store.State, _ formAnswers, v string) string { return snowflakeUserProblem(v) }},
 		{key: "login", label: "Login", ask: "How does this user log in?",
 			help: "Snowflake takes no passwords here: a key pair or a programmatic access token. Browser sign-in (SSO) does not work.",
-			def:  func(*store.State, formAnswers) string { return "keyfile" },
+			def:  func(*store.State, formAnswers) string { return "secret" },
 			choices: func(*store.State, formAnswers) []pickRow {
-				rows := []pickRow{
-					{label: "A private key file", detail: "key-pair login; Snowflake knows its public half (RSA_PUBLIC_KEY)", value: "keyfile"},
+				return []pickRow{
+					{label: "A private key I saved in komando", detail: "key-pair login; Snowflake knows its public half (RSA_PUBLIC_KEY)", value: "secret"},
 					{label: "A programmatic access token", detail: "you paste it next, hidden; komando keeps it as a saved password", value: "token"},
 				}
-				if len(secretNames()) > 0 {
-					rows = append(rows, pickRow{label: "A key or token I saved in komando before", detail: "pick it from your saved passwords", value: "secret"})
-				}
-				return rows
 			}},
-		formWhen(formQ{key: "keyfile", label: "Key file", ask: "Where is the private key file?", example: "~/keys/rsa_key.p8",
-			help:  "A .p8 or .pem file without a passphrase. komando reads it each time, so leave it where it is.",
-			check: func(_ *store.State, _ formAnswers, v string) string { return snowflakeKeyProblem(v) }}, login("keyfile")),
 		formWhen(formQ{key: "secret", label: "Saved key", ask: "Which saved secret holds the key or the token?", free: true,
-			help:    "A name from komando credential list, or credential:NAME.",
+			help:    "A name from komando credential list. Save a key file first: komando credential token add NAME < rsa_key.p8 (a .p8 or .pem file without a passphrase).",
 			choices: cacheSecretRows, check: cacheSecretProblem}, login("secret")),
 		{key: "warehouse", label: "Warehouse", ask: "Which warehouse runs the queries?", optional: true, example: "REPORTING",
 			help: "Most queries need one. Empty is fine for a first test.", check: dbNameProblem},
@@ -249,29 +240,6 @@ func snowflakeUserProblem(v string) string {
 	return ""
 }
 
-// snowflakeKeyProblem checks that a file is a private key without a
-// passphrase, reading only its first line.
-func snowflakeKeyProblem(v string) string {
-	if strings.HasSuffix(v, ".pub") {
-		return "that is the public half (.pub); give the private key file"
-	}
-	if p := formFileProblem(v); p != "" {
-		return p
-	}
-	b, err := os.ReadFile(inventory.ExpandHome(v))
-	if err != nil {
-		return "komando cannot read this file; check that it is yours"
-	}
-	first, _, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
-	switch {
-	case strings.Contains(first, "ENCRYPTED"):
-		return "this key has a passphrase; save one without: openssl pkcs8 -topk8 -nocrypt -in KEY -out rsa_key.p8"
-	case !strings.Contains(first, "PRIVATE KEY"):
-		return "this is not a private key in PEM form (-----BEGIN PRIVATE KEY-----)"
-	}
-	return ""
-}
-
 func snowflakeBuild(_ *store.State, a formAnswers) [][]string {
 	u := url.URL{Scheme: "snowflake", User: url.User(a["user"]), Host: a["account"]}
 	if a["database"] != "" {
@@ -282,11 +250,8 @@ func snowflakeBuild(_ *store.State, a formAnswers) [][]string {
 	}
 	u.RawQuery = storeQuery("warehouse", a["warehouse"], "role", a["role"])
 	cmds := formConnBuild(a, u.String(), a["login"] == "token")
-	switch a["login"] {
-	case "keyfile":
-		cmds[0] = append(cmds[0], "--password-ref", "file:"+formAbs(a["keyfile"]))
-	case "secret":
-		cmds[0] = append(cmds[0], "--password-ref", formSecretRef(a["secret"]))
+	if a["login"] == "secret" {
+		cmds[0] = append(cmds[0], formCredentialFlag(a["secret"])...)
 	}
 	return cmds
 }
@@ -316,7 +281,7 @@ func bigqueryForm(_ *call) formSpec {
 				return ""
 			}},
 		gcpLoginQ(),
-		gcpKeyFileQ(),
+		gcpKeyQ(),
 		formProtectQ("database"),
 		storeViaQ("database"),
 		formGroupQ(), formNotesQ(),
@@ -349,22 +314,24 @@ func gcpLoginQ() formQ {
 		choices: func(*store.State, formAnswers) []pickRow {
 			return []pickRow{
 				{label: "Like gcloud on this computer", detail: "after gcloud auth application-default login", value: "gcloud"},
-				{label: "With a service account key file", detail: "the JSON file from IAM, Service accounts, Keys", value: "keyfile"},
+				{label: "With a service account key", detail: "the JSON file from IAM, Service accounts, Keys, saved in komando", value: "keyfile"},
 			}
 		}}
 }
 
-func gcpKeyFileQ() formQ {
-	return formWhen(formQ{key: "keyfile", label: "Key file", ask: "Where is the key file?", example: "~/keys/komando-sa.json",
-		help:  "The JSON file from IAM, Service accounts, Keys. komando reads it each time, so leave it where it is.",
-		check: func(_ *store.State, _ formAnswers, v string) string { return gcsKeyProblem(v) }},
+// gcpKeyQ asks which saved secret holds a service account key; the JSON
+// file is saved first (komando credential token add NAME < FILE).
+func gcpKeyQ() formQ {
+	return formWhen(formQ{key: "secret", label: "Saved key", ask: "Which saved secret holds the key?", free: true,
+		help:    "A name from komando credential list. Save the JSON file first: komando credential token add NAME < KEY.json",
+		choices: cacheSecretRows, check: cacheSecretProblem},
 		func(a formAnswers) bool { return a["login"] == "keyfile" })
 }
 
-// gcpKeyBuild adds the key file to conn add when one was picked.
+// gcpKeyBuild adds the saved key to the add when one was picked.
 func gcpKeyBuild(a formAnswers, cmds [][]string) [][]string {
 	if a["login"] == "keyfile" {
-		cmds[0] = append(cmds[0], "--password-ref", "file:"+formAbs(a["keyfile"]))
+		cmds[0] = append(cmds[0], formCredentialFlag(a["secret"])...)
 	}
 	return cmds
 }

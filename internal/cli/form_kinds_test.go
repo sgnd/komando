@@ -1,8 +1,7 @@
 package cli
 
 import (
-	"os"
-	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -25,13 +24,20 @@ func formCheckLine(t *testing.T, source string, line []string) {
 		return
 	}
 	switch commandKey(cmd) {
-	case "conn add":
-		if _, err := driver.Parse(cmd.Flags().Arg(1)); err != nil {
-			t.Errorf("%s: URL %q: %v", source, cmd.Flags().Arg(1), err)
-		}
 	case "host ssh add", "host winrm add":
 		if _, err := parseAddressArg(cmd.Flags().Arg(1)); err != nil {
 			t.Errorf("%s: address %q: %v", source, cmd.Flags().Arg(1), err)
+		}
+	default:
+		words := strings.Fields(commandKey(cmd))
+		if len(words) == 3 && words[2] == "add" && slices.Contains(connTypes, words[0]) {
+			url := cmd.Flags().Arg(1)
+			if _, err := driver.Parse(url); err != nil {
+				t.Errorf("%s: URL %q: %v", source, url, err)
+			}
+			if w := entryWordsOfURL(url); !slices.Equal(w, words[:2]) {
+				t.Errorf("%s: `komando %s` adds %q, which belongs to %v", source, pickCommandLine(line), url, w)
+			}
 		}
 	}
 }
@@ -90,10 +96,8 @@ func formKindSpec(t *testing.T, group, label string) formSpec {
 // The Windows, registry, database, queue and SMB kinds build the lines their
 // docs show, from plain answers.
 func TestFormKindLines(t *testing.T) {
-	key := filepath.Join(t.TempDir(), "rsa_key.p8")
-	if err := os.WriteFile(key, []byte("-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	invHome(t)
+	saveSecrets(t, "snowflake-key")
 	st := &store.State{Hosts: map[string]*store.Host{"web1": {Name: "web1"}}}
 	cases := []struct {
 		group, kind string
@@ -111,53 +115,53 @@ func TestFormKindLines(t *testing.T) {
 			"host winrm add win3 winrm://Administrator@win3.lan?tls=off --ask-password"},
 		{"Databases", "SQL Server", formAnswers{"name": "sales", "host": "db.internal", "port": "1433", "user": "app",
 			"database": "sales", "protected": "no", "tls": "nocheck"},
-			"conn add sales sqlserver://app@db.internal/sales?encrypt=true&tls=skip-verify --ask-password"},
+			"database sqlserver add sales sqlserver://app@db.internal/sales?encrypt=true&tls=skip-verify --ask-password"},
 		{"Databases", "Oracle Database", formAnswers{"name": "erp", "host": "db.internal", "port": "1521", "by": "service",
 			"service": "ERPPDB", "user": "app", "protected": "no"},
-			"conn add erp oracle://app@db.internal/ERPPDB --ask-password"},
+			"database oracle add erp oracle://app@db.internal/ERPPDB --ask-password"},
 		{"Databases", "Oracle Database", formAnswers{"name": "old", "host": "db", "port": "1521", "by": "sid",
 			"sid": "ORCL", "user": "app", "protected": "no"},
-			"conn add old oracle://app@db?sid=ORCL --ask-password"},
+			"database oracle add old oracle://app@db?sid=ORCL --ask-password"},
 		{"Databases", "ClickHouse", formAnswers{"name": "events", "via": "web1", "host": "127.0.0.1", "tls": "false", "port": "8123",
 			"user": "default", "database": "analytics", "password": "yes", "protected": "no"},
-			"conn add events clickhouse://default@127.0.0.1:8123/analytics?tls=false --ask-password --via web1"},
+			"database clickhouse add events clickhouse://default@127.0.0.1:8123/analytics?tls=false --ask-password --via web1"},
 		{"Databases", "ClickHouse", formAnswers{"name": "events2", "host": "10.0.0.5", "tls": "false", "port": "8123",
 			"user": "default", "database": "analytics", "password": "each", "protected": "no"},
-			"conn add events2 clickhouse://default@10.0.0.5:8123/analytics?tls=false --login ask"},
-		{"Databases", "Snowflake", formAnswers{"name": "analytics", "account": "myorg-myaccount", "user": "APP_RO", "login": "keyfile",
-			"keyfile": key, "warehouse": "REPORTING", "database": "ANALYTICS", "schema": "PUBLIC", "role": "ANALYST_RO", "protected": "no"},
-			"conn add analytics snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO --password-ref file:" + key},
+			"database clickhouse add events2 clickhouse://default@10.0.0.5:8123/analytics?tls=false --login ask"},
+		{"Databases", "Snowflake", formAnswers{"name": "analytics", "account": "myorg-myaccount", "user": "APP_RO", "login": "secret",
+			"secret": "snowflake-key", "warehouse": "REPORTING", "database": "ANALYTICS", "schema": "PUBLIC", "role": "ANALYST_RO", "protected": "no"},
+			"database snowflake add analytics snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO --credential snowflake-key"},
 		{"Databases", "Google BigQuery", formAnswers{"name": "warehouse", "project": "my-project", "dataset": "analytics",
 			"location": "EU", "login": "gcloud", "protected": "no"},
-			"conn add warehouse bigquery://my-project/analytics?location=EU"},
+			"database bigquery add warehouse bigquery://my-project/analytics?location=EU"},
 		{"Queues", "Apache Kafka", formAnswers{"name": "events", "servers": "b1.example.com:9093, b2.example.com:9093",
 			"tls": "yes", "login": "sasl", "user": "app", "sasl": "scram-sha-512", "password": "ask", "protected": "no"},
-			"conn add events kafka://app@b1.example.com:9093,b2.example.com:9093?sasl=scram-sha-512&tls=true --ask-password"},
+			"queue kafka add events kafka://app@b1.example.com:9093,b2.example.com:9093?sasl=scram-sha-512&tls=true --ask-password"},
 		{"Queues", "Apache Kafka", formAnswers{"name": "local", "via": "web1", "servers": "broker1.internal:9092",
 			"tlsvia": "no", "login": "none", "protected": "no"},
-			"conn add local kafka://broker1.internal:9092 --via web1"},
+			"queue kafka add local kafka://broker1.internal:9092 --via web1"},
 		{"Queues", "RabbitMQ", formAnswers{"name": "jobs", "host": "rabbit.example.com", "tls": "yes", "port": "5671",
 			"vhost": "/", "user": "app", "password": "ask", "management": "15671", "protected": "no"},
-			"conn add jobs amqps://app@rabbit.example.com/%2F?management=15671 --ask-password"},
+			"queue rabbitmq add jobs amqps://app@rabbit.example.com/%2F?management=15671 --ask-password"},
 		{"Queues", "NATS JetStream", formAnswers{"name": "stream", "servers": "nats1.example.com:4222,nats2.example.com:4222",
 			"tls": "yes", "login": "user", "user": "app", "password": "ask", "protected": "no"},
-			"conn add stream tls://app@nats1.example.com:4222,nats2.example.com:4222 --ask-password"},
+			"queue nats add stream tls://app@nats1.example.com:4222,nats2.example.com:4222 --ask-password"},
 		{"Queues", "NATS JetStream", formAnswers{"name": "lab", "servers": "nats.lab", "tls": "no", "login": "token",
 			"password": "ask", "protected": "no"},
-			"conn add lab nats://nats.lab?insecure=1 --ask-password"},
+			"queue nats add lab nats://nats.lab?insecure=1 --ask-password"},
 		{"Queues", "Amazon SQS", formAnswers{"name": "sqs", "region": "eu-west-1", "login": "profile", "profile": "prod", "protected": "no"},
-			"conn add sqs sqs://eu-west-1 --option aws_profile=prod"},
+			"queue sqs add sqs sqs://eu-west-1 --option aws_profile=prod"},
 		{"Queues", "Amazon SQS", formAnswers{"name": "aws3", "region": "eu-west-1", "login": "key", "keyid": "AKIAIOSFODNN7EXAMPLE", "protected": "no"},
-			"conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --ask-password"},
+			"queue sqs add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --ask-password"},
 		{"Queues", "Google Cloud Pub/Sub", formAnswers{"name": "pubsub", "project": "my-project", "login": "gcloud", "protected": "no"},
-			"conn add pubsub pubsub://my-project"},
+			"queue pubsub add pubsub pubsub://my-project"},
 		{"File storage", "Windows share (SMB)", formAnswers{"name": "team", "host": "fileserver.corp.lan", "share": "team",
 			"folder": "reports", "user": "alice", "domain": "CORP", "protected": "no", "port": "445"},
-			"conn add team smb://alice@fileserver.corp.lan/team/reports?domain=CORP --ask-password"},
+			"storage smb add team smb://alice@fileserver.corp.lan/team/reports?domain=CORP --ask-password"},
 		{"Images (registries)", "Azure Container Registry", formAnswers{"name": "acr", "host": "myregistry.azurecr.io", "protected": "no"},
-			"conn add acr registry://myregistry.azurecr.io"},
+			"registry oci add acr registry://myregistry.azurecr.io"},
 		{"Images (registries)", "Google Artifact Registry", formAnswers{"name": "gar", "host": "europe-west1-docker.pkg.dev", "protected": "no"},
-			"conn add gar registry://europe-west1-docker.pkg.dev"},
+			"registry oci add gar registry://europe-west1-docker.pkg.dev"},
 	}
 	for _, c := range cases {
 		sp := formKindSpec(t, c.group, c.kind)
@@ -235,15 +239,6 @@ func TestFormServerOrder(t *testing.T) {
 			if q.visible(nil, formAnswers{"os": "linux"}) {
 				t.Error("the Windows connection question shows for Linux")
 			}
-		}
-	}
-}
-
-// Every family add (db add, cache add ...) opens one Add group.
-func TestFormFamilyAddGroups(t *testing.T) {
-	for cmd, label := range formFamilyAdd {
-		if gs := formGroupNamed(tcl, label); len(gs) != 1 || len(gs[0].kinds) == 0 {
-			t.Errorf("%s: no Add group %q", cmd, label)
 		}
 	}
 }

@@ -126,7 +126,7 @@ func goldenCases(t *testing.T) [][]string {
 				continue
 			}
 			path := strings.Fields(commandKey(s))
-			if slices.Contains([]string{"host add", "conn add"}, commandKey(s)) || isVpnAdd(commandKey(s)) || formFamilyAdd[commandKey(s)] != "" {
+			if slices.Contains([]string{"host add", "conn add"}, commandKey(s)) || isVpnAdd(commandKey(s)) {
 				cases = append(cases, path)
 				continue
 			}
@@ -330,4 +330,10 @@ func TestAgentGoldenPTY(t *testing.T) {
 			t.Errorf("%v: exit %d, want %d and %q; the screen:\n%s", args, got, code, msg, p.shown())
 		}
 	}
+}
+
+// isVpnAdd: the key of vpn KIND add.
+func isVpnAdd(key string) bool {
+	w := strings.Fields(key)
+	return len(w) == 3 && w[0] == "vpn" && w[2] == "add"
 }

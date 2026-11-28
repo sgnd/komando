@@ -151,7 +151,7 @@ func queueBuild(a formAnswers, rawURL string, q url.Values, login bool) [][]stri
 	}
 	cmds := formConnBuild(a, rawURL, login && a["password"] == "ask")
 	if login && a["password"] == "secret" && a["secret"] != "" {
-		cmds[0] = append(cmds[0], "--password-ref", formSecretRef(a["secret"]))
+		cmds[0] = append(cmds[0], formCredentialFlag(a["secret"])...)
 	}
 	return cmds
 }
@@ -413,7 +413,7 @@ func pubsubForm(_ *call) formSpec {
 			help:  "The project ID (not its name), from the project picker in the Google Cloud console.",
 			check: func(_ *store.State, _ formAnswers, v string) string { return gcpProjectProblem(v) }},
 		gcpLoginQ(),
-		gcpKeyFileQ(),
+		gcpKeyQ(),
 		formProtectQ("project"),
 		queueEndpointQ("http://localhost:8085", "Only for the emulator, a regional or a private endpoint. Empty uses Google Cloud."),
 		storeViaQ("project"),

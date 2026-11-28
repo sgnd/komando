@@ -334,8 +334,8 @@ func cacheBuild(a formAnswers, u *url.URL, q url.Values) [][]string {
 	u.RawQuery = strings.NewReplacer("%3A", ":", "%2C", ",").Replace(q.Encode())
 	cmds := formConnBuild(a, u.String(), a["password"] == "ask")
 	if a["password"] == "secret" && a["secret"] != "" {
-		add := cmds[0][:4:4]
-		cmds[0] = append(append(add, "--password-ref", cacheRef(a["secret"])), cmds[0][4:]...)
+		add := cmds[0][:5:5]
+		cmds[0] = append(append(add, formCredentialFlag(cacheRef(a["secret"]))...), cmds[0][5:]...)
 	}
 	return cmds
 }

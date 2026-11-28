@@ -119,7 +119,7 @@ func kubeconfigBuild(st *store.State, a formAnswers) [][]string {
 		}
 		sure++
 		if a["protected"] == "yes" {
-			cmds = append(cmds, []string{"conn", "edit", n, "--protected"})
+			cmds = append(cmds, []string{"cluster", "kubernetes", "edit", n, "--protected"})
 		}
 	}
 	target := "kind:k8s"
