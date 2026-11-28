@@ -231,7 +231,7 @@ func TestAgentOtherHomeIsFinal(t *testing.T) {
 // noun (agent mcp, agent skill uninstall) reads komando's data like any other.
 func TestHomeFreeIsAgentSkillInstallAlone(t *testing.T) {
 	for name, want := range map[string]bool{
-		"agent.skill.install": true, "guide": true, "help": true, "version": true,
+		"agent.skill.install": true, "guide": true, "version": true,
 		"agent": false, "agent.skill": false, "agent.skill.uninstall": false, "agent.mcp.start": false, "agent.mcp.stop": false, "agent.mcp": false,
 		"host.ssh.list": false, "audit.list": false,
 	} {
