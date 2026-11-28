@@ -216,7 +216,7 @@ func TestStopExit(t *testing.T) {
 		inMessage string
 	}{
 		{ExitNotRunning, "SESSION_PROCESS_MISSING", out.ExitNotFound, "is not running"},
-		{ExitStillRunning, "SESSION_STILL_RUNNING", out.ExitConflict, "the run still runs"},
+		{ExitStillRunning, "SESSION_STILL_BUSY", out.ExitConflict, "the run still runs"},
 		{1, "SESSION_STOP_FAILED", out.ExitRemote, "sudo: a password is required"},
 	} {
 		err := StopExit("web", testID, tt.exit, "sudo: a password is required\n")
