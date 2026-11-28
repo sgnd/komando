@@ -652,7 +652,10 @@ func treeLines(cl *call, args []string, globs []bool, vars lineVars, home, cwd s
 func unknownShapes(cl *call, a string, glob bool, vars lineVars, home, cwd string) []string {
 	names := []string{a}
 	if glob && strings.Contains(a, "{") {
-		names, _ = expandBraces(a)
+		var whole bool
+		if names, whole = expandBraces(a); !whole {
+			return []string{unknownOutput} // a name past the limit goes unread
+		}
 	}
 	var out []string
 	for _, n := range names {

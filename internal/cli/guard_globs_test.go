@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -128,6 +129,10 @@ func TestGuardBraceListPastTheLimitIsRefused(t *testing.T) {
 		"touch " + strings.Repeat("{a,b}", 6) + ".txt",
 		"touch {x}{a,b}.txt",
 	}, false)
+	// the folder rule's shapes refuse such a word themselves, not only treeLines
+	if got := unknownShapes(tcl, many("$d"), true, lineVars{}, home, home); !slices.Equal(got, []string{unknownOutput}) {
+		t.Errorf("unknownShapes of a list past the limit: got %q, want the unknown shape alone", got)
+	}
 }
 
 // A << inside ${...}, $[...] or $'...' starts no here-document, in bash or
