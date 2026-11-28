@@ -318,11 +318,11 @@ func gateZone(zone string) (gateIface, bool) {
 
 // gateOwnIP: ip is an address of one of this computer's network
 // interfaces (its LAN address, its own 169.254 or fe80 address), so a
-// server at it is this computer.
+// server at it is this computer. Without the list, any address may be.
 func gateOwnIP(ip net.IP) bool {
 	ifs, err := gateInterfaces()
 	if err != nil {
-		return false
+		return true
 	}
 	return slices.ContainsFunc(ifs, func(i gateIface) bool { return i.holds(ip) })
 }

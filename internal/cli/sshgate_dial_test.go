@@ -261,6 +261,24 @@ func TestGateDialRefusesHere(t *testing.T) {
 	}
 }
 
+// When this computer cannot list its own addresses, the gate cannot tell
+// any address from its own: it refuses them all.
+func TestGateDialRefusesWithoutOwnAddresses(t *testing.T) {
+	saved := gateInterfaces
+	t.Cleanup(func() { gateInterfaces = saved })
+	gateInterfaces = func() ([]gateIface, error) { return nil, errors.New("route socket: permission denied") }
+	gateStubDNS(t, map[string][][]net.IP{"web.example": {ips("203.0.113.5")}})
+	for _, addr := range []string{"web.example:22", "203.0.113.9:22", "[2001:db8::9]:22", "[fe80::1%en0]:22"} {
+		if h, _, _ := net.SplitHostPort(addr); !gateHereOrUnknown(h) {
+			t.Errorf("%s: the gate check allows it", h)
+		}
+		d := &gateDialStub{}
+		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err == nil || len(d.asked) != 0 {
+			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)
+		}
+	}
+}
+
 // The dial judges its own lookup, not the gate check's: a name that
 // answered public to the check and answers loopback to the dial is
 // refused at the dial (it never connects to the check's answer). A public
