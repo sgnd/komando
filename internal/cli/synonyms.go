@@ -44,7 +44,7 @@ var nounAliases = map[string][]string{
 	"group": {"groups"}, "secret": {"secrets"}, "snippet": {"snippets"},
 	"policy": {"policies"}, "fs": {"files"},
 	"pkg": {"package", "packages"}, "docker": {"container", "containers"},
-	"cert": {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"},
+	"db": {"dbs"}, "database": {"databases"}, "cache": {"caches"},
 	"queue": {"queues"}, "cluster": {"clusters"}, "registry": {"registries"},
 }
 

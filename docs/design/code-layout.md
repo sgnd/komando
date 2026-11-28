@@ -188,6 +188,7 @@ a reason; `internal/layout` reads this table.
 | `flag` | the shared flag types, flag synonyms and help for a mistyped flag |
 | `form` | the questions a typed command asks for what is missing |
 | `guard` | the safety checks before a change: protected targets, safety settings, agent hooks, deletes |
+| `help` | what `komando COMMAND --help` prints: the examples, the standard lines and the Safety line (there is no `help` command) |
 | `inv` | looking up and checking names and values in the inventory |
 | `kinds` | what each command does, in one word (reads or changes) |
 | `localtool` | finding a program on this computer |

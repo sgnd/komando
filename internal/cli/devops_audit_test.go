@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"crypto/tls"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -24,11 +22,6 @@ func devopsHome(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func TestCertCheckRefusesWindows(t *testing.T) {
-	devopsHome(t)
-	wantCode(t, "NOT_SUPPORTED", "cert", "check", "win1", "--dry-run")
 }
 
 func TestDockerLogsSudo(t *testing.T) {
@@ -97,22 +90,6 @@ func TestLogsFlagsChecked(t *testing.T) {
 		if got := c.o.source(); !strings.Contains(got, c.want) {
 			t.Errorf("%+v: %s lacks %s", c.o, got, c.want)
 		}
-	}
-}
-
-func TestCertFlagsAndScheme(t *testing.T) {
-	devopsHome(t)
-	e := wantCode(t, "USAGE", "cert", "check", "http://example.com")
-	if !strings.Contains(e.Message, "no certificate") || !strings.Contains(e.Hint, "https://example.com") {
-		t.Errorf("http: %+v", e)
-	}
-	wantCode(t, "USAGE", "cert", "check", "example.com:443", "--path", "/etc/x", "--dry-run")
-	wantCode(t, "USAGE", "cert", "check", "web1", "--via", "web2", "--dry-run")
-	if e := wantCode(t, "USAGE", "cert", "check", "web1", "--warn", "soon"); !strings.Contains(e.Hint, "--warn") {
-		t.Errorf("--warn hint %q", e.Hint)
-	}
-	if c := certTLSConfig("x"); !slices.Equal(c.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}) {
-		t.Errorf("curves %v", c.CurvePreferences)
 	}
 }
 

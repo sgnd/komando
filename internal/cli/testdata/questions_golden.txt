@@ -164,14 +164,6 @@ title: Set a string key, replacing any old value
 - arg1 | Key | Which key to set? | Its exact name. An old value under this name is replaced. | feature:dark-mode | check
 - arg2 | Value | Which value? | Plain text. Never put a password here; `komando credential password add` keeps one. | on | check
 - flag:ttl | --ttl | Delete it by itself after how long? (leave empty to keep it) | The key's time to live. Empty keeps it until someone deletes it. | 30m, 24h or 7d | optional,check
-### komando cert
-title: TLS certificates: when do they expire, and do they verify
-### komando cert check
-title: Check when the certificates of servers and websites expire
-- arg0 | Target | Which servers or websites? | Pick a server, or type a website. Several: separate them with spaces. | https://shop.example.com | free,choices,check
-- flag:warn | --warn | Warn how long before a certificate ends? | Warns 30 days before. Empty keeps that. Or type 14d or 72h. | 30d | optional,default,check
-- flag:path | --path | Also check this certificate file (or folder) on the servers |  |  | optional,advanced,check
-- flag:via | --via | Reach websites through this server or VPN (a --via path) |  |  | optional,advanced,free,choices
 ### komando cluster
 title: Kubernetes clusters: save, check, read logs, roll out, scale
 ### komando cluster apply
@@ -1488,9 +1480,6 @@ title: Show the members of one group
 title: The rules for AI agents, and how komando works (read first)
 - arg0 | Topic | Topic? |  |  | optional,check
 - flag:all | --all | Print the whole playbook |  |  | advanced,default,choices
-### komando help
-title: Show the help of a command
-- arg0 | Command | Command? |  |  | optional,check
 ### komando host
 title: Servers in komando's list: add, change, check, remove
 ### komando host ca
@@ -2487,7 +2476,7 @@ title: Print the authorized_keys line that limits a key to komando
 - arg0 | Public key | Which public key? | The .pub file of the key (on this computer), or its line: ssh-ed25519 AAAA... phone. Never the private key. | ~/phone.pub | check
 - flag:name | --name | What do you want to call this key? | It shows in `komando audit list` for every command the key runs. Letters, digits, dot, dash, underscore. | phone | check
 - flag:read-only | --read-only | Should the key only run commands that look, without changing anything? | Yes is safer for a phone or a shared key. |  | default,choices
-- flag:network | --network | Should this read-only key also run network checks and programs on servers? | No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only. |  | default,choices
+- flag:network | --network | Should this read-only key also run network checks and programs on servers? | No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net and exec --read-only. |  | default,choices
 - flag:shell-access | --shell-access | Should this key also open a login shell on a server (ssh -t HOST komando host ssh shell SERVER)? | No is safer. Yes lets sshd give the key a terminal, for a shell on a listed server that is not protected, not Windows and not this computer. |  | default,choices,show
 ### komando ssh-gate status
 title: Say which ssh-gate key runs this, and what it may do

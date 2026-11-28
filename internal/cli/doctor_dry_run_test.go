@@ -161,7 +161,6 @@ func TestPersonAtTerminalOnlyDoctorMoves(t *testing.T) {
 		{[]string{"-o", "text", "doctor", "--dry-run"}, true, "nothing was written"},
 		{[]string{"version"}, true, ""},
 		{[]string{"completion", "zsh"}, true, ""},
-		{[]string{"help"}, true, ""},
 		{[]string{"schema"}, true, ""},
 		{[]string{"guide"}, true, ""},
 		{nil, false, "komando needs a command"},                       // stdout here is no terminal: the USAGE envelope

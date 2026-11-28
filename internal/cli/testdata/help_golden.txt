@@ -25,7 +25,6 @@ Usage:
   komando [command]
 
 Servers:
-  cert         TLS certificates: when do they expire, and do they verify
   copy         Copy files between this computer, servers and file storage
   docker       Docker on servers: check, read logs, run compose, clean up
   fs           Files on servers: read, edit, undo an edit, move, remove
@@ -70,7 +69,6 @@ Setup:
   completion   Print a tab-completion script for your shell
   config       Settings: read and change timeouts, host keys, the audit
   guide        The rules for AI agents, and how komando works (read first)
-  help         Show the help of a command
   policy       Rules that block destructive commands: see, test, add, remove
   schema       Every command, flag and exit code, machine-readable
   ssh-gate     Let an SSH key run komando here and nothing else (person only)
@@ -98,12 +96,6 @@ Safety overrides (ask a person first):
       --allow-dangerous[=true|false]   run a command the safety rules would block
       --reveal[=true|false]            show passwords and keys in output (an agent needs a person's yes)
   -y, --yes[=true|false]               confirm a change on a protected target (an AI agent needs a person's yes)
-
-Additional help topics:
-  komando environment  The environment variables komando reads
-  komando exit-codes   What komando's exit codes mean
-  komando output       Text for people, JSON for programs
-  komando safety       How komando keeps a change from going wrong
 
 Use "komando [command] --help" for more information about a command.
 
@@ -1079,85 +1071,6 @@ Examples:
 Flags:
   -h, --help[=true|false]   help for set
       --ttl duration        expire the key after this long (like 30m, 24h, 7d); 0 or left out: never
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); database KIND
-                               query also takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando cert --help
-exit 0
---- stdout
-TLS certificates: when do they expire, and do they verify
-
-Usage:
-  komando cert [flags]
-  komando cert [command]
-
-Aliases:
-  cert, certs, tls
-
-Examples:
-  komando cert check web1                           # certificates on the server
-  komando cert check @web --warn 30d
-  komando cert check https://shop.example.com --warn 14d
-
-Available Commands:
-  check       Check when the certificates of servers and websites expire
-
-Flags:
-  -h, --help[=true|false]   help for cert
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); database KIND
-                               query also takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
-
-Use "komando cert [command] --help" for more information about a command.
---- stderr
-### komando cert check --help
-exit 0
---- stdout
-Reads certificates and says when they expire. It only reads.
-
-A server (or @group, tag:, ...): komando looks for the certificates the
-server uses: certbot's /etc/letsencrypt/live/*/cert.pem and the files that
-nginx (ssl_certificate), haproxy (crt) and apache (SSLCertificateFile) name,
-plus any --path. Files that need root are read with sudo only when sudo
-works without a password; komando never asks for one. Only the CERTIFICATE
-blocks of a file leave the server: a private key in the same file never
-does. When certbot is there, the state of its renewal timer is shown too.
-
-A website (https://example.com, example.com:443) or a conn that uses TLS:
-komando connects from this computer (or through --via, or the conn's own
---via), reads the certificate the server sends and checks that it is
-trusted and matches the name.
-
-A certificate that expires within --warn (default 30d), has expired, is not
-trusted, or a certbot renewal that failed is a problem: the command then
-exits 1 (code CERT_PROBLEMS), like `komando doctor`.
-
-Usage:
-  komando cert check TARGET|URL... [flags]
-
-Examples:
-  komando cert check web1
-  komando cert check @prod --warn 14d
-  komando cert check https://shop.example.com api.example.com:8443
-  komando cert check https://intranet.local --via bastion
-  komando cert check web1 --path /etc/ssl/private/site.pem
-
-Flags:
-  -h, --help[=true|false]   help for check
-      --path strings        also check this certificate file (or folder) on the servers
-      --via string          reach websites through this server or VPN (a --via path)
-      --warn duration       flag certificates that expire within this time (like 30d, 72h) (default 30d)
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -8304,32 +8217,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando environment --help
-exit 0
---- stdout
-The environment variables komando reads.
-
-  KOMANDO_HOME        where komando keeps its data (default ~/.komando)
-  KOMANDO_OUTPUT      json or text when -o is not given
-  KOMANDO_ACTOR       the name the audit log gives you
-  KOMANDO_AGENT=1     an AI agent komando does not know by itself
-  KOMANDO_VAULT_PASS  the vault passphrase, when the vault has one
-  CI                  a CI job: komando never asks anything
-  NO_COLOR            no colors
-
---- stderr
-### komando exit-codes --help
-exit 0
---- stdout
-What komando's exit codes mean.
-
-  0 ok          1 error           2 usage           3 not found
-  4 connect     5 failed on the server              6 blocked for safety
-  7 timeout     8 precondition or conflict
-
--o json shows the error code (USAGE, PROTECTED_TARGET ...) and a hint.
-
---- stderr
 ### komando export --help
 exit 0
 --- stdout
@@ -8948,26 +8835,6 @@ Examples:
 Flags:
   -a, --all[=true|false]    print the whole playbook
   -h, --help[=true|false]   help for guide
-
-Global Flags (all of them: komando --help):
-      --dry-run[=true|false]   show what would run, changing nothing
-  -o, --output string          json or text (default $KOMANDO_OUTPUT, or
-                               text in a terminal, JSON when piped); database KIND
-                               query also takes csv and tsv
-      --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
-  -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando help --help
-exit 0
---- stdout
-Shows what a command does, its flags and examples: komando help database
-postgres query (the same as komando database postgres query --help).
-
-Usage:
-  komando help [command] [flags]
-
-Flags:
-  -h, --help[=true|false]   help for help
 
 Global Flags (all of them: komando --help):
       --dry-run[=true|false]   show what would run, changing nothing
@@ -10208,19 +10075,6 @@ Global Flags (all of them: komando --help):
                                query also takes csv and tsv
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
---- stderr
-### komando output --help
-exit 0
---- stdout
-Text for people, JSON for programs.
-
-In a terminal komando prints text; piped, one JSON envelope on stdout:
-  {"ok":true,"command":"exec","data":{...},"meta":{...}}
-  {"ok":false,"command":"exec","error":{"code":"AUTH_FAILED",...}}
-Force one with -o json or -o text (database KIND query also takes csv and tsv).
-Questions, the line komando runs ($ komando ...) and Next: go to stderr,
-and only at a person's terminal.
-
 --- stderr
 ### komando pkg --help
 exit 0
@@ -14158,21 +14012,6 @@ Global Flags (all of them: komando --help):
       --timeout duration       time limit per server, like 30s or 1h (default: setting default_timeout, 5m)
   -y, --yes[=true|false]       confirm a change on a protected target (an AI agent needs a person's yes)
 --- stderr
-### komando safety --help
-exit 0
---- stdout
-How komando keeps a change from going wrong.
-
-  --dry-run           every change can show what it would do first
-  protected targets   a change asks [y/N] at your terminal; scripts and agents need --yes
-  dangerous commands  rm -rf /, DROP DATABASE ...: you type the name; scripts need --allow-dangerous
-  read only           database KIND query, cache redis raw and cluster kubernetes raw only read unless you add --write
-  audit               komando audit list shows every change and who asked for it
-
-An AI agent is never asked: it gets exit 6 and a person allows the flag in a
-window on the screen. See docs/features/safety.md.
-
---- stderr
 ### komando schema --help
 exit 0
 --- stdout
@@ -14527,11 +14366,11 @@ own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (database
 KIND query and cache redis raw without --write), and only those that stay on
-the servers and conns in your list: no net, no cert check of a website, no
-exec, docker exec, cluster kubernetes exec or snippet exec, unless the line
-also has --network. `komando ssh-gate status` tells a key which it is. Every
-command a key runs or is refused is in `komando audit list`, with --name,
-even when the audit setting is off.
+the servers and conns in your list: no net, no exec, docker exec, cluster
+kubernetes exec or snippet exec, unless the line also has --network.
+`komando ssh-gate status` tells a key which it is. Every command a key runs
+or is refused is in `komando audit list`, with --name, even when the audit
+setting is off.
 
 Usage:
   komando ssh-gate [flags]
@@ -14566,10 +14405,10 @@ key runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's
 line (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names
 this komando by its full path, as sshd does not search PATH.
 
-A --read-only key runs only commands that read, and only those that stay on
-the servers and conns in your list: no net checks, no cert check of a
-website, and no exec, docker exec, cluster kubernetes exec or snippet exec,
-whose programs can connect anywhere and carry what they read in a URL or a
+A --read-only key runs only commands that read, and only those that stay
+on the servers and conns in your list: no net checks, and no exec, docker
+exec, cluster kubernetes exec or snippet exec, whose programs can connect
+anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.
 
 With --shell-access (not with --read-only) the key may also open a login
@@ -14598,7 +14437,7 @@ Examples:
 Flags:
   -h, --help[=true|false]           help for line
       --name string                 the key's name in the audit log (required)
-      --network[=true|false]        with --read-only: the key may also run reads that reach the network (net, cert check of a URL, exec --read-only)
+      --network[=true|false]        with --read-only: the key may also run reads that reach the network (net, exec --read-only)
       --read-only[=true|false]      the key runs only commands that read
       --shell-access[=true|false]   the key may also open a login shell on one server (ssh -t HOST komando host ssh shell SERVER); not with --read-only
 

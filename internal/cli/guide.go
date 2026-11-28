@@ -551,7 +551,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 			var cmds []any
 			var walk func(c *cobra.Command)
 			walk = func(c *cobra.Command) {
-				if c.Hidden || c.Name() == "help" || c.Name() == "completion" {
+				if c.Hidden || c.Name() == "completion" {
 					return
 				}
 				if c != root {

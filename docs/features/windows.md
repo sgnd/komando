@@ -233,7 +233,7 @@ lists services that should start automatically but stopped with an error.
 
 | Works | Not yet |
 |-------|--------------------------------------|
-| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `cert check`, `snippet exec`, `reboot` |
+| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `snippet exec`, `reboot` |
 | `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `copy --sync` |
 | `copy` (single files) | exec sessions (a run on Windows has none), `copy -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |

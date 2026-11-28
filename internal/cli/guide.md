@@ -121,7 +121,6 @@ stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 | File content                 | `komando fs cat TARGET /etc/nginx/nginx.conf --line-numbers` |
 | Ports / connectivity         | `komando net ports TARGET` · `komando net check TARGET db:5432` |
 | Containers                   | `komando docker ps TARGET` · `komando logs TARGET --container api --since 10m` |
-| Certificates (expiry, trust) | `komando cert check TARGET` · `komando cert check https://example.com --warn 14d` |
 | Docker disk space            | `komando docker prune TARGET --older-than 30d --dry-run` (lists what goes, with sizes) |
 | Clusters                     | `komando cluster status CONN` · `komando cluster logs CONN deploy/api` |
 | More diagnostics             | `komando snippet list`, then `komando snippet exec NAME TARGET` |

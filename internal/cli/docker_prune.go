@@ -568,3 +568,31 @@ func dockerPruneSnippets() []snippet.Builtin {
 		},
 	}}
 }
+
+// sectionMap joins the "== NAME" blocks of a script's output by name.
+func sectionMap(s string) map[string]string {
+	m := map[string]string{}
+	name := ""
+	for _, line := range strings.Split(s, "\n") {
+		if n, ok := strings.CutPrefix(line, "== "); ok {
+			name = n
+			m[name] += ""
+			continue
+		}
+		if name != "" {
+			m[name] += line + "\n"
+		}
+	}
+	return m
+}
+
+// lines are the non-empty lines of s, trimmed.
+func lines(s string) []string {
+	var res []string
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			res = append(res, l)
+		}
+	}
+	return res
+}

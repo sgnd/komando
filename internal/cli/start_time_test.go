@@ -273,8 +273,8 @@ func nodeFacts(c *cobra.Command) string {
 	return b.String()
 }
 
-// Every way into komando prepares the command it runs: the line, `help
-// LINE`, the shell's completion, global flags before the command.
+// Every way into komando prepares the command it runs: the line, the
+// shell's completion, global flags before the command.
 func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 	for _, tc := range []struct {
 		line []string
@@ -283,8 +283,6 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 		{[]string{"host", "ssh", "list"}, "host ssh list"},
 		{[]string{"-o", "json", "--timeout", "5s", "host", "ssh", "list", "web1"}, "host ssh list"},
 		{[]string{"host", "ssh", "ls"}, "host ssh list"},
-		{[]string{"help", "host", "ssh", "list"}, "host ssh list"},
-		{[]string{"-o", "text", "help", "db"}, "db"},
 		{[]string{cobra.ShellCompRequestCmd, "host", "li"}, "host"},
 		{[]string{cobra.ShellCompNoDescRequestCmd, "host", "ssh", "list", ""}, "host ssh list"},
 		{[]string{"-o", "json", cobra.ShellCompRequestCmd, "host", "ssh", "remove"}, "host ssh remove"},
@@ -305,8 +303,8 @@ func TestEntryPointsPrepareTheirCommand(t *testing.T) {
 	}
 }
 
-// A script's `help LINE` and `LINE --help` print the command's help as the
-// whole tree has it, Safety line and all (the e2e core checks of base.sh).
+// A script's `LINE --help` prints the command's help as the whole tree has
+// it, Safety line and all (the e2e core checks of base.sh).
 func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 	home := t.TempDir()
 	setHome(t, home)
@@ -322,17 +320,13 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 	// that only the whole tree takes
 	printed := map[string][2]string{}
 	for _, tc := range cases {
-		for _, args := range [][]string{
-			slices.Concat([]string{"help"}, strings.Fields(tc.cmd), []string{"-o", "text"}),
-			slices.Concat(strings.Fields(tc.cmd), []string{"--help", "-o", "text"}),
-		} {
-			var o, e bytes.Buffer
-			ec := engine.Call{Program: "komando", LookupEnv: envOf(env, &sync.Map{}), Stdout: &o, Stderr: &e}
-			if code := RunCall(context.Background(), ec, args); code != 0 {
-				t.Errorf("%q: exit %d, stderr %q", args, code, e.String())
-			}
-			printed[strings.Join(args, " ")] = [2]string{o.String(), e.String()}
+		args := slices.Concat(strings.Fields(tc.cmd), []string{"--help", "-o", "text"})
+		var o, e bytes.Buffer
+		ec := engine.Call{Program: "komando", LookupEnv: envOf(env, &sync.Map{}), Stdout: &o, Stderr: &e}
+		if code := RunCall(context.Background(), ec, args); code != 0 {
+			t.Errorf("%q: exit %d, stderr %q", args, code, e.String())
 		}
+		printed[strings.Join(args, " ")] = [2]string{o.String(), e.String()}
 	}
 	whole := newRoot(tcl)
 	for _, tc := range cases {
@@ -343,11 +337,10 @@ func TestScriptHelpShowsTheSafetyLine(t *testing.T) {
 		if line := safetyLine(c); !strings.Contains(line, tc.tier) || (tc.tier == "") != (line == "") {
 			t.Fatalf("%s: the Safety line is %q, want one with %q", tc.cmd, line, tc.tier)
 		}
-		for _, args := range []string{"help " + tc.cmd + " -o text", tc.cmd + " --help -o text"} {
-			o, e := printed[args][0], printed[args][1]
-			if !strings.Contains(o, c.Long) || strings.Contains(o, "Safety: ") != (tc.tier != "") {
-				t.Errorf("%q: stdout lacks the help of the whole tree\n got: %q\nwant: %q\nstderr: %q", args, o, c.Long, e)
-			}
+		args := tc.cmd + " --help -o text"
+		o, e := printed[args][0], printed[args][1]
+		if !strings.Contains(o, c.Long) || strings.Contains(o, "Safety: ") != (tc.tier != "") {
+			t.Errorf("%q: stdout lacks the help of the whole tree\n got: %q\nwant: %q\nstderr: %q", args, o, c.Long, e)
 		}
 	}
 }

@@ -71,12 +71,12 @@ func TestStandardTopLevel(t *testing.T) {
 	want := []string{
 		// nouns (S-2.1)
 		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "config",
-		"fs", "pkg", "docker", "cert", "db", "database", "cache", "queue", "storage", "cluster", "registry",
+		"fs", "pkg", "docker", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "logs", "copy", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
-		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "help", "ssh-gate",
+		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "ssh-gate",
 	}
 	var got []string
 	for _, c := range root.Commands() {
@@ -134,7 +134,7 @@ func TestStandardNounAliases(t *testing.T) {
 		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"},
 		"fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
-		"cert":   {"certs"}, "db": {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
+		"db":     {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
 		"cluster": {"clusters"}, "registry": {"registries"},
 	} {
 		want := findCmd(t, root, noun)
@@ -257,9 +257,6 @@ var useToken = regexp.MustCompile(`[A-Z][A-Z_]*(/[A-Z]+)?`)
 func TestStandardUseGrammar(t *testing.T) {
 	got := map[string]string{}
 	for _, c := range visibleCmds(newRoot(tcl)) {
-		if c.Name() == "help" {
-			continue // cobra's own
-		}
 		f := strings.Fields(c.Use)
 		if !balanced(strings.Join(f[1:], " ")) || strings.Count(c.Use, "(") != strings.Count(c.Use, ")") {
 			got[cmdPathOf(c)] = "brackets do not close: " + c.Use
@@ -502,7 +499,7 @@ func TestStandardExamples(t *testing.T) {
 	names := map[string]string{}
 	for _, c := range visibleCmds(root) {
 		p := cmdPathOf(c)
-		if p == "help" || p == "completion" {
+		if p == "completion" {
 			continue // cobra's own
 		}
 		var own []string

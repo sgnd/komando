@@ -80,8 +80,6 @@ not know? Set `KOMANDO_AGENT=1`.
    - Patches: `komando pkg upgrade TARGET --security` installs security
      updates only, one server at a time, checked before and after. It never
      reboots.
-   - Certificates: `komando cert check TARGET|https://NAME` (exit 1
-     `CERT_PROBLEMS` when one expires within `--warn`, default 30d).
    - Docker disk space: `komando docker prune TARGET --dry-run` first; it
      lists what would be removed and how much space that frees.
    - Your list in bulk: `komando host ssh edit TARGET --sudo-credential NAME`

@@ -122,9 +122,6 @@ var examples = map[string]string{
 		"  komando vpn wireguard test office\n" +
 		"  komando host ssh edit db1 --via office --dry-run\n" +
 		"  komando vpn wireguard start office",
-	"komando cert": "  komando cert check web1                           # certificates on the server\n" +
-		"  komando cert check @web --warn 30d\n" +
-		"  komando cert check https://shop.example.com --warn 14d",
 	"komando snippet": "  komando snippet list\n" +
 		"  komando snippet exec health @web\n" +
 		"  komando snippet create app-logs 'tail -n 100 /srv/{{app}}/log/app.log' --read-only\n" +

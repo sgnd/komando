@@ -84,8 +84,8 @@ func sameDir(a, b string) bool {
 }
 
 // homeFree are the commands that never read komando's data, so they run in
-// any folder: help, version and the playbooks.
-var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true}
+// any folder: version and the playbooks.
+var homeFree = map[string]bool{"komando": true, "completion": true, "version": true, "schema": true, "guide": true}
 
 // homeFreeOne are single commands of a noun that is not free as a whole:
 // the playbook install reads no data; agent skill uninstall takes the agent

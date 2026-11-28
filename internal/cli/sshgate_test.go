@@ -416,10 +416,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"fs cat me /home/u/.ssh/id_ed25519":                                 R,
 		"fs ls me /home/u/.ssh":                                             R,
 		"fs stat lh /home/u/.ssh/id_ed25519":                                R,
-		"cert check me --path /home/u/.ssh/id_ed25519":                      R,
-		"cert check https://localhost:8443":                                 R,
-		"cert check https://shop.example.com":                               "", // a website, not in the inventory
-		"logs u@127.0.0.1":                                                  R,  // ad hoc
+		"logs u@127.0.0.1":                                                  R, // ad hoc
 		"logs web --file /var/log/syslog":                                   "",
 		"logs behind --file /var/log/syslog":                                "", // 127.0.0.1 of bastion
 		"cache get redislocal a":                                            R,
@@ -838,7 +835,9 @@ func TestGateSynonyms(t *testing.T) {
 func TestGateRefusesUnknownLine(t *testing.T) {
 	invHome(t)
 	gateInventory(t)
-	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg"} {
+	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg",
+		// removed in step D5a: these lines used to run, for every key
+		"help", "help safety", "safety", "__help", "cert check https://evil.example"} {
 		for _, key := range []gateKey{readKey, netReadKey, fullKey} {
 			words, _ := gateWords(line)
 			_, _, e := gateCheck(words, key)

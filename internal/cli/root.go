@@ -401,7 +401,7 @@ func vaultValues() map[string]string {
 // localReads change nothing anywhere, so they run even when the store
 // cannot be written; that is how a person finds out what is wrong.
 var localReads = map[string]bool{
-	"version": true, "help": true, "completion": true, "schema": true, "guide": true, "doctor": true,
+	"version": true, "completion": true, "schema": true, "guide": true, "doctor": true,
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
@@ -416,7 +416,7 @@ func checkStoreWritable(cmd *cobra.Command) error {
 	cl := callOf(cmd)
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if cl.dryRun() || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
+	if cl.dryRun() || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
 		return nil
 	}
 	err := store.CheckWritable()
@@ -502,6 +502,7 @@ func treeOf(cl *call) *cobra.Command {
 		Version:       version.Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			dropHelpCommand(cmd) // for the shell's completion request
 			if err := notPrepared(cmd); err != nil {
 				return err
 			}
@@ -579,7 +580,9 @@ func treeOf(cl *call) *cobra.Command {
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	addCommands(cl, root)
 	mountTable(root)
-	addHelpTopics(root) // and cobra's help command
+	// cobra adds a help command when it runs: a hidden one, in a group (no "Additional
+	// Commands"), leaves a typed help word unknown; the flag --help is the help
+	root.SetHelpCommand(&cobra.Command{Use: helpCommandName, Hidden: true, GroupID: "setup"})
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	useShortGlobals(root)
@@ -616,7 +619,7 @@ func addCommands(cl *call, root *cobra.Command) {
 		}
 	}
 	add("servers", logsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
-		dockerCmd(), pkgCmd(), certCmd(), snippetCmd())
+		dockerCmd(), pkgCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
 	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
@@ -626,16 +629,11 @@ func addCommands(cl *call, root *cobra.Command) {
 	addNounAliases(root)
 }
 
-// labelBuiltinCmds files cobra's own help and completion commands under
-// "setup" and gives them komando's wording; dropped old names suggest the
-// command that does it now.
+// labelBuiltinCmds files cobra's own completion command under "setup" and
+// gives it komando's wording.
 func labelBuiltinCmds(root *cobra.Command) {
 	for _, c := range root.Commands() {
 		switch c.Name() {
-		case "help":
-			c.GroupID = "setup"
-			c.Short = "Show the help of a command"
-			c.Long = "Shows what a command does, its flags and examples: komando help database postgres query\n(the same as komando database postgres query --help)."
 		case "completion":
 			c.GroupID = "setup"
 			c.Short = "Print a tab-completion script for your shell"
@@ -727,7 +725,7 @@ EXAMPLES
   $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
 
 Leave out an argument at a terminal and komando asks for it.
-LEARN MORE   komando <command> --help · komando help safety|environment|exit-codes|output
+LEARN MORE   komando <command> --help · komando guide
 `)
 	return b.String()
 }

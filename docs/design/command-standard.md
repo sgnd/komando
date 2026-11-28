@@ -67,8 +67,7 @@ nouns]
 |---|---|
 | Nouns | every noun in S-2.1 |
 | Shortcuts | `list`, `test`, `logs`, `copy`, `facts` (alias `info`), `reboot`, `status`, `login`, `logout`, `import`, `export`, `rename` |
-| About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `help`, `ssh-gate` |
-| Help topics (only as `komando help TOPIC`) | `environment`, `exit-codes`, `output`, `safety` |
+| About komando | `audit`, `doctor`, `schema`, `guide`, `update`, `version`, `seal`, `completion`, `ssh-gate` |
 
 **S-1.4a** Frozen forever: `ssh-gate` and its flags `--name`,
 `--read-only`, `--network` and `--shell-access`. Their exact spelling is
@@ -129,7 +128,6 @@ uses for a noun (S-2.3) always resolves as that noun.
 | `cron` | scheduled commands | crons |
 | `docker` | containers on servers | container, containers, ctr |
 | `net` | network checks | network |
-| `cert` | TLS certificates | certs |
 | `db` | databases | dbs, database, databases, sql |
 | `cache`, `queue`, `storage`, `cluster`, `registry` | conn families | caches, queues, clusters, registries, plus product aliases (redis, kafka, s3, k8s) |
 
@@ -503,7 +501,8 @@ command's Use words. [code]
 Inventory, Access, Overview, Setup. Start lists commands, not nouns:
 `host ssh add`, `conn add`, `import ssh-config`, `list`, `test TARGET`,
 `agent skill install`. Inventory: host, conn, group, import, export, rename.
-Help topics are listed only under `komando help`. [review]
+There is no `help` command and there are no help topics: `komando COMMAND
+--help` is the help. [review]
 
 ## 7. Confirmations
 

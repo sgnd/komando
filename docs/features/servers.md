@@ -539,8 +539,7 @@ So komando keeps the way in your hands:
   `auth=`, changes `default_user` while the server has no user, or changes a server or
   VPN on its way (a jump host's address, a VPN's server; also through
   `vpn KIND add --overwrite`, an import, or replacing the secret that holds an
-  OpenVPN profile), or gives one another way at run time (`cert check
-  --via hop,web1`) stops with `NEEDS_PERSON`. A server with no user
+  OpenVPN profile), stops with `NEEDS_PERSON`. A server with no user
   logs in as the account komando runs as, taken from the system, never
   from `$USER`, which an agent can set. No flag
   lifts it: run that command in your own terminal if you want it. A dry

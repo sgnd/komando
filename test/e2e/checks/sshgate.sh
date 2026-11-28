@@ -68,7 +68,6 @@ check "exec without --read-only is not a read" SSH_GATE_READ_ONLY "$(kssh gate-r
 check "ssh-gate status: a read key without network" "True False" "$(kssh gate-ro komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["network"])')"
 check "ssh-gate status: a read key with --network" "True True" "$(kssh gate-net komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["network"])')"
 check "a read key runs no program" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando host ssh exec gx --read-only -o json -- curl -s https://example.com | code || true)"
-check "a read key does not dial a website" SSH_GATE_NETWORK_REQUIRED "$(kssh gate-ro komando cert check https://example.com -o json | code || true)"
 check "ssh-gate status: a shell key" "False True" "$(kssh gate-sh komando ssh-gate status -o json | jget 'str(d["data"]["read_only"]) + " " + str(d["data"]["shell_access"])')"
 check "a shell key opens no shell without a terminal" SSH_GATE_REFUSED "$(kssh gate-sh komando host ssh shell gx | code || true)"
 check "a shell key opens no shell on this computer" True "$(ktty gate-sh komando host ssh shell gme | refusedq && echo True || echo False)"

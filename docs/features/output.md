@@ -83,8 +83,7 @@ messages.
 | 8 | a precondition failed or something is in the way | `NO_MATCH` and `AMBIGUOUS_MATCH` (`fs replace` text not found or not unique), `PORT_IN_USE`, `FILE_TOO_LARGE`, `KEY_EXISTS` |
 
 When several servers fail, the exit code is the worst one. The full
-machine-readable reference is `komando schema`; `komando help exit-codes`
-and `komando help output` print a short version at the terminal.
+machine-readable reference is `komando schema`.
 
 ## What is still running, and where am I?
 

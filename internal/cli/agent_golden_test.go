@@ -190,7 +190,7 @@ var goldenGateKeys = []string{
 var goldenSchema = [][]string{
 	{"storage", "s3", "object", "link"}, {"cluster", "kubernetes", "host", "ssh", "tunnel", "start"}, // C-C08: kind read -> change
 	{"host", "ssh", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
-	{"cache", "set"}, {"cert", "check"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
+	{"cache", "set"}, {"registry", "oci", "image", "prune"}, // C-F04: duration
 	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
 	{"fs", "cat"}, {"host", "ssh", "exec"}, // C-F09: bytes

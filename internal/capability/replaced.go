@@ -196,3 +196,17 @@ var rawReplaced = []Replaced{
 		Stops: kubeRaw, Lost: typedLost},
 	byValue("cluster.status", clusterRaw, kubeRaw, ""),
 }
+
+// sshExecCarries are the commands of today that host ssh exec does now.
+var sshExecCarries = join(
+	idsOf("fs", "cat", "chmod", "list", "mkdir", "mv", "replace", "restore", "rm", "stat", "write"),
+	idsOf("svc", "daemon-reload", "disable", "enable", "list", "logs", "reload", "restart", "start", "status", "stop"),
+	idsOf("pkg", "install", "installed", "rm", "security", "update", "upgradable", "upgrade"),
+	idsOf("net", "check", "dns", "http", "ports"),
+	idsOf("cron", "list", "rm", "set"),
+	idsOf("user", "add", "list", "lock", "rm", "unlock"),
+	idsOf("docker", "compose", "exec", "images", "inspect", "logs", "prune", "ps", "pull", "raw", "restart",
+		"rm", "start", "stats", "stop"),
+	[]string{"logs", "facts", "reboot"},
+	idsOf("job", "kill", "logs", "rm", "start", "status", "wait"),
+)

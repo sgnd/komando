@@ -146,52 +146,9 @@ Checks that have their own command are not recipes:
 | a Kubernetes cluster | `komando cluster status CLUSTER` |
 | database sessions | `komando db activity CONN` |
 | a cache | `komando cache info CONN` |
-| certificates | `komando cert check TARGET` |
 | Docker clean-up | `komando docker prune TARGET --dry-run` |
 
 To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
-
-## Check TLS certificates
-
-`cert check` tells you when certificates expire, before your visitors do.
-It only reads.
-
-```bash
-komando cert check web1                               # the certificates web1's web servers use
-```
-
-Typed alone, `komando cert check` asks for a server or a URL.
-
-```bash
-komando cert check @web --warn 14d                   # flag what expires within 14 days
-komando cert check https://shop.example.com           # the certificate the website sends
-komando cert check api.example.com:8443 intranet.example.com:443 --via bastion
-komando cert check web1 --path /etc/ssl/private/site.pem
-```
-
-- On a server, komando finds the certificates itself: certbot's
-  (`/etc/letsencrypt/live/*/cert.pem`) and the files nginx
-  (`ssl_certificate`), haproxy (`crt`) and apache (`SSLCertificateFile`)
-  use. Add more with `--path`. Files that need root are read with sudo only
-  when sudo works without a password; komando never asks for one. Only the
-  certificate part of a file is read: a private key in the same file never
-  leaves the server. When certbot is installed, the result also shows its
-  renewal timer and whether the last renewal failed.
-- For a website (`https://NAME`, `NAME:PORT`) or a conn that uses TLS,
-  komando connects from this computer, or through `--via` (a server or VPN),
-  reads the certificate the site sends, and checks that it is trusted and
-  matches the name.
-- Each certificate shows its names, issuer, expiry date, days left, where
-  it came from and a status: `ok`, `expiring`, `expired`, `not_yet_valid`,
-  `not_trusted`, or `unreadable` (missing, or needs root).
-
-| Result | Exit code |
-|--------|-----------|
-| every certificate is fine | 0 |
-| one expires within `--warn` (default 30d), has expired, is not trusted, or certbot's last renewal failed (`CERT_PROBLEMS`) | 1 |
-| a server or site could not be reached | 4 (or 7 on a timeout) |
-
-`unreadable` files are listed but do not fail the command.
 
 ## Check the network from a server
 
@@ -229,8 +186,6 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (
 - The support dates cover Ubuntu LTS, Debian, RHEL and its rebuilds, Alpine
   and Amazon Linux; any other release is `unknown`.
 - `facts` keeps only names, never command lines or environments.
-- `cert check` reads files that need root only when sudo works without a
-  password; such files show as `unreadable` and do not fail the command.
 - `net check` gives up on a port after 5 seconds; `net http` after 15
   seconds (or `--timeout`).
 - `net http` takes `http://` and `https://` URLs only.
@@ -247,4 +202,3 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (
 |------------|---------------|------------|
 | `SNIPPET_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando snippet list`; some checks are commands (table above) |
 | `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando snippet list` |
-| `CERT_PROBLEMS` | a certificate expires within `--warn`, has expired, is not trusted, or certbot's last renewal failed (exit 1) | renew or replace the certificates the result marks |

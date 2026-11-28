@@ -456,9 +456,9 @@ func TestExecAttachRefusals(t *testing.T) {
 // way back `host ssh exec --attach ID`, its stop `--stop`, its removal `--remove`.
 func TestNoJobGroup(t *testing.T) {
 	root := newRoot(tcl)
-	for _, path := range [][]string{{"job"}, {"jobs"}, {"job", "kill"}, {"job", "rm"}, {"job", "start"}} {
-		if c, _, _ := root.Find(path); c != nil && c != root {
-			t.Errorf("%v: found %q, the job group is gone", path, c.CommandPath())
+	for _, line := range []string{"job", "jobs", "job kill", "job rm", "job start"} {
+		if c, _, _ := root.Find(strings.Fields(line)); c != nil && c != root {
+			t.Errorf("%s: found %q, the job group is gone", line, c.CommandPath())
 		}
 	}
 }

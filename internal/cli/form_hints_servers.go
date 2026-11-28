@@ -1,13 +1,11 @@
 package cli
 
-// The questions for the Servers area: commands, logs, packages, Docker and
-// certificate checks.
+// The questions for the Servers area: commands, logs, packages and Docker.
 
 func init() {
 	addFormHints(withWinRM(srvRunHints))
 	addFormHints(srvPkgHints)
 	addFormHints(srvDockerHints)
-	addFormHints(srvCertHints)
 }
 
 // Answers several hints share.
@@ -151,15 +149,6 @@ var srvDockerHints = map[string]formHint{
 	"docker stop":    {args: []formArg{srvServers, srvContainers}, flags: []formFlag{srvDockerSudo}},
 }
 
-var srvCertHints = map[string]formHint{
-	"cert check": {
-		args: []formArg{{ask: "Which servers or websites?", pick: "host", free: true, example: "https://shop.example.com",
-			help: "Pick a server, or type a website. Several: separate them with spaces."}},
-		flags: []formFlag{{name: "warn", ask: "Warn how long before a certificate ends?", example: "30d",
-			help: "Warns 30 days before. Empty keeps that. Or type 14d or 72h."}},
-	},
-}
-
 // Next: lines for the server commands (server and ops areas).
 func init() {
 	addFormHints(map[string]formHint{
@@ -175,7 +164,6 @@ func init() {
 		"docker ps":       {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
 		"docker logs":     {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
 		"docker prune":    {next: []string{"snippet exec disk {}"}},
-		"cert check":      {next: []string{"cert check {} --warn 14d"}},
 		"snippet list":    {next: []string{"snippet exec NAME TARGET"}},
 		"snippet create":  {next: []string{"snippet exec {} TARGET --dry-run"}},
 		"snippet exec":    {next: []string{"snippet list"}},

@@ -157,7 +157,7 @@ cannot check. A value with `*`, `?`, `[`, `{`, `~` or a backslash is refused:
 bash would expand it into names komando cannot see. `kubectl config view --raw` is refused too: it prints the
 kubeconfig's credentials. For a server's state, komando's
 own reads need no shell command at all: `komando logs`, `fs cat`,
-`docker ps`, `cert check`. `docker exec` and
+`docker ps`. `docker exec` and
 `cluster kubernetes exec` check their `--read-only` the same way.
 
 A command komando cannot follow is refused the same way: `eval`, `source`,
