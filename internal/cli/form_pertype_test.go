@@ -12,9 +12,6 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// connTypes are the types whose entries are conns, each with an add per provider.
-var connTypes = []string{"database", "cache", "queue", "storage", "cluster", "registry"}
-
 // perTypeAdds are the add commands of the conn types that are built.
 func perTypeAdds(t *testing.T) []capability.Key {
 	t.Helper()

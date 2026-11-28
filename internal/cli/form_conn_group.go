@@ -4,6 +4,7 @@ package cli
 // file goes with the group (row C488, step P6).
 
 func init() {
+	promptKinds["conn"] = struct{ noun, add string }{"conns", "komando conn add"}
 	edit := invEntryEdit
 	edit.hide = []string{"group", "tag"}
 	addFormHints(map[string]formHint{

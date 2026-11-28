@@ -216,7 +216,7 @@ func (f *fill) pick(key string) string {
 var promptKinds = map[string]struct{ noun, add string }{
 	"server": {"servers", "komando host ssh add"}, "host": {"servers", "komando host ssh add"},
 	"target": {"servers or conns", "komando host ssh add"}, "files": {"servers or file storage", "komando host ssh add"},
-	"conn": {"conns", "komando conn add"}, "db": {"databases", "komando database postgres add"},
+	"db":    {"databases", "komando database postgres add"},
 	"cache": {"caches", "komando cache redis add"}, "queue": {"message queues", "komando queue kafka add"},
 	"storage": {"file storages", "komando storage s3 add"}, "cluster": {"clusters", "komando cluster kubernetes add"},
 	"registry": {"registries", "komando registry oci add"}, "vpn": {"VPNs", "komando vpn KIND add"},

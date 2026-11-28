@@ -39,7 +39,8 @@ func inventoryHints(typ, provider, noun, group, kindLabel string) map[string]for
 		cmd + "rename": {args: []formArg{{ask: "Which " + noun + " do you want to rename?", pick: fam,
 			help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 		cmd + "show": {args: []formArg{pick}},
-		cmd + "test": {args: []formArg{invConns}, flags: []formFlag{invWait}},
+		cmd + "test": {args: []formArg{{ask: "Which " + noun + "s?", pick: fam, free: true,
+			help: "Pick one, or type @group, tag:prod or several names separated by commas."}}, flags: []formFlag{invWait}},
 	}
 }
 

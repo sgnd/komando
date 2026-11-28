@@ -61,6 +61,10 @@ func formIsCheck(c []string) bool {
 	return false
 }
 
+// connTypes are the types whose entries are conns, each with the seven
+// inventory verbs per provider.
+var connTypes = []string{"database", "cache", "queue", "storage", "cluster", "registry"}
+
 // formRemoveCmd takes out again what the add in cmds added (TYPE PROVIDER
 // remove NAME), or nil when it is not one add of one name.
 func formRemoveCmd(cmds [][]string) []string {
