@@ -27,7 +27,7 @@ func TestReviewKeys(t *testing.T) {
 // The screen: the question, the line with a $ first, then the keys.
 func TestDrawReview(t *testing.T) {
 	unicodeMarks(t, true)
-	lines := DrawReview(NewReview("host exec web-1 -- uptime"), Style{Width: 80})
+	lines := DrawReview(NewReview("host ssh exec web-1 -- uptime"), Style{Width: 80})
 	want := []string{
 		"Run this?",
 		"  $ komando host ssh exec web-1 -- uptime",
