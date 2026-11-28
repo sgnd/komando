@@ -121,6 +121,7 @@ func TestGroupTypoAnswerHidesSecrets(t *testing.T) {
 			if who == "agent" {
 				setCallerEnv(t, "CLAUDECODE", "1")
 			}
+			tcl.out.SetSecrets(nil) // as a new process starts: the add above loaded them
 			var code int
 			got := captureOutput(t, func() error {
 				code = executeArgs([]string{"host", "ssh", "exce", "web1", "Zq7-vault-value-91", "--", "mysql", "-pAfter-dash-91"})
