@@ -155,6 +155,18 @@ func TestRedisClusterNodesUseTheDialer(t *testing.T) {
 	trap.open(t, "redis://"+f.ln.Addr().String()+"?cluster=1")
 }
 
+// A MOVED or ASK redirect is followed through the conn's dialer too.
+func TestRedisClusterRedirectsUseTheDialer(t *testing.T) {
+	for _, kind := range []string{"MOVED", "ASK"} {
+		t.Run(kind, func(t *testing.T) {
+			trap := newRedisTrap(t)
+			f := newFakeRedis(t, fakeKeys)
+			f.redirect = "-" + kind + " 0 " + trap.ln.Addr().String()
+			trap.open(t, "redis://"+f.ln.Addr().String()+"?cluster=1")
+		})
+	}
+}
+
 // The master a Sentinel hands back is dialed through the conn's dialer too.
 func TestRedisSentinelMasterUsesTheDialer(t *testing.T) {
 	trap := newRedisTrap(t)

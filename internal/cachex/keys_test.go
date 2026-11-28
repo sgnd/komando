@@ -29,6 +29,8 @@ type fakeRedis struct {
 	gets     int    // GET/HGETALL/... commands: a key list never reads values
 	announce string // the node address CLUSTER hands back; "" is its own
 	master   string // the master address a SENTINEL hands back
+	redirect string // the error the first TYPE answers, as "-MOVED 0 host:port"
+	answered bool   // the redirect went out
 }
 
 func newFakeRedis(t *testing.T, keys map[string][2]string) *fakeRedis {
@@ -125,7 +127,13 @@ func (f *fakeRedis) serve(c net.Conn) {
 			fmt.Fprintf(c, "*2\r\n%s*%d\r\n%s", bulk("0"), len(f.keys), b.String())
 		case "TYPE", "PTTL":
 			k := f.keys[args[1]]
+			f.mu.Lock()
+			redirect := cmd == "TYPE" && f.redirect != "" && !f.answered
+			f.answered = f.answered || redirect
+			f.mu.Unlock()
 			switch {
+			case redirect:
+				held = append(held, f.redirect+"\r\n")
 			case cmd == "TYPE" && f.denyType:
 				held = append(held, "-NOPERM this user has no permissions to run the 'type' command\r\n")
 			case cmd == "TYPE" && k[0] == "":

@@ -132,57 +132,73 @@ func TestGateLabKafka(t *testing.T) {
 	lab.onlyLab(t)
 }
 
+// ftpLab is an FTP server reached as lab.example; with pasv its EPSV answers
+// 550, so the client falls back to PASV, which hands back 127.0.0.1.
+func ftpLab(t *testing.T, pasv bool) driver.Target {
+	t.Helper()
+	s := ftptest.New(t)
+	if pasv {
+		s.Reply550 = "EPSV"
+	}
+	_, port, _ := net.SplitHostPort(s.Ln.Addr().String())
+	tg := s.Target()
+	tg.Address = "lab.example:" + port
+	return tg
+}
+
 // An FTP data connection goes through the gate by the server's name, which
 // the gate resolves and judges again: EPSV hands back only a port, and the
 // library uses no PASV address (storex hides the control connection's IP).
 func TestGateLabFTP(t *testing.T) {
-	s := ftptest.New(t)
-	_, port, _ := net.SplitHostPort(s.Ln.Addr().String())
-	lab, dial := newGateLab(t)
-	tg := s.Target()
-	tg.Address = "lab.example:" + port
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	b, err := storex.OpenFTP(ctx, tg, "pw", dial, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
+	for _, mode := range []string{"EPSV", "PASV"} {
+		t.Run(mode, func(t *testing.T) {
+			tg := ftpLab(t, mode == "PASV")
+			lab, dial := newGateLab(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			b, err := storex.OpenFTP(ctx, tg, "pw", dial, 3*time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer b.Close()
+			if _, _, err := b.List(ctx, "", false, 10); err != nil {
+				t.Fatal(err)
+			}
+			lab.mu.Lock()
+			asked := slices.Clone(lab.asked)
+			lab.mu.Unlock()
+			if len(asked) < 2 || asked[0] != tg.Address || !strings.HasPrefix(asked[1], "lab.example:") || asked[1] == tg.Address {
+				t.Errorf("asked the gate for %q, want the control connection, then a data connection, both by the server's name", asked)
+			}
+			lab.onlyLab(t)
+		})
 	}
-	defer b.Close()
-	if _, _, err := b.List(ctx, "", false, 10); err != nil {
-		t.Fatal(err)
-	}
-	lab.mu.Lock()
-	asked := slices.Clone(lab.asked)
-	lab.mu.Unlock()
-	if len(asked) < 2 || asked[0] != tg.Address || !strings.HasPrefix(asked[1], "lab.example:") || asked[1] == tg.Address {
-		t.Errorf("asked the gate for %q, want the control connection, then a data connection, both by the server's name", asked)
-	}
-	lab.onlyLab(t)
 }
 
 // A data connection asks the gate for the server's name again: a name that
 // answered public for the control connection and answers this computer for
 // the data connection is refused.
 func TestGateLabFTPRebind(t *testing.T) {
-	s := ftptest.New(t)
-	_, port, _ := net.SplitHostPort(s.Ln.Addr().String())
-	lab, dial := newGateLab(t, ips(gateLabIP), ips("127.0.0.1"))
-	tg := s.Target()
-	tg.Address = "lab.example:" + port
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	b, err := storex.OpenFTP(ctx, tg, "pw", dial, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
+	for _, mode := range []string{"EPSV", "PASV"} {
+		t.Run(mode, func(t *testing.T) {
+			tg := ftpLab(t, mode == "PASV")
+			lab, dial := newGateLab(t, ips(gateLabIP), ips("127.0.0.1"))
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			b, err := storex.OpenFTP(ctx, tg, "pw", dial, 3*time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer b.Close()
+			_, _, err = b.List(ctx, "", false, 10)
+			lab.mu.Lock()
+			refused := slices.ContainsFunc(lab.refused, func(a string) bool { return strings.HasPrefix(a, "lab.example:") && a != tg.Address })
+			asked := slices.Clone(lab.asked)
+			lab.mu.Unlock()
+			if err == nil || !refused {
+				t.Errorf("list: %v; asked the gate for %q, want a data connection refused", err, asked)
+			}
+			lab.onlyLab(t)
+		})
 	}
-	defer b.Close()
-	_, _, err = b.List(ctx, "", false, 10)
-	lab.mu.Lock()
-	refused := slices.ContainsFunc(lab.refused, func(a string) bool { return strings.HasPrefix(a, "lab.example:") && a != tg.Address })
-	asked := slices.Clone(lab.asked)
-	lab.mu.Unlock()
-	if err == nil || !refused {
-		t.Errorf("list: %v; asked the gate for %q, want a data connection refused", err, asked)
-	}
-	lab.onlyLab(t)
 }
