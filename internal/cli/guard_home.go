@@ -142,3 +142,308 @@ func homeStop(cl *call, msg, hint string) error {
 	cl.blockAudited = true
 	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", hint, "%s", msg).NoFlag()
 }
+
+// checkAgentVars stops a command that changes the variables komando knows
+// an AI agent by (agentVars), or KOMANDO_HOME (homeVar): `CLAUDECODE=0
+// komando ...`, `KOMANDO_HOME=/tmp/x komando ...`, `unset`, `export`,
+// `read`, `env -u`, `env -i` and `exec -c` would make komando treat the
+// agent as a script and skip the person's window, masking and the
+// secret-file stops. So would `sudo komando`, which starts komando with a
+// clean environment. A name komando cannot read (`unset $V`, `${!CLAUDE*}`)
+// or a pattern (`CLAUDE*`, `CLAUDE{CODE,_CODE_ENTRYPOINT}`) that could be
+// one counts as that name.
+func checkAgentVars(words []string, depth int) guardDecision {
+	why := varChangeDenied
+	cleared := func(how string) guardDecision {
+		return deny("%s clears the variables komando knows an AI agent by, which would switch off komando's safety stops for agents", how)
+	}
+	// the words up to the program: shell keywords, NAME=value words and
+	// wrappers (sudo, env, ...) with their flags; and the arguments of the
+	// shell's own commands that set or remove variables
+	wrapper, pos := "", 0
+	sudo, keepsEnv := "", false
+	for i := 0; i < len(words); i++ {
+		w := words[i]
+		base := filepath.Base(w)
+		switch {
+		case wrapper == "" && shellKeyword[w]:
+			if w == "function" {
+				i++
+			}
+		case envAssign.MatchString(w):
+			if name, ok := agentVarIn(assignName(w)); ok {
+				return why(name)
+			}
+		case w == "unset" || w == "export" || w == "declare" || w == "typeset" || w == "local" || w == "readonly" || w == "integer" || w == "float":
+			for _, a := range words[i+1:] {
+				if strings.HasPrefix(a, "-") || strings.HasPrefix(a, "+") {
+					continue // -n, -x, +x, -m: the names are what count
+				}
+				if name, ok := agentVarIn(assignName(a)); ok {
+					return why(name)
+				}
+			}
+			return allow()
+		case w == "read" || w == "mapfile" || w == "readarray" || w == "printf" || w == "print" || w == "getopts" || w == "for" || w == "select":
+			for _, n := range setNames(w, words[i+1:]) {
+				if name, ok := agentVarIn(n); ok {
+					return why(name)
+				}
+			}
+			return allow()
+		case wrapper == "env" && strings.HasPrefix(w, "--") && w != "--":
+			opt, val, hasVal := envLongOption(w)
+			switch opt {
+			case "--ignore-environment":
+				return cleared("`env " + w + "`")
+			case "--unset", "--chdir", "--split-string", "--argv0":
+				if !hasVal && i+1 < len(words) {
+					i++
+					val = words[i]
+				}
+			}
+			switch opt {
+			case "--unset":
+				if name, ok := agentVarIn(val); ok {
+					return why(name)
+				}
+			case "--split-string":
+				return checkEnvSplit(val, words[i+1:], depth)
+			}
+		case wrapper == "env" && w == "-":
+			return cleared("`env -`")
+		case wrapper == "env" && len(w) > 1 && w[0] == '-' && w[1] != '-':
+			// a cluster of short flags: -i, -vu NAME, -uNAME, -S 'words'
+			for j := 1; j < len(w); j++ {
+				c := w[j]
+				if c == 'i' {
+					return cleared("`env " + w + "`")
+				}
+				if c != 'u' && c != 'C' && c != 'S' && c != 'a' {
+					continue
+				}
+				val := w[j+1:]
+				if val == "" && i+1 < len(words) {
+					i++
+					val = words[i]
+				}
+				if c == 'u' {
+					if name, ok := agentVarIn(val); ok {
+						return why(name)
+					}
+				}
+				if c == 'S' {
+					return checkEnvSplit(val, words[i+1:], depth)
+				}
+				break
+			}
+		case wrapper == "exec" && len(w) > 1 && w[0] == '-' && w[1] != '-' && strings.ContainsRune(w, 'c'):
+			return cleared("`exec -c`")
+		case isWrapper(base):
+			wrapper, pos = base, 0
+			if base == "sudo" || base == "doas" {
+				sudo = base
+			}
+		case strings.HasPrefix(w, "-") && wrapper != "":
+			if wrapper == "sudo" && (strings.HasPrefix(w, "--preserve-env") || len(w) > 1 && w[1] != '-' && strings.ContainsRune(w, 'E')) {
+				keepsEnv = true
+			}
+			if wrapperValue[wrapper][w] {
+				i++
+			}
+		case pos < wrapperPositional[wrapper]:
+			pos++ // timeout 10, taskset 0x1
+		default:
+			// the program: its arguments are its own
+			if base == "komando" && (sudo == "doas" || sudo == "sudo" && !keepsEnv) {
+				return deny("%s starts komando with a clean environment, so komando would not know that an AI agent runs it; run komando without %s (it does not need root on this computer)", sudo, sudo)
+			}
+			return allow()
+		}
+	}
+	return allow()
+}
+
+// checkEnvSplit is checkAgentVars for env -S WORDS REST: env runs WORDS as
+// its own words.
+func checkEnvSplit(words string, rest []string, depth int) guardDecision {
+	if depth >= guardDepth {
+		return tooDeep()
+	}
+	return checkAgentVars(append(append([]string{"env"}, shellWords(words)...), rest...), depth+1)
+}
+
+// homeVar moves komando's data folder. An agent's shell line must not
+// change it either: komando would then use another inventory, without the
+// person's protected servers, deny rules, host keys and audit log
+// (guardHome stops the command when it happens anyway).
+const homeVar = "KOMANDO_HOME"
+
+// homeVars are the home folder's variables. Setting them in front of
+// komando is refused; elsewhere they are the agent's own business (a test
+// run with its own HOME).
+var homeVars = map[string]bool{"HOME": true, "USERPROFILE": true}
+
+// checkShellVars is checkAgentVars, and refuses HOME= or USERPROFILE= among
+// the words in front of komando (its NAME=value words and wrappers).
+func checkShellVars(words []string, depth int) guardDecision {
+	if d := checkAgentVars(words, depth); d.Deny {
+		return d
+	}
+	prog, args := program(words)
+	if filepath.Base(prog) != "komando" {
+		return allow()
+	}
+	for _, w := range words[:len(words)-len(args)-1] {
+		if envAssign.MatchString(w) && homeVars[assignName(w)] {
+			return deny("%s=... in front of komando would move its data folder away from the user's protected servers, deny rules, host keys and audit log (komando keeps an agent's data in the account's own home folder all the same). Run komando without it", assignName(w))
+		}
+	}
+	return allow()
+}
+
+// watchedVars are the variables the guard keeps an agent's shell lines
+// from changing: the agent variables and homeVar.
+func watchedVars() []string {
+	names := []string{homeVar}
+	for _, a := range agentVars {
+		names = append(names, a.env)
+	}
+	return names
+}
+
+// varChangeDenied is the guard's answer to a line that changes name.
+func varChangeDenied(name string) guardDecision {
+	if name == homeVar {
+		return deny("%s moves komando's data folder: komando would use another list of servers, without the user's protected servers, deny rules, host keys and audit log. Leave it as it is; ask the user if komando should use another folder", name)
+	}
+	return deny("%s tells komando that an AI agent is running it; changing or clearing it would switch off komando's safety stops for agents. Leave it as it is", name)
+}
+
+// assignName is the variable name of NAME=value or NAME+=value.
+func assignName(w string) string {
+	n, _, _ := strings.Cut(w, "=")
+	return strings.TrimSuffix(n, "+")
+}
+
+// agentVarIn reports the watched variable (watchedVars) a name word sets
+// or removes: the name itself, one of a {a,b} list, one a pattern matches
+// (zsh `unset -m`), or any when the name is not known until the shell runs
+// ($V, ${!P*}, `...`).
+func agentVarIn(w string) (string, bool) {
+	if strings.ContainsAny(w, "$`") {
+		for _, env := range watchedVars() {
+			if strings.Contains(w, env) {
+				return env, true
+			}
+		}
+		return agentVars[0].env + " (or another agent variable)", true
+	}
+	xs, whole := expandBraces(w)
+	if !whole {
+		return agentVars[0].env + " (or another agent variable)", true
+	}
+	for _, x := range xs {
+		elem := x
+		if i := strings.IndexByte(x, '['); i > 0 && strings.HasSuffix(x, "]") {
+			elem = x[:i] // NAME[i]: an element of the variable NAME
+		}
+		for _, env := range watchedVars() {
+			if x == env || elem == env {
+				return env, true
+			}
+			if strings.ContainsAny(x, "*?[") {
+				if ok, _ := filepath.Match(x, env); ok {
+					return env, true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// setNames are the variable names a shell builtin that sets variables is
+// given: read's and mapfile's names (not their flags' values), printf -v
+// NAME and zsh's print -v NAME, getopts' NAME, and for's and select's loop
+// variable.
+func setNames(builtin string, args []string) []string {
+	var names []string
+	switch builtin {
+	case "for", "select":
+		if len(args) > 0 {
+			names = append(names, args[0])
+		}
+	case "getopts":
+		if len(args) > 1 {
+			names = append(names, args[1])
+		}
+	case "printf", "print": // -v NAME, also in a cluster (-rv NAME)
+		for i := 0; i < len(args) && strings.HasPrefix(args[i], "-") && args[i] != "--"; i++ {
+			if k := strings.IndexByte(args[i], 'v'); k > 0 {
+				if n := args[i][k+1:]; n != "" {
+					names = append(names, n)
+				} else if i+1 < len(args) {
+					names = append(names, args[i+1])
+				}
+				break
+			}
+		}
+	case "read", "mapfile", "readarray":
+		values := "dnOsuCc" // flags whose value is not a name
+		if builtin == "read" {
+			values = "dinNptu"
+		}
+		for i := 0; i < len(args); i++ {
+			a := args[i]
+			if a == "--" {
+				names = append(names, args[i+1:]...)
+				break
+			}
+			if len(a) < 2 || a[0] != '-' {
+				n, _, _ := strings.Cut(a, "?") // zsh: read NAME?prompt
+				names = append(names, n)
+				continue
+			}
+			for j := 1; j < len(a); j++ {
+				if c := a[j]; strings.IndexByte(values, c) >= 0 || c == 'a' || c == 'A' {
+					v := a[j+1:]
+					if v == "" && i+1 < len(args) {
+						i++
+						v = args[i]
+					}
+					if c == 'a' || c == 'A' {
+						names = append(names, v) // read -a NAME: an array
+					}
+					break
+				}
+			}
+		}
+	}
+	return names
+}
+
+// envLongOption is the GNU env option w names: GNU takes any unambiguous
+// start of a long option (--uns, --ignore-env). An ambiguous start that
+// could clear or remove variables is taken as that, to be safe.
+func envLongOption(w string) (opt, val string, hasVal bool) {
+	name, val, hasVal := strings.Cut(w, "=")
+	var match []string
+	for _, o := range []string{"--ignore-environment", "--null", "--unset", "--chdir", "--split-string", "--block-signal",
+		"--default-signal", "--ignore-signal", "--list-signal-handling", "--debug", "--argv0", "--help", "--version"} {
+		if o == name {
+			return o, val, hasVal
+		}
+		if len(name) > 2 && strings.HasPrefix(o, name) {
+			match = append(match, o)
+		}
+	}
+	for _, o := range match {
+		if o == "--ignore-environment" || o == "--unset" || o == "--split-string" {
+			return o, val, hasVal
+		}
+	}
+	if len(match) == 1 {
+		return match[0], val, hasVal
+	}
+	return name, val, hasVal
+}

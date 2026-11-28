@@ -43,6 +43,10 @@ its highlights; the sections below them give the details. Versions follow
 - **Breaking:** `komando cluster kubernetes raw` ends with the codes the removed `cluster` commands had, as every other cluster path does: a cluster that does not answer within `--timeout` is `TIMEOUT` (exit 7), a login program that is not on this computer is `TOOL_MISSING` (exit 3, with the kubeconfig's install hint), a login that fails is `LOGIN_FAILED` (exit 4). Before, raw said `TOOL_FAILED` (exit 5) for all three. A change that timed out is in the audit log, as a broken connection is.
 - An AI agent's `db dump` stops with `NEEDS_PERSON` on every database, not only where personal data is hidden: the file holds every row as it is, passwords and tokens included. No flag lifts it; a person runs the dump in their own terminal.
 
+### Security
+
+- Hardening of the agent guard (`komando guide guard`). Update every computer where an AI agent works with komando. The guard may now refuse a few command lines it let through before; run such a line in your own terminal.
+
 ### Fixed
 
 - `ssh-gate`: a key's run connects only to addresses the gate judged. komando looks a name up once, refuses it when the lookup fails or any answer is this computer, and connects to those answers, not to the name again, so DNS can no longer answer the gate's check one address and the connection another. An address a server hands back (a Kafka listener, a Mongo member, a Redis redirect, an FTP data port) is judged the same way. This computer is: loopback, `0.0.0.0/8`, `::`, `::127.0.0.1`, multicast and broadcast, any address of its network interfaces (its LAN, `169.254` and `fe80` addresses), and an `fe80` address on its loopback interface (`fe80::1%lo0`, `%1`) or on an interface it does not have (`SSH_GATE_REFUSED`). For a key this also means: a name that resolves only through a VPN is refused, a Kubernetes conn's kubeconfig `proxy-url` is not used, a conn with `?resolve=IP` is judged by that IP (its name only as written), and a server or jump host reached by its proxy command (an SSM bastion) is refused only when its address is this computer. A person's and an AI agent's runs connect as before.
