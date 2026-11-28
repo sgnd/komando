@@ -403,7 +403,7 @@ func harmlessKomandoLine(line string) bool {
 		return false
 	}
 	for _, seg := range splitShell(line) {
-		words := shellWords(seg)
+		words := shellWords(dropRedirects(seg)) // <in may stand before the program
 		if len(words) > 0 && words[0] == "for" {
 			continue // for NAME in WORDS: a list, not a command
 		}

@@ -21,6 +21,27 @@ func program(words []string) (string, []string) {
 	return words[at], words[at+1:]
 }
 
+// redirectWords are the words of seg's redirects with their globs: the
+// words shellWordsGlob gives for seg that are not among words, seg's words
+// without its redirects.
+func redirectWords(seg string, words []string) ([]string, []bool) {
+	left := map[string]int{}
+	for _, w := range words {
+		left[w]++
+	}
+	all, globs := shellWordsGlob(seg)
+	var out []string
+	var outGlobs []bool
+	for i, w := range all {
+		if left[w] > 0 {
+			left[w]--
+			continue
+		}
+		out, outGlobs = append(out, w), append(outGlobs, globs[i])
+	}
+	return out, outGlobs
+}
+
 // wrapperRead is what readWrappers finds in a simple command's words: the
 // program's index (-1 for none), the wrapper options the guard does not
 // know, and the folder a wrapper runs the program in when chdir is set

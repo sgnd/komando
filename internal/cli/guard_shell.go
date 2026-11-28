@@ -426,7 +426,7 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 		if at := strings.Index(line[end:], seg); at >= 0 {
 			end += at + len(seg)
 		}
-		mwords, _ := shellWordsGlob(seg)
+		mwords, _ := shellWordsGlob(dropRedirects(seg))
 		vars.aliasesFrom(line, end-len(seg))
 		vars.learn(cl, line, seg, end, home, cwd, mwords)
 		segs, ok := wrapperReadings(seg)
@@ -453,10 +453,12 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 // read (wrapperReadings), and gives the working folder after it. rline is
 // the line without its command outputs.
 func checkSimple(cl *call, rline, seg string, vars lineVars, home, cwd string, depth int) (string, guardDecision) {
-	mwords, mglobs := shellWordsGlob(seg)
+	// a redirect can stand before the program (>out bash -c ...): the
+	// program and its arguments are the words without the redirects
+	mwords, mglobs := shellWordsGlob(dropRedirects(seg))
 	_, margs := program(mwords)
 	rseg := strings.ReplaceAll(seg, unknownOutput, "")
-	words, globs := shellWordsGlob(rseg)
+	words, globs := shellWordsGlob(dropRedirects(rseg))
 	if d := checkShellVars(words, depth); d.Deny {
 		return cwd, d
 	}
@@ -469,6 +471,12 @@ func checkSimple(cl *call, rline, seg string, vars lineVars, home, cwd string, d
 	}
 	if d := checkWrites(cl, seg, vars, home, run); d.Deny {
 		return cwd, d
+	}
+	if base != "komando" { // the files the shell opens for the redirects
+		tw, tg := redirectWords(rseg, words)
+		if d := checkReadWords(cl, base, tw, tg, nil, vars, home, cwd); d.Deny {
+			return cwd, d
+		}
 	}
 	if prog == "" || base == "komando" {
 		return cwd, allow()

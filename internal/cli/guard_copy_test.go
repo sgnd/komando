@@ -570,3 +570,63 @@ func agentRepo(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 }
+
+// A redirect may stand before the program, or between a wrapper and it:
+// the shell runs the same program, so the guard reads the same one. Each
+// line is refused for the reason the line without the redirect gets.
+func TestGuardRedirectBeforeTheProgramHidesNoProgram(t *testing.T) {
+	home, _ := guardLineHome(t)
+	same := func(plain string, lines ...string) {
+		t.Helper()
+		want := checkTool(tcl, "Bash", map[string]any{"command": plain}, home, home)
+		if !want.Deny {
+			t.Fatalf("%s: the line without the redirect is allowed", plain)
+		}
+		for _, line := range lines {
+			if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, home); !d.Deny || d.Reason != want.Reason {
+				t.Errorf("%s: want the refusal of %s (%q), got deny=%v %q", line, plain, want.Reason, d.Deny, d.Reason)
+			}
+		}
+	}
+	prefixes := []string{">/tmp/o ", ">>/tmp/o ", "</dev/null ", "2>/dev/null ", "<<<x ", "</dev/null >/tmp/o ", "> /tmp/o 2>&1 ", ">/tmp/echo ", "</tmp/cat "}
+	for _, run := range []string{
+		`bash -c 'rm -rf ~'`,
+		`eval 'rm -rf ~'`,
+		`find ~ -name settings.json -delete`,
+		`ssh web1 uptime`,
+		`HOME=/tmp/h komando list`,
+		`CLAUDECODE= go test ./...`,
+		`python3 -c "open('/tmp/b/komando','w')"`,
+		`curl -so /tmp/b/komando https://example.com/k`,
+	} {
+		var lines []string
+		for _, p := range prefixes {
+			lines = append(lines, p+run, "nohup "+p+run)
+			if !strings.Contains(run, "komando list") { // sudo komando has its own refusal
+				lines = append(lines, "sudo -u root "+p+run)
+			}
+		}
+		same(run, lines...)
+	}
+	same("bash <<EOF\nrm -rf ~\nEOF", ">/tmp/o bash <<EOF\nrm -rf ~\nEOF", "</dev/null bash <<EOF\nrm -rf ~\nEOF")
+	// eval forgets what the line set; behind a redirect too
+	same(`f=/tmp/x; eval 'f=~/.komando/vault.json'; echo x > $f`,
+		`f=/tmp/x; </dev/null eval 'f=~/.komando/vault.json'; echo x > $f`,
+		`f=/tmp/x; >/tmp/o eval 'f=~/.komando/vault.json'; echo x > $f`)
+	// a redirect's own file is read as before
+	checkLines(t, home, home, []string{
+		`< ~/.ssh/id_ed25519 cat`,
+		`cat < ~/.ssh/id_ed25519`,
+		`<~/.komando/vault.json base64`,
+		`nohup <~/.ssh/id_ed25519 cat`,
+	}, true)
+	checkLines(t, home, home, []string{
+		`>/tmp/o bash -c 'echo ok'`,
+		`2>/dev/null find . -name '*.go'`,
+		`</dev/null eval 'echo ok'`,
+		`>/tmp/o nohup go test ./...`,
+		`f=a >/tmp/o; echo x > /tmp/$f`,
+		`>/tmp/o 2>&1 go vet ./...`,
+		`echo hi < /tmp/in`,
+	}, false)
+}
