@@ -262,12 +262,45 @@ var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 	return net.DefaultResolver.LookupIP(ctx, "ip", host)
 }
 
-// gateLocalIP: ip is this computer: loopback, unspecified, one of its
-// network addresses, an address that reaches it too (gateGroupIP), or one
-// only its own link or cloud answers (gateNearIP). Tests whose servers
-// listen on loopback swap it.
-var gateLocalIP = func(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsUnspecified() || gateNearIP(ip) || gateGroupIP(ip) || gateOwnIP(ip)
+// gateLocalIP is gateHereIP; tests whose servers listen on loopback swap it.
+var gateLocalIP = gateHereIP
+
+// gateHereIP: ip is this computer: loopback, unspecified, one of its
+// network addresses, an address that reaches it too (gateGroupIP), one
+// only its own link or cloud answers (gateNearIP), an IPv6 address that
+// carries such an IPv4 address, or one whose IPv4 address the gate cannot
+// read (gateOpaqueIP).
+func gateHereIP(ip net.IP) bool {
+	if v4 := gateCarriedIPv4(ip); v4 != nil && gateHereIP(v4) {
+		return true
+	}
+	return ip.IsLoopback() || ip.IsUnspecified() || gateNearIP(ip) || gateGroupIP(ip) || gateOpaqueIP(ip) || gateOwnIP(ip)
+}
+
+// gateCarriedIPv4 is the IPv4 address a translator connects to for ip:
+// NAT64's well-known prefix (64:ff9b::/96) or SIIT (::ffff:0:0/96); nil
+// for any other address.
+func gateCarriedIPv4(ip net.IP) net.IP {
+	ip16 := ip.To16()
+	if ip16 == nil || ip.To4() != nil {
+		return nil
+	}
+	if p := [12]byte(ip16[:12]); p == [12]byte{0, 0x64, 0xff, 0x9b} || p == [12]byte{8: 0xff, 9: 0xff} {
+		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15])
+	}
+	return nil
+}
+
+// gateOpaqueIP: ip leads to an IPv4 address the gate cannot read: 6to4
+// (2002::/16) and Teredo (2001::/32) go through a relay, and local NAT64
+// (64:ff9b:1::/48) puts it where only its network's prefix length says.
+func gateOpaqueIP(ip net.IP) bool {
+	ip16 := ip.To16()
+	if ip16 == nil || ip.To4() != nil {
+		return false
+	}
+	return [2]byte(ip16[:2]) == [2]byte{0x20, 0x02} || [4]byte(ip16[:4]) == [4]byte{0x20, 0x01} ||
+		[6]byte(ip16[:6]) == [6]byte{0, 0x64, 0xff, 0x9b, 0, 1}
 }
 
 // gateNearIP: ip answers only on this computer's own link (169.254.0.0/16,
