@@ -17,7 +17,7 @@ import (
 
 // mvFromRename turns the engine's result into what the mv commands print.
 func mvFromRename(kind, from, to string, r renameResult) mvResult {
-	res := mvResult{Kind: kind, From: from, To: to, Action: r.Action, Updated: []string{}, Warnings: r.Warnings}
+	res := mvResult{Kind: kind, From: from, To: to, Action: r.Action, Updated: []string{}}
 	for _, u := range r.Updated {
 		res.Updated = append(res.Updated, u.String())
 	}

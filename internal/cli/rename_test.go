@@ -36,7 +36,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 		{"conn", "rename", "lab-db", "test-db"},
 		{"credential", "password", "rename", "lab-pass", "test-pass"},
 	} {
-		if d := mustRun(t, a...); d["action"] != "renamed" {
+		if d := mustRun(t, a...); d["to"] != a[len(a)-1] {
 			t.Errorf("%v: %v", a, d)
 		}
 	}

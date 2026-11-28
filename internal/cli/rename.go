@@ -10,25 +10,14 @@ import (
 // What a rename prints and the stop before it changes protected entries.
 // The engine is in rename_engine.go; each noun's own rename command calls it.
 
-// renameSkip is a name that matched but is left alone, and why.
-type renameSkip struct {
-	Kind   string `json:"kind"`
-	Name   string `json:"name"`
-	Reason string `json:"reason"`
-}
-
 // renameResult is what a rename prints.
 type renameResult struct {
-	Prefix    *renamePair             `json:"prefix,omitempty"` // OLD and NEW
-	Action    string                  `json:"action"`           // renamed | would_rename | unchanged
-	Count     int                     `json:"count"`            // entries renamed
-	Renamed   map[string][]renamePair `json:"renamed"`          // by kind
-	Protected []string                `json:"protected"`        // protected servers and conns it changes ("host NAME", old names)
-	Updated   []renameRef             `json:"updated"`          // references that follow
-	Moved     []renamePair            `json:"moved"`            // key files and VPN state folders
-	Skipped   []renameSkip            `json:"skipped,omitempty"`
-	Kept      []renameKept            `json:"kept,omitempty"` // old names left in notes and labels, and why
-	Warnings  []string                `json:"warnings,omitempty"`
+	Action    string                  `json:"action"`    // renamed | would_rename | unchanged
+	Count     int                     `json:"count"`     // entries renamed
+	Renamed   map[string][]renamePair `json:"renamed"`   // by kind
+	Protected []string                `json:"protected"` // protected servers and conns it changes ("host NAME", old names)
+	Updated   []renameRef             `json:"updated"`   // references that follow
+	Moved     []renamePair            `json:"moved"`     // key files and VPN state folders
 }
 
 func (r renameResult) Text() string {
@@ -38,9 +27,6 @@ func (r renameResult) Text() string {
 		sb.WriteString(verb)
 	} else {
 		fmt.Fprintf(&sb, "%s %d %s", verb, r.Count, renameNoun(r.Count, "entry"))
-	}
-	if r.Prefix != nil {
-		fmt.Fprintf(&sb, " (prefix %s -> %s)", r.Prefix.From, r.Prefix.To)
 	}
 	sb.WriteString("\n")
 	var rows [][]string
@@ -68,22 +54,6 @@ func (r renameResult) Text() string {
 	}
 	for _, m := range r.Moved {
 		fmt.Fprintf(&sb, "moves %s -> %s\n", m.From, m.To)
-	}
-	for _, s := range r.Skipped {
-		fmt.Fprintf(&sb, "left alone: %s %s (%s)\n", s.Kind, s.Name, s.Reason)
-	}
-	if len(r.Kept) > 0 {
-		fmt.Fprintf(&sb, "old names kept in notes and labels (%d):\n", len(r.Kept))
-		for _, k := range r.Kept {
-			why := k.Reason
-			if k.To != "" {
-				why += "; it would become " + k.To
-			}
-			fmt.Fprintf(&sb, "  %s %s: %s (%s)\n", k.Entry, k.Field, k.Name, why)
-		}
-	}
-	for _, w := range r.Warnings {
-		fmt.Fprintf(&sb, "warning: %s\n", w)
 	}
 	return sb.String()
 }
