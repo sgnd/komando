@@ -56,10 +56,10 @@ JR=$($K host ssh exec direct --wait 0 -- 'sleep 60' | sess_id || true)
 check "--remove of a running session -> SESSION_BUSY" SESSION_BUSY "$($K host ssh exec direct --attach "$JR" --remove | jget 'd["error"]["code"]' || true)"
 set +e; $K host ssh exec direct --attach "$JR" --wait 2s >/dev/null; check "--attach --wait runs out -> 7" 7 $?; set -e
 q $K host ssh exec direct --attach "$JR" --stop
-check "a stopped session says which signal ended it" TERM "$($K host ssh exec direct --attach "$JR" --wait 1m | jget 'd["data"]["results"][0]["signal"]' || true)"
-check "--stop again is a no-op" 0 "$($K host ssh exec direct --attach "$JR" --stop >/dev/null; echo $?)"
+check "--stop again: the run is gone" SESSION_PROCESS_MISSING "$($K host ssh exec direct --attach "$JR" --stop | jget 'd["error"]["code"]' || true)"
 set +e; $K host ssh exec direct --attach "$JR" --offset -5 >/dev/null; check "negative --offset -> 2" 2 $?; set -e
-q $K host ssh exec direct --attach "$JR" --remove
+check "a stopped session says which signal ended it" TERM "$($K host ssh exec direct --attach "$JR" --wait 1m | jget 'd["data"]["results"][0]["signal"]' || true)"
+check "the starter's read to its end removed it" SESSION_FOLDER_MISSING "$($K host ssh exec direct --attach "$JR" --remove | jget 'd["error"]["code"]' || true)"
 
 # recipes, tunnels
 set +e; $K snippet exec disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e

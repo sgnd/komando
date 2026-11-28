@@ -192,8 +192,7 @@ O=$($K host ssh exec direct --wait 0 -- 'echo a; sleep 31; echo late' || true); 
 q $K host ssh exec direct --attach "$JT" --stop
 check "--stop ends the run" 0 "$($K host ssh exec direct --read-only -o text -- 'pgrep -fxc "sleep 31" || true')"
 check "a stopped session does not run on" "a" "$($K host ssh exec direct --attach "$JT" --wait 1m | jget 'd["data"]["results"][0]["stdout"].strip()' || true)"
-q $K host ssh exec direct --attach "$JT" --remove
-check "--remove deletes the session's folder" False "$($K fs stat direct "$(SDIR "$JT")" | jget 'd["data"]["exists"]')"
+check "the starter's read to its end removes the session's folder" False "$($K fs stat direct "$(SDIR "$JT")" | jget 'd["data"]["exists"]')"
 O=$($K host ssh exec direct -- 'exit 3' || true)
 check "a failed run in a session says its exit code" 3 "$(echo "$O" | jget 'd["data"]["results"][0]["exit_code"]')"
 check "exec gets a vault secret as env" match "$($K host ssh exec direct -e P=credential:agent-pass -- 'test "$P" = agentpass && echo match' | jget 'd["data"]["results"][0]["stdout"].strip()')"
