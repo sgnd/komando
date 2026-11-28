@@ -744,6 +744,11 @@ func TestLoginAskGateNeedsPerson(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
 	trustSSHD(t, "web1", port, key)
 	setCallerEnv(t, engine.GateEnv, "phone")
+	// the test's sshd listens on loopback, which a key's run never dials
+	// (gateDial, sshgate_dial_test.go): here it stands for a server elsewhere
+	saved := gateLocalIP
+	t.Cleanup(func() { gateLocalIP = saved })
+	gateLocalIP = func(net.IP) bool { return false }
 	texts := loginWindow(t, "pw", true, true)
 	wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
 	if len(*texts) != 0 {

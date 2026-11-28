@@ -130,7 +130,7 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 				if here, _ := gateLocalAddr(h.Address); here {
 					return "the server " + h.Name + " is on this computer (" + h.Address + ")"
 				}
-			} else if why := gateAt(cl, st, "the server "+h.Name, h.Address, h.Via, 0); why != "" {
+			} else if why := gateAt(cl, st, "the server "+h.Name, h.Address, h.Via, true, 0); why != "" {
 				return why
 			}
 			if gateSameHostKey(h) {
@@ -142,8 +142,9 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if err != nil || t.Kind.File {
 				return cn.Name + " is a file on this computer (or its URL cannot be read)"
 			}
-			for _, a := range append(append([]string{t.Address, t.Resolve}, t.Sentinels...), gateURLHosts(cn.URL)...) {
-				if why := gateAt(cl, st, cn.Name, a, cn.Via, 0); why != "" {
+			dials := append([]string{t.Address, t.Resolve}, t.Sentinels...)
+			for i, a := range append(dials, gateURLHosts(cn.URL)...) {
+				if why := gateAt(cl, st, cn.Name, a, cn.Via, i < len(dials), 0); why != "" {
 					return why
 				}
 			}
@@ -186,10 +187,15 @@ func gateURLHosts(raw string) []string {
 }
 
 // gateAt says why subject, at addr reached through via, may be this
-// computer, or "". A name the gate cannot resolve may be too, unless a
-// jump host that is not this computer resolves it.
-func gateAt(cl *call, st *store.State, subject, addr, via string, depth int) string {
+// computer, or "". With strict, a name the gate cannot resolve may be too,
+// unless a jump host that is not this computer resolves it. The other
+// hosts a URL names are not strict (an s3 URL names its bucket there):
+// the dial judges each address it connects to (gateDial).
+func gateAt(cl *call, st *store.State, subject, addr, via string, strict bool, depth int) string {
 	here, err := gateLocalAddr(addr)
+	if !strict {
+		err = nil
+	}
 	if !here && err == nil {
 		return ""
 	}
@@ -199,7 +205,7 @@ func gateAt(cl *call, st *store.State, subject, addr, via string, depth int) str
 		last := steps[len(steps)-1]
 		h, ferr := findHost(cl, st, last)
 		if ferr == nil && depth <= 8 {
-			return gateAt(cl, st, subject, h.Address, h.Via, depth+1)
+			return gateAt(cl, st, subject, h.Address, h.Via, true, depth+1)
 		}
 		at += " through " + last // a VPN, or not found
 	}
@@ -245,8 +251,8 @@ var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 }
 
 // gateLocalIP: ip is this computer: loopback, unspecified, or one of its
-// network addresses.
-func gateLocalIP(ip net.IP) bool {
+// network addresses. Tests whose servers listen on loopback swap it.
+var gateLocalIP = func(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsUnspecified() || gateOwnIP(ip)
 }
 

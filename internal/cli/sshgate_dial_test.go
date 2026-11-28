@@ -129,6 +129,8 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 			st.Hosts[n] = &h
 		}
 		st.Conns["pgnx"] = &store.Conn{Name: "pgnx", Kind: "postgres", URL: "postgres://u@nx.example/x"}
+		// the bucket sits where a host would: no host to resolve
+		st.Conns["s3pub"] = &store.Conn{Name: "s3pub", Kind: "s3", URL: "s3://AKID@nxbucket?endpoint=https://web.example:9000"}
 		return nil
 	})
 	if err != nil {
@@ -137,16 +139,17 @@ func TestGateUnresolvableAddressRefused(t *testing.T) {
 	gateStubDNS(t, map[string][][]net.IP{"web.example": {ips("203.0.113.5")}, "mixed.example": {ips("203.0.113.5", "127.0.0.1")}})
 	const R = "SSH_GATE_REFUSED"
 	for line, want := range map[string]string{
-		"logs nxhost":              R,
-		"logs errhost":             R,
-		"logs mixedhost":           R,
-		"db query pgnx 'select 1'": R,
-		"logs vpninner":            R, // a name through a VPN: the gate cannot tell where the VPN goes
-		"logs innerme":             R, // the jump host is this computer
-		"logs pubhost":             "",
-		"logs inner":               "", // the jump host bastion resolves it, far from here
-		"logs pcloop":              R,
-		"logs ssmhost":             "", // its proxy command connects: an instance ID resolves nowhere
+		"logs nxhost":                         R,
+		"logs errhost":                        R,
+		"logs mixedhost":                      R,
+		"db query pgnx 'select 1'":            R,
+		"logs vpninner":                       R, // a name through a VPN: the gate cannot tell where the VPN goes
+		"logs innerme":                        R, // the jump host is this computer
+		"logs pubhost":                        "",
+		"logs inner":                          "", // the jump host bastion resolves it, far from here
+		"logs pcloop":                         R,
+		"logs ssmhost":                        "", // its proxy command connects: an instance ID resolves nowhere
+		"storage download s3pub a.txt --to -": "",
 	} {
 		for _, readOnly := range []bool{true, false} {
 			if got := gateAnswer(t, line, readOnly); got != want {
