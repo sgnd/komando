@@ -203,17 +203,27 @@ func mountLeaves(root *cobra.Command, leaves []capability.Leaf, hs map[capabilit
 	return nil
 }
 
-// idsInTree is the set of the IDs of the commands under c.
+// idsInTree is the set of the IDs of the commands under c. The walk carries
+// each parent's dotted path, so a command costs one string, not one per
+// word of its path (cmdID builds the whole path).
 func idsInTree(c *cobra.Command) map[string]bool {
 	ids := map[string]bool{}
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
+	var walk func(c *cobra.Command, path string)
+	walk = func(c *cobra.Command, path string) {
 		for _, s := range c.Commands() {
-			ids[cmdID(s)] = true
-			walk(s)
+			p := s.Name()
+			if path != "" {
+				p = path + "." + p
+			}
+			if id := s.Annotations[cmdIDNote]; id != "" {
+				ids[id] = true
+			} else {
+				ids[p] = true
+			}
+			walk(s, p)
 		}
 	}
-	walk(c)
+	walk(c, pathID(c))
 	return ids
 }
 
