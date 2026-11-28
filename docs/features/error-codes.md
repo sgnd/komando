@@ -222,6 +222,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: run `komando host ssh exec TARGET --attach ID --stop` there; `komando audit list` there shows the exec that started it |
 | `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando host ssh exec TARGET --log-max 100MiB -- COMMAND` |
 | `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo` |
+| `SESSION_STILL_RUNNING` | 8 | session … on …: the signal was sent, and the run still runs | the run traps or ignores TERM; stop it hard with `komando host ssh exec TARGET --attach ID --stop --signal KILL` |
 | `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-credential NAME` |
 | `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando host ssh exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |

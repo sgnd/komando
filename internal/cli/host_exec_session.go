@@ -66,7 +66,7 @@ func (s *sessionOpts) bind(c *cobra.Command) {
 	s.logMax = 1 << 30
 	f.Var(&bytesFlag{n: &s.logMax}, "log-max", "bytes of output the server keeps for the run, like 100MiB; more is dropped")
 	f.BoolVar(&s.stop, "stop", false, "with --attach ID: stop the run, from the computer that started it")
-	f.StringVar(&s.signal, "signal", "TERM", "with --stop: TERM, INT, HUP, QUIT or KILL")
+	f.StringVar(&s.signal, "signal", "TERM", "with --stop: TERM or KILL")
 	f.BoolVar(&s.remove, "remove", false, "with --attach ID: delete a finished session's folder on the server")
 }
 
@@ -95,9 +95,10 @@ func (s *sessionOpts) attachCall(cl *call, ctx context.Context, c *cobra.Command
 		return out.Usage("--stop and --remove go one at a time: stop the run, then remove it once it has ended")
 	case (s.stop || s.remove) && !one:
 		return out.Usage("--stop and --remove take one session ID, without --offset or --wait")
-	case s.stop && !slices.Contains(execsession.Signals, s.signal):
-		return out.Usage("--signal %q: give one of TERM, INT, HUP, QUIT or KILL", s.signal)
 	case s.stop:
+		if err := execsession.CheckSignal(s.signal); err != nil {
+			return err
+		}
 		return stopSession(cl, ctx, args[0], s.attach[0], s.signal)
 	case s.remove:
 		return removeSession(cl, ctx, args[0], s.attach[0])
