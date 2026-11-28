@@ -316,11 +316,12 @@ komando credential certificate list
 komando credential certificate remove corp
 ```
 
-There is no command that puts one host key or CA key on the never-trust list.
-To stop trusting a CA, remove it (`credential certificate remove`) and sign
-the servers' keys again with another CA. An `@revoked` line in the
-`known_hosts` file you give to `credential certificate add --from` still goes
-on the never-trust list.
+To put a host key or a CA key on the never-trust list, write it as an
+`@revoked` line in a `known_hosts` file and give the file to
+`credential certificate add --from`. A file with only `@revoked` lines adds
+no CA and says `revoked`; each key gets an audit row (`revoked: true`). To stop
+trusting a CA, remove it (`credential certificate remove`) and sign the
+servers' keys again with another CA.
 
 A server whose name a CA's patterns match is asked for its host certificate
 first. A pin always wins: a pinned server's key, plain or inside a

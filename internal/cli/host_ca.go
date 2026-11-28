@@ -138,7 +138,8 @@ func caMatches(st *store.State, c sshx.HostCA) []string {
 
 const certificateAddLong = `Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads
 the @cert-authority lines of a known_hosts file (--from); its @revoked lines
-go on the never-trust list. A pattern names at least the domain
+go on the never-trust list, each one with an audit row (revoked: true). A file with only
+@revoked lines revokes those keys and adds no CA. A pattern names at least the domain
 (*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.
 --dry-run shows the patterns as they are kept and the servers they match
 now. Only a person at a terminal can add a CA: it trusts every server it
@@ -201,13 +202,17 @@ func hostCAAddCmd() *cobra.Command {
 					return err
 				}
 			}
+			revokeOnly := len(cas) == 0 && len(revoke) > 0
 			if cl.dryRun() {
-				res["action"] = "would_add"
+				res["action"] = map[bool]string{true: "would_revoke", false: "would_add"}[revokeOnly]
 				cl.out.Print("host.ca.add", res, nil)
 				return nil
 			}
 			if err := sshx.RevokeHostKeys(revoke); err != nil {
 				return err
+			}
+			for _, k := range revoke {
+				audit(cl, st, "host.ca.revoke", nil, "", true, map[string]any{"fingerprint": ssh.FingerprintSHA256(k), "revoked": true})
 			}
 			for i, c := range cas {
 				if err := sshx.AddHostCA(cmd.Context(), c); err != nil {
@@ -219,7 +224,7 @@ func hostCAAddCmd() *cobra.Command {
 				rows[i].WouldMatch = nil
 				audit(cl, st, "host.ca.add", nil, "", true, map[string]any{"ca": c.Name, "fingerprint": rows[i].Fingerprint, "hosts": c.Hosts})
 			}
-			res["action"] = "added"
+			res["action"] = map[bool]string{true: "revoked", false: "added"}[revokeOnly]
 			cl.out.Print("host.ca.add", res, nil)
 			return nil
 		}),
