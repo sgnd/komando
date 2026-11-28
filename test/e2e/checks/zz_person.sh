@@ -50,11 +50,7 @@ q $K host ssh remove "$P1-1" "$P1-2" "$P1-3" "$P1-4"
 O=$(tty 'personpass\n' credential password add "$P1-pass"); RC=$?
 check "person: credential password add asks for the value" 0 "$RC"
 check "person: the typed value is not echoed" 0 "$(grep -c personpass <<<"$O")"
-check "person: the typed value was stored" True "$(echo personpass | $K secret check "$P1-pass" | jget 'd["data"]["match"]')"
-O=$(tty 'wrongpass1\n' secret check "$P1-pass"); RC=$?
-check "person: secret check says a value differs (1)" 1 "$RC"
-check "person: secret check shows neither value" 0 "$(grep -c -E 'wrongpass1|personpass' <<<"$O")"
-check "person: secret check says how they differ" 1 "$(grep -c 'characters' <<<"$O")"
+check "person: the typed value was stored" True "$($K credential password show "$P1-pass" | jget 'd["data"]["exists"]')"
 O=$(tty '\n' credential password add "$P1-empty"); RC=$?
 check "person: an empty answer stores nothing (2)" 2 "$RC"
 check "person: the empty secret is not there" SECRET_NOT_FOUND "$($K credential password show "$P1-empty" | jget 'd["error"]["code"]' || true)"

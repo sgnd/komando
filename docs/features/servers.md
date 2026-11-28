@@ -198,10 +198,9 @@ to the address, so `host ssh trust` is not needed again. Renaming a protected
 server asks first. `conn rename` and `vpn KIND rename` do the same for conns and
 VPNs, `credential key rename` for a key, and `group rename` for a group.
 
-`komando rename OLD NEW` finds the kind for you: it renames the one
-server, conn, VPN, secret, key or group named OLD with that kind's own
-rename. When two kinds share the name, it names the two commands to pick
-from.
+There is no command that renames by name alone or by a starting prefix: use
+the rename command of each kind. `komando list` and `komando credential list`
+show the names.
 
 `credential key rename OLD NEW` renames one key: the servers that use it follow. A key
 komando made lives in the sealed store, so no file moves; a key you added
@@ -211,58 +210,6 @@ keep their comment; they still work, since the key itself does not change.
 `group rename OLD NEW` renames a group on every member (it asks first when
 a protected server or conn is in it). To merge two groups, use
 `group create NEW @OLD` and then `group remove OLD`.
-
-### Rename a whole project at once
-
-When a project or a customer gets a new name, `rename --starts-with` renames
-every server, conn, VPN, secret, key and group whose name starts with the
-old prefix, in one step:
-
-```bash
-komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list per kind, and every reference
-komando rename --starts-with shop- acme-shop-
-komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run   # notes and labels too: what changes, what is kept
-```
-
-- It renames every name that starts with `shop-`. When the old prefix
-  ends in `-`, the name without it is renamed too: group `shop`
-  becomes `acme-shop`. `--kind host,conn` renames only some kinds.
-- Every reference follows: `--via` paths (also a server in the middle
-  of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
-  key and passphrase references, `credential:NAME` options in conn URLs, the
-  key a server uses, group membership, exec sessions and tunnels. A key komando made
-  (`credential key create`) lives in the sealed store, so no file moves; a key file you
-  added stays where it is.
-- The protected mark, labels, notes and creation time stay.
-  Names inside URLs belong to the resource, not to komando, so in
-  `s3://shop-admin@shop-prod` the user and the bucket stay.
-- `--in-notes` also replaces old names in notes, and
-  `--in-labels` in label values (label names stay). Only what clearly means
-  an entry follows: server, conn, VPN and secret names as whole words, a
-  group written `@shop`, and a pattern such as `shop-db-*` when it matches
-  the same servers, conns and VPNs after the rename. These stay, because
-  they often mean something else: the old prefix without its `-` (`db shop`
-  is usually a database, not the group), group names without `@`, key
-  names (`bucket shop-dev`), and a name that is also the user, host, bucket
-  or database in a conn URL. The result lists each one under `kept`, with
-  the reason, so you can fix it by hand.
-- Without `--in-labels`, every label value that names
-  an old entry stays and is listed under `kept` with what it would become.
-  A conn's `host=` label matters: `komando doctor` reads it to warn when a
-  conn of a protected server is not protected itself. Without `--in-notes`,
-  one warning counts the notes that still name old entries.
-- It renames all or nothing. Your list and the vault are each written
-  once. When a new name is taken, or two old names would get one new name,
-  nothing changes (`NAME_TAKEN`, with every clash listed). A connected VPN
-  must go down first (`VPN_IN_USE`).
-- Protected servers and conns among them need one yes for the whole
-  command. An AI agent's `--yes` opens one window for a person, which says
-  how many protected entries it covers. Pointing a reference at the new
-  name of the same secret, key or VPN needs no yes: the same value goes to
-  the same place.
-- It is safe to repeat. When the new prefix starts with the old one
-  (`team-` to `team-ops-`), names that have the new prefix already are left
-  alone, so a second run changes nothing.
 
 ## Remove a server
 
@@ -309,8 +256,8 @@ komando credential key show deploy --reveal                 # a person: the priv
 ```
 
 Keys made with `credential key create` are sealed in komando's store (`store.db`); they
-are never written to a file. `host ssh-command` hands one to the running
-ssh-agent when another program needs it. RSA keys need at least 3072 bits.
+are never written to a file, so plain `ssh`, `scp` or `git` cannot use one: for
+those, use a key file of your own. RSA keys need at least 3072 bits.
 
 To use a key file you already have, add it to komando's key list. The file
 stays where it is. If it has a passphrase, store the passphrase in the vault first:
@@ -367,8 +314,14 @@ komando credential certificate add corp --key ~/corp-host-ca.pub --hosts '*.corp
 komando credential certificate add corp --from ~/.ssh/known_hosts   # its @cert-authority and @revoked lines
 komando credential certificate list
 komando credential certificate remove corp
-komando host ca revoke --key old-host-ca.pub   # never trust this key again (an @revoked line)
 ```
+
+To put a host key or a CA key on the never-trust list, write it as an
+`@revoked` line in a `known_hosts` file and give the file to
+`credential certificate add --from`. A file with only `@revoked` lines adds
+no CA and says `revoked`; each key gets an audit row (`revoked: true`). To stop
+trusting a CA, remove it (`credential certificate remove`) and sign the
+servers' keys again with another CA.
 
 A server whose name a CA's patterns match is asked for its host certificate
 first. A pin always wins: a pinned server's key, plain or inside a
@@ -388,7 +341,7 @@ that names no server is refused. Names match whatever their case and one
 trailing dot.
 Adding a CA trusts every server it ever signs, so only a person at a
 terminal can add one (`NEEDS_PERSON`); an AI agent may preview it with
-`--dry-run`, remove a CA and revoke a key, which only narrow trust.
+`--dry-run` and remove a CA, which only narrows trust.
 
 ### Lend a jump host your ssh-agent
 
@@ -405,9 +358,8 @@ komando host ssh edit bastion --unset forward-agent  # stop lending it
 Anyone who is root on that server can use your keys while komando is
 connected to it, so it is off by default, set per server, and turning it
 on asks you first (`SAFETY_SETTING`; an AI agent needs your yes in the
-window). `host ssh-command` adds `-o ForwardAgent=yes` for such a server.
-Your agent holds only the keys you added to it (`ssh-add`); keys komando
-keeps sealed are never in it unless `host ssh-command` put them there.
+window). Your agent holds only the keys you added to it (`ssh-add`); keys
+komando keeps sealed are never in it.
 
 ### Security keys (FIDO2)
 
@@ -641,7 +593,7 @@ another store on such a flag (`env:VAR`, `op://...`) is refused with
 `REFERENCE_UNSUPPORTED`. A store that still holds one does not move to format 3:
 the move changes nothing, names each server, service, VPN or key by kind and
 field, and gives the steps of the fix (the last v0.17 release and its install
-line, `komando secret set NAME` and `secret:NAME` there, then `komando update`
+line, `secret set NAME` and `secret:NAME` there, then `komando update`
 again). `komando doctor --dry-run` gives the same, so you can fix it before
 you update: see [Update to v0.18.0](install.md#update-to-v0180).
 
@@ -820,33 +772,6 @@ an AI agent cannot pin a first key by itself: `host ssh trust` needs your yes in
 komando's window, which shows the fingerprint to compare (with the default
 `accept-new` the first login pins it anyway).
 
-## Use OpenSSH with the same settings
-
-`host ssh-command` prints the `ssh` command that reaches a server with the
-same address, user, key, `known_hosts` file and `--via` path komando uses:
-
-```bash
-komando host ssh-command web1
-$(komando host ssh-command web1 -o text)      # open a shell with OpenSSH
-```
-
-Servers behind `--via` get one `ProxyCommand` per hop, so each hop uses its
-own key. A SOCKS VPN becomes `nc -X 5`. VPNs that run inside komando cannot
-be used by OpenSSH; use `komando host ssh shell SERVER` for those.
-
-A key made with `komando credential key create` is sealed in komando's store and is never
-written to a file. For OpenSSH, `host ssh-command` gives it to the ssh-agent
-your shell already runs (`SSH_AUTH_SOCK`), which keeps it for one hour, and
-the printed line picks it with its public key. With no ssh-agent it stops
-with `SSH_AGENT_NEEDED`: start one with `eval "$(ssh-agent)"`, or use
-`komando host ssh shell SERVER`.
-
-Only a person at a terminal can run `host ssh-command`: it writes a copy of
-the pinned host keys for OpenSSH, in a private temporary folder
-(`komando-ssh-*`). A line printed more than a day ago may stop working: the
-next `host ssh-command` removes copies that old. An AI agent gets `NEEDS_PERSON` and is
-told to use `komando host ssh exec` or `komando host ssh shell`.
-
 ## Limits
 
 - A server name uses letters, digits, `.`, `_` and `-` (see
@@ -854,7 +779,7 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
   `azure`: `komando login aws` is the AWS login.
 - `--address` in `host ssh edit` works on one server only.
 - A key file added with `credential key add` is never moved or deleted by komando.
-- `--ask-password`, `komando login`, `host ssh-command` and replacing a
+- `--ask-password`, `komando login` and replacing a
   pinned host key (`host ssh trust --reset`) need a person at a terminal.
 - A `--login ask` server's password is typed by a person: a script, cron
   or CI job reaches it only through a `komando login` a person started,
@@ -895,8 +820,7 @@ told to use `komando host ssh exec` or `komando host ssh shell`.
 | `KEY_EXISTS` | `credential key create`, `credential key add` or `credential key rename` to a name that is taken | choose another name, or `komando credential key remove NAME` first |
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |
 | `SECRET_UNRESOLVED` | komando could not read a reference (no login for the password manager, or no such secret) | follow the hint: it names the logins that work |
-| `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando host ssh shell SERVER` |
-| `NEEDS_PERSON` | only a person at a terminal can do this (`host ssh trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
+| `NEEDS_PERSON` | only a person at a terminal can do this (`host ssh trust --reset`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
 | `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando login SERVER` |
 | `NEEDS_PERSON` | `komando login` without a person at a terminal (an AI agent or a script) | a person runs `komando login SERVER` |
 | `IMPORT_INCOMPLETE` | some servers were not imported (listed under `skipped`) | fix them in the source and import again |

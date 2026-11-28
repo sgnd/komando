@@ -35,7 +35,7 @@ func secretIs(t *testing.T, name, want string) {
 
 // A protected VPN's key, preshared key or profile in the vault is replaced
 // only with a person's yes, like a protected server's password: through
-// secret set, secret cp --overwrite and secret rename --overwrite.
+// secret set and secret rename --overwrite.
 func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 	secretHome(t)
 	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "credential:office-key", PSKRef: "credential:office-psk", Protected: true,
@@ -43,7 +43,7 @@ func TestProtectedVpnSecretNeedsYes(t *testing.T) {
 	texts := windowText(t, true)
 	t.Setenv("V", "agent-value")
 	wantCode(t, "PROTECTED_TARGET", "credential", "password", "add", "office-key", "--from-env", "V")
-	wantCode(t, "PROTECTED_TARGET", "secret", "cp", "other", "office-psk", "--overwrite")
+	wantCode(t, "PROTECTED_TARGET", "credential", "password", "rename", "other", "office-psk", "--overwrite")
 	wantCode(t, "PROTECTED_TARGET", "credential", "password", "rename", "other", "office-key", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
@@ -60,7 +60,7 @@ const ovpnEvil = "client\nremote evil.example 443\n<ca>\nEVIL\n</ca>\n"
 
 // An OpenVPN VPN's profile in the vault says where its login goes and
 // which CA is trusted. An AI agent that replaces that secret (secret set,
-// cp --overwrite, rename --overwrite) needs a person's yes, as vpn edit
+// rename --overwrite) needs a person's yes, as vpn edit
 // does for the same change; the window names the new servers.
 func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
@@ -69,7 +69,6 @@ func TestOvpnProfileSecretNeedsAPerson(t *testing.T) {
 	texts := windowText(t, true)
 	t.Setenv("V", ovpnEvil)
 	wantCode(t, "SECRET_DESTINATION", "credential", "password", "add", "corp-config", "--from-env", "V")
-	wantCode(t, "SECRET_DESTINATION", "secret", "cp", "evil", "corp-config", "--overwrite")
 	wantCode(t, "SECRET_DESTINATION", "credential", "password", "rename", "evil", "corp-config", "--overwrite")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
@@ -116,10 +115,9 @@ func TestCASecretNeedsAPerson(t *testing.T) {
 	texts := windowText(t, true)
 	t.Setenv("V", "PEM-AGENT")
 	wantCode(t, "SAFETY_SETTING", "credential", "password", "add", "win-ca", "--from-env", "V")
-	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "win-ca", "--overwrite")
+	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "win-ca", "--overwrite")
 	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "db-ca", "--overwrite")
 	wantCode(t, "SAFETY_SETTING", "credential", "password", "add", "later-ca", "--from-env", "V")
-	wantCode(t, "SAFETY_SETTING", "secret", "cp", "mine", "later-ca")
 	wantCode(t, "SAFETY_SETTING", "credential", "password", "rename", "mine", "later-ca")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
@@ -246,7 +244,7 @@ func TestImportReplacingATrustSecretNeedsAPerson(t *testing.T) {
 	secretIs(t, "x-pass", ovpnOld)
 }
 
-// A profile copied from another secret is named by that secret, never by
+// A profile renamed over another secret is named by that secret, never by
 // the servers in it (the agent cannot read it); and a VPN whose login a
 // person types at `vpn up` gets a new profile only from a person.
 func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
@@ -255,7 +253,7 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "hidden-profile": "client\nremote hidden-host.internal 7777\n"})
 	putVpn(t, &store.Vpn{Name: "typed", Kind: "openvpn", ConfigRef: "credential:typed-config"}, map[string]string{"typed-config": ovpnOld})
 	windowText(t, true)
-	for _, args := range [][]string{{"secret", "cp", "hidden-profile", "corp-config", "--overwrite"}, {"secret", "cp", "hidden-profile", "corp-config", "--overwrite", "--dry-run"}} {
+	for _, args := range [][]string{{"credential", "password", "rename", "hidden-profile", "corp-config", "--overwrite", "--dry-run"}, {"credential", "password", "rename", "hidden-profile", "corp-config", "--overwrite"}} {
 		_, text := runMain(t, args...)
 		if strings.Contains(text, "hidden-host") || !strings.Contains(text, "secret hidden-profile") {
 			t.Errorf("%v: %s", args, text)

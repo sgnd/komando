@@ -55,8 +55,8 @@ func OldJobs(ctx context.Context) ([]OldJob, error) {
 // EndOldJobs marks each named record ended in the format-2 store, so the
 // move goes ahead. Each must be a record with no end. A job runs on its
 // server, which this computer cannot see: the person who marks it looked
-// there (doctor says so).
-func EndOldJobs(ctx context.Context, ids []string) error {
+// there (doctor says so). by is that person, as the audit log names them.
+func EndOldJobs(ctx context.Context, ids []string, by string) error {
 	unlock, err := Lock(storeLock)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func EndOldJobs(ctx context.Context, ids []string) error {
 		}
 	}
 	for _, id := range ids {
-		s.Runtime.Jobs[id].Ended = jobMarked
+		s.Runtime.Jobs[id].Ended, s.Runtime.Jobs[id].EndedBy = jobMarked, by
 	}
 	return s.saveRuntime()
 }
@@ -144,24 +144,32 @@ func commandName(cmd string) string {
 
 // auditMarkedJobs records, in the move's own write step, the v0.17 jobs a
 // person marked ended before it (doctor, EndOldJobs): the store had no
-// format-3 audit log to take the event when they were marked.
+// format-3 audit log to take the event when they were marked. One record
+// per person who marked, naming that person.
 func auditMarkedJobs(tx *sealdb.Tx, o migrate3Opts, rt *Runtime) error {
-	var ids []string
+	byActor := map[string][]string{}
 	for id, j := range rt.Jobs {
 		if j != nil && j.Ended == jobMarked {
-			ids = append(ids, id)
+			actor := j.EndedBy
+			if actor == "" {
+				actor = "komando"
+			}
+			byActor[actor] = append(byActor[actor], id)
 		}
 	}
-	if len(ids) == 0 {
-		return nil
+	for _, actor := range slices.Sorted(maps.Keys(byActor)) {
+		ids := byActor[actor]
+		slices.Sort(ids)
+		entry, err := json.Marshal(map[string]any{
+			"ts": o.now().UTC().Format(time.RFC3339Nano), "command": "doctor", "event": "doctor.end-old-jobs",
+			"ok": true, "dry_run": false, "actor": actor, "jobs": ids,
+		})
+		if err != nil {
+			return err
+		}
+		if err := tx.AppendAudit(entry); err != nil {
+			return err
+		}
 	}
-	slices.Sort(ids)
-	entry, err := json.Marshal(map[string]any{
-		"ts": o.now().UTC().Format(time.RFC3339Nano), "command": "doctor", "event": "doctor.end-old-jobs",
-		"ok": true, "dry_run": false, "actor": "komando", "jobs": ids,
-	})
-	if err != nil {
-		return err
-	}
-	return tx.AppendAudit(entry)
+	return nil
 }

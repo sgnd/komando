@@ -72,7 +72,7 @@ func TestHostCAAddRefusesWidePatterns(t *testing.T) {
 }
 
 // A person adds a CA (from a known_hosts file, whose @revoked lines go on
-// the never-trust list); anyone lists, removes and revokes.
+// the never-trust list); anyone lists and removes.
 func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 	invHome(t)
 	_, k := caPub(t)
@@ -103,13 +103,6 @@ func TestHostCAPersonAddsAndAnyoneRemoves(t *testing.T) {
 	}
 	if _, e := invRun(t, "credential", "certificate", "remove", "corp"); e == nil || e.Code != "CA_NOT_FOUND" {
 		t.Errorf("rm twice: %+v", e)
-	}
-	p, k2 := caPub(t)
-	if d := mustRun(t, "host", "ca", "revoke", "--key", p); d["action"] != "revoked" {
-		t.Errorf("revoke: %v", d)
-	}
-	if rev, _ := sshx.HostKeyRevoked(k2); !rev {
-		t.Error("not revoked")
 	}
 }
 
@@ -187,5 +180,51 @@ func TestHostCAAddDryRunRecordsTheStop(t *testing.T) {
 	setGate(tcl, false, gateDryRun)
 	if e != nil || d["action"] != "would_add" || blockedCode(d) != "NEEDS_PERSON" {
 		t.Fatalf("dry run: %v %+v", d, e)
+	}
+}
+
+// A known_hosts file with only @revoked lines is the way to put a key on
+// the never-trust list: it says revoked, adds no CA, and the audit log
+// keeps one row with revoked: true for each key.
+func TestHostCARevocationOnlyFileIsAudited(t *testing.T) {
+	invHome(t)
+	_, k1 := caPub(t)
+	_, k2 := caPub(t)
+	kh := filepath.Join(t.TempDir(), "known_hosts")
+	body := "@revoked * " + strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k1))) + "\n" +
+		"@revoked * " + strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k2))) + "\n"
+	if err := os.WriteFile(kh, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	asPerson(t, func(string) string { return "" }, func() {
+		d := mustRun(t, "credential", "certificate", "add", "gone", "--from", kh)
+		if d["action"] != "revoked" || d["revoked"] != float64(2) {
+			t.Errorf("add: %v", d)
+		}
+	})
+	for _, k := range []ssh.PublicKey{k1, k2} {
+		if rev, _ := sshx.HostKeyRevoked(k); !rev {
+			t.Errorf("%s is not revoked", ssh.FingerprintSHA256(k))
+		}
+		if !strings.Contains(auditText(t), ssh.FingerprintSHA256(k)) {
+			t.Errorf("no audit row for %s", ssh.FingerprintSHA256(k))
+		}
+	}
+	if n := strings.Count(auditText(t), `"revoked":true`); n != 2 {
+		t.Errorf("%d revocation rows, want 2", n)
+	}
+	if l := mustRun(t, "credential", "certificate", "list")["items"].([]any); len(l) != 0 {
+		t.Errorf("a revocation-only file added a CA: %v", l)
+	}
+	// a dry run revokes nothing
+	_, k3 := caPub(t)
+	os.WriteFile(kh, []byte("@revoked * "+strings.TrimSpace(string(ssh.MarshalAuthorizedKey(k3)))+"\n"), 0o600)
+	asPerson(t, func(string) string { return "" }, func() {
+		if d := mustRun(t, "--dry-run", "credential", "certificate", "add", "gone", "--from", kh); d["action"] != "would_revoke" {
+			t.Errorf("dry run: %v", d)
+		}
+	})
+	if rev, _ := sshx.HostKeyRevoked(k3); rev {
+		t.Error("a dry run revoked a key")
 	}
 }

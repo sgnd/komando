@@ -15,8 +15,8 @@ check "plain password refused as a ref" USAGE "$($K host ssh add bad "agent@127.
 check "secret mv updates the 3 servers" 3 "$($K credential password rename agent-pass agent-pass-renamed | jget 'len(d["data"]["updated"])')"
 check "the server follows the rename" credential:agent-pass-renamed "$($K host ssh show direct | jget 'd["data"]["password_ref"]')"
 check "secret mv back" 3 "$($K credential password rename agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
-$K secret cp agent-pass agent-pass-copy >/dev/null
-check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
+echo -n copypass | $K credential password add agent-pass-copy >/dev/null
+check "secret rename onto a taken name needs --overwrite" SECRET_EXISTS "$($K credential password rename agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
 $K credential password remove agent-pass-copy --allow-dangerous >/dev/null
 
 check "completion lists the inventory" True "$($K __complete host ssh exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
@@ -221,19 +221,6 @@ check "ops's file keeps its owner" ops "$($K host ssh exec direct --sudo -- 'sta
 check "login still works after --all-users" ok "$($K host ssh exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host ssh add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
 check "proxy command carries ssh" ok "$($K host ssh exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
-# pc logs in with a key komando made, sealed in the store: OpenSSH gets it
-# from a running ssh-agent, never from a file
-check "ssh-command without an ssh-agent" SSH_AGENT_NEEDED "$(env -u SSH_AUTH_SOCK $K host ssh-command pc | jget 'd["error"]["code"]' || true)"
-if command -v ssh-agent >/dev/null && command -v ssh >/dev/null; then
-  AGENT_ENV=$(ssh-agent -s)
-  eval "$AGENT_ENV" >/dev/null
-  LINE=$($K host ssh-command pc -o text)
-  check "ssh-command gives the ssh-agent the key" True "$(ssh-add -l | grep -q 'komando:deploy' && echo True || echo False)"
-  check "ssh-command line has no private key file" False "$(grep -l 'PRIVATE KEY' $(dirname "$(echo "$LINE" | sed 's/.* -i \([^ ]*\).*/\1/')")/* >/dev/null 2>&1 && echo True || echo False)"
-  check "OpenSSH logs in through the ssh-agent" ok "$(timeout 30 sh -c "$LINE echo ok" </dev/null 2>/dev/null | tr -d '\r')"
-  ssh-agent -k >/dev/null
-  unset SSH_AUTH_SOCK SSH_AGENT_PID
-fi
 check "proxy and --via do not mix" USAGE "$($K host ssh add pc2 agent@127.0.0.1 --via bastion --proxy-command 'nc %h %p' | jget 'd["error"]["code"]' || true)"
 $K host ssh add ssm1 ec2-user@i-0abc123 --ssm >/dev/null
 check "--ssm sets the AWS proxy" True "$($K host ssh show ssm1 | jget '"AWS-StartSSHSession" in d["data"]["proxy_command"]')"

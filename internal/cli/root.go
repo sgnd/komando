@@ -406,7 +406,7 @@ func vaultValues() map[string]string {
 var localReads = map[string]bool{
 	"version": true, "completion": true, "schema": true, "guide": true, "doctor": true,
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true, "policy.show": true,
-	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
+	"conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
 	"tunnel.list": true, "status": true,
 	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
@@ -623,9 +623,9 @@ func addCommands(cl *call, root *cobra.Command) {
 		dockerCmd(), pkgCmd(), snippetCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), tunnelCmd())
+	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
-	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
+	add("inventory", connCmd(), groupCmd(), importCmd(), exportCmd())
 	add("setup", policyCmd(), guideCmd(), agentCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }

@@ -108,7 +108,6 @@ func TestStandardSynonyms(t *testing.T) {
 		{[]string{"snippet", "show"}, "snippet.show"},
 		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "oci", "image", "describe"}, "registry.oci.image.show"},
 		{[]string{"db", "user", "create"}, "db.user.add"},
-		{[]string{"secret", "copy"}, "secret.cp"},
 	} {
 		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {
 			t.Errorf("%v: ID %q, want %q", c.args, got, c.id)

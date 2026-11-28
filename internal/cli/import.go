@@ -738,7 +738,7 @@ func importEnv(cl *call, path string) (*importPlan, error) {
 		scheme, _, _ := strings.Cut(v, "://")
 		if !schemes[strings.ToLower(scheme)] {
 			if (strings.HasSuffix(k, "_URL") || strings.HasSuffix(k, "_URI")) && strings.Contains(v, "://") {
-				p.Notes = append(p.Notes, fmt.Sprintf("%s: %s:// is not a kind komando knows (see `komando conn kinds`)", k, scheme))
+				p.Notes = append(p.Notes, fmt.Sprintf("%s: %s:// is not a kind komando knows (see `komando schema`)", k, scheme))
 			}
 			continue
 		}

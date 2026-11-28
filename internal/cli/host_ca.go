@@ -39,22 +39,6 @@ func caRow(c sshx.HostCA) hostCARow {
 	return r
 }
 
-// hostCACmd holds host ca revoke until cut step D removes it; add, list
-// and remove run as the credential certificate leaves.
-func hostCACmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:   "ca",
-		Short: "Never trust a host key or a CA key again",
-		Long: `Puts a host key or a CA key on the never-trust list, as a @revoked line in
-known_hosts does. The CAs komando trusts are under ` + "`komando credential certificate`" + `.`,
-		Example: `  komando host ca revoke --key old-ca.pub --dry-run
-  komando host ca revoke --key old-ca.pub
-  komando credential certificate list`,
-	}
-	c.AddCommand(hostCARevokeCmd())
-	return c
-}
-
 func hostCAListCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
@@ -154,7 +138,8 @@ func caMatches(st *store.State, c sshx.HostCA) []string {
 
 const certificateAddLong = `Trusts the CA in --key (a .pub file) for the host names in --hosts, or reads
 the @cert-authority lines of a known_hosts file (--from); its @revoked lines
-go on the never-trust list. A pattern names at least the domain
+go on the never-trust list, each one with an audit row (revoked: true). A file with only
+@revoked lines revokes those keys and adds no CA. A pattern names at least the domain
 (*.corp.example, web*.corp.example, 10.1.2.*): '*' and '*.com' are refused.
 --dry-run shows the patterns as they are kept and the servers they match
 now. Only a person at a terminal can add a CA: it trusts every server it
@@ -217,13 +202,17 @@ func hostCAAddCmd() *cobra.Command {
 					return err
 				}
 			}
+			revokeOnly := len(cas) == 0 && len(revoke) > 0
 			if cl.dryRun() {
-				res["action"] = "would_add"
+				res["action"] = map[bool]string{true: "would_revoke", false: "would_add"}[revokeOnly]
 				cl.out.Print("host.ca.add", res, nil)
 				return nil
 			}
 			if err := sshx.RevokeHostKeys(revoke); err != nil {
 				return err
+			}
+			for _, k := range revoke {
+				audit(cl, st, "host.ca.revoke", nil, "", true, map[string]any{"fingerprint": ssh.FingerprintSHA256(k), "revoked": true})
 			}
 			for i, c := range cas {
 				if err := sshx.AddHostCA(cmd.Context(), c); err != nil {
@@ -235,7 +224,7 @@ func hostCAAddCmd() *cobra.Command {
 				rows[i].WouldMatch = nil
 				audit(cl, st, "host.ca.add", nil, "", true, map[string]any{"ca": c.Name, "fingerprint": rows[i].Fingerprint, "hosts": c.Hosts})
 			}
-			res["action"] = "added"
+			res["action"] = map[bool]string{true: "revoked", false: "added"}[revokeOnly]
 			cl.out.Print("host.ca.add", res, nil)
 			return nil
 		}),
@@ -305,42 +294,6 @@ func hostCARmCmd() *cobra.Command {
 			return nil
 		}),
 	}
-}
-
-func hostCARevokeCmd() *cobra.Command {
-	var keyFile string
-	c := &cobra.Command{
-		Use:   "revoke --key FILE",
-		Short: "Never trust a host key or a CA key again",
-		Long: `Puts the key in FILE.pub on the never-trust list (an @revoked line): no
-server is reached with it as its host key, no certificate it signed or holds
-is trusted, and it cannot be pinned or added as a CA.`,
-		Example: `  komando host ca revoke --key old-ca.pub`,
-		Args:    cobra.NoArgs,
-		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			b, err := readLocalFile(cl, keyFile)
-			if err != nil {
-				return err
-			}
-			k, _, _, _, err := ssh.ParseAuthorizedKey(b)
-			if err != nil {
-				return out.Errf(out.ExitUsage, "KEY_INVALID", "give a public key file (.pub)", "%s is not a public key: %v", keyFile, err)
-			}
-			res := map[string]any{"fingerprint": ssh.FingerprintSHA256(k), "action": "would_revoke"}
-			if !cl.dryRun() {
-				if err := sshx.RevokeHostKeys([]ssh.PublicKey{k}); err != nil {
-					return err
-				}
-				res["action"] = "revoked"
-				audit(cl, nil, "host.ca.revoke", nil, "", true, map[string]any{"fingerprint": res["fingerprint"]})
-			}
-			cl.out.Print("host.ca.revoke", res, nil)
-			return nil
-		}),
-	}
-	c.Flags().StringVar(&keyFile, "key", "", "the public key file (.pub) never to trust")
-	_ = c.MarkFlagRequired("key")
-	return c
 }
 
 // hostCAChecks are doctor's lines about the trusted host CAs.

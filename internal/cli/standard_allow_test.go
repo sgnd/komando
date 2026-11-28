@@ -11,10 +11,8 @@ var (
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
 	}
-	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
-	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
+	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install
 	allowPairs = []string{
-		"host ca grant/revoke",
 		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"pkg install/uninstall",
 	}
@@ -41,12 +39,10 @@ var (
 	allowLong = []string{
 		"config set",
 		"import",
-		"secret",
 		"vpn",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
-		"conn kinds",
 		"conn show",
 		"db info",
 		"db locks",

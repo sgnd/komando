@@ -59,29 +59,30 @@ func TestSecretValueInArgsRefusedFirst(t *testing.T) {
 	for _, tc := range []struct{ id, hint string }{
 		{"credential.password.add", "--from-env"},
 		{"credential.token.add", "--from-env"},
-		{"secret.check", "type it"},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			invHome(t)
-			if tc.id == "secret.check" {
-				t.Setenv("PW", "s3cret-value-1")
-				mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
-			}
-			args := append(strings.Split(tc.id, "."), "db-pass", "hunter22-typed")
-			e := wantCode(t, "SECRET_IN_ARGS", args...)
-			again := "run `komando " + strings.Join(args[:len(args)-1], " ") + "` and type it (hidden)"
-			if !strings.Contains(e.Message, "shell history") || !strings.Contains(e.Hint, tc.hint) || !strings.HasPrefix(e.Hint, again) || strings.Contains(e.Message+e.Hint, "hunter22") {
-				t.Errorf("%+v", e)
-			}
-			if tc.id != "secret.check" {
-				if _, err := vault.Get("db-pass"); err == nil {
-					t.Error("a value on the command line was saved")
+			words := strings.Split(tc.id, ".")
+			again := "run `komando " + strings.Join(words, " ") + " NAME` and type it (hidden)"
+			// T4: the value given first is never repeated either
+			for _, rest := range [][]string{{"db-pass", "hunter22-typed"}, {"hunter22-typed", "db-pass"}} {
+				e := wantCode(t, "SECRET_IN_ARGS", append(slices.Clone(words), rest...)...)
+				if !strings.Contains(e.Message, "shell history") || !strings.Contains(e.Hint, tc.hint) || !strings.HasPrefix(e.Hint, again) || strings.Contains(e.Message+e.Hint, "hunter22") {
+					t.Errorf("%v: %+v", rest, e)
 				}
+			}
+			// T4: a typo in the group word: the line in the hint ends after the name
+			typo := append([]string{"credentail"}, words[1:]...)
+			if e := wantCode(t, "USAGE", append(typo, "db-pass", "hunter22-typed")...); strings.Contains(e.Message+e.Hint, "hunter22") {
+				t.Errorf("typo line: %+v", e)
+			}
+			if _, err := vault.Get("db-pass"); err == nil {
+				t.Error("a value on the command line was saved")
 			}
 		})
 	}
 	for id := range secretValueLeaves {
-		if !slices.Contains([]string{"credential.password.add", "credential.token.add", "secret.check"}, id) {
+		if !slices.Contains([]string{"credential.password.add", "credential.token.add"}, id) {
 			t.Errorf("%s reads a secret's value but has no row here", id)
 		}
 	}

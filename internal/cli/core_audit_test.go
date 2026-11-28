@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/sgnd/komando/internal/store"
 )
 
 // An import with --overwrite skips a protected conn, as it skips a
@@ -182,16 +180,12 @@ func TestGroupAddRmSeveralTargets(t *testing.T) {
 	wantCode(t, "TARGET_EMPTY", "list", "@web")
 }
 
-// An address that starts with - would be an option in the ssh line host
-// ssh-command prints: it is refused, and one saved before is never printed.
+// An address that starts with - would be read as an option by any program
+// that is given it: it is refused when a server is added.
 func TestHostAddressNeverAnOption(t *testing.T) {
 	invHome(t)
 	wantCode(t, "USAGE", "host", "ssh", "add", "e1", "u@-oProxyCommand=x")
 	wantCode(t, "USAGE", "host", "ssh", "add", "e2", "--address=-oProxyCommand=x")
-	st := &store.State{Hosts: map[string]*store.Host{"old": {Name: "old", Address: "-oproxycommand=x"}}}
-	if _, err := sshCommandFor(tcl, st, st.Hosts["old"]); err == nil || !strings.Contains(err.Error(), "option") {
-		t.Errorf("want a refusal, got %v", err)
-	}
 }
 
 // export names a key komando made as sealed (no file to copy), not by its

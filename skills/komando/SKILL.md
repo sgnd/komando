@@ -85,8 +85,6 @@ not know? Set `KOMANDO_AGENT=1`.
    - Your list in bulk: `komando host ssh edit TARGET --sudo-credential NAME`
      (one approval for every server), `komando host ssh rename OLD NEW` (updates
      every reference; `credential key rename` and `group rename` likewise),
-     `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
-     secret, key and group of a project, one approval for all of them),
      `komando import csv FILE` (many servers at once).
 4. **Long or fragile work runs in a session.** `komando host ssh exec` on one Linux
    or Unix server (no `--pty`) runs the command in a session on the server,
@@ -147,12 +145,12 @@ not know? Set `KOMANDO_AGENT=1`.
      ids and counts, never write it back, and ask the human if a task needs
      a real value.
    - `credential password show --reveal` and `credential key show --reveal` are for people only
-     (`REVEAL_NEEDS_TERMINAL`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
+     (`REVEAL_NEEDS_TERMINAL`). For a password only the human
      knows, ask them to run `komando credential password add NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.
-   - Rename or copy a secret with `komando credential password rename OLD NEW` or
-     `secret cp OLD NEW` (references follow a rename; the value is never shown)
-     instead of asking the human to type it again.
+   - Rename a secret with `komando credential password rename OLD NEW`
+     (references follow; the value is never shown) instead of asking the human
+     to type it again.
    - Refer to secrets as `credential:NAME`; never put a secret value on a
      command line.
    - On this computer, do not read `~/.komando`, private keys, `.env` files

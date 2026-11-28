@@ -70,11 +70,11 @@ func TestStandardTopLevel(t *testing.T) {
 	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
-		"host", "conn", "vpn", "group", "secret", "credential", "snippet", "policy", "config",
+		"host", "conn", "vpn", "group", "credential", "snippet", "policy", "config",
 		"fs", "pkg", "docker", "db", "database", "cache", "queue", "storage", "cluster", "registry",
 		// shortcuts
 		"list", "test", "logs", "copy", "status",
-		"login", "logout", "import", "export", "rename",
+		"login", "logout", "import", "export",
 		// about komando
 		"audit", "doctor", "schema", "guide", "agent", "update", "version", "completion", "ssh-gate",
 	}
@@ -131,7 +131,7 @@ func TestStandardNounAliases(t *testing.T) {
 	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
-		"secret": {"secrets"}, "snippet": {"snippets"}, "policy": {"policies"},
+		"snippet": {"snippets"}, "policy": {"policies"},
 		"fs": {"files"}, "pkg": {"package", "packages"},
 		"docker": {"container", "containers"},
 		"db":     {"dbs"}, "database": {"databases"}, "cache": {"caches"}, "queue": {"queues"},
@@ -160,8 +160,8 @@ var (
 		"pkg installed", "pkg upgradable", "pkg security", "db activity", "db locks", "db sizes", "db explain", "db kill",
 		"fs cat", "fs stat", "fs chmod", "fs mkdir", "fs write", "fs replace", "fs mv",
 		"cluster kubernetes tunnel start",
-		"credential key create", "credential key install", "host trust", "host ssh-command",
-		"ssh-gate line", "conn kinds", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
+		"credential key create", "credential key install", "host trust",
+		"ssh-gate line", "audit check", "config approval-code", "config vault keychain", "config vault passphrase"}
 )
 
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.
@@ -654,7 +654,6 @@ func TestStandardJourneys(t *testing.T) {
 		"host ssh":        {"add", "test", "show", "list", "edit", "rename", "remove"},
 		"conn":            {"add", "test", "show", "list", "edit", "rename", "rm"},
 		"vpn wireguard":   {"add", "test", "show", "list", "edit", "rename", "remove"},
-		"secret":          {"check", "cp"},
 		"group":           {"create", "show", "list", "rename", "remove"},
 		"snippet":         {"create", "show", "list", "remove"},
 		"policy":          {"create", "check", "list", "remove"},

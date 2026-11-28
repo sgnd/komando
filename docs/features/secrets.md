@@ -170,12 +170,11 @@ values that unlock the vault.
 
 ```bash
 komando credential password show web1-pass      # does it exist, what uses it, a warning about spaces (no value)
-komando secret check web1-pass     # type the value you think it is: match or how they differ
 ```
 
-`secret check` never shows either value: it says whether they match, or
-whether they differ only in spaces at the ends, only in upper and lower
-case, or in length. Only a person can run it.
+komando has no command that compares a typed value with the stored one. A
+person who doubts a value sets it again with `credential password add`, or
+reads it with `credential password show --reveal`.
 
 ## See a value again
 
@@ -206,12 +205,11 @@ komando credential key show deploy --reveal > deploy.key     # the private key o
 - `credential key show --reveal` prints only keys komando made (`credential key create`), which it
   keeps in its sealed store; for a key added from a file it names that file.
 
-## Rename, copy and remove
+## Rename and remove
 
 ```bash
 komando credential password rename vpn-password office-vpn-pass --dry-run   # what would change
 komando credential password rename vpn-password office-vpn-pass             # every server, conn, key and VPN follows
-komando secret cp db-pass db-pass-old                          # a copy; nothing else changes
 komando credential password remove old-pass other-old-pass                      # all of them, or none
 ```
 
@@ -275,8 +273,8 @@ An agent never sees a value: output shows `[credential:NAME]` or `[hidden]`.
 | store a token a program made | `echo "$TOKEN" \| komando credential token add NAME` or `--from-env VAR` | |
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `credential:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
-| rename, copy, remove | `credential password rename`, `secret cp`, `credential password remove` | |
-| read or compare a value | asks the user (`credential password show --reveal`, `credential key show --reveal`, `secret check`) | `REVEAL_NEEDS_TERMINAL`, `NEEDS_PERSON` |
+| rename, remove | `credential password rename`, `credential password remove` | |
+| read a value | asks the user (`credential password show --reveal`, `credential key show --reveal`) | `REVEAL_NEEDS_TERMINAL`, `NEEDS_PERSON` |
 
 The agent never asks for a password in the chat: the hint names the
 command the user runs in their own terminal.
@@ -305,10 +303,9 @@ command the user runs in their own terminal.
 | `SECRET_IN_ARGS` (exit 2) | the value was on the command line | `komando credential password add NAME`, then type it after the prompt |
 | `USAGE` (exit 2) | an empty value, or a paste of several lines | type it again, or give several lines on stdin: `komando credential token add NAME < FILE` |
 | `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` (exit 3) | no secret by that name, or a reference that cannot be read | `komando credential list` |
-| `SECRET_EXISTS` (exit 8) | `credential password rename` or `secret cp` to a name that is taken, or `credential password add --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename, cp) or run `komando credential password add NAME` without `--new` |
+| `SECRET_EXISTS` (exit 8) | `credential password rename` to a name that is taken, or `credential password add --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename) or run `komando credential password add NAME` without `--new` |
 | `SECRET_IN_USE` (exit 8) | `credential password remove` of a secret something still uses | point those at another secret, or `credential password rename` it |
-| `SECRET_MISMATCH` (exit 1) | `secret check`: the value you typed is not the stored one | `data.difference` says how they differ; `komando credential password add NAME` stores the right one |
-| `NEEDS_PERSON` (exit 6) | only a person can do this (`credential password add` for an agent, `secret check`, `config vault keychain`, `config vault passphrase`) | the person runs it in their own terminal |
+| `NEEDS_PERSON` (exit 6) | only a person can do this (`credential password add` for an agent, `config vault keychain`, `config vault passphrase`) | the person runs it in their own terminal |
 | `VAULT_LOCKED` (exit 1) | the vault has a passphrase and `KOMANDO_VAULT_PASS` is not set | set `KOMANDO_VAULT_PASS` in the shell that runs komando (an AI agent asks the user) |
 | `VAULT_DECRYPT` (exit 1) | `KOMANDO_VAULT_PASS` is not this vault's passphrase | set the right one; nothing was lost. `komando doctor` says which mode is in use |
 | `VAULT_KEY` (exit 1) | the key is missing: `store.key` is gone, or the keychain item is on another computer | restore `~/.komando/store.key` from a backup, or run `komando config vault keychain` on the computer whose keychain holds the key |

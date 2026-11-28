@@ -50,11 +50,6 @@ N2=$($K host ssh trust direct --reset --dry-run | jget 'd["data"]["results"][0][
 check "trust --reset --dry-run removes nothing" "$N1" "$N2"
 check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] && echo True || echo False)"
 
-# ssh-command: a hop per ProxyCommand, VPN as nc -X 5
-# bastion logs in with a key komando made, sealed in the store: OpenSSH
-# gets it from a running ssh-agent only
-check "ssh-command without an ssh-agent" SSH_AGENT_NEEDED "$(env -u SSH_AUTH_SOCK $K host ssh-command target | jget 'd["error"]["code"]' || true)"
-
 # import: a proxy command never comes from a file; protected names
 printf '%s\n' '{"format":"komando-export/1","hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}' >"$TMP/inv-hosts.json"
 check "import komando drops a proxy command" True "$(A import komando "$TMP/inv-hosts.json" --dry-run | jget '"proxy_command" in str(d["data"]["not_imported"])')"

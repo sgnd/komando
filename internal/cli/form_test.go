@@ -116,8 +116,7 @@ func formNoApproval(t *testing.T, source string, line []string) {
 	}
 }
 
-// Even a hint that names an approval flag, or adds it to every line,
-// cannot put it in a form's command.
+// Even a hint that names an approval flag cannot put it in a form's command.
 func TestFormHintCannotApprove(t *testing.T) {
 	root := &cobra.Command{Use: "komando"}
 	c := &cobra.Command{Use: "zap TARGET", Run: func(*cobra.Command, []string) {}}
@@ -125,8 +124,7 @@ func TestFormHintCannotApprove(t *testing.T) {
 		c.Flags().Bool(n, false, n)
 	}
 	root.AddCommand(c)
-	formHints["zap"] = formHint{flags: []formFlag{{name: "yes"}, {name: "reveal"}, {name: "force"}},
-		always: []string{"--allow-dangerous", "--yes=true"}}
+	formHints["zap"] = formHint{flags: []formFlag{{name: "yes"}, {name: "reveal"}, {name: "force"}}}
 	defer delete(formHints, "zap")
 	sp := formCmdSpec(c)
 	a := formAnswers{"arg0": "web-1", "flag:yes": "true", "flag:reveal": "true", "flag:allow-dangerous": "true", "flag:force": "true"}
@@ -473,10 +471,9 @@ func TestFormEveryHelpExampleIsReachable(t *testing.T) {
 					if f.Value.Type() != "bool" && !strings.Contains(w, "=") {
 						i++ // its value
 					}
-					h, _ := hintOf(commandKey(s))
 					_, why := formHides[commandKey(s)+" "+f.Name]
-					if f.Hidden || why || slices.Contains(h.always, "--"+f.Name) {
-						continue // an old alias of an offered flag, or added to every line
+					if f.Hidden || why {
+						continue // an old alias of an offered flag
 					}
 					if !offered[f.Name] && !slices.Contains(formNeverFlags, f.Name) && root.PersistentFlags().Lookup(f.Name) == nil {
 						t.Errorf("%s: the menu never offers --%s, which its example `%s` uses", commandKey(s), f.Name, line)

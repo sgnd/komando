@@ -111,9 +111,6 @@ var examples = map[string]string{
 		"  komando policy check 'rm -rf /srv/app'\n" +
 		"  komando policy create 'systemctl stop postgresql' --dry-run\n" +
 		"  komando policy create 'systemctl stop postgresql'",
-	"komando secret": "  komando secret check db-pass   # type the value to compare, hidden\n" +
-		"  komando secret cp db-pass db-pass-old --dry-run\n" +
-		"  komando secret cp db-pass db-pass-old",
 	"komando vpn": "  komando vpn wireguard add office --config ~/Downloads/office.conf\n" +
 		"  komando vpn wireguard test office\n" +
 		"  komando host ssh edit db1 --via office --dry-run\n" +
@@ -136,10 +133,9 @@ var examples = map[string]string{
 		"  komando agent skill install\n" +
 		"  komando agent skill uninstall --dry-run\n" +
 		"  komando agent skill uninstall",
-	"komando conn kinds": "  komando conn kinds",
-	"komando conn list":  "  komando conn list\n  komando conn list @prod",
-	"komando conn show":  "  komando conn show prod-db",
-	"komando conn test":  "  komando conn test prod-db\n  komando conn test kind:postgres",
+	"komando conn list": "  komando conn list\n  komando conn list @prod",
+	"komando conn show": "  komando conn show prod-db",
+	"komando conn test": "  komando conn test prod-db\n  komando conn test kind:postgres",
 
 	"komando docker images":  "  komando docker images web1",
 	"komando docker inspect": "  komando docker inspect web1 api",

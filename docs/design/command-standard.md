@@ -210,7 +210,7 @@ own tool, is allowed when this list names it:
 `fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
 `svc daemon-reload`,
 `cluster forward`, `net dns/http/ports/check`,
-`credential key create/install`, `host ssh trust`, `host ssh-command`, `ssh-gate line`, `conn kinds`,
+`credential key create/install`, `host ssh trust`, `ssh-gate line`,
 `audit check`, `config approval-code`, `config vault keychain/passphrase`.
 [schema: allow-list]
 

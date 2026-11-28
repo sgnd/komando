@@ -174,7 +174,6 @@ func TestGateCheck(t *testing.T) {
 		{"database postgres shell pg", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"cluster kubernetes shell k8s pod/x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config vault passphrase", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
-		{"secret check db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"login aws", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"config approval-code", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"ssh-gate --name x", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
@@ -850,7 +849,11 @@ func TestGateRefusesUnknownLine(t *testing.T) {
 	gateInventory(t)
 	for _, line := range []string{"frobnicate web", "hots list", "host frobnicate web", "db user frobnicate pg",
 		// removed in step D5a: these lines used to run, for every key
-		"help", "help safety", "safety", "__help", "cert check https://evil.example"} {
+		"help", "help safety", "safety", "__help", "cert check https://evil.example",
+		// the removed paths of step D5c, and one with a flag only the removed command knew:
+		// no usage error may pass as allowed
+		"secret check db", "secret cp a b", "vault cp a b", "rename x y", "conn kinds",
+		"host ssh-command web1", "host ca revoke --key x.pub"} {
 		for _, key := range []gateKey{readKey, netReadKey, fullKey} {
 			words, _ := gateWords(line)
 			_, _, e := gateCheck(words, key)

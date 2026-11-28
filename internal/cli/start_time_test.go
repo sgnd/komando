@@ -392,26 +392,6 @@ func TestUnpreparedCommandRunsNothing(t *testing.T) {
 	}
 }
 
-// `komando rename OLD NEW` runs the rename of OLD's kind, which its line
-// does not name: it prepares that command before it runs it.
-func TestRenamePreparesTheKindsRename(t *testing.T) {
-	invHome(t)
-	mustRun(t, "host", "ssh", "add", "web1", "u@10.0.0.1")
-	t.Cleanup(endCommand) // the next test starts with none of this command's flags
-	line := []string{"--dry-run", "rename", "web1", "web-01"}
-	root := newRootFor(tcl, line)
-	if c, _, _ := root.Find([]string{"host", "ssh", "rename"}); prepared(c) {
-		t.Fatal("host ssh rename is prepared before rename runs")
-	}
-	root.SetArgs(line)
-	if _, err := root.ExecuteC(); err != nil {
-		t.Fatalf("rename web1: %v", err)
-	}
-	if c, _, _ := root.Find([]string{"host", "ssh", "rename"}); !prepared(c) {
-		t.Error("rename ran host ssh rename, not prepared")
-	}
-}
-
 // fakeLeaves are n built leaves of a type nobody names in a line.
 func fakeLeaves(t testing.TB, n int) {
 	t.Helper()

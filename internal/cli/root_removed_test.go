@@ -31,7 +31,7 @@ var removedTextOpen = map[string]bool{
 
 // removedCodes are the error codes only a removed command gave: no doc,
 // test or program text keeps one.
-var removedCodes = []string{"CERT_PROBLEMS", "NO_CERTIFICATE", "TLS_HANDSHAKE_FAILED"}
+var removedCodes = []string{"CERT_PROBLEMS", "NO_CERTIFICATE", "TLS_HANDSHAKE_FAILED", "NOTHING_TO_RENAME", "SECRET_MISMATCH", "SSH_AGENT_NEEDED", "SSH_AGENT_REFUSED", "VPN_NOT_FOR_OPENSSH"}
 
 // removedGoneAllowed are the files that may still name a removed command: the
 // release history and the frozen v0.17 tables (they say what was there).
@@ -44,6 +44,8 @@ var removedGoneAllowed = map[string]bool{
 	"internal/capability/cache.go":               true, // Carries: the IDs `cache redis raw` took over (TestMovedLeavesCarryTheirTables)
 	"internal/capability/cluster.go":             true, // rawCarries: the same for `cluster kubernetes raw`
 	"internal/capability/testdata/v0_17_ids.txt": true,
+	"internal/store/migrate3_fix.go":             true, // its steps run in the last format 2 release, where `komando secret set` exists
+	"internal/store/migrate3_refs_test.go":       true, // pins those steps and the format 2 reference spellings
 	"internal/cli/root_removed.go":               true,
 	"internal/cli/root_removed_test.go":          true,
 }

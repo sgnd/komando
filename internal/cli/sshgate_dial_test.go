@@ -426,7 +426,7 @@ var reviewedDialSites = map[string]int{
 	"registry/registry.go New": 2, "kube/kube.go New": 1, "kube/spdy.go *Client.dialSPDY": 1,
 	"kube/stream.go *Client.dialWS": 1, // takes the transport's dialer: the gate's in a key's run
 	// a socket on this computer komando itself uses: ssh-agent, a held login
-	"sshx/auth.go openAgent": 1, "sshx/held.go dialHeld": 1, "cli/host_sshagent.go ": 1,
+	"sshx/auth.go openAgent": 1, "sshx/held.go dialHeld": 1,
 	// a VPN's own connection and the dials through it (the C655 residual row)
 	"netx/netx.go OpenDirect": 3, "netx/netx.go sessionDialer": 1, "netx/netx.go socksDialer": 1,
 	"netx/httpproxy.go openHTTPProxy": 1, "openvpn/client.go Connect": 1, "ipsec/transport.go newTransport": 1,

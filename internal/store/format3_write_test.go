@@ -216,8 +216,8 @@ func TestFormat3KeyFileRepointsOneHost(t *testing.T) {
 	}
 }
 
-// A login named before its value is saved (an import, or `komando secret
-// set NAME` later) is kept as it was in format 2: the entry is written and
+// A login named before its value is saved (an import, or a password added
+// later) is kept as it was in format 2: the entry is written and
 // its credential has no value yet.
 func TestFormat3CredentialNamedBeforeItsValue(t *testing.T) {
 	sealedHome(t)

@@ -64,15 +64,6 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	}
 }
 
-// hostCmd is the host group of today's tree. Its inventory commands, exec,
-// shell, trust and tunnel moved to the table (`host ssh VERB`, `host winrm
-// VERB`); what is left is host ca and host ssh-command, which wait for C7.
-func hostCmd() *cobra.Command {
-	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Servers in komando's list: add, change, check, remove"}
-	c.AddCommand(hostSSHArgsCmd(), hostCACmd())
-	return c
-}
-
 func hostAddCmd() *cobra.Command {
 	var f hostFlags
 	var force, askPw bool

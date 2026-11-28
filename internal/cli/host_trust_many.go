@@ -363,6 +363,8 @@ func init() {
 	}
 	moveType("host")
 	providerIDs["tunnel"] = true // the hidden group of tunnel serve keeps its old key, which host ssh tunnel has too
+	helpGroups["host"] = "inventory"
+	groupShorts["host"] = "Servers in komando's list: SSH and Windows over WinRM"
 	groupShorts["host ssh"] = "SSH servers: save them, run commands on them, tunnel through them"
 	groupShorts["host winrm"] = "Windows servers over WinRM: save them and run commands on them"
 	groupShorts["host ssh tunnel"] = "Background tunnels through a server: start, list, stop"

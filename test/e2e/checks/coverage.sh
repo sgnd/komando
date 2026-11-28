@@ -23,13 +23,9 @@ check "version" True "$($K version | ok)"
 # a go build is a source build, which update refuses; a release build checks GitHub
 check "update (dry run)" True "$($K update --dry-run | jget 'd["ok"] or d["error"]["code"] in ("SOURCE_BUILD", "CONN_UNREACHABLE")')"
 check "config show" True "$($K config show | ok)"
-check "conn kinds" True "$($K conn kinds | has postgres)"
 check "conn list" True "$($K conn list | has maria)"
 check "conn show" True "$($K conn show pg | jget 'd["data"]["name"] == "pg"')"
 check "secret list" True "$($K credential list | has agent-pass)"
-check "secret check of the stored value" True "$(echo agentpass | $K secret check agent-pass | jget 'd["data"]["match"]')"
-check "secret check says how a value differs, never the value" "SECRET_MISMATCH True False" "$(echo ' agentpass' | $K secret check agent-pass | jget 'd["error"]["code"] + " " + str("only in spaces" in d["data"]["difference"]) + " " + str("agentpass" in json.dumps(d))' || true)"
-check "an agent cannot check a secret" NEEDS_PERSON "$(echo agentpass | A secret check agent-pass | jget 'd["error"]["code"]' || true)"
 check "group list" True "$($K group list | has lab)"
 q $K group create "$C-g" direct
 check "group remove" True "$($K group remove "$C-g" direct | ok)"

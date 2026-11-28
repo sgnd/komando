@@ -87,10 +87,8 @@ var invHostHints = map[string]formHint{
 		help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 	"host ssh remove": {args: []formArg{{ask: "Which servers should come off your list?", pick: "host", free: true,
 		help: "Only komando's list changes; the servers themselves are not touched."}}},
-	"host ssh show":    {args: []formArg{invServer}},
-	"host ssh-command": {args: []formArg{invServer}},
-	"host ssh test":    {args: []formArg{invServers}, flags: []formFlag{invWait}},
-	"host ca revoke":   {flags: []formFlag{{name: "key", ask: "Which public key file (.pub) should never be trusted?", local: true, required: true}}},
+	"host ssh show": {args: []formArg{invServer}},
+	"host ssh test": {args: []formArg{invServers}, flags: []formFlag{invWait}},
 	"host ssh trust": {
 		args: []formArg{invServers},
 		flags: []formFlag{{name: "reset", ask: "Replace a key komando saved before?",
@@ -110,7 +108,6 @@ var invConnHints = map[string]formHint{
 		},
 		hide: []string{"group", "tag"},
 	},
-	"conn kinds": {},
 	"conn list": {args: []formArg{{ask: "Which conns? (leave empty for all)", pick: "conn", free: true,
 		help: "Pick one, or type @group, kind:postgres or several names separated by commas."}}},
 	"conn rename": {args: []formArg{{ask: "Which conn do you want to rename?", pick: "conn",
@@ -124,20 +121,6 @@ var invConnHints = map[string]formHint{
 var invListHints = map[string]formHint{
 	"list": {args: []formArg{invTargetsAll}},
 	"test": {args: []formArg{invTargets}, flags: []formFlag{invWait}},
-	"rename": {
-		args: []formArg{
-			{ask: "Which start of the names should change?", example: "shop-",
-				help: "Every name that starts with it is renamed: shop-web and shop-db with shop-."},
-			{ask: "What should they start with instead?", example: "acme-shop-",
-				help: "shop-web becomes acme-shop-web."},
-		},
-		always: []string{"--starts-with"},
-		hide:   []string{"starts-with"},
-		flags: []formFlag{
-			{name: "in-notes", ask: "Also change the old names in notes?",
-				help: "Yes changes them in the notes of servers, conns, VPNs and secrets too."},
-		},
-	},
 	"import": {
 		args: []formArg{
 			{ask: "What do you want to bring in?", example: "ssh-config", choices: importSourceNames(),
