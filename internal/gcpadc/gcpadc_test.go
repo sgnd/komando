@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"golang.org/x/oauth2"
+
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/transport"
 )
@@ -225,3 +227,46 @@ func TestAgentEnvironmentReadsTheFileOnce(t *testing.T) {
 		t.Errorf("a file that is not there: %v", err)
 	}
 }
+
+// C671: with no login file, a key's or an AI agent's run takes this
+// machine's own account from the metadata server, through the metadata
+// library's own client: komando's transport (and so a gate dialer, which
+// Find is never handed) carries none of it.
+func TestNoFileTakesTheMachineAccountFromTheMetadataServer(t *testing.T) {
+	defer transport.DistrustEnv()()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("APPDATA", home)
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+	var tokens atomic.Int32
+	md := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Metadata-Flavor", "Google")
+		if strings.HasSuffix(r.URL.Path, "/service-accounts/default/token") {
+			tokens.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"access_token":"machine","expires_in":3600,"token_type":"Bearer"}`))
+			return
+		}
+		w.Write([]byte("p"))
+	}))
+	defer md.Close()
+	t.Setenv("GCE_METADATA_HOST", strings.TrimPrefix(md.URL, "http://"))
+	var viaKomando atomic.Int32
+	komando := &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
+		viaKomando.Add(1)
+		return nil, errors.New("komando's transport")
+	})}
+	creds, err := Find(context.WithValue(context.Background(), oauth2.HTTPClient, komando), scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := creds.TokenSource.Token()
+	if err != nil || tok.AccessToken != "machine" || tokens.Load() != 1 || viaKomando.Load() != 0 {
+		t.Errorf("token %v %v; metadata server asked %d times, komando's transport %d", tok, err, tokens.Load(), viaKomando.Load())
+	}
+}
+
+type roundTrip func(*http.Request) (*http.Response, error)
+
+func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
