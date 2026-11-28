@@ -341,7 +341,7 @@ that names no server is refused. Names match whatever their case and one
 trailing dot.
 Adding a CA trusts every server it ever signs, so only a person at a
 terminal can add one (`NEEDS_PERSON`); an AI agent may preview it with
-`--dry-run`, remove a CA and revoke a key, which only narrow trust.
+`--dry-run` and remove a CA, which only narrows trust.
 
 ### Lend a jump host your ssh-agent
 

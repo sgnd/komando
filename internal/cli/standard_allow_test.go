@@ -11,8 +11,7 @@ var (
 		"login aws",
 		"logout aws", // login aws's other half: aws names the cloud, not a verb
 	}
-	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
-	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
+	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install
 	allowPairs = []string{
 		"cluster kubernetes tunnel start/stop", // tunnel list and stop are new code (State New): not mounted yet
 		"pkg install/uninstall",
