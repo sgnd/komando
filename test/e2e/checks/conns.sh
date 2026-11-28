@@ -112,7 +112,8 @@ $K cache memcached raw mc -- flush_all >/dev/null; check "memcached flush_all bl
 $K cache memcached raw mc -- get $'greeting\r\nflush_all' >/dev/null; check "memcached run refuses a newline in a word" 2 $?
 $K cache memcached raw mc --write -- ' flush_all' x >/dev/null; check "memcached flush_all behind a space still needs --allow-dangerous" 6 $?
 set -e
-check "memcached run takes GET in capitals" halo "$($K cache memcached raw mc -- GET greeting | jget 'd["data"]["reply"][0]["value"]')"
+# memcached raw sends no store command (no data block), so no key is set here: a missing key answers an empty reply
+check "memcached run takes GET in capitals" "[]" "$($K cache memcached raw mc -- GET greeting | jget 'd["data"]["reply"]')"
 check "memcached stats reset needs --write" WRITE_REQUIRES_FLAG "$($K cache memcached raw mc -- stats reset | jget 'd["error"]["code"]' || true)"
 printf wrong | $K secret set mc-pass >/dev/null
 q $K conn rm mc

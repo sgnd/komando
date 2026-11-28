@@ -53,7 +53,13 @@ if in_area swarm; then
 q $K docker pull swarm1 "$CLU_IMG"
 q $K docker raw swarm1 -- tag "$CLU_IMG" t-e2eclu/busybox:2
 q $K cluster swarm raw swarm1 --write -- service create --detach --name t-e2eclu-web "$CLU_IMG" sleep 86400
-CTR=$($K docker ps swarm1 | jget '[c["Names"] for c in d["data"]["results"][0]["data"] if c["Names"].startswith("t-e2eclu-web.")][0]')
+# service create --detach returns before the task runs: wait for its container (docker ps lists running ones)
+CTR=""
+for _ in $(seq 1 60); do
+  CTR=$($K docker ps swarm1 | jget '[c["Names"] for c in d["data"]["results"][0]["data"] if c["Names"].startswith("t-e2eclu-web.")][0]' 2>/dev/null) || CTR=""
+  [ -n "$CTR" ] && break
+  sleep 2
+done
 check "docker exec passes words as given" "3 out" "$($K docker exec swarm1 "$CTR" --read-only -- sh -c 'echo out; exit 3' | jget 'str(d["data"]["results"][0]["exit_code"]) + " " + d["data"]["results"][0]["stdout"].strip()')"
 check "docker raw: global flags do not hide rm" POLICY_BLOCKED "$($K docker raw swarm1 -- -l debug volume rm nothing | jget 'd["error"]["code"]')"
 check "docker compose: down -v behind -p is checked" POLICY_BLOCKED "$($K docker compose swarm1 --dry-run -- -p proj down -v | jget 'd["meta"]["would_be_blocked"]["code"]')"
