@@ -79,7 +79,21 @@ func swappedLine(args []string, wrong, right string) (string, bool) {
 	if i := slices.Index(w, "--"); i >= 0 {
 		w = append(w[:i:i], "--", "…")
 	}
-	return commandLineOf(w), true
+	return commandLineOf(withoutSecretArgs(w)), true
+}
+
+// withoutSecretArgs ends the line w of a secretValueLeaves command at its
+// words and NAME: any argument may be the secret's value.
+func withoutSecretArgs(w []string) []string {
+	for id := range secretValueLeaves {
+		words := strings.Split(id, ".")
+		for i := 0; i+len(words) <= len(w); i++ {
+			if slices.Equal(w[i:i+len(words)], words) {
+				return append(w[:i+len(words):i+len(words)], "NAME")
+			}
+		}
+	}
+	return w
 }
 
 // nearWords are the names within reach of word (S-5.17): an edit distance

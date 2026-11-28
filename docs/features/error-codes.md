@@ -206,7 +206,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SEALED_FILE_UNSUPPORTED` | 2 | … is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported | on the old computer, make a file for this one with `komando export --sealed --to FILE` |
 | `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando credential password add NAME`, then --… credential:NAME |
-| `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando … …` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
+| `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando … NAME` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, for example `…`, or rename it with `komando credential password rename` |
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando credential password add …` |
 | `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando credential list` |
@@ -222,7 +222,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SESSION_RECORD_MISSING` | 3 | session … on … was not started from this computer | only the computer that started the run can stop it: run `komando host ssh exec TARGET --attach ID --stop` there; `komando audit list` there shows the exec that started it |
 | `SESSION_SPACE_DENIED` | 5 | …: the home file system has less free space than the log cap plus 5 percent of the disk; nothing ran | free space in the home folder, or give a smaller log cap: `komando host ssh exec TARGET --log-max 100MiB -- COMMAND` |
 | `SESSION_START_FAILED` | 5 | …: the run in a session did not start (…) | the server needs nohup, ps and mkfifo: look with `komando host ssh exec TARGET -- command -v setsid nohup ps mkfifo` |
-| `SESSION_STILL_RUNNING` | 8 | session … on …: the signal was sent, and the run still runs | the run traps or ignores TERM; stop it hard with `komando host ssh exec TARGET --attach ID --stop --signal KILL` |
+| `SESSION_STILL_BUSY` | 8 | session … on …: the signal was sent, and the run still runs | the run traps or ignores TERM; stop it hard with `komando host ssh exec TARGET --attach ID --stop --signal KILL` |
 | `SESSION_STOP_FAILED` | 5 | …: session … was not stopped (exit …): … | a run started with --sudo is stopped through sudo as the same user; when sudo asks for a password there, give the server its sudo password: `komando host ssh edit TARGET --sudo-credential NAME` |
 | `SESSION_WAIT_TIMEOUT` | 7 | session … on … still running after … | it is still running: `komando host ssh exec … --attach … --offset …` reads on |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
