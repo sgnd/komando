@@ -669,6 +669,12 @@ More limits:
   on any address), and the IPv6 forms whose IPv4 address the gate cannot
   read (6to4, Teredo, local NAT64). A person's and an AI
   agent's runs are not changed.
+- A key's run uses the login a conn has. A conn without a stored login
+  (a Cloud Storage, BigQuery or Pub/Sub conn without a key, an AWS
+  profile on the usual chain) uses this computer's own cloud login: the
+  gcloud or AWS login here, and on a cloud machine its metadata server,
+  which komando asks itself, not through the gate. Give the conn a stored
+  key to keep keys off this machine's own cloud account.
 - A read key without `--network` still reaches what your servers and
   databases reach by their own setup: a Postgres foreign table, a MySQL
   FEDERATED table, a ClickHouse `cluster()` or dictionary, a Snowflake
