@@ -118,6 +118,7 @@ func TestGateLocalAddrFailsClosed(t *testing.T) {
 	answers["ownll.example"] = [][]net.IP{ips("169.254.7.7")}
 	answers["imds.example"] = [][]net.IP{ips("169.254.169.254")}
 	answers["router.example"] = [][]net.IP{ips("fe80::bbbb")}
+	answers["203.0.113.9%en0"] = [][]net.IP{ips("203.0.113.9")} // only the zone rule refuses it
 	gateStubDNS(t, answers)
 	want := map[string]bool{
 		"own.example": true, "ownll.example": true, "imds.example": true, "router.example": true, "169.254.169.254": true,

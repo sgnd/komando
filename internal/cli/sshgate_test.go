@@ -418,7 +418,9 @@ func TestGateLocalTargets(t *testing.T) {
 func TestGateLocalAddr(t *testing.T) {
 	me, _ := os.Hostname()
 	public := [][]net.IP{ips("203.0.113.20")}
-	gateStubDNS(t, map[string][][]net.IP{"db.example.com": public, "localhost.example.com": public, "web1": public})
+	// the zoned names answer public too, so only the zone rule refuses them
+	gateStubDNS(t, map[string][][]net.IP{"db.example.com": public, "localhost.example.com": public, "web1": public,
+		"db.example.com%en9": public, "db.example.com%lo0": public, "db.example.com%en0": public, "203.0.113.20%en0": public})
 	gateStubInterfaces(t)
 	for a, want := range map[string]bool{
 		"localhost": true, "LocalHost.": true, "x.localhost": true, "127.0.0.1": true, "127.9.9.9:22": true,
