@@ -483,7 +483,7 @@ func sqlForm(scheme, product, port string) formSpec {
 }
 
 // dbTLSQ asks, under More options, how a database connection is
-// encrypted: "" lets conn add choose (checked TLS over a network),
+// encrypted: "" lets the add choose (checked TLS over a network),
 // "nocheck" encrypts without checking, "off" sends it unencrypted.
 func dbTLSQ() formQ {
 	return formQ{key: "tls", label: "Encryption", ask: "How should the connection be encrypted?", advanced: true,

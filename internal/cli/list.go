@@ -38,12 +38,13 @@ type targetList struct {
 	Count   int         `json:"count"`
 	Targets []targetRow `json:"targets"`
 	empty   bool        // the inventory itself is empty
-	only    string      // host list, conn list, vpn list: that kind only
+	only    string      // a server, conn or VPN list: that kind only
+	kind    string      // a provider's list: its kind
 }
 
 // emptyInventory is what a person reads when there is nothing yet.
 const emptyInventory = "No servers, databases or other services yet. Add a server: komando host ssh add web1 deploy@10.0.0.5 (or import ~/.ssh/config: komando import ssh-config)\n" +
-	"A database: komando database postgres add prod-db postgres://app@10.0.0.5/app --ask-password. A cache, bucket or cluster: komando conn add"
+	"A database: komando database postgres add prod-db postgres://app@10.0.0.5/app --ask-password. A cache: komando cache redis add. A bucket: komando storage s3 add. A cluster: komando cluster kubernetes add"
 
 func (l targetList) Text() string {
 	if l.empty {
@@ -54,7 +55,7 @@ func (l targetList) Text() string {
 		case "host":
 			return term.NoneYet("servers", "host ssh add NAME ADDRESS")
 		case "conn":
-			return term.NoneYet("conns", "conn add NAME URL")
+			return term.NoneYet("conns", connAddHint(l.kind))
 		case "vpn":
 			return term.NoneYet("VPNs", "vpn KIND add NAME")
 		}
@@ -72,7 +73,7 @@ func (l targetList) Text() string {
 }
 
 // only narrows list and test to one type: "host", "conn", or "" for both.
-// `host list`, `conn test` and the like are these commands with only set.
+// A provider's list and test are these commands with only set.
 func keepOnly(sel selection, only string) selection {
 	switch only {
 	case "host":
@@ -87,6 +88,16 @@ func keepOnly(sel selection, only string) selection {
 
 // kindWords names what a host, conn or vpn command works with.
 var kindWords = map[string]string{"host": "servers", "conn": "conns", "vpn": "VPNs"}
+
+// connAddHint is the add that makes the first conn of a kind (database
+// postgres add NAME URL); TYPE PROVIDER when no kind is named.
+func connAddHint(kind string) string {
+	var words []string
+	if k, ok := driver.Lookup(kind); ok {
+		words = entryWordsOfKind(k)
+	}
+	return strings.TrimPrefix(entryCmd(words, "add", "NAME URL"), "komando ")
+}
 
 func listCmd() *cobra.Command { return listCmdFor("") }
 
@@ -127,7 +138,7 @@ func listCmdKind(only, kind string) *cobra.Command {
 				// a selector that picks nothing is an error (ux.md, section 2)
 				return noMatch(target, kindWords[only], picked).WithHint("use `komando list " + target + "` to see everything it picks")
 			}
-			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0, only: only}
+			l := targetList{Targets: []targetRow{}, empty: len(st.Hosts)+len(st.Conns)+len(st.Vpns) == 0, only: only, kind: kind}
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
 					Where: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Via: h.Via,
@@ -165,7 +176,7 @@ type targetTest struct {
 	Kind      string     `json:"kind"`
 	OK        bool       `json:"ok"`
 	LatencyMS int64      `json:"latency_ms,omitempty"`
-	Detail    any        `json:"detail,omitempty"` // the host test or conn test result
+	Detail    any        `json:"detail,omitempty"` // the test result of a server or a conn
 	Error     *out.Error `json:"error,omitempty"`
 }
 

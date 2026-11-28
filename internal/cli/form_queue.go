@@ -12,7 +12,7 @@ import (
 
 // The Add forms for message queues: Kafka, RabbitMQ, NATS, Amazon SQS and
 // Google Pub/Sub. Over the network the usual answer is TLS; going without
-// it is a clear choice (?insecure=1), as conn add asks. Passwords are asked
+// it is a clear choice (?insecure=1), as the other adds ask. Passwords are asked
 // hidden by the command (--ask-password) or picked from the vault.
 
 func queueForms() []formKind {

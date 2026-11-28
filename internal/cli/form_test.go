@@ -192,7 +192,7 @@ func TestFormAddKindsBuild(t *testing.T) {
 				}
 				for _, line := range sp.build(st, a) {
 					cmd := formParse(t, g.label+"/"+k.label, line)
-					if cmd != nil && commandKey(cmd) == "conn add" {
+					if cmd != nil && len(line) > 4 && slices.Contains(connTypes, line[0]) && line[2] == "add" {
 						if _, err := driver.Parse(cmd.Flags().Arg(1)); err != nil {
 							t.Errorf("%s/%s: URL %q: %v", g.label, k.label, cmd.Flags().Arg(1), err)
 						}

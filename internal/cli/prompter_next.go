@@ -15,8 +15,8 @@ import (
 
 // After a command a person ran at the terminal ends well, komando says on
 // stderr what usually comes next (a formHint's next), and after a command
-// it filled in, the line to type next time. `host show`, `conn show` and
-// `vpn show` end with the commands that work on that item. Nothing of this
+// it filled in, the line to type next time. The show of a server, a conn and
+// a VPN ends with the commands that work on that item. Nothing of this
 // is ever printed for an agent, a script or a pipe.
 
 // fillInfo is what promptFill saw of this command.

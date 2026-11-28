@@ -280,7 +280,7 @@ func s3R2AccountProblem(_ *store.State, _ formAnswers, v string) string {
 }
 
 // s3KeyIDProblem catches the secret half typed in the wrong place: it
-// would end up in the command line and the conn list.
+// would end up in the command line and your list.
 func s3KeyIDProblem(_ *store.State, _ formAnswers, v string) string {
 	switch {
 	case strings.ContainsAny(v, "/+") || len(v) >= 40:

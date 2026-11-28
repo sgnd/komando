@@ -15,7 +15,7 @@ import (
 
 // clusterForms: a Kubernetes cluster comes from the kubeconfig file kubectl
 // already uses (`import kubeconfig`), never from a typed URL: a k8s conn
-// logs in with a whole kubeconfig kept in the vault, which conn add cannot
+// logs in with a whole kubeconfig kept in the vault, which a cluster add cannot
 // take. A Docker Swarm is reached through its manager server.
 func clusterForms() []formKind {
 	return []formKind{
@@ -133,7 +133,7 @@ func kubeconfigBuild(st *store.State, a formAnswers) [][]string {
 }
 
 // kubeconfigAddsAs: the import adds the cluster named name under that very
-// name, so conn edit protects it and nothing else. Only a name komando
+// name, so the cluster edit protects it and nothing else. Only a name komando
 // does not know yet is sure (or, with --overwrite, a conn of that name the
 // import replaces): for a taken name the import skips the cluster or
 // renames it (prod-2), and so does a name whose name-kubeconfig secret

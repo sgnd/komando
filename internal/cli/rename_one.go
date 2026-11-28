@@ -17,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// `host mv`, `conn mv` and `vpn mv` give an entry a new name. Everything
+// `host ssh rename`, a provider's rename and `vpn KIND rename` give an entry a new name. Everything
 // about it stays (address, login, protected mark, groups, tags, labels),
 // and every place in the inventory that names it follows: --via paths of
 // servers, conns and tunnels, exec sessions and tunnels started on it. Pinned host
@@ -321,8 +321,8 @@ func hostMvCmd() *cobra.Command {
 }
 
 func connMvCmd() *cobra.Command {
-	return mvCmd("conn", `  komando conn rename shop shop-prod
-  komando conn rename prod-db main-db --yes    # prod-db is protected`, renameConn)
+	return mvCmd("conn", `  komando database postgres rename shop shop-prod
+  komando database postgres rename prod-db main-db --yes    # prod-db is protected`, renameConn)
 }
 
 func vpnMvCmd() *cobra.Command {
