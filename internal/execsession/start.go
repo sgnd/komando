@@ -67,11 +67,11 @@ func StartScript(s Start) (string, error) {
 		// the root process writes its own PID and waits for .go: the facts
 		// are its own, and with setsid it must lead its own group before
 		// anything of the command runs, or the start fails
-		`p=; i=0; while [ $i -lt 20 ]; do p=$(cat "$d/.w" 2>/dev/null); [ -n "$p" ] && break; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+		FactsScript + `; p=; i=0; while [ $i -lt 20 ]; do p=$(cat "$d/.w" 2>/dev/null); [ -n "$p" ] && break; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
 		`case "$p" in ''|*[!0-9]*) rm -rf "$d"; exit ` + noGroup + `;; esac; ` +
-		`i=0; while [ -n "$g" ] && [ "$(ps -o pgid= -p "$p" 2>/dev/null | tr -d ' ')" != "$p" ]; do ` +
+		`i=0; while [ -n "$g" ] && [ "$(ks_pgid "$p")" != "$p" ]; do ` +
 		`[ $i -lt 10 ] || { kill -TERM "$p" 2>/dev/null; rm -rf "$d"; exit ` + noGroup + `; }; sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
-		`echo "$p" > "$d/pid"; : > "$d/.go"; ` + FactsScript + `; ks_facts "$p" ` + s.ID, nil
+		`echo "$p" > "$d/pid"; : > "$d/.go"; ks_facts "$p" ` + s.ID, nil
 }
 
 // wrapper is the session's root process. It first writes its PID to .w

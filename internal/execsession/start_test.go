@@ -279,6 +279,38 @@ func fakeSetsid(t *testing.T, delay string, group bool) string {
 	return dir
 }
 
+// fakeBusyboxPs is a folder with a ps that, like busybox's, has no -p.
+func fakeBusyboxPs(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	script := "#!/bin/sh\nfor a; do case $a in -p) echo 'ps: unrecognized option: p' >&2; exit 1;; esac; done\nexec /bin/ps \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "ps"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// C653: where ps has no -p (busybox: Alpine, docker:dind) the run's group
+// comes from /proc: the start does not fail, and the facts name the group.
+func TestStartScriptBusyboxPs(t *testing.T) {
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc here: ps -p is the only way to read a group")
+	}
+	home := t.TempDir()
+	got, code := runStart(t, home, Start{ID: testID, Run: startRun("echo hi"), LogMax: 1 << 20}, "", fakeBusyboxPs(t))
+	if code != 0 {
+		t.Fatalf("exit %d, %q", code, got)
+	}
+	f, err := ParseFacts(got, testID)
+	if err != nil || f.PGID != f.PID {
+		t.Fatalf("%+v, %v: want the run to lead its own group", f, err)
+	}
+	waitFile(t, home, "exit")
+	if o := waitFile(t, home, "out.log"); o != "hi\n" {
+		t.Errorf("out.log %q", o)
+	}
+}
+
 // A setsid that is slow to make the group still gives a run that leads
 // its own group: the start waits for it.
 func TestStartScriptSlowSetsid(t *testing.T) {

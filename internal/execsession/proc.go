@@ -19,16 +19,20 @@ type Facts struct {
 // FactsScript defines two shell functions:
 //
 //	ks_start PID   prints the process's start, or nothing when it is gone
+//	ks_pgid PID    prints the process's group
 //	ks_facts PID ID   prints the lines ParseFacts reads, between markers
 //	                  that carry the session ID
 //
-// ks_start reads field 22 of /proc/PID/stat, counted after the last ")"
-// because the command name may hold spaces; without /proc it asks ps in
-// the C locale.
+// ks_start reads field 22 of /proc/PID/stat and ks_pgid field 5, counted
+// after the last ")" because the command name may hold spaces; without
+// /proc they ask ps (in the C locale for the start). busybox ps has no -p,
+// but busybox systems have /proc.
 const FactsScript = `ks_start() { if [ -r "/proc/$1/stat" ]; then ` +
 	`t=$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f20); [ -z "$t" ] || echo "proc $t"; ` +
 	`else t=$(LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//;s/ *$//'); [ -z "$t" ] || echo "ps $t"; fi; }; ` +
-	`ks_facts() { echo "facts-begin $2"; echo "pid $1"; echo "pgid $(ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ')"; echo "start $(ks_start "$1")"; echo "facts-end $2"; }`
+	`ks_pgid() { if [ -r "/proc/$1/stat" ]; then sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f3; ` +
+	`else ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '; fi; }; ` +
+	`ks_facts() { echo "facts-begin $2"; echo "pid $1"; echo "pgid $(ks_pgid "$1")"; echo "start $(ks_start "$1")"; echo "facts-end $2"; }`
 
 var errFacts = errors.New("the server did not give the process's pid, group and start")
 
