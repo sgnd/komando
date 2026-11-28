@@ -85,8 +85,10 @@ func StartScript(s Start) (string, error) {
 func wrapper(start string, timeout time.Duration, max int64) string {
 	watch, end := watcher(timeout)
 	// the group's TERM (a stop, the timeout) ends the run, not its ending: the
-	// root traps it; the capper ignores it, so head writes what it holds
-	return `trap : TERM INT QUIT; echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
+	// root traps it and hands it to the run (without setsid only the root gets
+	// it); the capper ignores it, so head writes what it holds
+	fwd := func(sig string) string { return `trap '[ -z "$w" ] || kill -` + sig + ` $w 2>/dev/null' ` + sig + `; ` }
+	return fwd("TERM") + fwd("INT") + fwd("QUIT") + `echo $$ > "$d/.w"; i=0; while [ ! -e "$d/.go" ] && [ $i -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; i=$((i+1)); done; ` +
 		`[ -e "$d/.go" ] || exit 0; rm -f "$d/.w" "$d/.go"; ` +
 		`{ trap '' TERM; head -c ` + strconv.FormatInt(max, 10) + ` > "$d/out.log"; n=$(wc -c | tr -d ' '); [ "$n" = 0 ] || echo "$n" > "$d/truncated"; } < "$d/.o" & k=$!; ` +
 		`exec > "$d/.o" 2>&1; umask "$1"; ` + start + `; umask 077; ` + watch + end +

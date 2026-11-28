@@ -328,6 +328,68 @@ func TestStopCommandKeepsOutputAndMarksTheSignal(t *testing.T) {
 	}
 }
 
+// noSetsidPath is a PATH folder with every program of /bin and /usr/bin but
+// setsid, as on a BSD server.
+func noSetsidPath(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, from := range []string{"/bin", "/usr/bin"} {
+		ents, _ := os.ReadDir(from)
+		for _, e := range ents {
+			if e.Name() != "setsid" {
+				_ = os.Symlink(filepath.Join(from, e.Name()), filepath.Join(dir, e.Name())) // a name in both: the first stays
+			}
+		}
+	}
+	return dir
+}
+
+// C652: without setsid the run has no group of its own and a stop signals
+// the root alone; the root, which traps the signal for its ending, hands it
+// to the run, so the run ends and the session says it was stopped.
+func TestStopCommandWithoutSetsidEndsTheRun(t *testing.T) {
+	home := t.TempDir()
+	text, err := StartScript(Start{ID: testID, Shown: "x", Run: startRun(`echo $$ > "$HOME/run.pid"; echo a; sleep 30; echo late`), LogMax: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", "-c", "umask 022; "+text)
+	cmd.Env = []string{"HOME=" + home, "PATH=" + noSetsidPath(t)}
+	got, err := cmd.Output()
+	f, _, ferr := ReadStart("dev", exitOf(err), string(got), testID)
+	if ferr != nil {
+		t.Fatalf("start: %v (%v) %q", ferr, err, got)
+	}
+	time.Sleep(time.Second)
+	b, err := os.ReadFile(filepath.Join(home, "run.pid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, _ := strconv.Atoi(strings.TrimSpace(string(b)))
+	t.Cleanup(func() { _ = syscall.Kill(run, syscall.SIGKILL); _ = syscall.Kill(f.PID, syscall.SIGKILL) })
+	rec := &store.ExecSession{ID: testID, PID: f.PID, PGID: f.PGID, ProcStart: f.Start}
+	if out, code := runStopIn(t, home, rec, "TERM"); code != 0 || !strings.Contains(out, "signalled pid") {
+		t.Fatalf("stop exit %d, %q", code, out)
+	}
+	if !gone(run) {
+		t.Error("the run goes on after the stop")
+	}
+	// the run's own children are out of reach here and may keep the output
+	// open, so the log is not checked
+	if st, _ := readSession(t, home); st.Killed != "TERM stop" {
+		t.Errorf("status %+v, want killed TERM stop", st)
+	}
+}
+
+// exitOf is the exit code of a command's error: 0 for none.
+func exitOf(err error) int {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return ee.ExitCode()
+	}
+	return 0
+}
+
 // C652: a stop that signals nothing (the stored process is not the live
 // one) leaves no killed mark: the run's own end still decides.
 func TestStopCommandUnmarksWhenNothingWasSignalled(t *testing.T) {
