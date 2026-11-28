@@ -489,6 +489,8 @@ var reviewedDialSites = map[string]int{
 	"netx/httpproxy.go openHTTPProxy": 1, "openvpn/client.go Connect": 1, "ipsec/transport.go newTransport": 1,
 	"ipsec/transport.go *udpTransport.startNATT": 1, "sslvpn/sslvpn.go dialTLSWith": 1, "sslvpn/sslvpn.go httpClient": 1,
 	"cli/vpn_status.go vpnReachable": 1, "cli/vpn_session.go listening": 1,
+	"netx/tailscale.go newTailscale": 1, // dials through its own tailnet
+	"sslvpn/anyconnect_dtls.go *acTun.startDTLS": 2, // UDP to the DTLS address the gateway hands back
 	// no target a key names: the audit sink, cloud sign-in, a test proxy
 	"cli/audit_syslog.go deliver": 2, "transport/http.go HTTP": 1, "cloud/azure.go ": 1, "cloud/ssm.go SSMDial": 1,
 	"transport/proxytest/proxytest.go *Proxy.serve": 1,
@@ -575,9 +577,10 @@ func gateDialSites(file *ast.File) map[string]int {
 		id, ok := s.X.(*ast.Ident)
 		return ok && imports[id.Name] == path && (len(names) == 0 || slices.Contains(names, s.Sel.Name))
 	}
-	const netPkg, tlsPkg, httpPkg, wsPkg = "net", "crypto/tls", "net/http", "github.com/gorilla/websocket"
+	const netPkg, tlsPkg, httpPkg, wsPkg, tsnetPkg = "net", "crypto/tls", "net/http", "github.com/gorilla/websocket", "tailscale.com/tsnet"
 	dialer := func(e ast.Expr) bool {
-		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport", "Client")
+		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport", "Client") ||
+			is(e, tsnetPkg, "Server") // its Dial goes out through its own tailnet
 	}
 	// own: a dialer or transport the caller made, not nil and not another package's
 	own := func(v ast.Expr) bool {
@@ -649,7 +652,8 @@ func gateDialSites(file *ast.File) map[string]int {
 				return id.Name == "gateDialFor" || id.Name == "new" && len(n.Args) == 1 && dialer(n.Args[0])
 			}
 			s, ok := n.Fun.(*ast.SelectorExpr)
-			return ok && (is(s, netPkg) || is(s, tlsPkg)) && strings.HasPrefix(s.Sel.Name, "Dial") ||
+			return ok && ((is(s, netPkg) || is(s, tlsPkg)) && strings.HasPrefix(s.Sel.Name, "Dial") ||
+				is(s, netPkg, "ListenUDP", "ListenPacket")) || // a socket that sends anywhere
 				is(n.Fun, httpPkg, "Get", "Head", "Post", "PostForm") || lib(n.Fun, n.Args)
 		case *ast.SelectorExpr:
 			return is(n, httpPkg, "DefaultClient", "DefaultTransport") || is(n, wsPkg, "DefaultDialer")
@@ -692,6 +696,7 @@ var gateLibDials = map[string]struct {
 	"github.com/microsoft/go-mssqldb":      {"mssql", []string{"NewConnector", "NewConnectorConfig", "NewConnectorWithAccessTokenProvider"}},
 	"github.com/minio/minio-go/v7":         {"minio", []string{"New"}},
 	"github.com/nats-io/nats.go":           {"nats", []string{"Connect"}},
+	"github.com/pion/dtls/v3":              {"dtls", []string{"Client", "ClientWithOptions", "Dial", "DialWithOptions"}},
 	"github.com/rabbitmq/amqp091-go":       {"amqp091", []string{"Dial", "DialConfig", "DialTLS", "DialTLS_ExternalAuth"}},
 	"github.com/redis/go-redis/v9":         {"redis", []string{"NewClient", "NewClusterClient", "NewFailoverClient", "NewFailoverClusterClient", "NewRing", "NewSentinelClient", "NewUniversalClient"}},
 	"github.com/sijms/go-ora/v2":           {"go_ora", []string{"NewConnection", "NewConnector"}},
