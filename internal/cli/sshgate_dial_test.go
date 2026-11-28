@@ -59,7 +59,7 @@ func ips(s ...string) []net.IP {
 const gateOwn = "192.168.1.10"
 
 // gateStubInterfaces answers for gateInterfaces: lo0 (index 1, loopback,
-// with fe80::1 as on macOS) and en0 (index 4).
+// with fe80::1 as on macOS), en0 (index 4) and utun3 (index 9).
 func gateStubInterfaces(t *testing.T) {
 	t.Helper()
 	saved := gateInterfaces
@@ -78,6 +78,7 @@ func gateStubInterfaces(t *testing.T) {
 	ifs := []gateIface{
 		{name: "lo0", index: 1, loopback: true, addrs: nets("127.0.0.1/8", "::1/128", "fe80::1/64")},
 		{name: "en0", index: 4, addrs: nets(gateOwn+"/24", "fe80::aaaa/64", "169.254.7.7/16", "2001:db8::10/64")},
+		{name: "utun3", index: 9, addrs: nets("10.9.9.0/31")}, // a point-to-point link: 10.9.9.1 is the peer
 	}
 	gateInterfaces = func() ([]gateIface, error) { return ifs, nil }
 }
@@ -212,6 +213,7 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"mapped.example": {ips("::ffff:127.0.0.1")},
 		"zero.example":   {ips("0.0.0.0")},
 		"unspec.example": {ips("::")},
+		"mcast.example":  {ips("203.0.113.5", "239.1.1.1")},
 		"empty.example":  {nil},
 	}
 	gateStubInterfaces(t)
@@ -243,6 +245,14 @@ func TestGateDialRefusesHere(t *testing.T) {
 		"[::]:22":               ":: is this computer",
 		"localhost:6379":        "localhost is this computer",
 		"[fe80::1%lo0]:22":      "fe80::1%lo0 is this computer",
+		"224.0.0.1:5353":        "224.0.0.1 is this computer", // multicast reaches this computer too
+		"[ff02::1%en0]:22":      "ff02::1%en0 is this computer",
+		"[ff01::1]:22":          "ff01::1 is this computer",
+		"255.255.255.255:22":    "255.255.255.255 is this computer",
+		"192.168.1.255:22":      "192.168.1.255 is this computer", // en0's broadcast
+		"[::127.0.0.1]:22":      "::127.0.0.1 is this computer",   // IPv4-compatible
+		"0.1.2.3:22":            "0.1.2.3 is this computer",
+		"mcast.example:22":      "mcast.example is this computer",
 	}
 	for addr, msg := range refused {
 		d := &gateDialStub{}
@@ -310,7 +320,7 @@ func TestGateDialJudgesItsOwnLookup(t *testing.T) {
 		t.Errorf("two.example looked up %d times, want once", asked["two.example"])
 	}
 	// fe80::1 is lo0's here, and on en0 a router's: the zone says which
-	for _, addr := range []string{"203.0.113.9:22", "[fe80::1%en0]:22", "[fe80::bbbb%4]:22", "169.254.9.9:22", "[2001:db8::9]:22"} {
+	for _, addr := range []string{"203.0.113.9:22", "[fe80::1%en0]:22", "[fe80::bbbb%4]:22", "169.254.9.9:22", "192.168.2.255:22", "10.9.9.1:22", "[2001:db8::9]:22"} {
 		d := &gateDialStub{}
 		if _, err := gateDial(d.dial)(context.Background(), "tcp", addr); err != nil || !slices.Equal(d.asked, []string{"tcp " + addr}) {
 			t.Errorf("%s: %v, dialed %q", addr, err, d.asked)

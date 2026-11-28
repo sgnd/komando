@@ -250,10 +250,21 @@ var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 	return net.DefaultResolver.LookupIP(ctx, "ip", host)
 }
 
-// gateLocalIP: ip is this computer: loopback, unspecified, or one of its
-// network addresses. Tests whose servers listen on loopback swap it.
+// gateLocalIP: ip is this computer: loopback, unspecified, one of its
+// network addresses, or an address that reaches it too (gateGroupIP).
+// Tests whose servers listen on loopback swap it.
 var gateLocalIP = func(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsUnspecified() || gateOwnIP(ip)
+	return ip.IsLoopback() || ip.IsUnspecified() || gateGroupIP(ip) || gateOwnIP(ip)
+}
+
+// gateGroupIP: ip is no one server's: multicast and broadcast reach this
+// computer too, 0.0.0.0/8 is this network, and an IPv4-compatible
+// address (::127.0.0.1) is read as its IPv4 address by some systems.
+func gateGroupIP(ip net.IP) bool {
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4[0] == 0 || ip4.IsMulticast() || ip4.Equal(net.IPv4bcast)
+	}
+	return ip.IsMulticast() || len(ip) == net.IPv6len && [12]byte(ip[:12]) == [12]byte{}
 }
 
 // gateLocalAsWritten is gateLocalAddr without resolving the name.
@@ -324,7 +335,7 @@ func gateOwnIP(ip net.IP) bool {
 	if err != nil {
 		return true
 	}
-	return slices.ContainsFunc(ifs, func(i gateIface) bool { return i.holds(ip) })
+	return slices.ContainsFunc(ifs, func(i gateIface) bool { return i.holds(ip) || i.broadcasts(ip) })
 }
 
 // gateIface is one of this computer's network interfaces as the gate sees it.
@@ -337,6 +348,27 @@ type gateIface struct {
 
 func (i gateIface) holds(ip net.IP) bool {
 	return slices.ContainsFunc(i.addrs, func(n *net.IPNet) bool { return n.IP.Equal(ip) })
+}
+
+// broadcasts: ip is the broadcast address of one of i's IPv4 networks (a
+// /31 or /32 has none: its other address is the peer's).
+func (i gateIface) broadcasts(ip net.IP) bool {
+	ip4 := ip.To4()
+	return ip4 != nil && slices.ContainsFunc(i.addrs, func(n *net.IPNet) bool {
+		a, m := n.IP.To4(), n.Mask
+		if len(m) == net.IPv6len {
+			m = m[12:]
+		}
+		if ones, bits := m.Size(); a == nil || bits != 32 || ones >= 31 {
+			return false
+		}
+		for k := range a {
+			if a[k]|^m[k] != ip4[k] {
+				return false
+			}
+		}
+		return true
+	})
 }
 
 // gateInterfaces lists this computer's network interfaces and their
