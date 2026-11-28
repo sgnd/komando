@@ -59,29 +59,22 @@ func TestSecretValueInArgsRefusedFirst(t *testing.T) {
 	for _, tc := range []struct{ id, hint string }{
 		{"credential.password.add", "--from-env"},
 		{"credential.token.add", "--from-env"},
-		{"secret.check", "type it"},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			invHome(t)
-			if tc.id == "secret.check" {
-				t.Setenv("PW", "s3cret-value-1")
-				mustRun(t, "credential", "password", "add", "db-pass", "--from-env", "PW")
-			}
 			args := append(strings.Split(tc.id, "."), "db-pass", "hunter22-typed")
 			e := wantCode(t, "SECRET_IN_ARGS", args...)
 			again := "run `komando " + strings.Join(args[:len(args)-1], " ") + "` and type it (hidden)"
 			if !strings.Contains(e.Message, "shell history") || !strings.Contains(e.Hint, tc.hint) || !strings.HasPrefix(e.Hint, again) || strings.Contains(e.Message+e.Hint, "hunter22") {
 				t.Errorf("%+v", e)
 			}
-			if tc.id != "secret.check" {
-				if _, err := vault.Get("db-pass"); err == nil {
-					t.Error("a value on the command line was saved")
-				}
+			if _, err := vault.Get("db-pass"); err == nil {
+				t.Error("a value on the command line was saved")
 			}
 		})
 	}
 	for id := range secretValueLeaves {
-		if !slices.Contains([]string{"credential.password.add", "credential.token.add", "secret.check"}, id) {
+		if !slices.Contains([]string{"credential.password.add", "credential.token.add"}, id) {
 			t.Errorf("%s reads a secret's value but has no row here", id)
 		}
 	}

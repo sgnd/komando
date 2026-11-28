@@ -136,8 +136,7 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 - A server or conn reached with `--via` goes out through its path, never
   through these proxies.
 - An HTTP proxy as a VPN (`proxy` kind) tunnels each connection with
-  CONNECT. `host ssh-command` turns it into an OpenSSH `ProxyCommand`
-  (`nc -X connect`) when the proxy needs no login.
+  CONNECT.
 - Addresses on this computer (`localhost`, a tunnel's `127.0.0.1` port)
   never use a proxy.
 - A user name and password in the proxy URL

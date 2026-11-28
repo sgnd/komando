@@ -93,8 +93,7 @@ func newSigner(typ string, bits int) (crypto.Signer, error) {
 }
 
 const keyCreateLong = `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
-key is kept in komando's sealed store, never in a file: komando hands it to
-ssh-agent when another program needs it (host ssh-command). Put the public
+key is kept in komando's sealed store, never in a file. Put the public
 part on servers with ` + "`komando credential key install`" + `. RSA keys need at least 3072
 bits.`
 

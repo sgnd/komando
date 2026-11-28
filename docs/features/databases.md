@@ -36,7 +36,7 @@ The kind comes from the start of the URL:
 | SQLite | `sqlite:///var/lib/app.db` (a file on this computer; on Windows `sqlite://C:\data\app.db`) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
-`komando conn kinds` lists every kind, including caches, queues, storage,
+`komando schema` lists every kind, including caches, queues, storage,
 clusters and registries.
 
 Never put the password in the URL; komando refuses it. `--ask-password`

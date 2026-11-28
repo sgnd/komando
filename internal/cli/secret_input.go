@@ -59,7 +59,7 @@ func secretInBody(cl *call, what string, b []byte) {
 
 // secretValueLeaves are the commands whose one argument names a secret and
 // that read its value from input (typed hidden, --from-env or a pipe).
-var secretValueLeaves = map[string]bool{"credential.password.add": true, "credential.token.add": true, "secret.check": true}
+var secretValueLeaves = map[string]bool{"credential.password.add": true, "credential.token.add": true}
 
 // secretValueInArgs refuses a value typed after the secret's name on a
 // secretValueLeaves command, before the arguments are counted, so the
@@ -70,10 +70,7 @@ func secretValueInArgs(id string, args []string) error {
 	}
 	const why = "refusing a secret value on the command line: it would be saved in shell history"
 	words := strings.ReplaceAll(id, ".", " ")
-	if id != "secret.check" {
-		return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" "+args[0]+"` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", why)
-	}
-	return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" "+args[0]+"` and type it (hidden), or pipe it in (stdin)", why)
+	return out.Errf(out.ExitUsage, "SECRET_IN_ARGS", "run `komando "+words+" "+args[0]+"` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", why)
 }
 
 // hideBeforeStart is the pre-run's hiding for an error that comes before it

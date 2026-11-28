@@ -60,7 +60,7 @@ func reservedSecret(name string) error {
 	return nil
 }
 
-// secretInput reads a value the way `credential password add` and `secret check` take it:
+// secretInput reads a value the way `credential password add` takes it:
 // from --from-env VAR, from a pipe, or typed hidden at the terminal. name is
 // the secret's name, for the hint when there is no value.
 func secretInput(cmd *cobra.Command, name, label string) (string, error) {

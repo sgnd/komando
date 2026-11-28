@@ -127,7 +127,7 @@ program can build its add forms from them. `komando schema conn add` (and
 its `id`, `display_name`, `family`, `url_schemes`, `url_example`,
 `default_port`, the flags it needs (`required`, and `one_of`: groups where
 one flag is enough) and the flags it may take (`optional`), from the same
-table as `komando conn kinds`. A VPN has no such list: its kind is a word of
+table as `komando schema`. A VPN has no such list: its kind is a word of
 the path, and `komando schema vpn KIND add` (for example
 `komando schema vpn wireguard add`) gives the flags of that kind, the same
 as `komando vpn KIND add --help`.
@@ -158,10 +158,8 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `HOSTKEY_REVOKED` | the server shows a host key on komando's list of revoked keys | treat the server as compromised and tell its owner; nothing was sent |
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando credential list` |
 | `SECRET_IN_USE` | `credential password remove` of a secret that something still uses | point them elsewhere, or rename it with `komando credential password rename OLD NEW` |
-| `SECRET_EXISTS` | `credential password rename` or `secret cp` to a name that is taken; `vpn KIND add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`credential password rename`, `secret cp`); for `vpn add`, pick another VPN name or move the secret away with `komando credential password rename` |
-| `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando credential password add NAME` stores the right one |
-| `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
-| `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando credential list` |
+| `SECRET_EXISTS` | `credential password rename` to a name that is taken; `vpn KIND add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`credential password rename`); for `vpn add`, pick another VPN name or move the secret away with `komando credential password rename` |
+| `NAME_TAKEN` | a new name (from `host ssh rename`, `conn rename`, ...) is used already, and nothing was renamed | pick another name, or rename or remove what is in the way |
 | `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group create NEW @OLD`, then `komando group remove OLD` |
 | `sudo: a password is required` | sudo needs a password | `komando credential password add NAME`, then `komando host ssh edit HOST --sudo-credential NAME` |
 | `VPN_LOGIN_REQUIRED` | the VPN needs a person's login (MFA) | a person runs `komando vpn KIND start NAME` once |
@@ -172,7 +170,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` | a change to something marked protected | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | at your terminal komando asks; a script adds `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{credential:NAME}}`, `--env K=credential:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
-| `NEEDS_PERSON` | something only a person can do: type a password (`credential password add`, `--ask-password`, a `--login ask` server), log in (`komando login`), compare a secret with `secret check`, set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
+| `NEEDS_PERSON` | something only a person can do: type a password (`credential password add`, `--ask-password`, a `--login ask` server), log in (`komando login`), set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
 | `DECLINED` | a person answered no to komando's question | nothing was changed; run it again to be asked again |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |

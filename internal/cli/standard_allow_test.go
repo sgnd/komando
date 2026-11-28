@@ -41,7 +41,6 @@ var (
 	allowLong = []string{
 		"config set",
 		"import",
-		"secret",
 		"vpn",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
