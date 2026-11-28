@@ -38,6 +38,9 @@ type Options struct {
 	// WinRM lets Dial reach a server over WinRM: the caller only runs
 	// PowerShell through Run and RunPS (no SSH sessions, no tunnels)
 	WinRM bool
+	// Dial is the first step's dialer when the path starts on this
+	// computer (no VPN); nil: a plain net.Dialer
+	Dial netx.Dialer
 }
 
 // Client wraps an ssh.Client plus the path of jump hosts it came through

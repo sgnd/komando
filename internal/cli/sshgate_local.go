@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -29,8 +30,11 @@ import (
 // files here (COPY TO PROGRAM, pg_read_file, CONFIG SET dir, a hostPath
 // volume). So every key, read-only too, is refused every command, reads
 // included, on a file conn or a target at a loopback address
-// (gateLocalAddr). A target the gate cannot find is refused too, for a
-// read as for a change: the gate fails closed. This
+// (gateLocalAddr). A target the gate cannot find, or whose name it cannot
+// resolve, is refused too, for a read as for a change: the gate fails
+// closed. The komando it runs dials only addresses it judged the same way
+// (gateDial), so DNS cannot answer this check one address and the
+// connection another. This
 // computer under another name or address is found by its pinned host key,
 // which is one of this computer's own (gateSameHostKey), or by an address
 // that is one of this computer's network addresses (gateLocalAddr).
@@ -120,8 +124,8 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if st.Hosts[h.Name] != h {
 				return fmt.Sprintf("%q is not in the inventory; a key runs commands only on servers a person added", e)
 			}
-			if why := gateAt(cl, st, h.Address, h.Via, 0); why != "" {
-				return "the server " + h.Name + " is on this computer (" + why + ")"
+			if why := gateHostAt(cl, st, "the server "+h.Name, h, 0); why != "" {
+				return why
 			}
 			if gateSameHostKey(h) {
 				return "the server " + h.Name + " is on this computer (its host key is this computer's own)"
@@ -132,9 +136,17 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if err != nil || t.Kind.File {
 				return cn.Name + " is a file on this computer (or its URL cannot be read)"
 			}
-			for _, a := range append(append([]string{t.Address, t.Resolve}, t.Sentinels...), gateURLHosts(cn.URL)...) {
-				if why := gateAt(cl, st, a, cn.Via, 0); why != "" {
-					return cn.Name + " is on this computer (" + why + ")"
+			dials := append([]string{t.Address}, t.Sentinels...)
+			if t.Resolve != "" {
+				// the dial goes to Resolve (pinDial): the name counts only as written
+				if gateLocalAsWritten(t.Address) {
+					return cn.Name + " is on this computer (" + t.Address + ")"
+				}
+				dials[0] = t.Resolve
+			}
+			for i, a := range append(dials, gateURLHosts(cn.URL)...) {
+				if why := gateAt(cl, st, cn.Name, a, cn.Via, i < len(dials), 0); why != "" {
+					return why
 				}
 			}
 		}
@@ -175,21 +187,44 @@ func gateURLHosts(raw string) []string {
 	return hosts
 }
 
-// gateAt says why addr, reached through via, may be this computer, or "".
-func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
-	if !gateLocalAddr(addr) {
+// gateAt says why subject, at addr reached through via, may be this
+// computer, or "". With strict, a name the gate cannot resolve may be too,
+// unless a jump host that is not this computer resolves it. The other
+// hosts a URL names are not strict (an s3 URL names its bucket there):
+// the dial judges each address it connects to (gateDial).
+func gateAt(cl *call, st *store.State, subject, addr, via string, strict bool, depth int) string {
+	here, err := gateLocalAddr(addr)
+	if !strict {
+		err = nil
+	}
+	if !here && err == nil {
 		return ""
 	}
+	at := addr
 	steps := inventory.ViaChain(via)
-	if len(steps) == 0 {
-		return addr
+	if len(steps) > 0 {
+		last := steps[len(steps)-1]
+		h, ferr := findHost(cl, st, last)
+		if ferr == nil && depth <= 8 {
+			return gateHostAt(cl, st, subject, h, depth+1)
+		}
+		at += " through " + last // a VPN, or not found
 	}
-	last := steps[len(steps)-1]
-	h, err := findHost(cl, st, last)
-	if err != nil || depth > 8 {
-		return addr + " through " + last // a VPN, or not found
+	if err != nil {
+		return "the gate cannot resolve " + at
 	}
-	return gateAt(cl, st, h.Address, h.Via, depth+1)
+	return subject + " is on this computer (" + at + ")"
+}
+
+// gateHostAt is gateAt for subject reached as the server or jump host h. A
+// host with a proxy command is reached by that program, which resolves
+// what it names (an SSM instance ID resolves nowhere): a lookup error does
+// not count, only an address that is here.
+func gateHostAt(cl *call, st *store.State, subject string, h *store.Host, depth int) string {
+	if h.ProxyCommand != "" {
+		return gateAt(cl, st, subject, h.Address, "", false, depth)
+	}
+	return gateAt(cl, st, subject, h.Address, h.Via, true, depth)
 }
 
 // gateLocalAddr: a name or address, with or without a port, is this
@@ -197,34 +232,51 @@ func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
 // computer's addresses, or this computer's name, as written or as the
 // name resolves (ip6-localhost, localtest.me: any address it resolves to
 // counts). A number in another form (127.1, 0x7f000001), which a C
-// resolver reads its own way, counts too. A name that does not resolve
-// is judged as written.
-func gateLocalAddr(a string) bool {
+// resolver reads its own way, counts too. err: the name does not resolve,
+// so the gate cannot tell (C655).
+func gateLocalAddr(a string) (bool, error) {
 	if gateLocalAsWritten(a) {
-		return true
+		return true, nil
 	}
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
 	a, _, _ = strings.Cut(inventory.NormAddr(a), "%")
 	if a == "" || net.ParseIP(a) != nil {
-		return false
+		return false, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ips, _ := gateLookup(ctx, a)
-	return slices.ContainsFunc(ips, gateLocalIP)
+	ips, err := gateLookup(ctx, a)
+	if err == nil && len(ips) == 0 {
+		err = errGateNoAddress
+	}
+	return slices.ContainsFunc(ips, gateLocalIP), err
 }
 
-// gateLookup resolves a name for gateLocalAddr; tests answer for it.
+var errGateNoAddress = errors.New("the name has no address")
+
+// gateLookup resolves a name for the gate (gateLocalAddr, gateDial); tests
+// answer for it.
 var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 	return net.DefaultResolver.LookupIP(ctx, "ip", host)
 }
 
-// gateLocalIP: ip is this computer: loopback, unspecified, or one of its
-// network addresses.
-func gateLocalIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsUnspecified() || gateOwnIP(ip)
+// gateLocalIP: ip is this computer: loopback, unspecified, one of its
+// network addresses, or an address that reaches it too (gateGroupIP).
+// Tests whose servers listen on loopback swap it.
+var gateLocalIP = func(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsUnspecified() || gateGroupIP(ip) || gateOwnIP(ip)
+}
+
+// gateGroupIP: ip is no one server's: multicast and broadcast reach this
+// computer too, 0.0.0.0/8 is this network, and an IPv4-compatible
+// address (::127.0.0.1) is read as its IPv4 address by some systems.
+func gateGroupIP(ip net.IP) bool {
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4[0] == 0 || ip4.IsMulticast() || ip4.Equal(net.IPv4bcast)
+	}
+	return ip.IsMulticast() || len(ip) == net.IPv6len && [12]byte(ip[:12]) == [12]byte{}
 }
 
 // gateLocalAsWritten is gateLocalAddr without resolving the name.
@@ -233,35 +285,129 @@ func gateLocalAsWritten(a string) bool {
 		a = h
 	}
 	a, zone, _ := strings.Cut(inventory.NormAddr(a), "%")
-	if zone != "" && gateLoopbackZone(zone) {
-		return true // fe80::1%lo0: on this computer's loopback
+	if ip := net.ParseIP(a); ip != nil {
+		return gateZonedIPHere(ip, zone)
+	}
+	if zone != "" {
+		if i, ok := gateZone(zone); !ok || i.loopback {
+			return true
+		}
 	}
 	me, _ := os.Hostname()
 	me = inventory.NormAddr(me)
 	short, _, _ := strings.Cut(me, ".")
-	if ip := net.ParseIP(a); ip != nil {
-		return gateLocalIP(ip)
-	}
 	return a == "localhost" || strings.HasSuffix(a, ".localhost") || a != "" && (a == me || a == short) ||
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""
 }
 
-// gateOwnIP: ip is an address of one of this computer's network
-// interfaces (its LAN address, say), so a server at it is this computer.
-func gateOwnIP(ip net.IP) bool {
-	if ip.IsLinkLocalUnicast() {
-		return false // fe80::1 is on every interface: its zone says which (gateLoopbackZone)
-	}
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return false
-	}
-	for _, a := range addrs {
-		if n, ok := a.(*net.IPNet); ok && n.IP.Equal(ip) {
+// gateZonedIPHere: ip written with an IPv6 zone (fe80::1%en0) is this
+// computer. A link-local address is judged on the zone's link only: fe80::1
+// is lo0's on macOS and a router's on en0. A zone this computer has no
+// interface for counts as here: the gate cannot tell which link it names.
+func gateZonedIPHere(ip net.IP, zone string) bool {
+	if zone == "" || !ip.IsLinkLocalUnicast() {
+		if gateLocalIP(ip) {
 			return true
 		}
+		if zone == "" {
+			return false
+		}
 	}
-	return false
+	i, ok := gateZone(zone)
+	return !ok || i.loopback || ip.IsLinkLocalUnicast() && i.holds(ip)
+}
+
+// gateZone is the interface an IPv6 zone names, by name or by number, as
+// the dial reads it.
+func gateZone(zone string) (gateIface, bool) {
+	ifs, err := gateInterfaces()
+	if err != nil {
+		return gateIface{}, false
+	}
+	for _, i := range ifs {
+		if i.name == zone {
+			return i, true
+		}
+	}
+	if n, err := strconv.Atoi(zone); err == nil {
+		for _, i := range ifs {
+			if i.index == n {
+				return i, true
+			}
+		}
+	}
+	return gateIface{}, false
+}
+
+// gateOwnIP: ip is an address of one of this computer's network
+// interfaces (its LAN address, its own 169.254 or fe80 address), so a
+// server at it is this computer. Without the list, any address may be.
+func gateOwnIP(ip net.IP) bool {
+	ifs, err := gateInterfaces()
+	if err != nil {
+		return true
+	}
+	return slices.ContainsFunc(ifs, func(i gateIface) bool { return i.holds(ip) || i.broadcasts(ip) })
+}
+
+// gateIface is one of this computer's network interfaces as the gate sees it.
+type gateIface struct {
+	name     string
+	index    int
+	loopback bool
+	addrs    []*net.IPNet
+}
+
+func (i gateIface) holds(ip net.IP) bool {
+	return slices.ContainsFunc(i.addrs, func(n *net.IPNet) bool { return n.IP.Equal(ip) })
+}
+
+// broadcasts: ip is the broadcast address of one of i's IPv4 networks (a
+// /31 or /32 has none: its other address is the peer's).
+func (i gateIface) broadcasts(ip net.IP) bool {
+	ip4 := ip.To4()
+	return ip4 != nil && slices.ContainsFunc(i.addrs, func(n *net.IPNet) bool {
+		a, m := n.IP.To4(), n.Mask
+		if len(m) == net.IPv6len {
+			m = m[12:]
+		}
+		if ones, bits := m.Size(); a == nil || bits != 32 || ones >= 31 {
+			return false
+		}
+		for k := range a {
+			if a[k]|^m[k] != ip4[k] {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// gateInterfaces lists this computer's network interfaces and their
+// addresses; tests answer for it.
+var gateInterfaces = func() ([]gateIface, error) {
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	res := make([]gateIface, 0, len(ifs))
+	for _, i := range ifs {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		g := gateIface{name: i.Name, index: i.Index, loopback: i.Flags&net.FlagLoopback != 0}
+		for _, a := range addrs {
+			switch a := a.(type) {
+			case *net.IPNet:
+				g.addrs = append(g.addrs, a)
+			case *net.IPAddr:
+				g.addrs = append(g.addrs, &net.IPNet{IP: a.IP, Mask: net.CIDRMask(8*len(a.IP), 8*len(a.IP))})
+			}
+		}
+		res = append(res, g)
+	}
+	return res, nil
 }
 
 // sshdHostKeys are where this computer's own SSH server keeps its public
@@ -297,14 +443,4 @@ func gateSameHostKey(h *store.Host) bool {
 		}
 	}
 	return false
-}
-
-// gateLoopbackZone: an IPv6 zone that is a loopback interface here (lo,
-// lo0, or one this computer marks loopback).
-func gateLoopbackZone(zone string) bool {
-	if zone == "lo" || zone == "lo0" {
-		return true
-	}
-	i, err := net.InterfaceByName(zone)
-	return err == nil && i.Flags&net.FlagLoopback != 0
 }

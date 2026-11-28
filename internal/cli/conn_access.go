@@ -52,6 +52,7 @@ func openAccess(cl *call, ctx context.Context, st *store.State, c *store.Conn) (
 	// end of the --via path set up below
 	defer func() { a.Dial = pinDial(a.Dial, t.Address, t.Resolve) }()
 	if c.Via == "" {
+		a.Dial = gateDialFor(cl, sshOpts(cl, st).ConnectTimeout)
 		return a, nil
 	}
 	h, vpn, err := resolveVia(st, c.Via)
