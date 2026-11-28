@@ -6,11 +6,14 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"go/types"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -402,37 +405,44 @@ func TestGateDialOnlyForKeys(t *testing.T) {
 }
 
 // reviewedDialSites are the places in komando's code that open a
-// connection from this computer by themselves (a net.Dialer, a net or tls
-// Dial, a websocket.Dialer), and the calls of gateDialFor, per file. A run
-// for a key dials only through gateDial; a new site must say how it stays
-// there before this count changes. Why each is safe:
+// connection from this computer by themselves (gateDialSites), and the
+// calls of gateDialFor, per file and function ("" for package level). A
+// run for a key dials only through gateDial; a new site, or one moved to
+// another function, must say how it stays there before this list changes.
+// Why each is safe:
 var reviewedDialSites = map[string]int{
 	// the gate's dialer, and the two that put it in for a key's run
-	"cli/sshgate_dial.go": 1,
-	"cli/common.go":       1, // sshOpts: sshx's first step
-	"cli/conn_access.go":  1, // openAccess: a conn without --via
+	"cli/sshgate_dial.go gateDialFor": 1,
+	"cli/common.go sshOpts":           1, // sshx's first step
+	"cli/conn_access.go openAccess":   1, // a conn without --via
 	// the default when the caller gives no dialer; a key's run always gives
-	// one (sshOpts, openAccess), so these dial for a person only
-	"sshx/shared.go": 1, "cli/conn_resolve.go": 1, "cli/conn.go": 1,
-	"cachex/cachex.go": 1, "cachex/memcache.go": 1, "queuex/queuex.go": 1, "queuex/rabbitmq/rabbitmq.go": 1,
-	"queuex/nats/nats.go": 1, "queuex/sqs/sqs.go": 1, "queuex/pubsub/pubsub.go": 1, "winrm/winrm.go": 1,
-	"storex/smb.go": 1, "storex/ftp.go": 1, "dbx/clickhouse.go": 1, "dbx/bigquery.go": 1, "dbx/snowflake.go": 1,
-	"registry/registry.go": 1, "kube/kube.go": 1, "kube/spdy.go": 1,
-	"kube/stream.go": 1, // takes the transport's dialer: the gate's in a key's run
+	// one (sshOpts, openAccess), so these dial for a person only. An
+	// http.Transport here gets the caller's dialer right after it is made.
+	"sshx/shared.go openFirst": 1, "cli/conn_resolve.go pinDial": 1, "cli/conn.go testConn": 1,
+	"cachex/cachex.go redisDialer": 1, "cachex/memcache.go openMemcache": 1, "queuex/queuex.go dialer": 1,
+	"queuex/rabbitmq/rabbitmq.go Open": 1, "queuex/nats/nats.go *Nats.options": 1, "queuex/sqs/sqs.go OpenKeys": 1,
+	"queuex/pubsub/pubsub.go Open": 1, "winrm/winrm.go New": 1, "storex/smb.go OpenSMB": 1, "storex/ftp.go OpenFTP": 1,
+	"dbx/clickhouse.go openClickHouse": 2, "dbx/bigquery.go openBigQuery": 2, "dbx/snowflake.go openSnowflake": 2,
+	"registry/registry.go New": 2, "kube/kube.go New": 1, "kube/spdy.go *Client.dialSPDY": 1,
+	"kube/stream.go *Client.dialWS": 1, // takes the transport's dialer: the gate's in a key's run
 	// a socket on this computer komando itself uses: ssh-agent, a held login
-	"sshx/auth.go": 1, "sshx/held.go": 1, "cli/host_sshagent.go": 1,
+	"sshx/auth.go openAgent": 1, "sshx/held.go dialHeld": 1, "cli/host_sshagent.go ": 1,
 	// a VPN's own connection and the dials through it (the C655 residual row)
-	"netx/netx.go": 5, "netx/httpproxy.go": 1, "openvpn/client.go": 1, "ipsec/transport.go": 2, "sslvpn/sslvpn.go": 1,
-	"cli/vpn_status.go": 1, "cli/vpn_session.go": 1,
+	"netx/netx.go OpenDirect": 3, "netx/netx.go sessionDialer": 1, "netx/netx.go socksDialer": 1,
+	"netx/httpproxy.go openHTTPProxy": 1, "openvpn/client.go Connect": 1, "ipsec/transport.go newTransport": 1,
+	"ipsec/transport.go *udpTransport.startNATT": 1, "sslvpn/sslvpn.go dialTLSWith": 1, "sslvpn/sslvpn.go httpClient": 1,
+	"cli/vpn_status.go vpnReachable": 1, "cli/vpn_session.go listening": 1,
 	// no target a key names: the audit sink, cloud sign-in, a test proxy
-	"cli/audit_syslog.go": 2, "transport/http.go": 1, "cloud/azure.go": 1, "cloud/ssm.go": 1, "transport/proxytest/proxytest.go": 1,
+	"cli/audit_syslog.go deliver": 2, "transport/http.go HTTP": 1, "cloud/azure.go ": 1, "cloud/ssm.go SSMDial": 1,
+	"transport/proxytest/proxytest.go *Proxy.serve": 1,
 	// host tunnel start: a change no key runs (gateOnServers)
-	"cli/tunnel.go": 1,
+	"cli/tunnel.go tunnelServeCmd": 1,
 }
 
 // Every place that opens a connection by itself is one reviewedDialSites
-// lists: a new one fails here until someone decides how a key's run
-// reaches it (C655).
+// lists, by file and function: a new one, or one moved to another
+// function, fails here until someone decides how a key's run reaches it
+// (C655).
 func TestDialSitesAreReviewed(t *testing.T) {
 	got := map[string]int{}
 	fset := token.NewFileSet()
@@ -454,64 +464,152 @@ func TestDialSitesAreReviewed(t *testing.T) {
 			return err
 		}
 		rel := filepath.ToSlash(strings.TrimPrefix(p, ".."+string(filepath.Separator)))
-		ast.Inspect(file, func(n ast.Node) bool {
-			if gateDialSite(n) {
-				got[rel]++
-			}
-			return true
-		})
+		for fn, n := range gateDialSites(file) {
+			got[rel+" "+fn] += n
+		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var files []string
-	for f := range got {
-		files = append(files, f)
+	var sites []string
+	for s := range got {
+		sites = append(sites, s)
 	}
-	for f := range reviewedDialSites {
-		if _, ok := got[f]; !ok {
-			files = append(files, f)
+	for s := range reviewedDialSites {
+		if _, ok := got[s]; !ok {
+			sites = append(sites, s)
 		}
 	}
-	sort.Strings(files)
-	for _, f := range files {
-		if got[f] != reviewedDialSites[f] {
-			t.Errorf("%s opens connections at %d places, the reviewed count is %d: decide how a key's run reaches it (gateDial), then update reviewedDialSites", f, got[f], reviewedDialSites[f])
+	sort.Strings(sites)
+	for _, s := range sites {
+		if got[s] != reviewedDialSites[s] {
+			t.Errorf("%q opens connections at %d places, the reviewed count is %d: decide how a key's run reaches it (gateDial), then update reviewedDialSites", s, got[s], reviewedDialSites[s])
 		}
 	}
 }
 
-// gateDialSite: n opens a connection by itself, or puts the gate's dialer in.
-func gateDialSite(n ast.Node) bool {
-	sel := func(e ast.Expr) (string, string) {
+// gateDialSites counts, per function of file ("" for package level), the
+// places that open a connection by themselves or put the gate's dialer in:
+// a net, tls or websocket Dialer or an http.Transport (a literal, new(), a
+// var; a Transport literal only without a Dial field), a net or tls Dial
+// call, http.DefaultClient, http.DefaultTransport, websocket.DefaultDialer,
+// http.Get and the like, and gateDialFor. An import is read by its path,
+// so an alias counts too.
+func gateDialSites(file *ast.File) map[string]int {
+	imports := map[string]string{} // local name -> path
+	for _, im := range file.Imports {
+		path, _ := strconv.Unquote(im.Path.Value)
+		name := path[strings.LastIndex(path, "/")+1:]
+		if im.Name != nil {
+			name = im.Name.Name
+		}
+		imports[name] = path
+	}
+	is := func(e ast.Expr, path string, names ...string) bool {
 		s, ok := e.(*ast.SelectorExpr)
 		if !ok {
-			if id, ok := e.(*ast.Ident); ok {
-				return "", id.Name
+			return false
+		}
+		id, ok := s.X.(*ast.Ident)
+		return ok && imports[id.Name] == path && (len(names) == 0 || slices.Contains(names, s.Sel.Name))
+	}
+	const netPkg, tlsPkg, httpPkg, wsPkg = "net", "crypto/tls", "net/http", "github.com/gorilla/websocket"
+	dialer := func(e ast.Expr) bool {
+		return is(e, netPkg, "Dialer") || is(e, tlsPkg, "Dialer") || is(e, wsPkg, "Dialer") || is(e, httpPkg, "Transport")
+	}
+	ownDial := func(e ast.Expr) bool {
+		kv, ok := e.(*ast.KeyValueExpr)
+		if !ok {
+			return false
+		}
+		id, ok := kv.Key.(*ast.Ident)
+		return ok && strings.HasPrefix(id.Name, "Dial")
+	}
+	site := func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.CompositeLit:
+			if is(n.Type, httpPkg, "Transport") {
+				return !slices.ContainsFunc(n.Elts, ownDial)
 			}
-			return "", ""
+			return dialer(n.Type)
+		case *ast.CallExpr:
+			if id, ok := n.Fun.(*ast.Ident); ok {
+				return id.Name == "gateDialFor" || id.Name == "new" && len(n.Args) == 1 && dialer(n.Args[0])
+			}
+			s, ok := n.Fun.(*ast.SelectorExpr)
+			return ok && (is(s, netPkg) || is(s, tlsPkg)) && strings.HasPrefix(s.Sel.Name, "Dial") ||
+				is(n.Fun, httpPkg, "Get", "Head", "Post", "PostForm")
+		case *ast.SelectorExpr:
+			return is(n, httpPkg, "DefaultClient", "DefaultTransport") || is(n, wsPkg, "DefaultDialer")
+		case *ast.ValueSpec:
+			return n.Type != nil && len(n.Values) == 0 && dialer(n.Type)
 		}
-		x, _ := s.X.(*ast.Ident)
-		if x == nil {
-			return "", s.Sel.Name
-		}
-		return x.Name, s.Sel.Name
+		return false
 	}
-	switch n := n.(type) {
-	case *ast.CompositeLit:
-		pkg, name := sel(n.Type)
-		return name == "Dialer" && (pkg == "net" || pkg == "websocket")
-	case *ast.CallExpr:
-		pkg, name := sel(n.Fun)
-		switch pkg {
-		case "net":
-			return strings.HasPrefix(name, "Dial")
-		case "tls":
-			return strings.HasPrefix(name, "Dial")
-		case "":
-			return name == "gateDialFor"
+	res := map[string]int{}
+	for _, d := range file.Decls {
+		fn := ""
+		if f, ok := d.(*ast.FuncDecl); ok {
+			fn = f.Name.Name
+			if f.Recv != nil && len(f.Recv.List) == 1 {
+				fn = types.ExprString(f.Recv.List[0].Type) + "." + fn
+			}
 		}
+		ast.Inspect(d, func(n ast.Node) bool {
+			if site(n) {
+				res[fn]++
+			}
+			return true
+		})
 	}
-	return false
+	return res
+}
+
+// The scan finds each form, under an aliased import too, and names the
+// function it is in.
+func TestGateDialSitesFindsEachForm(t *testing.T) {
+	src := `package x
+
+import (
+	"crypto/tls"
+	stdnet "net"
+	"net/http"
+
+	"github.com/gorilla/websocket"
+)
+
+var pkgDialer stdnet.Dialer
+
+func literal()          { _ = &stdnet.Dialer{} }
+func newDialer()        { _ = new(stdnet.Dialer) }
+func varDialer()        { var d stdnet.Dialer; _ = d }
+func dialCall()         { stdnet.Dial("tcp", "a:1") }
+func tlsDialer()        { _ = tls.Dialer{} }
+func tlsDial()          { tls.Dial("tcp", "a:1", nil) }
+func transport()        { _ = &http.Transport{} }
+func newTransport()     { _ = new(http.Transport) }
+func ownDial()          { _ = &http.Transport{DialContext: nil} }
+func defaultClient()    { _ = http.DefaultClient }
+func defaultTransport() { _ = http.DefaultTransport }
+func get()              { http.Get("https://a") }
+func wsDialer()         { _ = websocket.Dialer{} }
+func wsDefault()        { _ = websocket.DefaultDialer }
+func gate()             { gateDialFor(nil, 0) }
+func notImported()      { net.Dial("tcp", "a:1") }
+
+type c struct{}
+
+func (*c) method() { _ = &stdnet.Dialer{}; _ = stdnet.JoinHostPort("a", "1") }
+`
+	f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, parser.SkipObjectResolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]int{"": 1, "literal": 1, "newDialer": 1, "varDialer": 1, "dialCall": 1, "tlsDialer": 1, "tlsDial": 1,
+		"transport": 1, "newTransport": 1, "defaultClient": 1, "defaultTransport": 1, "get": 1, "wsDialer": 1, "wsDefault": 1,
+		"gate": 1, "*c.method": 1}
+	if got := gateDialSites(f); !maps.Equal(got, want) {
+		t.Errorf("found %v, want %v", got, want)
+	}
 }
