@@ -4,10 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -77,6 +81,56 @@ func TestRedisDialerAddsTLS(t *testing.T) {
 	c.Close()
 	if _, err := redisDialer(via, &tls.Config{MinVersion: tls.VersionTLS12}, 5*time.Second)(context.Background(), "tcp", "127.0.0.1:6380"); err == nil {
 		t.Error("a certificate from an unknown CA must be refused")
+	}
+}
+
+// A Cluster node the server hands back is dialed through the conn's
+// dialer, never straight: a key's run dials through the ssh-gate, which
+// refuses a node at this computer (C663; the e2e lab runs a real Cluster).
+func TestRedisClusterNodesUseTheDialer(t *testing.T) {
+	trap, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trap.Close()
+	var reached atomic.Int32
+	go func() {
+		for {
+			c, err := trap.Accept()
+			if err != nil {
+				return
+			}
+			reached.Add(1)
+			c.Close()
+		}
+	}()
+	f := newFakeRedis(t, fakeKeys)
+	f.announce = trap.Addr().String()
+	var mu sync.Mutex
+	var asked []string
+	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		mu.Lock()
+		asked = append(asked, addr)
+		mu.Unlock()
+		if addr == trap.Addr().String() {
+			return nil, errors.New("refused: this computer")
+		}
+		return (&net.Dialer{}).DialContext(ctx, network, addr)
+	}
+	tg, err := driver.Parse("redis://" + f.ln.Addr().String() + "?cluster=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if s, err := OpenStore(ctx, tg, "", dial, 2*time.Second); err == nil {
+		s.Keys(ctx, "*", 10)
+		s.Close()
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if !slices.Contains(asked, trap.Addr().String()) || reached.Load() != 0 {
+		t.Errorf("the handed-back node: dialer asked %q, reached straight %d times", asked, reached.Load())
 	}
 }
 

@@ -5,7 +5,10 @@ import (
 	"context"
 	"errors"
 	"net"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -55,6 +58,62 @@ func orders(f *fakeServer) *fakeStream {
 	s.consumers = []*jetstream.ConsumerInfo{{Stream: "ORDERS", Name: "billing", Config: jetstream.ConsumerConfig{Durable: "billing", AckPolicy: jetstream.AckExplicitPolicy, FilterSubject: "orders.>"},
 		NumPending: 3, NumAckPending: 1, NumWaiting: 2, Delivered: jetstream.SequenceInfo{Stream: 2}, AckFloor: jetstream.SequenceInfo{Stream: 1}}}
 	return s
+}
+
+// A server the NATS server hands back (INFO connect_urls) is never
+// dialed, through the dialer or straight: the conn ignores discovered
+// servers and does not reconnect, so a key's run connects only where the
+// ssh-gate judged (C663).
+func TestNatsIgnoresHandedBackServers(t *testing.T) {
+	trap, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trap.Close()
+	var reached atomic.Int32
+	go func() {
+		for {
+			c, err := trap.Accept()
+			if err != nil {
+				return
+			}
+			reached.Add(1)
+			c.Close()
+		}
+	}()
+	f := newFake(t, func(f *fakeServer) { f.connectURLs = []string{trap.Addr().String()} })
+	orders(f)
+	var mu sync.Mutex
+	var asked []string
+	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		mu.Lock()
+		asked = append(asked, addr)
+		mu.Unlock()
+		return (&net.Dialer{}).DialContext(ctx, network, addr)
+	}
+	tg, err := driver.Parse("nats://" + f.addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, err := queuex.Open(ctx(t), tg, "", dial, 2*time.Second, "komando-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer q.Close()
+	if _, err := q.Topics(ctx(t), "", false, 0); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	for _, c := range f.conns {
+		c.Close() // a client that reconnects would now try the handed-back server
+	}
+	f.mu.Unlock()
+	time.Sleep(300 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	if slices.Contains(asked, trap.Addr().String()) || reached.Load() != 0 {
+		t.Errorf("the handed-back server: dialer asked %q, reached straight %d times", asked, reached.Load())
+	}
 }
 
 func TestNatsRead(t *testing.T) {

@@ -26,7 +26,8 @@ type fakeRedis struct {
 	denyType bool                 // TYPE answers NOPERM, as under an ACL without it
 	mu       sync.Mutex
 	stalled  bool
-	gets     int // GET/HGETALL/... commands: a key list never reads values
+	gets     int    // GET/HGETALL/... commands: a key list never reads values
+	announce string // the node address CLUSTER hands back; "" is its own
 }
 
 func newFakeRedis(t *testing.T, keys map[string][2]string) *fakeRedis {
@@ -102,8 +103,12 @@ func (f *fakeRedis) serve(c net.Conn) {
 		case "PING":
 			io.WriteString(c, "+PONG\r\n")
 		case "CLUSTER":
-			_, port, _ := net.SplitHostPort(f.ln.Addr().String())
-			fmt.Fprintf(c, "*1\r\n*3\r\n:0\r\n:16383\r\n*2\r\n%s:%s\r\n", bulk("127.0.0.1"), port)
+			node := f.announce
+			if node == "" {
+				node = f.ln.Addr().String()
+			}
+			host, port, _ := net.SplitHostPort(node)
+			fmt.Fprintf(c, "*1\r\n*3\r\n:0\r\n:16383\r\n*2\r\n%s:%s\r\n", bulk(host), port)
 		case "SCAN":
 			var b strings.Builder
 			for k := range f.keys {
