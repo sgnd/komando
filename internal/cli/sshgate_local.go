@@ -263,10 +263,25 @@ var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
 }
 
 // gateLocalIP: ip is this computer: loopback, unspecified, one of its
-// network addresses, or an address that reaches it too (gateGroupIP).
-// Tests whose servers listen on loopback swap it.
+// network addresses, an address that reaches it too (gateGroupIP), or one
+// only its own link or cloud answers (gateNearIP). Tests whose servers
+// listen on loopback swap it.
 var gateLocalIP = func(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsUnspecified() || gateGroupIP(ip) || gateOwnIP(ip)
+	return ip.IsLoopback() || ip.IsUnspecified() || gateNearIP(ip) || gateGroupIP(ip) || gateOwnIP(ip)
+}
+
+// gateNearIP: ip answers only on this computer's own link (169.254.0.0/16,
+// fe80::/10), or is a cloud's metadata service, which hands out this
+// machine's own credentials: for a key both are here.
+func gateNearIP(ip net.IP) bool {
+	return ip.IsLinkLocalUnicast() || slices.ContainsFunc(gateMetadataIPs, ip.Equal)
+}
+
+// gateMetadataIPs are the cloud metadata services outside 169.254.0.0/16:
+// AWS and Google over IPv6, Alibaba, Azure's wire server, Oracle's older one.
+var gateMetadataIPs = []net.IP{
+	net.ParseIP("fd00:ec2::254"), net.ParseIP("fd20:ce::254"),
+	net.ParseIP("100.100.100.200"), net.ParseIP("168.63.129.16"), net.ParseIP("192.0.0.192"),
 }
 
 // gateGroupIP: ip is no one server's: multicast and broadcast reach this
@@ -300,21 +315,18 @@ func gateLocalAsWritten(a string) bool {
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""
 }
 
-// gateZonedIPHere: ip written with an IPv6 zone (fe80::1%en0) is this
-// computer. A link-local address is judged on the zone's link only: fe80::1
-// is lo0's on macOS and a router's on en0. A zone this computer has no
-// interface for counts as here: the gate cannot tell which link it names.
+// gateZonedIPHere: ip written with an IPv6 zone (ff02::1%en0) is this
+// computer. A zone on the loopback interface, or one this computer has no
+// interface for, counts as here: the gate cannot tell which link it names.
 func gateZonedIPHere(ip net.IP, zone string) bool {
-	if zone == "" || !ip.IsLinkLocalUnicast() {
-		if gateLocalIP(ip) {
-			return true
-		}
-		if zone == "" {
-			return false
-		}
+	if gateLocalIP(ip) {
+		return true
+	}
+	if zone == "" {
+		return false
 	}
 	i, ok := gateZone(zone)
-	return !ok || i.loopback || ip.IsLinkLocalUnicast() && i.holds(ip)
+	return !ok || i.loopback
 }
 
 // gateZone is the interface an IPv6 zone names, by name or by number, as
