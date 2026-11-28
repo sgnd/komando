@@ -2561,14 +2561,14 @@ Hint: for example: komando credential token remove api-token --dry-run (more in 
 ### komando -o json credential token rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token [hidden] --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text credential token rename (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: credential token rename takes NAME NEW
-Hint: for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)
+Hint: for example: komando credential token rename api-token [hidden] --dry-run (more in `komando credential token rename --help`)
 (code USAGE, exit 2)
 ### komando -o json credential token rename (script json)
 exit 2
@@ -2585,14 +2585,14 @@ Hint: for example: komando credential token rename api-token api-token-old --dry
 ### komando -o json credential token rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"credential.token.rename","error":{"code":"USAGE","message":"credential token rename takes NAME NEW","hint":"for example: komando credential token rename api-token [hidden] --dry-run (more in `komando credential token rename --help`)"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text credential token rename x1 (agent text)
 exit 2
 --- stdout
 --- stderr
 Error: credential token rename takes NAME NEW
-Hint: for example: komando credential token rename api-token api-token-old --dry-run (more in `komando credential token rename --help`)
+Hint: for example: komando credential token rename api-token [hidden] --dry-run (more in `komando credential token rename --help`)
 (code USAGE, exit 2)
 ### komando -o json credential token rename x1 (script json)
 exit 2
