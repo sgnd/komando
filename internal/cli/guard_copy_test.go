@@ -256,6 +256,11 @@ func TestGuardWrapperOptionsWithAValue(t *testing.T) {
 		`sudo --chdir ~ rm -rf .ssh`,
 	}, treeRefusal)
 	checkLines(t, home, repo, []string{`env --ch ~ rm -rf .ssh`, `read d < /tmp/n; env -C "$d" rm -rf .ssh`}, true)
+	checkRefusedBy(t, home, repo, []string{`nice --a --b --c --d --e make build`}, "cannot tell which word is the program")
+	// readings that end in different folders leave the folder unknown
+	checkLines(t, home, repo, []string{`nice --foo cd ~; rm -rf .komando`}, true)
+	// env -C runs the program there; the shell stays where it was
+	checkLines(t, home, repo, []string{`env -C ~ true; rm -rf .komando`}, false)
 	checkLines(t, home, repo, []string{
 		`nice --adjustment 5 make build`,
 		`nice --foo go test ./...`,
@@ -623,6 +628,7 @@ func TestGuardRedirectBeforeTheProgramHidesNoProgram(t *testing.T) {
 	checkLines(t, home, home, []string{
 		`>/tmp/o bash -c 'echo ok'`,
 		`2>/dev/null find . -name '*.go'`,
+		`2>/dev/null find . -name '*.pem'`, // a name pattern, not a file the redirect reads
 		`</dev/null eval 'echo ok'`,
 		`>/tmp/o nohup go test ./...`,
 		`f=a >/tmp/o; echo x > /tmp/$f`,
