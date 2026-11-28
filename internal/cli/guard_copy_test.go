@@ -320,14 +320,21 @@ func TestGuardWrapperFolderLeavesRedirectsInTheShellsFolder(t *testing.T) {
 		}, false)
 		checkLines(t, home, opt, []string{`env -C ~ cp /tmp/x komando-0.17.4`}, false)
 	}
-	// names that are protected wherever they are
+	// komando's data: a program that reads no files leaves the redirect's
+	// own check as the only one
 	const secret = "keeps it away from AI agents"
 	checkRefusedBy(t, home, home, []string{
+		`env -C /tmp echo x > .komando/state.json`,
+		`sudo -D /tmp echo x > .komando/state.json`,
+		`env --chdir=/tmp printf x >> .komando/state.json`,
+		`env -C /tmp ls 2> .komando/state.json`,
+		`env -C /tmp test -e x > .komando/state.json`,
+		`env -C /tmp touch x > .komando/state.json`,
+		`env -C /tmp mkdir -p x > .komando/state.json`,
 		`env -C /tmp true > .komando/state.json`,
-		`sudo -D /tmp true > .komando/state.json`,
 		`env -C /tmp cat < .ssh/id_ed25519`,
 	}, secret)
-	checkRefusedBy(t, home, repo, []string{`env -C /tmp true > ../../.komando/state.json`}, secret)
+	checkRefusedBy(t, home, repo, []string{`env -C /tmp echo x > ../../.komando/state.json`}, secret)
 	checkLines(t, home, repo, []string{
 		`env -C /tmp go test ./... > out.txt`,
 		`sudo -D /tmp ls > out.txt`,
