@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"slices"
+	"testing"
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
@@ -23,10 +25,25 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 // secret.set) under the leaf that runs.
 func auditEvent(cl *call, st *store.State, event string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if !slices.Contains(auditEvents, event) { // a bug: the list is closed (rule R1, C625)
-		cl.out.Warn(fmt.Sprintf("%q is not an audit event, so the audit log did not record it", event))
+		auditEventBug(event)
+		cl.out.Warn(fmt.Sprintf("%q is not an audit event, so the audit log recorded it as event_invalid", event))
+		withName := maps.Clone(extra)
+		if withName == nil {
+			withName = map[string]any{}
+		}
+		withName["event_invalid"] = event // the audit never fails open (audit A5)
+		auditRecord(cl, st, runningLeaf(cl), "", hosts, remote, ok, withName)
 		return
 	}
 	auditRecord(cl, st, runningLeaf(cl), event, hosts, remote, ok, extra)
+}
+
+// auditEventBug panics under test: an event outside the closed list is a
+// bug to find there, not in the field.
+var auditEventBug = func(event string) {
+	if testing.Testing() {
+		panic(fmt.Sprintf("%q is not in auditEvents", event))
+	}
 }
 
 // auditRecord is the one writer of the audit log (rule R1, audit_identity.go).
