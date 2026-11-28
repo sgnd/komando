@@ -127,9 +127,9 @@ func TestGateLabKafka(t *testing.T) {
 	lab.onlyLab(t)
 }
 
-// An FTP data connection goes through the gate to the address of the
-// control connection, which the gate judged: EPSV hands back only a port,
-// and the library does not trust a PASV address.
+// An FTP data connection goes through the gate by the server's name, which
+// the gate resolves and judges again: EPSV hands back only a port, and the
+// library uses no PASV address (storex hides the control connection's IP).
 func TestGateLabFTP(t *testing.T) {
 	s := ftptest.New(t)
 	_, port, _ := net.SplitHostPort(s.Ln.Addr().String())
@@ -149,8 +149,8 @@ func TestGateLabFTP(t *testing.T) {
 	lab.mu.Lock()
 	asked := slices.Clone(lab.asked)
 	lab.mu.Unlock()
-	if len(asked) < 2 || !strings.HasPrefix(asked[0], "lab.example:") || !strings.HasPrefix(asked[1], gateLabIP+":") {
-		t.Errorf("asked the gate for %q, want the control connection by name, then the data connection at its judged address", asked)
+	if len(asked) < 2 || asked[0] != tg.Address || !strings.HasPrefix(asked[1], "lab.example:") || asked[1] == tg.Address {
+		t.Errorf("asked the gate for %q, want the control connection, then a data connection, both by the server's name", asked)
 	}
 	lab.onlyLab(t)
 }
