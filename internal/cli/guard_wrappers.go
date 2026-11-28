@@ -107,6 +107,72 @@ func valueRuns(progs, words []string, globs, bare []bool, split bool, seps strin
 	return runs
 }
 
+// checkValuePrograms is checkProgram and checkReadWords for a simple command
+// whose program word is a value: each program the value may run is checked
+// with its own words (valueRuns), and each word with a blank given to a
+// program the guard cannot name is read as a shell line, as that program may
+// be eval or a shell. It gives the working folder after the command.
+func checkValuePrograms(cl *call, seg string, vars lineVars, home, cwd string, depth int) (string, guardDecision) {
+	if !strings.ContainsAny(seg, "$`") && !strings.Contains(seg, unknownOutput) {
+		return cwd, allow()
+	}
+	// a $ in single quotes is text to the program (literalDollars)
+	words, globs, bare := shellWordsFlags(dropRedirects(literalDollars(seg)))
+	prog, args := program(words)
+	if !strings.ContainsAny(prog, "$`") && !strings.Contains(prog, unknownOutput) {
+		return cwd, allow()
+	}
+	first := len(words) - len(args)
+	runs := []programRun{{[]string{anyProgram}, args, globs[first:], bare[first:], false}}
+	progs, known := vars.expand(cl, prog, home, cwd)
+	if _, aliased := vars[aliasVar]; known && !aliased {
+		seps, _ := vars.separators()
+		runs = valueRuns(progs, words[first-1:], globs[first-1:], bare[first-1:], bare[first-1], seps)
+	}
+	after, set := cwd, false
+	for _, r := range runs {
+		for _, b := range r.bases {
+			next, d := checkValueProgram(cl, b, r, vars, home, cwd, depth)
+			if d.Deny {
+				return cwd, d
+			}
+			if set && next != after {
+				next = lostDir
+			}
+			after, set = next, true
+		}
+	}
+	return after, allow()
+}
+
+// checkValueProgram is checkValuePrograms for one program b of the run r.
+func checkValueProgram(cl *call, b string, r programRun, vars lineVars, home, cwd string, depth int) (string, guardDecision) {
+	switch b {
+	case "komando":
+		return cwd, allow()
+	case anyProgram:
+		for _, w := range unmarked(r.words) {
+			if !strings.ContainsAny(w, " \t\n") {
+				continue
+			}
+			if depth >= guardDepth {
+				return cwd, tooDeep()
+			}
+			if d := checkShellIn(cl, w, home, cwd, depth+1, vars); d.Deny {
+				return cwd, d
+			}
+		}
+		return cwd, allow()
+	}
+	// a script runner reads its script again: a $ in it is a value there
+	words := unmarked(r.words)
+	next, d := checkProgram(cl, b, words, words, r.globs, vars, home, cwd, depth)
+	if d.Deny {
+		return cwd, d
+	}
+	return next, checkReadWords(cl, b, r.words, r.globs, r.words, vars, home, cwd)
+}
+
 func isXargs(w string) bool { return filepath.Base(w) == "xargs" }
 
 func isWrapper(w string) bool {

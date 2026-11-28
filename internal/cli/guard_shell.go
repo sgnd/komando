@@ -453,6 +453,9 @@ func checkShellIn(cl *call, line, home, cwd string, depth int, outer lineVars) g
 		if d := checkReadWords(cl, base, words, globs, args, vars, home, cwd); d.Deny {
 			return d
 		}
+		if cwd, d = checkValuePrograms(cl, seg, vars, home, cwd, depth); d.Deny {
+			return d
+		}
 	}
 	return allow()
 }

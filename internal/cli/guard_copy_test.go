@@ -212,6 +212,29 @@ func TestGuardWrapperInAValueIsUnwrapped(t *testing.T) {
 	}, false)
 }
 
+// A script runner or a reader held in a value is read as that program written
+// on the line: eval's and a shell's -c script, find's -delete, grep -r. Each
+// word with a blank given to a program the guard cannot name is read as a
+// shell line too, since that program may be eval.
+func TestGuardRunnerInAValueReadsItsScript(t *testing.T) {
+	home, repo := guardLineHome(t)
+	checkRefusedBy(t, home, home, []string{
+		`E=eval; $E 'rm -rf ~'`,
+		`S=bash; $S -c 'rm -rf ~'`,
+		`W=nohup; $W bash -c 'rm -rf ~'`,
+		`W=nohup; S=bash; $W $S -c 'rm -rf ~'`,
+		`read X < /tmp/n; $X 'rm -rf ~'`,
+	}, treeRefusal)
+	checkRefusedBy(t, home, home, []string{`F=find; $F ~ -name settings.json -delete`}, "find -delete removes files under")
+	checkRefusedBy(t, home, home, []string{`G=grep; $G -r x ~`}, "and grep reads all of it")
+	checkLines(t, home, repo, []string{
+		`W=nohup; $W go test ./...`,
+		`S=bash; $S -c 'go test ./...'`,
+		`G=grep; $G -r x ./src`,
+		`read X < /tmp/n; $X "fix the build"`,
+	}, false)
+}
+
 // The folder rule splits a value where the shell may: at the line's own
 // IFS, never at \v, \f, \r or a non-breaking space; and a quoted value
 // stays one word.
