@@ -130,7 +130,6 @@ This page is made from the code (`komando schema` lists the same under
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
 | `NEEDS_PERSON` | 6 | logging in to … needs a person at a terminal to answer its questions | ask a person to run `komando login …` in a terminal; after that your commands to … need no login |
 | `NEEDS_TERMINAL` | 2 | cluster kubernetes shell needs a person at a terminal | agents and scripts use `komando cluster kubernetes exec` |
-| `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando credential list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | sync works on folders; for one file use `komando copy` without --sync |
 | `NOT_SUPPORTED` | 2 | … waits for data that keeps coming, so cache run would never return | cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE |
 | `NOT_TEXT` | 2 | … is not text | copy it to this computer with `komando copy SOURCE DESTINATION` |
@@ -208,7 +207,6 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando credential password add NAME`, then --… credential:NAME |
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando … …` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, for example `…`, or rename it with `komando credential password rename` |
-| `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando credential password add …` |
 | `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando credential list` |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando credential token add NAME < ca.crt` |
 | `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando host ssh exec TARGET -- cat /etc/os-release` |
@@ -244,8 +242,6 @@ This page is made from the code (`komando schema` lists the same under
 | `SQL_STRING_RULES` | 2 | changing … is not allowed in komando db | leave this setting alone: komando checks SQL with the server's default string rules |
 | `SQL_TX_CHECK_REQUIRED` | 6 | statement … (…) ended komando's transaction, so komando stopped (…) | leave transactions to komando, and tell the user: what ran before this point may have been committed; look at the data with `komando database KIND query NAME -- SELECT ...` |
 | `SQL_TX_CONTROL` | 2 | … is not allowed in komando db | leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back |
-| `SSH_AGENT_NEEDED` | 2 | a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK) | start one with `eval "$(ssh-agent)"` and run this again, or use `komando host ssh shell SERVER`, which logs in with the key itself |
-| `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando host ssh shell SERVER` |
 | `SSH_GATE_NETWORK_REQUIRED` | 6 | komando … is refused for a read key without network: … | this key was added with --read-only and without --network: it runs only reads that stay on the servers and conns in your list; a person adds a key for this with `komando ssh-gate line --read-only --network`, or runs it on the komando computer |
 | `SSH_GATE_PATH` | 1 | komando cannot tell its own full path, which the line needs | run komando by its full path, for example /usr/local/bin/komando ssh-gate line ... |
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
@@ -313,7 +309,6 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first: `komando host ssh edit TARGET --via OTHER` |
 | `VPN_KEY_IN_USE` | 8 | VPN …: its WireGuard key is in use by komando process … (VPN …, komando home …) | one WireGuard key runs in one session at a time: stop the other with `…`, or give this VPN a key of its own with `komando vpn wireguard add … --config FILE` |
 | `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn … start …` (it needs their login); then run it again |
-| `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando host ssh shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
 | `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn … stop …` again; if it still fails, end process … yourself |
 | `WEAK_PASSPHRASE` | 2 | …; nothing was changed | run it again with another passphrase |
 | `WINRM_ERROR` | 5 | …: … | read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group) |

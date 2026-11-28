@@ -156,9 +156,6 @@ Your list itself changes in bulk too, each with `--dry-run` first:
   which lists every server).
 - `komando host ssh rename OLD NEW` renames a server and every reference to it
   (`conn rename`, `vpn KIND rename`, `credential key rename`, `group rename` likewise).
-- `komando rename --starts-with OLD NEW` renames every server, conn, VPN,
-  secret, key and group that starts with OLD in one step (one `--yes` and
-  one window for all the protected ones).
 - `komando import csv FILE` adds a whole spreadsheet of servers (all rows
   are checked before anything is written).
 
@@ -375,12 +372,12 @@ session's own command: start it with `komando host ssh exec`, stop it with `--st
   hidden. Never ask for a password in the chat (`NEEDS_PERSON` says the
   same).
 - Rename a secret with `komando credential password rename OLD NEW` (every server, conn, key
-  and VPN that uses it follows) and copy one with `secret cp OLD NEW`: the
-  value stays in the vault, so nobody retypes it.
+  and VPN that uses it follows): the value stays in the vault, so nobody
+  retypes it.
 - A login fails and you suspect the stored password: `komando credential password show
   NAME` warns when it starts or ends with a space or tab. Only the human can
-  compare it with the right one: ask them to run `komando secret check NAME`
-  (`NEEDS_PERSON` for you).
+  fix the value: ask them to run `komando credential password add NAME` in their
+  own terminal.
 - For an AI agent, passwords, keys and tokens in output show as `[hidden]`
   (and vault values as `[credential:NAME]`). Change such a line with
   `fs replace --old 'NAME=[hidden]' --new 'NAME={{credential:VAULT_NAME}}'`,

@@ -31,7 +31,7 @@ var removedTextOpen = map[string]bool{
 
 // removedCodes are the error codes only a removed command gave: no doc,
 // test or program text keeps one.
-var removedCodes = []string{"CERT_PROBLEMS", "NO_CERTIFICATE", "TLS_HANDSHAKE_FAILED"}
+var removedCodes = []string{"CERT_PROBLEMS", "NO_CERTIFICATE", "TLS_HANDSHAKE_FAILED", "NOTHING_TO_RENAME", "SECRET_MISMATCH", "SSH_AGENT_NEEDED", "SSH_AGENT_REFUSED", "VPN_NOT_FOR_OPENSSH"}
 
 // removedGoneAllowed are the files that may still name a removed command: the
 // release history and the frozen v0.17 tables (they say what was there).
