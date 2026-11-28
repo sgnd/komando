@@ -663,8 +663,8 @@ More limits:
   judged by that IP, its name only as written. A server whose jump host
   is this computer is refused at the dial, also when the target behind
   it is elsewhere. Link-local addresses are refused for a key, and so are
-  these cloud metadata addresses outside them: `fd00:ec2::254`,
-  `fd00:ec2::23`, `fd20:ce::254`, `fd00:c1::a9fe:a9fe`, `100.100.100.200`,
+  these cloud metadata addresses outside them: all of AWS's
+  `fd00:ec2::/32`, `fd20:ce::254`, `fd00:c1::a9fe:a9fe`, `100.100.100.200`,
   `168.63.129.16` and `192.0.0.192`; an address written with a zone (`%en0`,
   on any address), and the IPv6 forms whose IPv4 address the gate cannot
   read (6to4, Teredo, local NAT64). A person's and an AI

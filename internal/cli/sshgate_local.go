@@ -307,16 +307,20 @@ func gateOpaqueIP(ip net.IP) bool {
 // fe80::/10), or is a cloud's metadata service, which hands out this
 // machine's own credentials: for a key both are here.
 func gateNearIP(ip net.IP) bool {
-	return ip.IsLinkLocalUnicast() || slices.ContainsFunc(gateMetadataIPs, ip.Equal)
+	return ip.IsLinkLocalUnicast() || gateAWSNet.Contains(ip) || slices.ContainsFunc(gateMetadataIPs, ip.Equal)
 }
 
-// gateMetadataIPs are the cloud metadata services outside 169.254.0.0/16:
-// AWS and Google over IPv6, the EKS Pod Identity agent over IPv6 (AWS, "Set
-// up the Amazon EKS Pod Identity Agent"), Oracle's over IPv6 (its own pages
-// name only 169.254.169.254: refused anyway), Alibaba, Azure's wire server,
-// Oracle's older one.
+// gateAWSNet is AWS's own IPv6 services on the instance (metadata at ::254,
+// the EKS Pod Identity agent at ::23, "Set up the Amazon EKS Pod Identity
+// Agent", and the rest of the range).
+var gateAWSNet = &net.IPNet{IP: net.ParseIP("fd00:ec2::"), Mask: net.CIDRMask(32, 128)}
+
+// gateMetadataIPs are the other cloud metadata services outside
+// 169.254.0.0/16: Google over IPv6, Oracle over IPv6 (its own pages name
+// only 169.254.169.254: refused as a precaution), Alibaba, Azure's wire
+// server, Oracle's older one.
 var gateMetadataIPs = []net.IP{
-	net.ParseIP("fd00:ec2::254"), net.ParseIP("fd20:ce::254"), net.ParseIP("fd00:ec2::23"), net.ParseIP("fd00:c1::a9fe:a9fe"),
+	net.ParseIP("fd20:ce::254"), net.ParseIP("fd00:c1::a9fe:a9fe"),
 	net.ParseIP("100.100.100.200"), net.ParseIP("168.63.129.16"), net.ParseIP("192.0.0.192"),
 }
 
