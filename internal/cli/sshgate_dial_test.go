@@ -625,8 +625,11 @@ func gateDialSites(file *ast.File) map[string]int {
 		switch n := n.(type) {
 		case *ast.CompositeLit:
 			switch {
-			case is(n.Type, httpPkg, "Transport"):
-				return !slices.ContainsFunc(n.Elts, setsOwn("DialContext"))
+			case is(n.Type, httpPkg, "Transport"): // its own plain dial, and no Dial* hook of another's
+				return !slices.ContainsFunc(n.Elts, setsOwn("DialContext")) || slices.ContainsFunc(n.Elts, func(e ast.Expr) bool {
+					kv, ok := e.(*ast.KeyValueExpr)
+					return ok && sets(kv.Key, "Dial") && !own(kv.Value)
+				})
 			case is(n.Type, httpPkg, "Client"):
 				return !slices.ContainsFunc(n.Elts, setsOwn("Transport"))
 			}
