@@ -279,6 +279,9 @@ func buildLeaf(l capability.Leaf, h handler) *cobra.Command {
 		Aliases: slices.Clone(l.Synonyms),
 		GroupID: group,
 		Args: func(cmd *cobra.Command, args []string) error {
+			if err := secretValueInArgs(strings.Join(l.Key.Path(), "."), cmd.CommandPath(), args); err != nil {
+				return err
+			}
 			if len(args) == 0 && l.Type == "host" && formAddCmd(cmd) { // a server's add alone asks, or says how
 				return formOrUsage(cmd, strings.Join(l.Key.Path()[:len(l.Key.Path())-1], " "), "komando "+strings.Join(l.Key.Path(), " ")+" web1 deploy@10.0.0.5")
 			}

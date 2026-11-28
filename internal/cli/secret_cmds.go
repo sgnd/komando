@@ -3,7 +3,6 @@ package cli
 import (
 	"crypto/subtle"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -36,7 +35,7 @@ func secretSetCmd() *cobra.Command {
 		Short:   "Store a secret, typed hidden or from a variable or a pipe",
 		Long:    secretAddLong,
 		Example: "  komando credential password add web1-pass          # type or paste it after the prompt, nothing is shown\n  komando credential password add db-pass --from-env DB_PASS\n  pbpaste | komando credential password add vpn-pass\n  komando credential token add api-token --new --from-env TOKEN   # never replaces one",
-		Args:    cobra.RangeArgs(1, 2),
+		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := inventory.ValidName("secret", args[0]); err != nil {
 				return err
@@ -45,13 +44,6 @@ func secretSetCmd() *cobra.Command {
 				return err
 			}
 			isNew, _ := cmd.Flags().GetBool("new")
-			if len(args) == 2 {
-				// A value on the command line lands in shell history and in
-				// `ps` for every user on the machine.
-				return out.Errf(out.ExitUsage, "SECRET_IN_ARGS",
-					fmt.Sprintf("run `komando credential password add %s` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", args[0]),
-					"refusing a secret value on the command line: it would be saved in shell history")
-			}
 			// a name that is taken fails before anyone types the value; the
 			// write below checks again, in the same step, for a komando
 			// that stores it meanwhile
@@ -194,7 +186,12 @@ shows either value.
 Only a person can run it: for an AI agent, a yes/no answer about a value it
 picks would be a way to guess the secret one try at a time.`,
 		Example: "  komando secret check vpn-pass            # type or paste it after the prompt\n  pbpaste | komando secret check vpn-pass",
-		Args:    cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := secretValueInArgs("secret.check", cmd.CommandPath(), args); err != nil {
+				return err
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if cl.isAgent() {
 				return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
