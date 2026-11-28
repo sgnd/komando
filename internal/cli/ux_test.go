@@ -3,10 +3,13 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"io/fs"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // usageFor runs komando the way Execute does and returns the usage error
@@ -57,6 +60,21 @@ func TestTypoSuggestions(t *testing.T) {
 	}
 	if e := usageFor(t, "host", "ssh", "exec", "--xyzabc", "web1"); strings.Contains(e.Message, "did you mean") {
 		t.Errorf("no suggestion for nonsense flag: %q", e.Message)
+	}
+}
+
+// A typo under a group fails before the start checks: it opens no store,
+// so a store that does not open cannot hide the suggestion.
+func TestGroupTypoOpensNoStore(t *testing.T) {
+	invHome(t)
+	saved := tcl.args
+	t.Cleanup(func() { tcl.args = saved })
+	tcl.args = []string{"komando", "host", "ssh", "exce", "web1"}
+	if e := usageFor(t, "host", "ssh", "exce", "web1"); e.Suggestion != "exec" {
+		t.Errorf("typo: %q", e.Message)
+	}
+	if _, err := os.Stat(store.DBPath()); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a typo opened the store: %v", err)
 	}
 }
 
